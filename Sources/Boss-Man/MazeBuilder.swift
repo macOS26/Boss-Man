@@ -8,9 +8,10 @@ final class MazeBuilder {
     let machineNames: [Character: String]
     var cubicleColor: NSColor = .systemBlue
 
-    private var dotTexture: SKTexture!
     private var pelletTexture: SKTexture!
     private var deskTexture: SKTexture!
+    private var dotTilemap: SKTileMapNode?
+    private(set) var dotPresence: [[Bool]] = []
 
     init(map: GridMap, powerPelletPositions: [CGPoint], machineNames: [Character: String]) {
         self.map = map
@@ -24,10 +25,17 @@ final class MazeBuilder {
         rebuildTextures()
         var dotCount = 0
         var wallCenters: [CGPoint] = []
+        let cols = map.rows.first?.count ?? 0
+        let rowCount = map.rows.count
+        dotPresence = Array(repeating: Array(repeating: false, count: cols), count: rowCount)
 
-        // Single static background sprite holds every floor + wall tile.
         let background = makeBackground()
         scene.addChild(background)
+
+        let dotMap = makeDotTilemap(columns: cols, rows: rowCount)
+        scene.addChild(dotMap)
+        dotTilemap = dotMap
+        let dotGroup = dotMap.tileSet.tileGroups.first!
 
         for (rowIndex, row) in map.rows.reversed().enumerated() {
             for (columnIndex, char) in row.enumerated() {
@@ -37,7 +45,8 @@ final class MazeBuilder {
                     wallCenters.append(position)
                 } else {
                     if char == "." || char == "H" {
-                        addDot(at: position, in: scene)
+                        dotPresence[rowIndex][columnIndex] = true
+                        dotMap.setTileGroup(dotGroup, forColumn: columnIndex, row: rowIndex)
                         dotCount += 1
                     }
                     if let name = machineNames[char], char != "D" {
@@ -55,6 +64,41 @@ final class MazeBuilder {
             addPowerPellet(at: map.point(for: grid), in: scene)
         }
         return dotCount
+    }
+
+    /// Returns true if a dot was present (and is now removed) at the given grid cell.
+    @discardableResult
+    func collectDot(atColumn column: Int, row: Int) -> Bool {
+        guard row >= 0, row < dotPresence.count,
+              column >= 0, column < dotPresence[row].count,
+              dotPresence[row][column] else { return false }
+        dotPresence[row][column] = false
+        dotTilemap?.setTileGroup(nil, forColumn: column, row: row)
+        return true
+    }
+
+    private func makeDotTilemap(columns: Int, rows: Int) -> SKTileMapNode {
+        let tile = map.tileSize
+        let dotSize: CGFloat = 6
+        let textureImage = renderImage(size: CGSize(width: tile, height: tile)) {
+            NSColor.systemYellow.setFill()
+            let rect = CGRect(x: (tile - dotSize) / 2,
+                              y: (tile - dotSize) / 2,
+                              width: dotSize, height: dotSize)
+            NSBezierPath(rect: rect).fill()
+        }
+        let texture = SKTexture(image: textureImage)
+        let definition = SKTileDefinition(texture: texture, size: CGSize(width: tile, height: tile))
+        let group = SKTileGroup(tileDefinition: definition)
+        let tileSet = SKTileSet(tileGroups: [group])
+        let map = SKTileMapNode(tileSet: tileSet,
+                                columns: columns,
+                                rows: rows,
+                                tileSize: CGSize(width: tile, height: tile))
+        map.anchorPoint = .zero
+        map.position = .zero
+        map.zPosition = 5
+        return map
     }
 
     private func makeBackground() -> SKSpriteNode {
@@ -117,7 +161,6 @@ final class MazeBuilder {
     }
 
     private func rebuildTextures() {
-        dotTexture = makeDotTexture()
         pelletTexture = makePelletTexture()
         deskTexture = makeDeskTexture()
     }
@@ -127,15 +170,6 @@ final class MazeBuilder {
             draw()
             return true
         }
-    }
-
-    private func makeDotTexture() -> SKTexture {
-        let size = CGSize(width: 6, height: 6)
-        let image = renderImage(size: size) {
-            NSColor.systemYellow.setFill()
-            NSBezierPath(rect: CGRect(origin: .zero, size: size)).fill()
-        }
-        return SKTexture(image: image)
     }
 
     private func makePelletTexture() -> SKTexture {
@@ -163,16 +197,6 @@ final class MazeBuilder {
             stroke.stroke()
         }
         return SKTexture(image: image)
-    }
-
-    private func addDot(at position: CGPoint, in scene: SKScene) {
-        let dot = SKSpriteNode(texture: dotTexture)
-        dot.position = position
-        dot.physicsBody = SKPhysicsBody(circleOfRadius: 8)
-        dot.physicsBody?.isDynamic = false
-        dot.physicsBody?.categoryBitMask = PhysicsCategory.dot
-        dot.zPosition = 5
-        scene.addChild(dot)
     }
 
     private func addPowerPellet(at position: CGPoint, in scene: SKScene) {

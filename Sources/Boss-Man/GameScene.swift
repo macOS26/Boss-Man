@@ -42,21 +42,21 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             name: "BOSS",
             color: .systemRed,
             tie: .black,
-            pants: NSColor(calibratedRed: 0.28, green: 0.22, blue: 0.14, alpha: 1),
+            pants: .darkGray,
             spawn: CGPoint(x: 28, y: 15)
         ),
         (
             name: "LUMBERGH",
             color: .systemPurple,
             tie: .systemYellow,
-            pants: NSColor(calibratedRed: 0.18, green: 0.18, blue: 0.22, alpha: 1),
+            pants: .darkGray,
             spawn: CGPoint(x: 1, y: 1)
         ),
         (
             name: "WADDAMS",
             color: .systemOrange,
             tie: .systemRed,
-            pants: NSColor(calibratedRed: 0.22, green: 0.16, blue: 0.10, alpha: 1),
+            pants: .darkGray,
             spawn: CGPoint(x: 28, y: 1)
         )
     ]
@@ -74,6 +74,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     private var pathfinder: Pathfinder!
     private var mazeBuilder: MazeBuilder!
     private var hud: HUD!
+    private let sound = SoundManager()
 
     private var worker: PixelPerson!
     private var bosses: [BossEntity] = []
@@ -120,6 +121,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
 
         buildLevel()
         hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
+        sound.startBackgroundMusic()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -168,15 +170,6 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     func didBegin(_ contact: SKPhysicsContact) {
         if isGameOver { return }
         let bodies = [contact.bodyA, contact.bodyB]
-        if let dotBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.dot }) {
-            dotBody.node?.removeFromParent()
-            collectedDots += 1
-            score += 1
-            refreshHUD()
-            if collectedDots >= dotCount {
-                startNextLevel()
-            }
-        }
 
         if let bossBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss }),
            bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) {
@@ -193,6 +186,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         if let powerPelletBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.powerPellet }) {
             powerPelletBody.node?.removeFromParent()
             score += 5
+            sound.playPowerPellet()
             startPowerPelletMode()
             refreshHUD()
         }
@@ -202,6 +196,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
            requiredItems.contains(name),
            !reportItems.contains(name) {
             reportItems.insert(name)
+            sound.playMachine(named: name)
             let machineNode = machineBody.node
             machineNode?.alpha = 0.55
             machineBody.contactTestBitMask = 0
@@ -252,6 +247,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     private func catchFish(_ node: SKNode?) {
         guard fishNode === node, let fish = fishNode else { return }
         score += 100
+        sound.playFishOrTreat()
         refreshHUD()
         let emoji = (fish as? SKLabelNode)?.text ?? "🎁"
         hud.showMessage("Caught \(emoji)! +100", duration: 2)
@@ -371,7 +367,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             tieColor: .systemBlue,
             hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
             shoeOutlineColor: .white,
-            pantsColor: NSColor(calibratedRed: 0.76, green: 0.68, blue: 0.48, alpha: 1),
+            pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1),
             walkExaggeration: 1
         )
         worker.name = "PETE"
@@ -443,14 +439,17 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         isWorkerMoving = true
         workerGrid = next
         worker.startWalking()
+        sound.playFootstep()
         worker.run(.sequence([
             SKAction.move(to: gridMap.point(for: next), duration: workerMoveDuration),
             .run { [weak self] in
                 guard let self else { return }
+                self.collectDotIfAny(at: next)
                 if let partner = self.gridMap.tunnelPartner(of: next),
                    self.gridMap.isWalkable(partner) {
                     self.worker.position = self.gridMap.point(for: partner)
                     self.workerGrid = partner
+                    self.collectDotIfAny(at: partner)
                 }
                 self.isWorkerMoving = false
                 self.lastWorkerMove = self.lastUpdateTime
@@ -463,6 +462,19 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
                 }
             }
         ]), withKey: "workerMove")
+    }
+
+    private func collectDotIfAny(at grid: CGPoint) {
+        let column = Int(grid.x)
+        let row = Int(grid.y)
+        guard mazeBuilder.collectDot(atColumn: column, row: row) else { return }
+        collectedDots += 1
+        score += 1
+        sound.playDotBlip()
+        refreshHUD()
+        if collectedDots >= dotCount {
+            startNextLevel()
+        }
     }
 
     private func stepBosses() {
@@ -506,6 +518,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     }
 
     private func bossCaughtWorker() {
+        sound.playCaughtByBoss()
         lives -= 1
         reportItems.removeAll()
         refreshHUD()
@@ -533,6 +546,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
 
     private func triggerGameOver() {
         isGameOver = true
+        sound.stopBackgroundMusic()
+        sound.playGameOver()
         workerDirection = nil
         queuedWorkerDirection = nil
         isWorkerMoving = false
@@ -547,6 +562,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
 
     private func restartGame() {
         hud.hideGameOver()
+        sound.startBackgroundMusic()
         isGameOver = false
         level = 1
         lives = HUD.maxLives
@@ -613,6 +629,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         powerPelletCapturesThisCycle += 1
         let pointsForThisCapture = 100 * powerPelletCapturesThisCycle
         score += pointsForThisCapture
+        sound.playCaptureBoss(streak: powerPelletCapturesThisCycle)
         showScorePopup(pointsForThisCapture, at: boss.node.position)
         boss.ai.teleport(to: boss.spawn)
         boss.node.removeAllActions()
@@ -648,6 +665,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         tpsReportsCreated += 1
         reportItems.removeAll()
         score += 200
+        sound.playTpsDeliver()
         let gainedLife = lives < HUD.maxLives
         if gainedLife { lives += 1 }
         refreshHUD()
@@ -676,6 +694,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         powerPelletCapturesThisCycle = 0
         collectedDots = 0
         buildLevel()
+        sound.playLevelStart()
         hud.showMessage("Level \(level)! New office floor loaded.", duration: 3)
     }
 }

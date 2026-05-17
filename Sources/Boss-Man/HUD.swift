@@ -62,7 +62,7 @@ final class HUD {
                 tieColor: .systemBlue,
                 hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
                 shoeOutlineColor: .white,
-                pantsColor: NSColor(calibratedRed: 0.76, green: 0.68, blue: 0.48, alpha: 1)
+                pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1)
             )
             icon.setScale(0.45)
             icon.position = CGPoint(x: iconStartX + CGFloat(i) * iconSpacing, y: size.height - 84)
