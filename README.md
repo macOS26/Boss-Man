@@ -11,7 +11,7 @@ You are an office worker trapped in a maze of cubicles. Eat the glowing office d
 ## Controls
 
 - Arrow keys: move the worker
-- Space: reset TPS report progress
+- Space: to play
 
 ## Run in Xcode
 
