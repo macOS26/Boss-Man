@@ -2,6 +2,8 @@
 
 An Office Space inspired Maze Game built using SpriteKit and Swift for macOS
 
+<img width="1008" height="755" alt="image" src="https://github.com/user-attachments/assets/86dc7e5f-096d-4bd3-8951-165e424a4cbc" />
+
 ## Theme
 
 You are an office worker trapped in a maze of cubicles. Eat the glowing office dots, visit the printer/fax/copier/collator to collect every TPS report item, and avoid the BOSS. If the BOSS catches you before the TPS report is complete, the report progress resets.
