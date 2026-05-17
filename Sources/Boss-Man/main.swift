@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "BossMan"
+        window.title = "Boss-Man"
         window.center()
         window.contentView = skView
         window.makeKeyAndOrderFront(nil)
@@ -40,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
-        let appName = "BossMan"
+        let appName = "Boss-Man"
 
         appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())

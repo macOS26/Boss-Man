@@ -1,4 +1,4 @@
-# BossMan
+# Boss-Man
 
 An Office Space inspired Maze Game built using SpriteKit and Swift for macOS
 
@@ -14,11 +14,11 @@ You are an office worker trapped in a maze of cubicles. Eat the glowing office d
 ## Run in Xcode
 
 1. Open this folder in Xcode as a Swift Package, or open `Package.swift`.
-2. Select the `BossMan` executable scheme.
+2. Select the `Boss-Man` executable scheme.
 3. Press Run.
 
 ## Run from Terminal
 
 ```bash
-swift run BossMan
+swift run Boss-Man
 ```

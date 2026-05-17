@@ -2,7 +2,7 @@
 
 ## level_check.py (recommended)
 
-Validates `Sources/BossMan/Levels.swift`:
+Validates `Sources/Boss-Man/Levels.swift`:
 
 - Every row is exactly 30 characters
 - Each level has 17 rows
@@ -12,7 +12,7 @@ Validates `Sources/BossMan/Levels.swift`:
 Run:
 
 ```sh
-python3 scripts/level_check.py Sources/BossMan/Levels.swift
+python3 scripts/level_check.py Sources/Boss-Man/Levels.swift
 ```
 
 Exit prints `Summary: N levels, K issues`.
@@ -22,5 +22,5 @@ Exit prints `Summary: N levels, K issues`.
 Lightweight awk version that checks lengths, the four corner cells, and presence of `P`, `F`, `C`, `M`, `D`. Does **not** do connectivity. Kept for quick smoke tests:
 
 ```sh
-scripts/level_check.sh Sources/BossMan/Levels.swift
+scripts/level_check.sh Sources/Boss-Man/Levels.swift
 ```
