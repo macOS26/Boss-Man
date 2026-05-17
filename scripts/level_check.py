@@ -21,16 +21,16 @@ for line in src.splitlines():
     if m and current is not None:
         current.append(m.group(1))
 
-spawns = [("worker",1,15),("boss1",28,15),("boss2",1,1),("boss3",28,1)]
-pellets = [("PP_TL",2,15),("PP_TR",27,15),("PP_BL",2,1),("PP_BR",27,1)]
+spawns = [("worker",1,15),("boss1",34,15),("boss2",1,1),("boss3",34,1)]
+pellets = [("PP_TL",2,15),("PP_TR",33,15),("PP_BL",2,1),("PP_BR",33,1)]
 # tunnel "mouth" cells (must be walkable gap) and their inner approach cells.
-tunnel_mouths = [("tunnel_L (0,8)",0,8),("tunnel_R (29,8)",29,8),
-                 ("tunnel_T (15,16)",15,16),("tunnel_B (15,0)",15,0)]
-tunnel_inner = [("inner_L (1,8)",1,8),("inner_R (28,8)",28,8),
-                ("inner_T (15,15)",15,15),("inner_B (15,1)",15,1)]
+tunnel_mouths = [("tunnel_L (0,8)",0,8),("tunnel_R (35,8)",35,8),
+                 ("tunnel_T (18,16)",18,16),("tunnel_B (18,0)",18,0)]
+tunnel_inner = [("inner_L (1,8)",1,8),("inner_R (34,8)",34,8),
+                ("inner_T (18,15)",18,15),("inner_B (18,1)",18,1)]
 TUNNEL_PARTNERS = {
-    (0, 8): (29, 8), (29, 8): (0, 8),
-    (15, 0): (15, 16), (15, 16): (15, 0),
+    (0, 8): (35, 8), (35, 8): (0, 8),
+    (18, 0): (18, 16), (18, 16): (18, 0),
 }
 
 def walkable(rows, x, y):
@@ -57,16 +57,16 @@ def bfs(rows, sx, sy):
 
 def is_border_ok(c, ri, ci):
     # walls everywhere except the 4 tunnel mouths, which must be ' '.
-    if (ci == 15 and ri == 0) or (ci == 15 and ri == 16):
+    if (ci == 18 and ri == 0) or (ci == 18 and ri == 16):
         return c == ' '
-    if ri == 8 and (ci == 0 or ci == 29):
+    if ri == 8 and (ci == 0 or ci == 35):
         return c == ' '
     return c == '#'
 
 fail = 0
 for i, rows in enumerate(levels, 1):
     for ri, row in enumerate(rows):
-        if len(row) != 30:
+        if len(row) != 36:
             print(f"Level {i} row {ri} len={len(row)}: |{row}|"); fail+=1
     if len(rows) != 17:
         print(f"Level {i}: {len(rows)} rows (need 17)"); fail+=1
@@ -77,14 +77,14 @@ for i, rows in enumerate(levels, 1):
         if not is_border_ok(c, 16, ci):
             print(f"Level {i} bottom border bad at col {ci}: '{c}'"); fail+=1
     for ri in range(1, len(rows)-1):
-        for ci in [0, 29]:
+        for ci in [0, 35]:
             c = rows[ri][ci]
             if not is_border_ok(c, ri, ci):
                 print(f"Level {i} row {ri} side wall bad at col {ci}: '{c}' |{rows[ri]}|"); fail+=1
     if not walkable(rows, 1, 15):
         print(f"Level {i}: worker spawn (1,15) not walkable"); fail+=1; continue
     reachable = bfs(rows, 1, 15)
-    hideouts = [(x,y) for y in range(17) for x in range(30) if rows[16-y][x] == 'H']
+    hideouts = [(x,y) for y in range(17) for x in range(36) if rows[16-y][x] == 'H']
     if not hideouts:
         print(f"Level {i}: no hideout (H) cell"); fail+=1
     for hx, hy in hideouts:

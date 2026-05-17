@@ -36,10 +36,10 @@ final class GridMap {
     /// (Pac-Man style).
     func tunnelPartner(of grid: CGPoint) -> CGPoint? {
         let x = Int(grid.x), y = Int(grid.y)
-        if y == 8 && x == 0 { return CGPoint(x: 29, y: 8) }
-        if y == 8 && x == 29 { return CGPoint(x: 0, y: 8) }
-        if x == 15 && y == 0 { return CGPoint(x: 15, y: 16) }
-        if x == 15 && y == 16 { return CGPoint(x: 15, y: 0) }
+        if y == 8 && x == 0 { return CGPoint(x: 35, y: 8) }
+        if y == 8 && x == 35 { return CGPoint(x: 0, y: 8) }
+        if x == 18 && y == 0 { return CGPoint(x: 18, y: 16) }
+        if x == 18 && y == 16 { return CGPoint(x: 18, y: 0) }
         return nil
     }
 

@@ -32,9 +32,9 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     ]
     private let powerPelletPositions = [
         CGPoint(x: 2, y: 15),
-        CGPoint(x: 27, y: 15),
+        CGPoint(x: 33, y: 15),
         CGPoint(x: 2, y: 1),
-        CGPoint(x: 27, y: 1)
+        CGPoint(x: 33, y: 1)
     ]
 
     private let bossBlueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint)] = [
@@ -43,7 +43,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             color: .systemRed,
             tie: .black,
             pants: .darkGray,
-            spawn: CGPoint(x: 28, y: 15)
+            spawn: CGPoint(x: 34, y: 15)
         ),
         (
             name: "LUMBERGH",
@@ -57,7 +57,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             color: .systemOrange,
             tie: .systemRed,
             pants: .darkGray,
-            spawn: CGPoint(x: 28, y: 1)
+            spawn: CGPoint(x: 34, y: 1)
         )
     ]
 
@@ -110,7 +110,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     private var powerPelletModeEndsAt: TimeInterval = 0
 
     private var fishNode: SKNode?
-    private var fishGrid = CGPoint(x: 29, y: 8)
+    private var fishGrid = CGPoint(x: 35, y: 8)
     private var fishPreviousGrid: CGPoint?
     private var lastFishMove: TimeInterval = 0
     private let fishMoveInterval: TimeInterval = 0.22
@@ -314,7 +314,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
         label.zPosition = 9
-        fishGrid = CGPoint(x: 29, y: 8)
+        fishGrid = CGPoint(x: 35, y: 8)
         fishPreviousGrid = nil
         label.position = gridMap.point(for: fishGrid)
         label.physicsBody = SKPhysicsBody(circleOfRadius: 10)
