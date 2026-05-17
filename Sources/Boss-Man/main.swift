@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let skView = SKView(frame: CGRect(origin: .zero, size: sceneSize))
         skView.ignoresSiblingOrder = true
         skView.preferredFramesPerSecond = 60
+        skView.shouldCullNonVisibleNodes = true
         skView.showsFPS = true
         skView.showsNodeCount = true
 

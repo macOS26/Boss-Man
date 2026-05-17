@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 let package = Package(
@@ -12,7 +12,15 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Boss-Man",
-            path: "Sources/Boss-Man"
+            path: "Sources/Boss-Man",
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Resources/Info.plist"
+                ])
+            ]
         )
     ]
 )

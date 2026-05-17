@@ -253,7 +253,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         guard fishNode === node, let fish = fishNode else { return }
         score += 100
         refreshHUD()
-        hud.showMessage("Caught the fish! +100", duration: 2)
+        let emoji = (fish as? SKLabelNode)?.text ?? "🎁"
+        hud.showMessage("Caught \(emoji)! +100", duration: 2)
         showScorePopup(100, at: fish.position)
 
         fish.physicsBody = nil
@@ -278,25 +279,34 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         hud.install(in: self)
         spawnCharacters()
         refreshHUD()
-        if level == 1 {
-            scheduleFishVisit()
+        if let emoji = travelerEmoji(forLevel: level) {
+            scheduleTravelerVisit(emoji: emoji)
         }
     }
 
-    private func scheduleFishVisit() {
+    private func travelerEmoji(forLevel level: Int) -> String? {
+        switch level {
+        case 1: return "🐟"
+        case 2: return "🍩"
+        default: return nil
+        }
+    }
+
+    private func scheduleTravelerVisit(emoji: String) {
+        let scheduledLevel = level
         run(.sequence([
             .wait(forDuration: 6),
             .run { [weak self] in
-                guard let self = self, self.level == 1, !self.isGameOver else { return }
-                self.spawnFish()
+                guard let self = self, self.level == scheduledLevel, !self.isGameOver else { return }
+                self.spawnFish(emoji: emoji)
             }
         ]), withKey: "fishVisit")
     }
 
-    private func spawnFish() {
+    private func spawnFish(emoji: String) {
         fishNode?.removeFromParent()
         let label = SKLabelNode()
-        label.text = "🐟"
+        label.text = emoji
         label.fontSize = 36
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
@@ -443,6 +453,14 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
                     self.workerGrid = partner
                 }
                 self.isWorkerMoving = false
+                self.lastWorkerMove = self.lastUpdateTime
+                if !self.isGameOver,
+                   let direction = self.queuedWorkerDirection ?? self.workerDirection {
+                    self.workerDirection = direction
+                    self.queuedWorkerDirection = nil
+                    let delta = direction.delta
+                    self.tryMoveWorker(dx: delta.dx, dy: delta.dy)
+                }
             }
         ]), withKey: "workerMove")
     }
@@ -599,17 +617,22 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         boss.ai.teleport(to: boss.spawn)
         boss.node.removeAllActions()
         boss.node.stopWalking()
+        boss.node.physicsBody?.categoryBitMask = 0
         let homePoint = gridMap.point(for: boss.spawn)
-        boss.node.run(.sequence([
+        let bossNode = boss.node
+        bossNode.run(.sequence([
             .group([
                 .scale(to: 1.6, duration: 0.25),
                 .fadeOut(withDuration: 0.25)
             ]),
-            .run { [weak boss = boss.node] in boss?.position = homePoint },
+            .run { [weak bossNode] in bossNode?.position = homePoint },
             .group([
                 .scale(to: 1.0, duration: 0.2),
                 .fadeIn(withDuration: 0.2)
-            ])
+            ]),
+            .run { [weak bossNode] in
+                bossNode?.physicsBody?.categoryBitMask = PhysicsCategory.boss
+            }
         ]))
         boss.node.setBodyColor(isPowerPelletMode ? .systemBlue : boss.baseColor)
         updateBossTags()
