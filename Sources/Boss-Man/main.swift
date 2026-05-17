@@ -7,15 +7,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
-        let sceneSize = CGSize(width: 960, height: 648)
+        let sceneSize = CGSize(width: 960 + (32 * 6), height: 648)
         let skView = SKView(frame: CGRect(origin: .zero, size: sceneSize))
         skView.ignoresSiblingOrder = true
         skView.preferredFramesPerSecond = 60
         skView.shouldCullNonVisibleNodes = true
-        skView.showsFPS = true
-        skView.showsNodeCount = true
+        skView.showsFPS = false
+        skView.showsNodeCount = false
 
-        let scene = GameScene(size: sceneSize)
+        let scene = TitleScene(size: sceneSize)
         scene.scaleMode = .aspectFit
         skView.presentScene(scene)
 

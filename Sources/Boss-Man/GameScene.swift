@@ -87,8 +87,15 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     private var workerGrid = CGPoint(x: 1, y: 15)
     private var lives = HUD.maxLives
     private var isGameOver = false
+    private static let highScoreKey = "Boss-Man.highScore"
     private var score = 0
-    private var highScore = 0
+    private var highScore = UserDefaults.standard.integer(forKey: GameScene.highScoreKey) {
+        didSet {
+            if highScore != oldValue {
+                UserDefaults.standard.set(highScore, forKey: GameScene.highScoreKey)
+            }
+        }
+    }
     private var powerPelletCapturesThisCycle = 0
 
     private var workerDirection: MoveDirection?

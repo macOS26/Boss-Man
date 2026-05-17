@@ -13,6 +13,7 @@ let package = Package(
         .executableTarget(
             name: "Boss-Man",
             path: "Sources/Boss-Man",
+            resources: [.process("Resources")],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",

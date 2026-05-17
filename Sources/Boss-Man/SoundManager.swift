@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 
 @MainActor
-final class SoundManager {
+final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let engine = AVAudioEngine()
     private let effectsPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
@@ -99,18 +99,46 @@ final class SoundManager {
     private let speechCooldown: TimeInterval = 1.5
     private var musicEnabled = false
 
-    init() {
+    private let normalEffectsVolume: Float = 1.0
+    private let duckedEffectsVolume: Float = 0.25
+    private let normalMusicVolume: Float = 1.0
+    private let duckedMusicVolume: Float = 0.18
+
+    override init() {
         format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+        super.init()
         engine.attach(effectsPlayer)
         engine.attach(musicPlayer)
         engine.connect(effectsPlayer, to: engine.mainMixerNode, format: format)
         engine.connect(musicPlayer, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = 0.8
+        effectsPlayer.volume = normalEffectsVolume
+        musicPlayer.volume = normalMusicVolume
+        speech.delegate = self
         do {
             try engine.start()
         } catch {
             print("Audio engine failed to start: \(error)")
         }
+    }
+
+    // MARK: - Speech ducking
+
+    private func setDucked(_ ducked: Bool) {
+        effectsPlayer.volume = ducked ? duckedEffectsVolume : normalEffectsVolume
+        musicPlayer.volume = ducked ? duckedMusicVolume : normalMusicVolume
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.setDucked(true) }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.setDucked(false) }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.setDucked(false) }
     }
 
     // MARK: - Public events
@@ -326,25 +354,46 @@ final class SoundManager {
         return buffer
     }
 
-    /// Dot-matrix perforation tear: rapid short "tk-tk-tk-tk" clicks.
+    /// Flattening a crinkled piece of paper — sparse random crackles, high-passed.
     private func synthPageFlip() -> AVAudioPCMBuffer {
-        let clickCount = 14
-        let clickDur: TimeInterval = 0.008
-        let gapDur: TimeInterval = 0.022
-        let total = (clickDur + gapDur) * Double(clickCount)
+        let total: TimeInterval = 0.55
         let buffer = makeBuffer(seconds: total)
         let data = buffer.floatChannelData![0]
-        let perClick = Int(sampleRate * clickDur)
-        let perGap = Int(sampleRate * gapDur)
-        for c in 0..<clickCount {
-            let start = c * (perClick + perGap)
-            for j in 0..<perClick {
-                let t = Float(j) / Float(sampleRate)
-                let env: Float = exp(-180 * t)            // very fast decay → click
-                let n = Float.random(in: -1...1)
-                let tk = sin(2 * .pi * 1700 * t) * 0.55 + sin(2 * .pi * 3200 * t) * 0.25
-                data[start + j] = (n * 0.5 + tk * 0.5) * env * 0.55
+        let frames = Int(buffer.frameLength)
+        for i in 0..<frames { data[i] = 0 }
+
+        // Random short crackles at irregular intervals.
+        let crackleCount = 50
+        for _ in 0..<crackleCount {
+            let startFrame = Int.random(in: 0..<(frames - 256))
+            let crackleLen = Int.random(in: Int(sampleRate * 0.003)...Int(sampleRate * 0.018))
+            let amp = Float.random(in: 0.15...0.55)
+            for j in 0..<crackleLen {
+                let idx = startFrame + j
+                if idx >= frames { break }
+                let t = Float(j) / Float(crackleLen)
+                let env: Float = sin(.pi * t)
+                data[idx] += Float.random(in: -1...1) * env * amp
             }
+        }
+
+        // High-pass: subtract a one-pole low-pass to brighten the noise.
+        var lp: Float = 0
+        for i in 0..<frames {
+            lp = 0.82 * lp + 0.18 * data[i]
+            data[i] = (data[i] - lp) * 0.85
+        }
+
+        // Overall fade in / out so the sample doesn't pop.
+        let fade: Float = 0.05
+        let durF = Float(total)
+        for i in 0..<frames {
+            let t = Float(i) / Float(sampleRate)
+            let env: Float
+            if t < fade { env = t / fade }
+            else if t > durF - fade { env = max(0, (durF - t) / fade) }
+            else { env = 1 }
+            data[i] *= env
         }
         return buffer
     }
@@ -415,11 +464,11 @@ final class SoundManager {
         lastSpeechTime = now
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.78  // slow but not sluggish
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.70  // slower drawl
         utterance.volume = 0.9
-        utterance.pitchMultiplier = 0.86                            // deeper than default, still articulate
+        utterance.pitchMultiplier = 0.80                            // deeper baritone
         utterance.preUtteranceDelay = 0.05
-        utterance.postUtteranceDelay = 0.05
+        utterance.postUtteranceDelay = 0.06
         if priority { speech.stopSpeaking(at: .immediate) }
         speech.speak(utterance)
     }
