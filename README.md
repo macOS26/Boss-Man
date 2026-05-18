@@ -1,8 +1,12 @@
+<img width="2560" height="1440" alt="Screenshot 2026-05-18 at 1 32 37 PM" src="https://github.com/user-attachments/assets/a436e797-3fce-479e-8b31-defac2b0a0e9" />
+<img width="2560" height="1440" alt="Screenshot 2026-05-18 at 1 32 59 PM" src="https://github.com/user-attachments/assets/6a0bd808-9927-4d79-8b94-014fdb9f6392" />
+
+
 # Boss-Man
 
-An Office Space inspired Maze Game built using SpriteKit and Swift for macOS
+The Video Game, runs on macOS 14.6 or later
 
-<img width="1008" height="755" alt="image" src="https://github.com/user-attachments/assets/86dc7e5f-096d-4bd3-8951-165e424a4cbc" />
+An Office Space inspired Maze Game built using SpriteKit and Swift for macOS
 
 ## Theme
 
