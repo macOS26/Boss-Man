@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -28,9 +28,9 @@
 		17B525ADB88FD0A2842C973F /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		1FBBBA3FBC6E5F20087F25C3 /* BossManApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BossManApp.swift; sourceTree = "<group>"; };
 		36618026D61585C0E6DF3418 /* Levels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Levels.swift; sourceTree = "<group>"; };
-		46F411507C7314D700420A41 /* RedStapler.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = RedStapler.svg; sourceTree = "<group>"; };
+		46F411507C7314D700420A41 /* RedStapler.svg */ = {isa = PBXFileReference; path = RedStapler.svg; sourceTree = "<group>"; };
 		50D2F51FFAFB05D99EA4AC33 /* BossAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BossAI.swift; sourceTree = "<group>"; };
-		56FED7CA67A19CD14AD1A6D1 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		56FED7CA67A19CD14AD1A6D1 /* AppIcon.icon */ = {isa = PBXFileReference; path = AppIcon.icon; sourceTree = "<group>"; };
 		5FDA87B5D1CF66E1870AD532 /* PixelPerson.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelPerson.swift; sourceTree = "<group>"; };
 		6CCB38AC47574DA6973778D3 /* SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
 		8AA6007F76A86B1B7270E0B2 /* PhysicsCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsCategory.swift; sourceTree = "<group>"; };
@@ -77,6 +77,13 @@
 			);
 			sourceTree = "<group>";
 		};
+		DA811AFE26FA94C60DBEB74C /* .agent */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = .agent;
+			sourceTree = "<group>";
+		};
 		ECBF37D9AFAA8BBB5BEADE2F /* Boss-Man */ = {
 			isa = PBXGroup;
 			children = (
@@ -93,6 +100,7 @@
 				5FDA87B5D1CF66E1870AD532 /* PixelPerson.swift */,
 				6CCB38AC47574DA6973778D3 /* SoundManager.swift */,
 				C6012AFC1D6CEDDA38DE03B5 /* TitleScene.swift */,
+				DA811AFE26FA94C60DBEB74C /* .agent */,
 				1A36FFC81DDF5F54190B1B75 /* Resources */,
 			);
 			path = "Boss-Man";
@@ -127,6 +135,12 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					5928B1BF754946342E1863C4 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 886FB8AB730D195DD73F29E8 /* Build configuration list for PBXProject "Boss-Man" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -138,6 +152,7 @@
 			);
 			mainGroup = BEC5BDF0F2C1C7F762DA2B2E;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -251,21 +266,20 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Sources/Boss-Man/Resources/Boss-Man.entitlements";
 				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Sources/Boss-Man/Resources/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Boss-Man";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.arcade-games";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
 				PRODUCT_NAME = "Boss-Man";
 				SDKROOT = macosx;
@@ -334,24 +348,22 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_ENTITLEMENTS = "Sources/Boss-Man/Resources/Boss-Man.entitlements";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 469UCUB275;
-				ENABLE_HARDENED_RUNTIME = NO;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Sources/Boss-Man/Resources/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "Boss-Man";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.arcade-games";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
 				PRODUCT_NAME = "Boss-Man";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 			};
 			name = Release;
