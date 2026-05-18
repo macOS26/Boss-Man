@@ -64,6 +64,16 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             spawn: CGPoint(x: 34, y: 1),
             // Clyde: chases until within 8 tiles, then retreats to a corner scatter point.
             personality: .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8)
+        ),
+        (
+            name: "BOLTON",
+            color: .systemPink,
+            tie: .systemTeal,
+            pants: .darkGray,
+            // Home is the central office — the cell just below the tunnel row, walkable on all 11 maps.
+            spawn: CGPoint(x: 18, y: 7),
+            // Inky: pivots two tiles ahead of the worker then mirrors BOSS's position through it.
+            personality: .flanker(pivotTiles: 2)
         )
     ]
 
@@ -503,7 +513,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
 
     private func stepBoss(at index: Int) {
         let boss = bosses[index]
-        guard let move = boss.ai.planNextStep(workerGrid: workerGrid, workerDirection: workerDirection, flee: isPowerPelletMode) else {
+        let blinkyGrid = bosses.first?.ai.grid
+        guard let move = boss.ai.planNextStep(workerGrid: workerGrid, workerDirection: workerDirection, blinkyGrid: blinkyGrid, flee: isPowerPelletMode) else {
             boss.node.stopWalking()
             return
         }

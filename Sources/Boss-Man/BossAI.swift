@@ -8,6 +8,9 @@ enum BossPersonality {
     case ambushAhead(tiles: Int)
     /// Clyde-style: chase until inside `threshold` tiles of the worker, then retreat to `scatterGrid`.
     case timidScatter(scatterGrid: CGPoint, threshold: CGFloat)
+    /// Inky-style: pivot two tiles ahead of the worker, then double the vector from Blinky's tile
+    /// to produce a flanking target. Requires a `blinkyGrid` at plan time.
+    case flanker(pivotTiles: Int)
 }
 
 final class BossAI {
@@ -38,12 +41,12 @@ final class BossAI {
         self.grid = grid
     }
 
-    func planNextStep(workerGrid: CGPoint, workerDirection: MoveDirection?, flee: Bool = false) -> Move? {
+    func planNextStep(workerGrid: CGPoint, workerDirection: MoveDirection?, blinkyGrid: CGPoint? = nil, flee: Bool = false) -> Move? {
         let next: CGPoint?
         if flee {
             next = stepAwayFrom(workerGrid)
         } else {
-            let target = chaseTarget(workerGrid: workerGrid, workerDirection: workerDirection)
+            let target = chaseTarget(workerGrid: workerGrid, workerDirection: workerDirection, blinkyGrid: blinkyGrid)
             // Try personality target first; if unreachable (wall, off-grid), degrade to direct
             // chase, then to a random step so the boss never freezes.
             next = pathfinder.shortestStep(from: grid, to: target)
@@ -57,7 +60,7 @@ final class BossAI {
         return Move(from: from, to: next)
     }
 
-    private func chaseTarget(workerGrid: CGPoint, workerDirection: MoveDirection?) -> CGPoint {
+    private func chaseTarget(workerGrid: CGPoint, workerDirection: MoveDirection?, blinkyGrid: CGPoint?) -> CGPoint {
         switch personality {
         case .directChase:
             return workerGrid
@@ -68,6 +71,13 @@ final class BossAI {
                            y: workerGrid.y + CGFloat(delta.dy * tiles))
         case .timidScatter(let scatter, let threshold):
             return Pathfinder.manhattanDistance(grid, workerGrid) > threshold ? workerGrid : scatter
+        case .flanker(let pivotTiles):
+            guard let dir = workerDirection, let blinky = blinkyGrid else { return workerGrid }
+            let delta = dir.delta
+            let pivot = CGPoint(x: workerGrid.x + CGFloat(delta.dx * pivotTiles),
+                                y: workerGrid.y + CGFloat(delta.dy * pivotTiles))
+            // Reflect Blinky through the pivot — same trick the original Inky uses.
+            return CGPoint(x: 2 * pivot.x - blinky.x, y: 2 * pivot.y - blinky.y)
         }
     }
 
