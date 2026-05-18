@@ -14,7 +14,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     }
 
     private let tileSize: CGFloat = 32
-    private let workerSpawn = CGPoint(x: 1, y: 15)
+    private let workerSpawn = CGPoint(x: 18, y: 7)
     private let workerMoveInterval: TimeInterval = 0.14
     private let workerMoveDuration: TimeInterval = 0.14
     private let bossMoveInterval: TimeInterval = 0.36
@@ -70,8 +70,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             color: .systemPink,
             tie: .systemTeal,
             pants: .darkGray,
-            // Home is the central office — the cell just below the tunnel row, walkable on all 11 maps.
-            spawn: CGPoint(x: 18, y: 7),
+            // Home is the corner cell PETE used to spawn from.
+            spawn: CGPoint(x: 1, y: 15),
             // Inky: pivots two tiles ahead of the worker then mirrors BOSS's position through it.
             personality: .flanker(pivotTiles: 2)
         )
