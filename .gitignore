@@ -11,3 +11,8 @@ xcuserdata/
 .build/
 .swiftpm/
 Package.resolved
+
+# Distribution artifacts
+*.dmg
+*.zip
+*.app
