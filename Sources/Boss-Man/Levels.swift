@@ -20,20 +20,20 @@ struct LevelTraveler {
 // Point progression matches Ms. Pac-Man fruit ladder
 // (100/200/500/700/1000/2000/5000), then holds at 5000 for higher floors.
 let levelTravelers: [LevelTraveler] = [
-    LevelTraveler(emoji: "🐟",  sound: .water,       points: 100),
-    LevelTraveler(emoji: "🍩",  sound: .glaze,       points: 200),
-    LevelTraveler(emoji: "🥨",  sound: .crunch,      points: 500),
-    LevelTraveler(emoji: "👾",  sound: .alienBleep,  points: 700),
-    LevelTraveler(emoji: "🪼",  sound: .jelly,       points: 1000),
-    LevelTraveler(emoji: "🍏",  sound: .crispTap,    points: 2000),
-    LevelTraveler(emoji: "🍎",  sound: .bellDing,    points: 5000),
-    LevelTraveler(emoji: "📻",  sound: .radioStatic, points: 5000),
-    LevelTraveler(emoji: "🦄",  sound: .magicChime,  points: 5000),
-    LevelTraveler(emoji: "👽",  sound: .ufoWhoosh,   points: 5000),
+    LevelTraveler(emoji: "🐟", sound: .water,       points: 100),
+    LevelTraveler(emoji: "🍩", sound: .glaze,       points: 200),
+    LevelTraveler(emoji: "🥨", sound: .crunch,      points: 400),
+    LevelTraveler(emoji: "👾", sound: .alienBleep,  points: 800),
+    LevelTraveler(emoji: "🪼", sound: .jelly,       points: 1000),
+    LevelTraveler(emoji: "🍏", sound: .crispTap,    points: 1500),
+    LevelTraveler(emoji: "🍎", sound: .bellDing,    points: 2000),
+    LevelTraveler(emoji: "📻", sound: .radioStatic, points: 2500),
+    LevelTraveler(emoji: "🦄", sound: .magicChime,  points: 3000),
+    LevelTraveler(emoji: "👽", sound: .ufoWhoosh,   points: 4000),
     LevelTraveler(emoji: "👁️", sound: .eyeDrone,    points: 5000)
 ]
 
-let officeMaps = [
+private let baseOfficeMaps: [[String]] = [
     [
         "################## #################",
         "#P...##....F..........#....C....D..#",
@@ -168,3 +168,15 @@ let officeMaps = [
         "################## #################"
     ]
 ]
+
+// Eleven total floors so the map cycle aligns with the eleven traveler
+// mascots. The extra four mirror the first four base maps (interior rows
+// reversed; top/bottom rows kept canonical so the tunnel column stays at 18).
+let officeMaps: [[String]] = {
+    func mirror(_ rows: [String]) -> [String] {
+        rows.enumerated().map { idx, row in
+            (idx == 0 || idx == rows.count - 1) ? row : String(row.reversed())
+        }
+    }
+    return baseOfficeMaps + baseOfficeMaps.prefix(4).map(mirror)
+}()

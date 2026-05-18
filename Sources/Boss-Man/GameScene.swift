@@ -365,8 +365,9 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         if score > highScore { highScore = score }
         hud.updateStatus(score: score, highScore: highScore, level: level, dots: collectedDots, total: dotCount, reports: tpsReportsCreated, items: reportItems)
         hud.updateLives(lives)
-        let earnedCount = min(level, levelTravelers.count)
-        let emojis = (0..<earnedCount).map { levelTravelers[$0].emoji }
+        // Ladder resets every 11 levels; Level: counter keeps incrementing.
+        let cyclePosition = ((level - 1) % levelTravelers.count) + 1
+        let emojis = (0..<cyclePosition).map { levelTravelers[$0].emoji }
         hud.updateLevelEmojis(emojis)
     }
 
