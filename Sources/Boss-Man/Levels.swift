@@ -12,22 +12,25 @@ enum TravelerSound {
 struct LevelTraveler {
     let emoji: String
     let sound: TravelerSound
+    let points: Int
 }
 
 // Ms. Pac-Man-style level mascots: each level has a roaming emoji that
 // crosses the floor twice and plays a distinct distant sound on arrival.
+// Point progression matches Ms. Pac-Man fruit ladder
+// (100/200/500/700/1000/2000/5000), then holds at 5000 for higher floors.
 let levelTravelers: [LevelTraveler] = [
-    LevelTraveler(emoji: "🐟", sound: .water),
-    LevelTraveler(emoji: "🍩", sound: .glaze),
-    LevelTraveler(emoji: "🥨", sound: .crunch),
-    LevelTraveler(emoji: "👾", sound: .alienBleep),
-    LevelTraveler(emoji: "🪼", sound: .jelly),
-    LevelTraveler(emoji: "🍏", sound: .crispTap),
-    LevelTraveler(emoji: "🍎", sound: .bellDing),
-    LevelTraveler(emoji: "📻", sound: .radioStatic),
-    LevelTraveler(emoji: "🦄", sound: .magicChime),
-    LevelTraveler(emoji: "👽", sound: .ufoWhoosh),
-    LevelTraveler(emoji: "👁️", sound: .eyeDrone)
+    LevelTraveler(emoji: "🐟",  sound: .water,       points: 100),
+    LevelTraveler(emoji: "🍩",  sound: .glaze,       points: 200),
+    LevelTraveler(emoji: "🥨",  sound: .crunch,      points: 500),
+    LevelTraveler(emoji: "👾",  sound: .alienBleep,  points: 700),
+    LevelTraveler(emoji: "🪼",  sound: .jelly,       points: 1000),
+    LevelTraveler(emoji: "🍏",  sound: .crispTap,    points: 2000),
+    LevelTraveler(emoji: "🍎",  sound: .bellDing,    points: 5000),
+    LevelTraveler(emoji: "📻",  sound: .radioStatic, points: 5000),
+    LevelTraveler(emoji: "🦄",  sound: .magicChime,  points: 5000),
+    LevelTraveler(emoji: "👽",  sound: .ufoWhoosh,   points: 5000),
+    LevelTraveler(emoji: "👁️", sound: .eyeDrone,    points: 5000)
 ]
 
 let officeMaps = [

@@ -253,12 +253,13 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
 
     private func catchFish(_ node: SKNode?) {
         guard fishNode === node, let fish = fishNode else { return }
-        score += 100
+        let points = currentTraveler().points
+        score += points
         sound.playFishOrTreat()
         refreshHUD()
         let emoji = (fish as? SKLabelNode)?.text ?? "🎁"
-        hud.showMessage("Caught \(emoji)! +100", duration: 2)
-        showScorePopup(100, at: fish.position)
+        hud.showMessage("Caught \(emoji)! +\(points)", duration: 2)
+        showScorePopup(points, at: fish.position)
 
         fish.physicsBody = nil
         fish.run(.sequence([
