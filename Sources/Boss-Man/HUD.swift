@@ -9,6 +9,7 @@ final class HUD {
     private let tpsLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let livesLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let messageLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let levelEmojisLabel = SKLabelNode()
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
@@ -78,6 +79,13 @@ final class HUD {
         messageLabel.zPosition = 21
         messageLabel.fontColor = .systemYellow
         scene.addChild(messageLabel)
+
+        levelEmojisLabel.fontSize = 22
+        levelEmojisLabel.horizontalAlignmentMode = .right
+        levelEmojisLabel.verticalAlignmentMode = .center
+        levelEmojisLabel.position = CGPoint(x: size.width - 16, y: size.height - 30)
+        levelEmojisLabel.zPosition = 21
+        scene.addChild(levelEmojisLabel)
     }
 
     private static let emojiByName: [String: String] = [
@@ -96,6 +104,10 @@ final class HUD {
             }
             .joined(separator: "  ")
         tpsLabel.text = "TPS: \(parts)"
+    }
+
+    func updateLevelEmojis(_ emojis: [String]) {
+        levelEmojisLabel.text = emojis.joined(separator: " ")
     }
 
     func updateLives(_ count: Int) {

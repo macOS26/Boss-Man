@@ -282,34 +282,33 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         hud.install(in: self)
         spawnCharacters()
         refreshHUD()
-        if let emoji = travelerEmoji(forLevel: level) {
-            scheduleTravelerVisit(emoji: emoji)
-        }
+        scheduleTravelerVisits(traveler: currentTraveler())
     }
 
-    private func travelerEmoji(forLevel level: Int) -> String? {
-        switch level {
-        case 1: return "🐟"
-        case 2: return "🍩"
-        default: return nil
-        }
+    private func currentTraveler() -> LevelTraveler {
+        levelTravelers[(level - 1) % levelTravelers.count]
     }
 
-    private func scheduleTravelerVisit(emoji: String) {
+    private func scheduleTravelerVisits(traveler: LevelTraveler) {
         let scheduledLevel = level
-        run(.sequence([
-            .wait(forDuration: 6),
-            .run { [weak self] in
-                guard let self = self, self.level == scheduledLevel, !self.isGameOver else { return }
-                self.spawnFish(emoji: emoji)
-            }
-        ]), withKey: "fishVisit")
+        let spawnAction: (TimeInterval, String) -> Void = { [weak self] delay, key in
+            guard let self else { return }
+            self.run(.sequence([
+                .wait(forDuration: delay),
+                .run { [weak self] in
+                    guard let self = self, self.level == scheduledLevel, !self.isGameOver else { return }
+                    self.spawnTraveler(traveler)
+                }
+            ]), withKey: key)
+        }
+        spawnAction(6, "travelerVisit1")
+        spawnAction(28, "travelerVisit2")
     }
 
-    private func spawnFish(emoji: String) {
+    private func spawnTraveler(_ traveler: LevelTraveler) {
         fishNode?.removeFromParent()
         let label = SKLabelNode()
-        label.text = emoji
+        label.text = traveler.emoji
         label.fontSize = 36
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
@@ -325,6 +324,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         addChild(label)
         fishNode = label
         lastFishMove = 0
+        sound.playTravelerArrive(traveler.sound)
     }
 
     private func stepFish() {
@@ -364,6 +364,9 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         if score > highScore { highScore = score }
         hud.updateStatus(score: score, highScore: highScore, level: level, dots: collectedDots, total: dotCount, reports: tpsReportsCreated, items: reportItems)
         hud.updateLives(lives)
+        let earnedCount = min(level, levelTravelers.count)
+        let emojis = (0..<earnedCount).map { levelTravelers[$0].emoji }
+        hud.updateLevelEmojis(emojis)
     }
 
     private func spawnCharacters() {

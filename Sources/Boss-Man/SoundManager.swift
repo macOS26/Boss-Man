@@ -198,6 +198,75 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
+    /// Quiet, distinct "distant" cue when a roaming traveler enters the floor.
+    func playTravelerArrive(_ which: TravelerSound) {
+        switch which {
+        case .water:
+            play(buffer: sweep(from: 520, to: 180, duration: 0.55, volume: 0.14))
+        case .glaze:
+            play(buffer: sequence(notes: [2093, 2637, 3136], perNote: 0.07, volume: 0.13))
+        case .crunch:
+            play(buffer: synthFiltered(noiseSeconds: 0.35, bursts: 12, volume: 0.18))
+        case .alienBleep:
+            play(buffer: sequence(notes: [880, 1320, 1760, 1320], perNote: 0.06, volume: 0.16))
+        case .jelly:
+            play(buffer: sweep(from: 660, to: 990, duration: 0.7, volume: 0.12))
+        case .crispTap:
+            play(buffer: tone(frequency: 1568, duration: 0.12, volume: 0.18, decay: 22))
+        case .bellDing:
+            play(buffer: sequence(notes: [1568, 2093], perNote: 0.22, volume: 0.16))
+        case .radioStatic:
+            play(buffer: synthFiltered(noiseSeconds: 0.6, bursts: 1, volume: 0.10))
+        case .magicChime:
+            play(buffer: sequence(notes: [1318, 1976, 2637, 3520], perNote: 0.07, volume: 0.13))
+        case .ufoWhoosh:
+            play(buffer: sweep(from: 1760, to: 220, duration: 0.65, volume: 0.13))
+        case .eyeDrone:
+            play(buffer: tone(frequency: 196, duration: 0.8, volume: 0.18, decay: 2))
+        }
+    }
+
+    /// Filtered-noise bed used by crunch/static traveler cues.
+    /// `bursts == 1` → continuous shaped noise (radio); higher counts → granular crackle.
+    private func synthFiltered(noiseSeconds total: TimeInterval, bursts: Int, volume: Float) -> AVAudioPCMBuffer {
+        let buffer = makeBuffer(seconds: total)
+        let data = buffer.floatChannelData![0]
+        let frames = Int(buffer.frameLength)
+        for i in 0..<frames { data[i] = 0 }
+        if bursts <= 1 {
+            for i in 0..<frames {
+                data[i] = Float.random(in: -1...1)
+            }
+        } else {
+            for _ in 0..<bursts {
+                let startFrame = Int.random(in: 0..<max(1, frames - 1024))
+                let len = Int.random(in: Int(sampleRate * 0.01)...Int(sampleRate * 0.04))
+                for j in 0..<len where startFrame + j < frames {
+                    let t = Float(j) / Float(len)
+                    data[startFrame + j] += Float.random(in: -1...1) * sin(.pi * t)
+                }
+            }
+        }
+        // One-pole low-pass → subtract to brighten, gives a thin, distant timbre.
+        var lp: Float = 0
+        for i in 0..<frames {
+            lp = 0.78 * lp + 0.22 * data[i]
+            data[i] = (data[i] - lp) * volume
+        }
+        // Fade in/out so it doesn't pop.
+        let fade: Float = 0.04
+        let durF = Float(total)
+        for i in 0..<frames {
+            let t = Float(i) / Float(sampleRate)
+            let env: Float
+            if t < fade { env = t / fade }
+            else if t > durF - fade { env = max(0, (durF - t) / fade) }
+            else { env = 1 }
+            data[i] *= env
+        }
+        return buffer
+    }
+
     func playLevelStart() {
         play(buffer: sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3))
         speak(levelStartLines.randomElement() ?? "Yeah.", priority: false)
