@@ -562,6 +562,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         sound.playCaughtByBoss()
         lives -= 1
         reportItems.removeAll()
+        resetGrayedMachines()
         refreshHUD()
         worker.setBodyColor(.systemOrange)
         gameOverFlash = CACurrentMediaTime() + 0.5
@@ -582,6 +583,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             triggerGameOver()
         } else {
             hud.showMessage("A boss caught you! \(lives) workers left.", duration: 3)
+        }
+    }
+
+    private func resetGrayedMachines() {
+        for child in children {
+            guard let name = child.name, requiredItems.contains(name) else { continue }
+            child.removeAction(forKey: "machineCooldown")
+            child.alpha = 1
+            child.physicsBody?.contactTestBitMask = PhysicsCategory.worker
         }
     }
 
