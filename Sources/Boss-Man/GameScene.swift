@@ -37,27 +37,33 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         CGPoint(x: 33, y: 1)
     ]
 
-    private let bossBlueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint)] = [
+    private let bossBlueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality)] = [
         (
             name: "BOSS",
             color: .systemRed,
             tie: .black,
             pants: .darkGray,
-            spawn: CGPoint(x: 34, y: 15)
+            spawn: CGPoint(x: 34, y: 15),
+            // Blinky: makes a beeline for the worker's tile.
+            personality: .directChase
         ),
         (
             name: "LUMBERGH",
             color: .systemPurple,
             tie: .systemYellow,
             pants: .darkGray,
-            spawn: CGPoint(x: 1, y: 1)
+            spawn: CGPoint(x: 1, y: 1),
+            // Pinky: aims four tiles ahead of where the worker is heading to cut him off.
+            personality: .ambushAhead(tiles: 4)
         ),
         (
             name: "WADDAMS",
             color: .systemOrange,
             tie: .systemRed,
             pants: .darkGray,
-            spawn: CGPoint(x: 34, y: 1)
+            spawn: CGPoint(x: 34, y: 1),
+            // Clyde: chases until within 8 tiles, then retreats to a corner scatter point.
+            personality: .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8)
         )
     ]
 
@@ -401,7 +407,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         bosses.removeAll()
         let activeBossCount = min(max(level, 1), bossBlueprints.count)
         for blueprint in bossBlueprints.prefix(activeBossCount) {
-            let ai = BossAI(homeGrid: blueprint.spawn, detectionRange: bossDetectionRange, pathfinder: pathfinder, map: gridMap)
+            let ai = BossAI(homeGrid: blueprint.spawn, detectionRange: bossDetectionRange, personality: blueprint.personality, pathfinder: pathfinder, map: gridMap)
             ai.teleport(to: blueprint.spawn)
 
             let node = PixelPerson(
@@ -497,7 +503,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
 
     private func stepBoss(at index: Int) {
         let boss = bosses[index]
-        guard let move = boss.ai.planNextStep(towards: workerGrid, flee: isPowerPelletMode) else {
+        guard let move = boss.ai.planNextStep(workerGrid: workerGrid, workerDirection: workerDirection, flee: isPowerPelletMode) else {
             boss.node.stopWalking()
             return
         }
