@@ -1,6 +1,13 @@
+# Xcode build artifacts
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# SwiftPM (no longer used but ignore if anything regenerates)
 .build/
 .swiftpm/
 Package.resolved
-.DS_Store
-*.xcodeproj/
-*.xcworkspace/xcuserdata/

@@ -62,7 +62,7 @@ final class TitleScene: SKScene {
     /// Falls back to a procedural drawing if the asset can't be loaded.
     private func makeStapler() -> SKNode {
         let targetSize = CGSize(width: 380, height: 290)
-        if let url = Bundle.module.url(forResource: "RedStapler", withExtension: "svg"),
+        if let url = Bundle.main.url(forResource: "RedStapler", withExtension: "svg"),
            let image = NSImage(contentsOf: url) {
             image.size = targetSize
             let texture = SKTexture(image: image)

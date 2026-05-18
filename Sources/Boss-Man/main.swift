@@ -6,7 +6,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setApplicationIcon()
         buildMainMenu()
         let sceneSize = CGSize(width: 1152, height: 648)
         let skView = SKView(frame: CGRect(origin: .zero, size: sceneSize))
@@ -34,18 +33,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
-    }
-
-    private func setApplicationIcon() {
-        // SwiftPM doesn't compile .icon bundles to .icns, so we copy the directory
-        // and load the source SVG from inside it for the Dock and ⌘-Tab tile.
-        guard let url = Bundle.module.url(
-                forResource: "AppIcon",
-                withExtension: "svg",
-                subdirectory: "AppIcon.icon/Assets"),
-              let image = NSImage(contentsOf: url) else { return }
-        image.size = NSSize(width: 512, height: 512)
-        NSApplication.shared.applicationIconImage = image
     }
 
     private func buildMainMenu() {
@@ -85,9 +72,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.setActivationPolicy(.regular)
-app.activate(ignoringOtherApps: true)
-app.run()
+// AppDelegate is @MainActor-isolated, so spin everything up inside an
+// `assumeIsolated` block. This is safe because main.swift always runs on
+// the main thread.
+MainActor.assumeIsolated {
+    let app = NSApplication.shared
+    let delegate = AppDelegate()
+    app.delegate = delegate
+    app.setActivationPolicy(.regular)
+    app.activate(ignoringOtherApps: true)
+    app.run()
+}

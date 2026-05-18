@@ -1,0 +1,362 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		23D7349AA54306416DD99EA1 /* TitleScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6012AFC1D6CEDDA38DE03B5 /* TitleScene.swift */; };
+		29A7081CAB1A35AB74204A63 /* Levels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36618026D61585C0E6DF3418 /* Levels.swift */; };
+		33EC6DFB1035BB52A2E27983 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17B525ADB88FD0A2842C973F /* GameScene.swift */; };
+		472B9769A03EFB747CAD069D /* MazeBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DB30E67D82F4073BF9637A /* MazeBuilder.swift */; };
+		4EE45BC8CF73C97E1B59B359 /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCB38AC47574DA6973778D3 /* SoundManager.swift */; };
+		534BD47BA2B3FD9873EC281D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8676294E53745D73A2C2FC50 /* main.swift */; };
+		666C009E63D95AACBFCAE2A6 /* PhysicsCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA6007F76A86B1B7270E0B2 /* PhysicsCategory.swift */; };
+		ACC35D606586AB0CFF5C2E22 /* HUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAF3118FAF9F0A79FBE6F40 /* HUD.swift */; };
+		BC54056452C142EBAF8B9710 /* BossAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D2F51FFAFB05D99EA4AC33 /* BossAI.swift */; };
+		C025D2EA36D1A1AF093B113B /* PixelPerson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDA87B5D1CF66E1870AD532 /* PixelPerson.swift */; };
+		CC4E4B1BD9CDBC901E2BBBD5 /* Pathfinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C9C57057C799DE03599B80 /* Pathfinder.swift */; };
+		E112A400BAB072AC3751E3E4 /* GridMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7B63168F86CB482177AC0CB /* GridMap.swift */; };
+		E83C3070F138A3F2E3B82B03 /* MoveDirection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62EEDC0CE006957A104C70E /* MoveDirection.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		17B525ADB88FD0A2842C973F /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		36618026D61585C0E6DF3418 /* Levels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Levels.swift; sourceTree = "<group>"; };
+		50D2F51FFAFB05D99EA4AC33 /* BossAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BossAI.swift; sourceTree = "<group>"; };
+		5FDA87B5D1CF66E1870AD532 /* PixelPerson.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelPerson.swift; sourceTree = "<group>"; };
+		6CCB38AC47574DA6973778D3 /* SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
+		8676294E53745D73A2C2FC50 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		8AA6007F76A86B1B7270E0B2 /* PhysicsCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsCategory.swift; sourceTree = "<group>"; };
+		98DB30E67D82F4073BF9637A /* MazeBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MazeBuilder.swift; sourceTree = "<group>"; };
+		B7B63168F86CB482177AC0CB /* GridMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridMap.swift; sourceTree = "<group>"; };
+		C6012AFC1D6CEDDA38DE03B5 /* TitleScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleScene.swift; sourceTree = "<group>"; };
+		D8C9C57057C799DE03599B80 /* Pathfinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pathfinder.swift; sourceTree = "<group>"; };
+		DCAF3118FAF9F0A79FBE6F40 /* HUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUD.swift; sourceTree = "<group>"; };
+		E289D1B74E67EFEF05DA0311 /* Boss-Man.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Boss-Man.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F62EEDC0CE006957A104C70E /* MoveDirection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveDirection.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		114FF9EF0FC3FDFB8A9B4721 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E289D1B74E67EFEF05DA0311 /* Boss-Man.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		35D2C9E3391AA9517F00651F /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				ECBF37D9AFAA8BBB5BEADE2F /* Boss-Man */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		BEC5BDF0F2C1C7F762DA2B2E = {
+			isa = PBXGroup;
+			children = (
+				35D2C9E3391AA9517F00651F /* Sources */,
+				114FF9EF0FC3FDFB8A9B4721 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DA811AFE26FA94C60DBEB74C /* .agent */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = .agent;
+			sourceTree = "<group>";
+		};
+		ECBF37D9AFAA8BBB5BEADE2F /* Boss-Man */ = {
+			isa = PBXGroup;
+			children = (
+				50D2F51FFAFB05D99EA4AC33 /* BossAI.swift */,
+				17B525ADB88FD0A2842C973F /* GameScene.swift */,
+				B7B63168F86CB482177AC0CB /* GridMap.swift */,
+				DCAF3118FAF9F0A79FBE6F40 /* HUD.swift */,
+				36618026D61585C0E6DF3418 /* Levels.swift */,
+				8676294E53745D73A2C2FC50 /* main.swift */,
+				98DB30E67D82F4073BF9637A /* MazeBuilder.swift */,
+				F62EEDC0CE006957A104C70E /* MoveDirection.swift */,
+				D8C9C57057C799DE03599B80 /* Pathfinder.swift */,
+				8AA6007F76A86B1B7270E0B2 /* PhysicsCategory.swift */,
+				5FDA87B5D1CF66E1870AD532 /* PixelPerson.swift */,
+				6CCB38AC47574DA6973778D3 /* SoundManager.swift */,
+				C6012AFC1D6CEDDA38DE03B5 /* TitleScene.swift */,
+				DA811AFE26FA94C60DBEB74C /* .agent */,
+			);
+			path = "Boss-Man";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5928B1BF754946342E1863C4 /* Boss-Man */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0B97E8BF53CCC34E809B74E0 /* Build configuration list for PBXNativeTarget "Boss-Man" */;
+			buildPhases = (
+				D2FBDD414EF9397D5252F945 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Boss-Man";
+			packageProductDependencies = (
+			);
+			productName = "Boss-Man";
+			productReference = E289D1B74E67EFEF05DA0311 /* Boss-Man.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		51E4FD5307B0DAE00902E337 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					5928B1BF754946342E1863C4 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 886FB8AB730D195DD73F29E8 /* Build configuration list for PBXProject "Boss-Man" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = BEC5BDF0F2C1C7F762DA2B2E;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5928B1BF754946342E1863C4 /* Boss-Man */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2FBDD414EF9397D5252F945 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BC54056452C142EBAF8B9710 /* BossAI.swift in Sources */,
+				33EC6DFB1035BB52A2E27983 /* GameScene.swift in Sources */,
+				E112A400BAB072AC3751E3E4 /* GridMap.swift in Sources */,
+				ACC35D606586AB0CFF5C2E22 /* HUD.swift in Sources */,
+				29A7081CAB1A35AB74204A63 /* Levels.swift in Sources */,
+				472B9769A03EFB747CAD069D /* MazeBuilder.swift in Sources */,
+				E83C3070F138A3F2E3B82B03 /* MoveDirection.swift in Sources */,
+				CC4E4B1BD9CDBC901E2BBBD5 /* Pathfinder.swift in Sources */,
+				666C009E63D95AACBFCAE2A6 /* PhysicsCategory.swift in Sources */,
+				C025D2EA36D1A1AF093B113B /* PixelPerson.swift in Sources */,
+				4EE45BC8CF73C97E1B59B359 /* SoundManager.swift in Sources */,
+				23D7349AA54306416DD99EA1 /* TitleScene.swift in Sources */,
+				534BD47BA2B3FD9873EC281D /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		617400DDFDCCCC5CF0DABB06 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5;
+			};
+			name = Debug;
+		};
+		8289696EF1D2052DF8F93AD3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Sources/Boss-Man/Resources/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
+				PRODUCT_NAME = "Boss-Man";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		96672BEDE33712DE223FD129 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5;
+			};
+			name = Release;
+		};
+		B37705ED65F07958C1B60720 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Sources/Boss-Man/Resources/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
+				PRODUCT_NAME = "Boss-Man";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0B97E8BF53CCC34E809B74E0 /* Build configuration list for PBXNativeTarget "Boss-Man" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8289696EF1D2052DF8F93AD3 /* Debug */,
+				B37705ED65F07958C1B60720 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		886FB8AB730D195DD73F29E8 /* Build configuration list for PBXProject "Boss-Man" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				617400DDFDCCCC5CF0DABB06 /* Debug */,
+				96672BEDE33712DE223FD129 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 51E4FD5307B0DAE00902E337 /* Project object */;
+}
