@@ -34,7 +34,7 @@ final class TitleScene: SKScene {
 
         let prompt = SKLabelNode(fontNamed: titleFont)
         prompt.text = "Press SPACE to Play"
-        prompt.fontSize = 30
+        prompt.fontSize = 34.5
         prompt.fontColor = .black
         prompt.position = CGPoint(x: size.width / 2, y: size.height * 0.14)
         prompt.run(.repeatForever(.sequence([
@@ -46,8 +46,8 @@ final class TitleScene: SKScene {
         let high = UserDefaults.standard.integer(forKey: TitleScene.highScoreKey)
         if high > 0 {
             let hs = SKLabelNode(fontNamed: titleFont)
-            hs.text = "HIGH SCORE: \(high)"
-            hs.fontSize = 22
+            hs.text = "HIGH SCORE \(high)"
+            hs.fontSize = 26
             hs.fontColor = .black
             hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06)
             addChild(hs)
