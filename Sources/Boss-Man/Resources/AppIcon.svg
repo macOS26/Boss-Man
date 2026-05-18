@@ -5,10 +5,18 @@
       <stop offset="0" stop-color="#FFEC57"/>
       <stop offset="1" stop-color="#F7C814"/>
     </linearGradient>
-    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="130%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="20"/>
-      <feOffset dx="0" dy="22" result="off"/>
-      <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
+    <linearGradient id="armRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F33A39"/>
+      <stop offset="1" stop-color="#9A0E0E"/>
+    </linearGradient>
+    <linearGradient id="baseRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8B0E0E"/>
+      <stop offset="1" stop-color="#4A0303"/>
+    </linearGradient>
+    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="135%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="22"/>
+      <feOffset dx="0" dy="24" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.42"/></feComponentTransfer>
       <feMerge>
         <feMergeNode/><feMergeNode in="SourceGraphic"/>
       </feMerge>
@@ -17,9 +25,19 @@
 
   <rect width="1024" height="1024" fill="url(#bg)"/>
 
-  <g transform="translate(512 600)" filter="url(#softShadow)">
-    <text x="0" y="0" text-anchor="middle"
-          font-family="Cooper Black, Cooper Std Black, AvenirNextCondensed-Heavy, Marker Felt Wide, Impact"
-          font-size="640" font-weight="900" fill="#101010">BM</text>
+  <!-- Centered Swingline-style red stapler, rotated slightly -->
+  <g transform="translate(512 540) rotate(-5) scale(1.35)" filter="url(#softShadow)">
+    <!-- Base -->
+    <rect x="-330" y="80" width="660" height="70" rx="16" fill="url(#baseRed)" stroke="#1a0000" stroke-width="7"/>
+    <!-- Throat / pivot block -->
+    <rect x="-310" y="35" width="70" height="60" rx="10" fill="#5A0606" stroke="#1a0000" stroke-width="6"/>
+    <!-- Arm -->
+    <rect x="-320" y="-28" width="660" height="90" rx="26" fill="url(#armRed)" stroke="#1a0000" stroke-width="7"/>
+    <!-- Gloss highlight -->
+    <rect x="-285" y="-10" width="600" height="16" rx="7" fill="#ffd0d0" opacity="0.9"/>
+    <!-- Front hinge nub -->
+    <circle cx="315" cy="18" r="16" fill="#5A0606" stroke="#1a0000" stroke-width="6"/>
+    <!-- Subtle bottom shading line under base -->
+    <rect x="-310" y="142" width="620" height="6" rx="3" fill="#000" opacity="0.18"/>
   </g>
 </svg>
