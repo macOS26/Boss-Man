@@ -11,6 +11,9 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         let ai: BossAI
         let node: PixelPerson
         let tag: SKLabelNode
+        let moveInterval: TimeInterval
+        let moveDuration: TimeInterval
+        var lastMove: TimeInterval
     }
 
     private let tileSize: CGFloat = 32
@@ -37,7 +40,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         CGPoint(x: 33, y: 1)
     ]
 
-    private let bossBlueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality)] = [
+    private let bossBlueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] = [
         (
             name: "BOSS",
             color: .systemRed,
@@ -45,7 +48,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             pants: .darkGray,
             spawn: CGPoint(x: 34, y: 15),
             // Blinky: makes a beeline for the worker's tile.
-            personality: .directChase
+            personality: .directChase,
+            speed: 1.0
         ),
         (
             name: "LUMBERGH",
@@ -54,7 +58,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             pants: .darkGray,
             spawn: CGPoint(x: 1, y: 1),
             // Pinky: aims four tiles ahead of where the worker is heading to cut him off.
-            personality: .ambushAhead(tiles: 4)
+            personality: .ambushAhead(tiles: 4),
+            speed: 0.85
         ),
         (
             name: "WADDAMS",
@@ -63,7 +68,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             pants: .darkGray,
             spawn: CGPoint(x: 34, y: 1),
             // Clyde: chases until within 8 tiles, then retreats to a corner scatter point.
-            personality: .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8)
+            personality: .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),
+            speed: 0.70
         ),
         (
             name: "BOLTON",
@@ -73,7 +79,8 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             // Home is the corner cell PETE used to spawn from.
             spawn: CGPoint(x: 1, y: 15),
             // Inky: pivots two tiles ahead of the worker then mirrors BOSS's position through it.
-            personality: .flanker(pivotTiles: 2)
+            personality: .flanker(pivotTiles: 2),
+            speed: 0.78
         )
     ]
 
@@ -118,7 +125,6 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
     private var queuedWorkerDirection: MoveDirection?
     private var isWorkerMoving = false
     private var lastWorkerMove: TimeInterval = 0
-    private var lastBossMove: TimeInterval = 0
     private var lastUpdateTime: TimeInterval = 0
     private var gameOverFlash: TimeInterval = 0
 
@@ -174,10 +180,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             tryMoveWorker(dx: delta.dx, dy: delta.dy)
         }
 
-        if currentTime - lastBossMove > bossMoveInterval {
-            lastBossMove = currentTime
-            stepBosses()
-        }
+        stepBosses(currentTime: currentTime)
 
         if fishNode != nil, currentTime - lastFishMove > fishMoveInterval {
             lastFishMove = currentTime
@@ -444,6 +447,9 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             tag.position = CGPoint(x: 0, y: 24)
             node.addChild(tag)
 
+            // Per-boss timing: slower speed → longer interval & matching animation duration.
+            let interval = bossMoveInterval / blueprint.speed
+            let duration = bossMoveDuration / blueprint.speed
             bosses.append(BossEntity(
                 name: blueprint.name,
                 baseColor: blueprint.color,
@@ -452,7 +458,10 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
                 spawn: blueprint.spawn,
                 ai: ai,
                 node: node,
-                tag: tag
+                tag: tag,
+                moveInterval: interval,
+                moveDuration: duration,
+                lastMove: 0
             ))
         }
     }
@@ -505,9 +514,12 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         }
     }
 
-    private func stepBosses() {
+    private func stepBosses(currentTime: TimeInterval) {
         for index in bosses.indices {
-            stepBoss(at: index)
+            if currentTime - bosses[index].lastMove > bosses[index].moveInterval {
+                bosses[index].lastMove = currentTime
+                stepBoss(at: index)
+            }
         }
     }
 
@@ -526,7 +538,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             boss.node.position = gridMap.point(for: move.to)
         } else {
             boss.node.run(.sequence([
-                SKAction.move(to: gridMap.point(for: move.to), duration: bossMoveDuration),
+                SKAction.move(to: gridMap.point(for: move.to), duration: boss.moveDuration),
                 .run { [weak self] in
                     guard let self else { return }
                     if let partner = self.gridMap.tunnelPartner(of: move.to),
@@ -603,7 +615,6 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         workerDirection = nil
         queuedWorkerDirection = nil
         isWorkerMoving = false
-        lastBossMove = 0
         lastWorkerMove = 0
         gameOverFlash = 0
         isPowerPelletMode = false
@@ -715,7 +726,6 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
         workerDirection = nil
         queuedWorkerDirection = nil
         isWorkerMoving = false
-        lastBossMove = 0
         lastWorkerMove = 0
         gameOverFlash = 0
         isPowerPelletMode = false
