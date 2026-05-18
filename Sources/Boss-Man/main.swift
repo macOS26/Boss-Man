@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
-        let sceneSize = CGSize(width: 960 + (32 * 6), height: 648)
+        let sceneSize = CGSize(width: 1152, height: 648)
         let skView = SKView(frame: CGRect(origin: .zero, size: sceneSize))
         skView.ignoresSiblingOrder = true
         skView.preferredFramesPerSecond = 60

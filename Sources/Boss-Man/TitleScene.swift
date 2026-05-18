@@ -34,9 +34,9 @@ final class TitleScene: SKScene {
 
         let prompt = SKLabelNode(fontNamed: titleFont)
         prompt.text = "Press SPACE to Play"
-        prompt.fontSize = 34.5
+        prompt.fontSize = 40
         prompt.fontColor = .black
-        prompt.position = CGPoint(x: size.width / 2, y: size.height * 0.14)
+        prompt.position = CGPoint(x: size.width / 2, y: size.height * 0.15)
         prompt.run(.repeatForever(.sequence([
             .fadeAlpha(to: 0.25, duration: 0.6),
             .fadeAlpha(to: 1.0, duration: 0.6)
