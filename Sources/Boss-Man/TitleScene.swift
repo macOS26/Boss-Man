@@ -4,11 +4,7 @@ import SpriteKit
 final class TitleScene: SKScene {
     private static let highScoreKey = "Boss-Man.highScore"
     private static let titleFonts = [
-        "Cooper Std Black",
-        "Cooper Black",
-        "Marker Felt Wide",
-        "Bradley Hand Bold",
-        "AvenirNextCondensed-Heavy"
+        "Marker Felt Wide"
     ]
 
     override func didMove(to view: SKView) {
