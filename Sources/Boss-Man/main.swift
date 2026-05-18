@@ -37,7 +37,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setApplicationIcon() {
-        guard let url = Bundle.module.url(forResource: "AppIcon", withExtension: "svg"),
+        // SwiftPM doesn't compile .icon bundles to .icns, so we copy the directory
+        // and load the source SVG from inside it for the Dock and ⌘-Tab tile.
+        guard let url = Bundle.module.url(
+                forResource: "AppIcon",
+                withExtension: "svg",
+                subdirectory: "AppIcon.icon/Assets"),
               let image = NSImage(contentsOf: url) else { return }
         image.size = NSSize(width: 512, height: 512)
         NSApplication.shared.applicationIconImage = image

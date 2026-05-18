@@ -170,7 +170,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
 
     func playCaughtByBoss() {
         play(buffer: sweep(from: 330, to: 60, duration: 0.7, volume: 0.4))
-        speak(caughtLines.randomElement() ?? "Yeah.", priority: true)
+        speak(caughtLines.randomElement() ?? "Ohh, yeah.", priority: true)
     }
 
     func playFishOrTreat() {
@@ -185,7 +185,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
 
     func playGameOver() {
         play(buffer: sequence(notes: [392, 311, 261, 196], perNote: 0.18, volume: 0.4))
-        speak(gameOverLines.randomElement() ?? "Yeah.", priority: true)
+        speak(gameOverLines.randomElement() ?? "yeah right!", priority: true)
     }
 
     func playMachine(named name: String) {

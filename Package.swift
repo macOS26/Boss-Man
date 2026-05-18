@@ -13,7 +13,13 @@ let package = Package(
         .executableTarget(
             name: "Boss-Man",
             path: "Sources/Boss-Man",
-            resources: [.process("Resources")],
+            resources: [
+                .process("Resources/RedStapler.svg"),
+                // AppIcon.icon is an Icon Composer bundle (macOS Tahoe).
+                // SwiftPM can't compile it, so copy it verbatim and we load
+                // the source SVG inside at runtime as the Dock icon.
+                .copy("Resources/AppIcon.icon")
+            ],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",
