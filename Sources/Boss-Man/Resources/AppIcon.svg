@@ -1,23 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- Squircle yellow background. macOS auto-masks rounded corners; we fill the full canvas. -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFEC57"/>
       <stop offset="1" stop-color="#F7C814"/>
     </linearGradient>
-    <linearGradient id="stapler" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E63231"/>
-      <stop offset="1" stop-color="#9A0E0E"/>
-    </linearGradient>
-    <linearGradient id="staplerBase" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8B0E0E"/>
-      <stop offset="1" stop-color="#4A0303"/>
-    </linearGradient>
-    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
-      <feOffset dx="0" dy="14" result="off"/>
-      <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="20"/>
+      <feOffset dx="0" dy="22" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
       <feMerge>
         <feMergeNode/><feMergeNode in="SourceGraphic"/>
       </feMerge>
@@ -26,40 +17,9 @@
 
   <rect width="1024" height="1024" fill="url(#bg)"/>
 
-  <!-- Maze dot scatter, subtle, near edges -->
-  <g fill="#000" opacity="0.18">
-    <circle cx="120" cy="220" r="11"/>
-    <circle cx="120" cy="290" r="11"/>
-    <circle cx="120" cy="360" r="11"/>
-    <circle cx="190" cy="220" r="11"/>
-    <circle cx="900" cy="650" r="11"/>
-    <circle cx="900" cy="720" r="11"/>
-    <circle cx="900" cy="790" r="11"/>
-    <circle cx="830" cy="790" r="11"/>
-  </g>
-
-  <!-- Title text: BOSS-MAN, rotated slightly like the title screen -->
-  <g transform="translate(512 256) rotate(-3)" filter="url(#softShadow)">
-    <text x="0" y="0" text-anchor="middle" font-family="Cooper Black, Cooper Std Black, AvenirNextCondensed-Heavy, Marker Felt Wide, Impact" font-size="180" font-weight="900" fill="#101010">BOSS-MAN</text>
-  </g>
-
-  <!-- Red Swingline-style stapler, centered -->
-  <g transform="translate(512 640) rotate(-4)" filter="url(#softShadow)">
-    <!-- Base -->
-    <rect x="-330" y="80" width="660" height="60" rx="14" fill="url(#staplerBase)" stroke="#1a0000" stroke-width="6"/>
-    <!-- Throat / pivot -->
-    <rect x="-300" y="40" width="60" height="60" rx="10" fill="#5A0606" stroke="#1a0000" stroke-width="5"/>
-    <!-- Arm -->
-    <rect x="-310" y="-20" width="640" height="78" rx="22" fill="url(#stapler)" stroke="#1a0000" stroke-width="6"/>
-    <!-- Gloss highlight -->
-    <rect x="-280" y="-5" width="580" height="14" rx="6" fill="#ffc8c8" opacity="0.85"/>
-    <!-- Hinge nub on the right (front of stapler) -->
-    <circle cx="305" cy="20" r="14" fill="#5A0606" stroke="#1a0000" stroke-width="5"/>
-  </g>
-
-  <!-- Pellet pair near stapler tip, like dots about to be eaten -->
-  <g fill="#101010">
-    <circle cx="880" cy="640" r="18"/>
-    <circle cx="940" cy="640" r="10" opacity="0.55"/>
+  <g transform="translate(512 600)" filter="url(#softShadow)">
+    <text x="0" y="0" text-anchor="middle"
+          font-family="Cooper Black, Cooper Std Black, AvenirNextCondensed-Heavy, Marker Felt Wide, Impact"
+          font-size="640" font-weight="900" fill="#101010">BM</text>
   </g>
 </svg>
