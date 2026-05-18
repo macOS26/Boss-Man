@@ -12,9 +12,9 @@
 		33EC6DFB1035BB52A2E27983 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17B525ADB88FD0A2842C973F /* GameScene.swift */; };
 		472B9769A03EFB747CAD069D /* MazeBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DB30E67D82F4073BF9637A /* MazeBuilder.swift */; };
 		4EE45BC8CF73C97E1B59B359 /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCB38AC47574DA6973778D3 /* SoundManager.swift */; };
-		534BD47BA2B3FD9873EC281D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8676294E53745D73A2C2FC50 /* main.swift */; };
 		666C009E63D95AACBFCAE2A6 /* PhysicsCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA6007F76A86B1B7270E0B2 /* PhysicsCategory.swift */; };
 		9268BFD65AFF80677FAAD521 /* RedStapler.svg in Resources */ = {isa = PBXBuildFile; fileRef = 46F411507C7314D700420A41 /* RedStapler.svg */; };
+		9D09F4C2501F369683631730 /* BossManApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBBBA3FBC6E5F20087F25C3 /* BossManApp.swift */; };
 		ACC35D606586AB0CFF5C2E22 /* HUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAF3118FAF9F0A79FBE6F40 /* HUD.swift */; };
 		BC54056452C142EBAF8B9710 /* BossAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D2F51FFAFB05D99EA4AC33 /* BossAI.swift */; };
 		C025D2EA36D1A1AF093B113B /* PixelPerson.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDA87B5D1CF66E1870AD532 /* PixelPerson.swift */; };
@@ -26,13 +26,13 @@
 
 /* Begin PBXFileReference section */
 		17B525ADB88FD0A2842C973F /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		1FBBBA3FBC6E5F20087F25C3 /* BossManApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BossManApp.swift; sourceTree = "<group>"; };
 		36618026D61585C0E6DF3418 /* Levels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Levels.swift; sourceTree = "<group>"; };
 		46F411507C7314D700420A41 /* RedStapler.svg */ = {isa = PBXFileReference; path = RedStapler.svg; sourceTree = "<group>"; };
 		50D2F51FFAFB05D99EA4AC33 /* BossAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BossAI.swift; sourceTree = "<group>"; };
 		56FED7CA67A19CD14AD1A6D1 /* AppIcon.icon */ = {isa = PBXFileReference; path = AppIcon.icon; sourceTree = "<group>"; };
 		5FDA87B5D1CF66E1870AD532 /* PixelPerson.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelPerson.swift; sourceTree = "<group>"; };
 		6CCB38AC47574DA6973778D3 /* SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
-		8676294E53745D73A2C2FC50 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		8AA6007F76A86B1B7270E0B2 /* PhysicsCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsCategory.swift; sourceTree = "<group>"; };
 		98DB30E67D82F4073BF9637A /* MazeBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MazeBuilder.swift; sourceTree = "<group>"; };
 		B7B63168F86CB482177AC0CB /* GridMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridMap.swift; sourceTree = "<group>"; };
@@ -88,11 +88,11 @@
 			isa = PBXGroup;
 			children = (
 				50D2F51FFAFB05D99EA4AC33 /* BossAI.swift */,
+				1FBBBA3FBC6E5F20087F25C3 /* BossManApp.swift */,
 				17B525ADB88FD0A2842C973F /* GameScene.swift */,
 				B7B63168F86CB482177AC0CB /* GridMap.swift */,
 				DCAF3118FAF9F0A79FBE6F40 /* HUD.swift */,
 				36618026D61585C0E6DF3418 /* Levels.swift */,
-				8676294E53745D73A2C2FC50 /* main.swift */,
 				98DB30E67D82F4073BF9637A /* MazeBuilder.swift */,
 				F62EEDC0CE006957A104C70E /* MoveDirection.swift */,
 				D8C9C57057C799DE03599B80 /* Pathfinder.swift */,
@@ -179,6 +179,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BC54056452C142EBAF8B9710 /* BossAI.swift in Sources */,
+				9D09F4C2501F369683631730 /* BossManApp.swift in Sources */,
 				33EC6DFB1035BB52A2E27983 /* GameScene.swift in Sources */,
 				E112A400BAB072AC3751E3E4 /* GridMap.swift in Sources */,
 				ACC35D606586AB0CFF5C2E22 /* HUD.swift in Sources */,
@@ -190,7 +191,6 @@
 				C025D2EA36D1A1AF093B113B /* PixelPerson.swift in Sources */,
 				4EE45BC8CF73C97E1B59B359 /* SoundManager.swift in Sources */,
 				23D7349AA54306416DD99EA1 /* TitleScene.swift in Sources */,
-				534BD47BA2B3FD9873EC281D /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -72,14 +72,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// AppDelegate is @MainActor-isolated, so spin everything up inside an
-// `assumeIsolated` block. This is safe because main.swift always runs on
-// the main thread.
-MainActor.assumeIsolated {
-    let app = NSApplication.shared
-    let delegate = AppDelegate()
-    app.delegate = delegate
-    app.setActivationPolicy(.regular)
-    app.activate(ignoringOtherApps: true)
-    app.run()
+@main
+@MainActor
+enum BossManApp {
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.setActivationPolicy(.regular)
+        app.activate(ignoringOtherApps: true)
+        app.run()
+    }
 }

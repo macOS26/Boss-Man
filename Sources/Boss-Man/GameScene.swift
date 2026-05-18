@@ -1,7 +1,7 @@
 import AppKit
 import SpriteKit
 
-final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
+final class GameScene: SKScene, SKPhysicsContactDelegate {
     private struct BossEntity {
         let name: String
         let baseColor: NSColor
