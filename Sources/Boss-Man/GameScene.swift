@@ -302,7 +302,7 @@ final class GameScene: SKScene, @preconcurrency SKPhysicsContactDelegate {
             ]), withKey: key)
         }
         spawnAction(6, "travelerVisit1")
-        spawnAction(28, "travelerVisit2")
+        spawnAction(36, "travelerVisit2")
     }
 
     private func spawnTraveler(_ traveler: LevelTraveler) {
