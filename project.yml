@@ -21,9 +21,10 @@ targets:
       - path: Sources/Boss-Man
         excludes:
           - "Resources/**"
-    resources:
       - path: Sources/Boss-Man/Resources/RedStapler.svg
+        buildPhase: resources
       - path: Sources/Boss-Man/Resources/AppIcon.icon
+        buildPhase: resources
     info:
       path: Sources/Boss-Man/Resources/Info.plist
       properties:
