@@ -1,8 +1,15 @@
 import AppKit
+import Darwin
 import SpriteKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    // Opt in to secure coding for state restoration so the runtime stops
+    // warning "not on all supported macOS versions of this application."
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
+    }
+
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -76,6 +83,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 enum BossManApp {
     static func main() {
+        // Silence the AVSpeechSynthesizer / CoreAudio / Security.framework
+        // stderr chatter (AFPreferences, AVAudioBuffer, AddInstanceForFactory,
+        // DetachedSignatures, HALC overload, etc.). Must run before any
+        // AppKit or AVFoundation symbol is touched so the env var is in
+        // place when those frameworks initialize their logging.
+        setenv("OS_ACTIVITY_MODE", "disable", 1)
+        #if !DEBUG
+        // Release-only: route raw stderr fprintf calls from Apple frameworks
+        // to /dev/null. Kept out of Debug so crash diagnostics stay visible
+        // during development.
+        freopen("/dev/null", "w", stderr)
+        #endif
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
