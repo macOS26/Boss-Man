@@ -49,6 +49,11 @@ targets:
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS: YES
         CODE_SIGN_ENTITLEMENTS: Sources/Boss-Man/Resources/Boss-Man.entitlements
         OTHER_CODE_SIGN_FLAGS: "--options=runtime"
+        # Xcode 15+ "Debug Dylib Support" produces a separate Boss-Man.debug.dylib
+        # whose ad-hoc team ID does not match the main binary under hardened
+        # runtime, so dyld refuses to load it. Disable it for both configs.
+        ENABLE_DEBUG_DYLIB: NO
+        ENABLE_PREVIEWS: NO
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"
         DEVELOPMENT_TEAM: ""
