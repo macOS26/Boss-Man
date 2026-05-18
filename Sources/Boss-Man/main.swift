@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        setApplicationIcon()
         buildMainMenu()
         let sceneSize = CGSize(width: 1152, height: 648)
         let skView = SKView(frame: CGRect(origin: .zero, size: sceneSize))
@@ -33,6 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    private func setApplicationIcon() {
+        guard let url = Bundle.module.url(forResource: "AppIcon", withExtension: "svg"),
+              let image = NSImage(contentsOf: url) else { return }
+        image.size = NSSize(width: 512, height: 512)
+        NSApplication.shared.applicationIconImage = image
     }
 
     private func buildMainMenu() {
