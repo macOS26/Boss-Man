@@ -111,10 +111,18 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         engine.attach(musicPlayer)
         engine.connect(effectsPlayer, to: engine.mainMixerNode, format: format)
         engine.connect(musicPlayer, to: engine.mainMixerNode, format: format)
-        engine.mainMixerNode.outputVolume = 0.8
+        // Lower mixer headroom so speech + music + effects can't sum past
+        // full-scale and clip — clipping is what's audible as "crackle"
+        // when the speech synthesizer's audio unit kicks in alongside ours.
+        engine.mainMixerNode.outputVolume = 0.55
         effectsPlayer.volume = normalEffectsVolume
         musicPlayer.volume = normalMusicVolume
         speech.delegate = self
+        // Give the output audio unit a larger render slice so the HAL has
+        // more slack before it logs an overload (and audibly crackles)
+        // when AVSpeechSynthesizer spins up its own audio path.
+        let outputAU = engine.outputNode.auAudioUnit
+        outputAU.maximumFramesToRender = max(outputAU.maximumFramesToRender, 4096)
         do {
             try engine.start()
         } catch {
