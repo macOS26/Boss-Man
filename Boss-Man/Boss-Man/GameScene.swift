@@ -151,6 +151,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var lastSwipeTime: TimeInterval = 0
     private let swipeThreshold: CGFloat = 24
     private let swipeRestartGap: TimeInterval = 0.35
+    private var scrollMonitor: Any?
+    private var cursorIsHidden = false
 
     override func didMove(to view: SKView) {
         backgroundColor = NSColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
@@ -167,6 +169,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
         sound.startBackgroundMusic()
         setupGameController()
+        setupTrackpadSwipeMonitor()
+        hideCursor()
+    }
+
+    override func willMove(from view: SKView) {
+        if let monitor = scrollMonitor {
+            NSEvent.removeMonitor(monitor)
+            scrollMonitor = nil
+        }
+        unhideCursor()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -237,7 +249,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - Trackpad swipe (two-finger pan)
 
-    override func scrollWheel(with event: NSEvent) {
+    /// SKView forwards keyDown to its scene but does NOT forward
+    /// scrollWheel events — so we register a local NSEvent monitor to
+    /// catch trackpad pans application-wide and route them through the
+    /// same direction queue.
+    private func setupTrackpadSwipeMonitor() {
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            self?.handleTrackpadScroll(event)
+            return event
+        }
+    }
+
+    private func handleTrackpadScroll(_ event: NSEvent) {
         guard event.hasPreciseScrollingDeltas, !isGameOver else { return }
         let now = CACurrentMediaTime()
         if now - lastSwipeTime > swipeRestartGap {
@@ -260,6 +283,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         queueDirection(direction)
         swipeAccumX = 0
         swipeAccumY = 0
+    }
+
+    // MARK: - Cursor
+
+    private func hideCursor() {
+        guard !cursorIsHidden else { return }
+        NSCursor.hide()
+        cursorIsHidden = true
+    }
+
+    private func unhideCursor() {
+        guard cursorIsHidden else { return }
+        NSCursor.unhide()
+        cursorIsHidden = false
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -714,6 +751,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func triggerGameOver() {
         isGameOver = true
+        unhideCursor()
         sound.stopBackgroundMusic()
         sound.playGameOver()
         workerDirection = nil
@@ -731,6 +769,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func restartGame() {
         hud.hideGameOver()
         sound.startBackgroundMusic()
+        hideCursor()
         isGameOver = false
         level = 1
         lives = HUD.maxLives
