@@ -1,4 +1,5 @@
 import AppKit
+import GameController
 import SpriteKit
 
 final class GameScene: SKScene, SKPhysicsContactDelegate {
@@ -137,6 +138,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var lastFishMove: TimeInterval = 0
     private let fishMoveInterval: TimeInterval = 0.22
 
+    // Joystick + D-pad: track the last dominant stick direction so we only
+    // queue a new MoveDirection on edge transitions (stick crossing into a
+    // new direction), not every analog-value update.
+    private var lastPadDirection: MoveDirection?
+    private let padDeadzone: Float = 0.35
+
+    // Trackpad two-finger pan: scrollWheel deltas accumulate until they
+    // cross a directional threshold, then we queue the move and reset.
+    private var swipeAccumX: CGFloat = 0
+    private var swipeAccumY: CGFloat = 0
+    private var lastSwipeTime: TimeInterval = 0
+    private let swipeThreshold: CGFloat = 24
+    private let swipeRestartGap: TimeInterval = 0.35
+
     override func didMove(to view: SKView) {
         backgroundColor = NSColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
         anchorPoint = CGPoint(x: 0, y: 0)
@@ -151,6 +166,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         buildLevel()
         hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
         sound.startBackgroundMusic()
+        setupGameController()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -159,8 +175,91 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         guard let direction = MoveDirection(keyCode: event.keyCode), !event.isARepeat else { return }
+        queueDirection(direction)
+    }
+
+    /// Single entry point for every input source (keyboard, gamepad
+    /// D-pad/thumbstick, trackpad swipe). Mirrors the Pac-Man turn-buffer
+    /// contract: set the desired direction, seed workerDirection only if
+    /// PETE is currently idle.
+    private func queueDirection(_ direction: MoveDirection) {
         queuedWorkerDirection = direction
         if workerDirection == nil { workerDirection = direction }
+    }
+
+    // MARK: - Gamepad (MFi / Xbox / DualShock / DualSense)
+
+    private func setupGameController() {
+        GCController.startWirelessControllerDiscovery()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleControllerDidConnect(_:)),
+            name: .GCControllerDidConnect,
+            object: nil
+        )
+        GCController.controllers().forEach(configureGameController(_:))
+    }
+
+    @objc private func handleControllerDidConnect(_ notification: Notification) {
+        guard let controller = notification.object as? GCController else { return }
+        configureGameController(controller)
+    }
+
+    private func configureGameController(_ controller: GCController) {
+        guard let gamepad = controller.extendedGamepad else { return }
+        gamepad.dpad.valueChangedHandler = { [weak self] _, x, y in
+            self?.handlePadAxis(x: x, y: y)
+        }
+        gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, x, y in
+            self?.handlePadAxis(x: x, y: y)
+        }
+    }
+
+    private func handlePadAxis(x: Float, y: Float) {
+        let absX = abs(x), absY = abs(y)
+        let direction: MoveDirection?
+        if max(absX, absY) < padDeadzone {
+            direction = nil
+        } else if absX > absY {
+            direction = x < 0 ? .left : .right
+        } else {
+            // GCController y axis: up is positive.
+            direction = y > 0 ? .up : .down
+        }
+        guard direction != lastPadDirection else { return }
+        lastPadDirection = direction
+        if let direction, !isGameOver {
+            DispatchQueue.main.async { [weak self] in
+                self?.queueDirection(direction)
+            }
+        }
+    }
+
+    // MARK: - Trackpad swipe (two-finger pan)
+
+    override func scrollWheel(with event: NSEvent) {
+        guard event.hasPreciseScrollingDeltas, !isGameOver else { return }
+        let now = CACurrentMediaTime()
+        if now - lastSwipeTime > swipeRestartGap {
+            swipeAccumX = 0
+            swipeAccumY = 0
+        }
+        lastSwipeTime = now
+        swipeAccumX += event.scrollingDeltaX
+        swipeAccumY += event.scrollingDeltaY
+        let absX = abs(swipeAccumX), absY = abs(swipeAccumY)
+        guard max(absX, absY) >= swipeThreshold else { return }
+        let direction: MoveDirection
+        if absX > absY {
+            // scrollingDeltaX > 0 when fingers move right with natural scrolling.
+            direction = swipeAccumX > 0 ? .right : .left
+        } else {
+            // scrollingDeltaY > 0 when fingers move up with natural scrolling.
+            direction = swipeAccumY > 0 ? .up : .down
+        }
+        queueDirection(direction)
+        swipeAccumX = 0
+        swipeAccumY = 0
     }
 
     override func update(_ currentTime: TimeInterval) {
