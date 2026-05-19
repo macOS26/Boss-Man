@@ -27,3 +27,6 @@ You are an office worker trapped in a maze of cubicles. Eat the glowing office d
 ```bash
 swift run Boss-Man
 ```
+
+## Made with Agent!
+This arcade style video game was created using Agent, autonomous agentic AI, for macOS 26.4.1 https://github.com/macos26/agent
