@@ -170,14 +170,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             endPowerPelletMode()
         }
 
-        if !isWorkerMoving,
-           currentTime - lastWorkerMove > workerMoveInterval,
-           let direction = queuedWorkerDirection ?? workerDirection {
-            lastWorkerMove = currentTime
-            workerDirection = direction
-            queuedWorkerDirection = nil
-            let delta = direction.delta
-            tryMoveWorker(dx: delta.dx, dy: delta.dy)
+        if !isWorkerMoving, currentTime - lastWorkerMove > workerMoveInterval {
+            attemptWorkerStep()
         }
 
         stepBosses(currentTime: currentTime)
@@ -466,6 +460,34 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+    /// Pac-Man turn buffer: at each grid-aligned step, try the queued
+    /// direction first; if the corridor is open, adopt it and clear the
+    /// queue. Otherwise keep moving in the current direction. The queue
+    /// is intentionally NOT cleared when blocked — it persists until the
+    /// corresponding path opens up, so a player who pressed Up while
+    /// running west will turn the moment a north opening appears.
+    private func attemptWorkerStep() {
+        if let queued = queuedWorkerDirection,
+           gridMap.isWalkable(neighbor(of: workerGrid, in: queued)) {
+            workerDirection = queued
+            queuedWorkerDirection = nil
+        }
+        guard let direction = workerDirection else { return }
+        let next = neighbor(of: workerGrid, in: direction)
+        guard gridMap.isWalkable(next) else {
+            worker.stopWalking()
+            return
+        }
+        lastWorkerMove = lastUpdateTime
+        let delta = direction.delta
+        tryMoveWorker(dx: delta.dx, dy: delta.dy)
+    }
+
+    private func neighbor(of grid: CGPoint, in direction: MoveDirection) -> CGPoint {
+        let d = direction.delta
+        return CGPoint(x: Int(grid.x) + d.dx, y: Int(grid.y) + d.dy)
+    }
+
     private func tryMoveWorker(dx: Int, dy: Int) {
         guard !isWorkerMoving else { return }
         let next = CGPoint(x: Int(workerGrid.x) + dx, y: Int(workerGrid.y) + dy)
@@ -490,12 +512,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 }
                 self.isWorkerMoving = false
                 self.lastWorkerMove = self.lastUpdateTime
-                if !self.isGameOver,
-                   let direction = self.queuedWorkerDirection ?? self.workerDirection {
-                    self.workerDirection = direction
-                    self.queuedWorkerDirection = nil
-                    let delta = direction.delta
-                    self.tryMoveWorker(dx: delta.dx, dy: delta.dy)
+                if !self.isGameOver {
+                    self.attemptWorkerStep()
                 }
             }
         ]), withKey: "workerMove")
