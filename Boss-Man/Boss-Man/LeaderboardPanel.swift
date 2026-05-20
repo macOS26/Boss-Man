@@ -42,7 +42,7 @@ final class LeaderboardPanel: SKNode {
         )
 
         // Drop shadow: slightly larger, offset down-right, dark and soft.
-        let shadow = SKShapeNode(rect: rect.offsetBy(dx: 6, dy: -8).insetBy(dx: -2, dy: -2), cornerRadius: 4)
+        let shadow = SKShapeNode(rect: rect.offsetBy(dx: 6, dy: -8).insetBy(dx: -2, dy: -2))
         shadow.fillColor = NSColor(calibratedWhite: 0, alpha: 0.28)
         shadow.strokeColor = .clear
         shadow.zPosition = -1
@@ -55,7 +55,7 @@ final class LeaderboardPanel: SKNode {
         // The Post-it itself: classic 3M canary yellow with a faint
         // square corner (Post-its have very tight radii, not rounded
         // pills) and no stroke.
-        let postIt = SKShapeNode(rect: rect, cornerRadius: 3)
+        let postIt = SKShapeNode(rect: rect)
         postIt.fillColor = NSColor(calibratedRed: 1.0, green: 0.92, blue: 0.42, alpha: 1)
         postIt.strokeColor = .clear
         addChild(postIt)
@@ -69,7 +69,7 @@ final class LeaderboardPanel: SKNode {
             y: rect.maxY - adhesiveHeight,
             width: rect.width,
             height: adhesiveHeight
-        ), cornerRadius: 3)
+        ))
         adhesive.fillColor = NSColor(calibratedRed: 1.0, green: 0.88, blue: 0.34, alpha: 0.45)
         adhesive.strokeColor = .clear
         addChild(adhesive)
