@@ -56,9 +56,6 @@ final class TitleScene: SKScene {
             bodyFont: "Menlo-Bold"
         )
         panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5)
-        // Slight counter-clockwise tilt so the Post-it looks casually
-        // slapped onto the title screen instead of pixel-aligned.
-        panel.zRotation = 0.045
         addChild(panel)
     }
 

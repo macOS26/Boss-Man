@@ -78,7 +78,6 @@ final class LeaderboardPanel: SKNode {
         title.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
         title.horizontalAlignmentMode = .center
         title.position = CGPoint(x: 0, y: panelSize.height / 2 - 38)
-        title.zRotation = 0.015
         addChild(title)
 
         let underline = SKShapeNode(rect: CGRect(
