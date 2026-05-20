@@ -60,10 +60,12 @@ final class LeaderboardPanel: SKNode {
         postIt.strokeColor = .clear
         addChild(postIt)
 
-        // Adhesive band along the top edge: noticeably taller and a
-        // little more saturated than the body so it reads as the
-        // sticky strip on a real Post-it.
-        let adhesiveHeight: CGFloat = 38
+        // Adhesive band along the top edge: a little more saturated
+        // than the body so it reads as the sticky strip on a real
+        // Post-it. 10pt of breathing room sits between the strip and
+        // the LEADERBOARD title.
+        let adhesiveHeight: CGFloat = 32
+        let adhesiveToTitleGap: CGFloat = 10
         let adhesive = SKShapeNode(rect: CGRect(
             x: rect.minX,
             y: rect.maxY - adhesiveHeight,
@@ -74,17 +76,19 @@ final class LeaderboardPanel: SKNode {
         adhesive.strokeColor = .clear
         addChild(adhesive)
 
+        let titleBaselineY = panelSize.height / 2 - adhesiveHeight - adhesiveToTitleGap - 18
+
         let title = SKLabelNode(fontNamed: titleFontName)
         title.text = "LEADERBOARD"
         title.fontSize = 24
         title.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
         title.horizontalAlignmentMode = .center
-        title.position = CGPoint(x: 0, y: panelSize.height / 2 - adhesiveHeight - 26)
+        title.position = CGPoint(x: 0, y: titleBaselineY)
         addChild(title)
 
         let underline = SKShapeNode(rect: CGRect(
             x: -panelSize.width / 2 + 22,
-            y: panelSize.height / 2 - adhesiveHeight - 40,
+            y: titleBaselineY - 14,
             width: panelSize.width - 44,
             height: 1.5
         ))
@@ -92,7 +96,7 @@ final class LeaderboardPanel: SKNode {
         underline.strokeColor = .clear
         addChild(underline)
 
-        entriesNode.position = CGPoint(x: 0, y: panelSize.height / 2 - adhesiveHeight - 68)
+        entriesNode.position = CGPoint(x: 0, y: titleBaselineY - 42)
         addChild(entriesNode)
     }
 
