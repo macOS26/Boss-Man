@@ -43,7 +43,7 @@ final class LeaderboardPanel: SKNode {
 
         // Drop shadow: slightly larger, offset down-right, dark and soft.
         let shadow = SKShapeNode(rect: rect.offsetBy(dx: 6, dy: -8).insetBy(dx: -2, dy: -2))
-        shadow.fillColor = NSColor(calibratedWhite: 0, alpha: 0.28)
+        shadow.fillColor = NSColor(calibratedWhite: 0, alpha: 0.14)
         shadow.strokeColor = .clear
         shadow.zPosition = -1
         let blur = SKEffectNode()
