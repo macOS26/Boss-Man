@@ -165,7 +165,7 @@ final class HUD {
         overlay.addChild(prompt)
 
         let exit = SKLabelNode(fontNamed: "Menlo-Bold")
-        exit.text = "PRESS ESC TO RETURN TO TITLE"
+        exit.text = "PRESS ESC FOR TITLE SCREEN"
         exit.fontSize = 14
         exit.fontColor = NSColor(calibratedWhite: 0.75, alpha: 1)
         exit.position = CGPoint(x: size.width / 2, y: size.height / 2 - 72)
