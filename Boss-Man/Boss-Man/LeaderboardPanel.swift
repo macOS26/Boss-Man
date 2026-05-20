@@ -70,7 +70,7 @@ final class LeaderboardPanel: SKNode {
             width: rect.width,
             height: adhesiveHeight
         ), cornerRadius: 3)
-        adhesive.fillColor = NSColor(calibratedRed: 0.99, green: 0.83, blue: 0.20, alpha: 0.70)
+        adhesive.fillColor = NSColor(calibratedRed: 1.0, green: 0.88, blue: 0.34, alpha: 0.45)
         adhesive.strokeColor = .clear
         addChild(adhesive)
 
