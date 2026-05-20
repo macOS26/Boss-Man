@@ -16,8 +16,8 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     ]
     private let cubicleColors: [NSColor] = [
         .systemBlue, .systemTeal, .systemIndigo, .systemGreen, .systemPink, .systemBrown,
-        .systemPurple, .systemRed, .systemOrange, .systemYellow, .systemCyan, //.systemGray (save Mint for Men in Black Level)
-    ]x
+        .systemPurple, .systemRed, .systemOrange, .systemYellow, .systemCyan, //.systemGray (save for Men in Black Level)
+    ]
 
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
@@ -48,7 +48,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         mazeBuilder = MazeBuilder(map: gridMap, powerPelletPositions: powerPelletPositions, machineNames: machineNames)
         hud = HUD(requiredItems: requiredItems)
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
-        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder)
+        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound)
         bossController.delegate = self
         wireContactRouter()
 
@@ -125,9 +125,18 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         contactRouter.shouldIgnoreContact = { [weak self] in self?.isGameOver ?? true }
         contactRouter.onBossTouchedWorker = { [weak self] node in
             guard let self else { return }
-            if self.isPowerPelletMode, let bossNode = node as? PixelPerson {
+            guard let bossNode = node as? PixelPerson else { return }
+            // Skip while the boss is in its post-escape spawn freeze —
+            // he's visible but can't kill yet.
+            if self.bossController.isImmobilized(boss: bossNode) { return }
+            if self.bossController.isInFleeMode(boss: bossNode) {
                 self.bossController.capture(boss: bossNode)
             } else {
+                // Snap the catching boss to its spawn BEFORE the death
+                // sequence runs — keeps it from re-colliding with PETE
+                // mid-flow and gives the rest of bossCaughtWorker a
+                // clean board to work from.
+                self.bossController.relocateAfterCatch(boss: bossNode)
                 self.bossCaughtWorker()
             }
         }

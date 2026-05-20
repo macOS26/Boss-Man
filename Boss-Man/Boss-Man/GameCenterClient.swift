@@ -20,7 +20,15 @@ enum GameCenterClient {
     }
 
     static func submitScore(_ score: Int, to leaderboardID: String) {
-        guard GKLocalPlayer.local.isAuthenticated, score > 0 else { return }
+        guard GKLocalPlayer.local.isAuthenticated else {
+            print("[GC] submit skipped: not authenticated")
+            return
+        }
+        guard score > 0 else {
+            print("[GC] submit skipped: score 0")
+            return
+        }
+        print("[GC] submitting score=\(score) to '\(leaderboardID)' as \(GKLocalPlayer.local.displayName)")
         GKLeaderboard.submitScore(
             score,
             context: 0,
@@ -28,7 +36,9 @@ enum GameCenterClient {
             leaderboardIDs: [leaderboardID]
         ) { error in
             if let error {
-                NSLog("Game Center score submit failed: \(error.localizedDescription)")
+                print("[GC] submit FAILED: \(error.localizedDescription) | \(error)")
+            } else {
+                print("[GC] submit OK")
             }
         }
     }

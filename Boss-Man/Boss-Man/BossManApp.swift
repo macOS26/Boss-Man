@@ -4,7 +4,7 @@ import GameKit
 import SpriteKit
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterControllerDelegate {
     static let startFullscreenKey = "Boss-Man.startFullscreen"
 
     /// User preference: launch fullscreen on next start. Defaults to true
@@ -108,8 +108,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startFullscreenMenuItem?.state = AppDelegate.startFullscreenPreference ? .on : .off
     }
 
+    @objc private func resetLocalLeaderboard(_ sender: Any?) {
+        let alert = NSAlert()
+        alert.messageText = "Reset Local Leaderboard?"
+        alert.informativeText = "This clears every high-score entry stored on this Mac. Game Center scores are unaffected and can only be reset from App Store Connect."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Reset")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        UserDefaults.standard.removeObject(forKey: LocalHighScores.storeKey)
+        UserDefaults.standard.removeObject(forKey: RoundState.highScoreKey)
+    }
+
     @objc private func toggleWindowFullscreen(_ sender: Any?) {
         window?.toggleFullScreen(nil)
+    }
+
+    @objc private func openGameCenter(_ sender: Any?) {
+        let vc = GKGameCenterViewController(state: .default)
+        vc.gameCenterDelegate = self
+        let hostingWindow = NSWindow(contentViewController: vc)
+        hostingWindow.styleMask = [.titled, .closable, .resizable]
+        hostingWindow.title = "Game Center"
+        hostingWindow.setContentSize(CGSize(width: 720, height: 540))
+        hostingWindow.center()
+        hostingWindow.makeKeyAndOrderFront(nil)
+    }
+
+    func gameCenterViewControllerDidFinish(_ gameCenterViewController: GKGameCenterViewController) {
+        gameCenterViewController.view.window?.close()
     }
 
     @objc private func windowFullscreenStateChanged(_ notification: Notification) {
@@ -140,6 +167,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startFullscreenItem.target = self
         startFullscreenItem.state = AppDelegate.startFullscreenPreference ? .on : .off
         startFullscreenMenuItem = startFullscreenItem
+
+        let resetLeaderboardItem = appMenu.addItem(
+            withTitle: "Reset Local Leaderboard…",
+            action: #selector(resetLocalLeaderboard(_:)),
+            keyEquivalent: ""
+        )
+        resetLeaderboardItem.target = self
+
+        let gameCenterItem = appMenu.addItem(
+            withTitle: "Game Center",
+            action: #selector(openGameCenter(_:)),
+            keyEquivalent: ""
+        )
+        gameCenterItem.target = self
         appMenu.addItem(NSMenuItem.separator())
 
         let hideItem = appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")

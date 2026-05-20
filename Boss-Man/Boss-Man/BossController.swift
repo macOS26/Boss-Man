@@ -33,6 +33,18 @@ final class BossController {
         /// forced toward an interior (non-doorway) neighbor — the boss
         /// "commits" through the doorway and can't whip back in.
         var mustExitDoorway: Bool = false
+        /// True while this boss is in scared/blue mode and capturable.
+        /// Toggled per-boss so a boss that has "escaped" power-pellet
+        /// mode by being captured 3 times can return to dangerous even
+        /// while the global power-pellet timer is still running.
+        var isInFleeMode: Bool = false
+        /// Number of times PETE has captured this boss in the current
+        /// power-pellet window. After 3 the boss respawns as a regular
+        /// boss (immobile + immune for 3 seconds while fading back in).
+        var captureCount: Int = 0
+        /// During the 3-second post-escape spawn freeze, the boss can't
+        /// step and contacts with PETE are ignored.
+        var isImmobilized: Bool = false
     }
 
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] = [
@@ -50,14 +62,17 @@ final class BossController {
     private weak var scene: SKScene?
     private let gridMap: GridMap
     private let pathfinder: Pathfinder
+    private let sound: SoundManager
     private(set) var entities: [Entity] = []
     private var captureStreak = 0
+    private var currentLevel = 1
 
     var hasFirstBoss: Bool { !entities.isEmpty }
     var firstBossGrid: CGPoint? { entities.first?.ai.grid }
 
-    init(scene: SKScene, gridMap: GridMap, pathfinder: Pathfinder) {
+    init(scene: SKScene, gridMap: GridMap, pathfinder: Pathfinder, sound: SoundManager) {
         self.scene = scene
+        self.sound = sound
         self.gridMap = gridMap
         self.pathfinder = pathfinder
     }
@@ -66,6 +81,7 @@ final class BossController {
 
     func spawn(forLevel level: Int) {
         clear()
+        currentLevel = level
         guard let scene else { return }
         let activeCount = min(max(level, 1), Self.blueprints.count)
         for blueprint in Self.blueprints.prefix(activeCount) {
@@ -116,8 +132,73 @@ final class BossController {
                 lastMove: 0
             )
             entities.append(entity)
-            scheduleStepper(for: entity)
+            respawn(at: entities.count - 1)
         }
+    }
+
+    /// Snaps a boss back to its spawn tile with all per-run state
+    /// reset (no fade, no animation, no scheduling). Always called
+    /// before applySpawnFreeze so the boss is guaranteed to be at
+    /// home before the freeze visual starts.
+    private func relocateToSpawn(at index: Int) {
+        let entity = entities[index]
+        let node = entity.node
+        node.removeAllActions()
+        node.stopWalking()
+        entity.ai.teleport(to: entity.spawn)
+        node.position = gridMap.point(for: entity.spawn)
+        node.setBodyColor(entity.baseColor)
+        entities[index].captureCount = 0
+        entities[index].isInFleeMode = false
+        entities[index].mustExitDoorway = false
+    }
+
+    /// Single source of truth for the full boss spawn cycle:
+    ///   1. relocateToSpawn  — snap home + reset state
+    ///   2. scheduleStepper  — re-queue the AI tick
+    ///   3. applySpawnFreeze — fade / throb / re-arm schedule
+    /// Called by level start, post-PETE-death respawn, and the
+    /// 3-strikes-and-out power-pellet escape.
+    private func respawn(at index: Int) {
+        relocateToSpawn(at: index)
+        scheduleStepper(for: entities[index])
+        applySpawnFreeze(at: index)
+    }
+
+    /// Three-second boss spawn / respawn freeze:
+    ///   • 0.0–1.5s  fade in from invisible.
+    ///   • 2.0s       isImmobilized = false (boss starts stepping).
+    ///   • 2.0–3.0s   pulse/throb scale as a "danger imminent" tell.
+    ///   • 3.0s       physics body re-armed — only now can he kill PETE.
+    private func applySpawnFreeze(at index: Int) {
+        entities[index].isImmobilized = true
+        let node = entities[index].node
+        node.alpha = 0
+        node.setScale(1.0)
+        node.physicsBody?.categoryBitMask = 0
+
+        sound.playTeleport()
+        node.run(.fadeIn(withDuration: 1.5), withKey: "spawnFade")
+
+        node.run(.sequence([
+            .wait(forDuration: 2.0),
+            .run { [weak self] in self?.entities[index].isImmobilized = false },
+            .wait(forDuration: 1.0),
+            .run { [weak self] in
+                self?.entities[index].node.physicsBody?.categoryBitMask = PhysicsCategory.boss
+            }
+        ]), withKey: "spawnUnfreeze")
+
+        // Three quick pulses in the 2.0–3.0s window — gives the player
+        // a visual cue that this boss is about to become dangerous.
+        let pulse = SKAction.sequence([
+            .scale(to: 1.18, duration: 0.16),
+            .scale(to: 1.0, duration: 0.17)
+        ])
+        node.run(.sequence([
+            .wait(forDuration: 2.0),
+            .repeat(pulse, count: 3)
+        ]), withKey: "spawnThrob")
     }
 
     func clear() {
@@ -129,15 +210,12 @@ final class BossController {
         captureStreak = 0
     }
 
+    /// Called when PETE dies — fully tear every boss down and respawn
+    /// from scratch at the current level. Cleaner than per-boss state
+    /// reset because it guarantees zero leftover SKActions, physics
+    /// state, or stale node references.
     func teleportAllToSpawn() {
-        for boss in entities {
-            boss.ai.teleport(to: boss.spawn)
-            // Keep the keyed stepper alive — only cancel the current
-            // move animation so the boss snaps home and keeps stepping.
-            boss.node.removeAction(forKey: "bossMove")
-            boss.node.stopWalking()
-            boss.node.run(SKAction.move(to: gridMap.point(for: boss.spawn), duration: 0.2))
-        }
+        spawn(forLevel: currentLevel)
     }
 
     func stopAll() {
@@ -150,14 +228,34 @@ final class BossController {
     // MARK: - Power pellet
 
     func setPowerPelletActive(_ active: Bool) {
-        if active {
-            captureStreak = 0
-            for boss in entities { boss.node.setBodyColor(.systemBlue) }
-        } else {
-            captureStreak = 0
-            for boss in entities { boss.node.setBodyColor(boss.baseColor) }
+        captureStreak = 0
+        for i in entities.indices {
+            entities[i].captureCount = 0
+            entities[i].isInFleeMode = active
+            entities[i].node.setBodyColor(active ? .systemBlue : entities[i].baseColor)
         }
         refreshTags(powerPelletActive: active)
+    }
+
+    /// True only when this specific boss is currently capturable. After
+    /// 3 captures in a single power-pellet window the boss flips back
+    /// to dangerous even while the global timer keeps running.
+    func isInFleeMode(boss node: PixelPerson) -> Bool {
+        entities.first(where: { $0.node === node })?.isInFleeMode ?? false
+    }
+
+    /// True while a boss is in its post-escape freeze — can't move,
+    /// can't catch PETE.
+    func isImmobilized(boss node: PixelPerson) -> Bool {
+        entities.first(where: { $0.node === node })?.isImmobilized ?? false
+    }
+
+    /// Snap a specific boss back to its spawn tile immediately. Used
+    /// the moment a boss catches PETE so the boss isn't sitting on
+    /// top of PETE's respawn point while bossCaughtWorker runs.
+    func relocateAfterCatch(boss node: PixelPerson) {
+        guard let index = entities.firstIndex(where: { $0.node === node }) else { return }
+        relocateToSpawn(at: index)
     }
 
     private func refreshTags(powerPelletActive: Bool) {
@@ -192,7 +290,7 @@ final class BossController {
     }
 
     private func stepOne(at index: Int) {
-        guard let delegate else { return }
+        guard let delegate, !entities[index].isImmobilized else { return }
         let boss = entities[index]
         let blinkyGrid = firstBossGrid
 
@@ -246,9 +344,13 @@ final class BossController {
             ]), withKey: "bossMove")
         }
         if Pathfinder.manhattanDistance(move.to, delegate.workerGrid) < 0.5 {
-            if delegate.isPowerPelletMode {
+            if entities[index].isInFleeMode {
                 capture(at: index)
             } else {
+                // Snap the catching boss home FIRST so it isn't sitting
+                // on PETE's tile when bossCaughtWorker (or a follow-up
+                // contact) fires.
+                relocateToSpawn(at: index)
                 delegate.bossDidCatchWorker()
             }
         }
@@ -277,31 +379,40 @@ final class BossController {
     private func capture(at index: Int) {
         let boss = entities[index]
         captureStreak += 1
+        entities[index].captureCount += 1
         let points = 100 * captureStreak
+        let hasEscaped = entities[index].captureCount >= 3
+        let powerActive = delegate?.isPowerPelletMode ?? false
+
         boss.ai.teleport(to: boss.spawn)
-        // Cancel the current move only — keep the keyed stepper alive
-        // so the boss resumes chasing after the capture animation.
         boss.node.removeAction(forKey: "bossMove")
         boss.node.stopWalking()
         boss.node.physicsBody?.categoryBitMask = 0
         let homePoint = gridMap.point(for: boss.spawn)
         let bossNode = boss.node
-        let powerActive = delegate?.isPowerPelletMode ?? false
-        bossNode.run(.sequence([
-            .group([
-                .scale(to: 1.6, duration: 0.25),
-                .fadeOut(withDuration: 0.25)
-            ]),
-            .run { [weak bossNode] in bossNode?.position = homePoint },
-            .group([
-                .scale(to: 1.0, duration: 0.2),
-                .fadeIn(withDuration: 0.2)
-            ]),
-            .run { [weak bossNode] in
-                bossNode?.physicsBody?.categoryBitMask = PhysicsCategory.boss
-            }
-        ]))
-        boss.node.setBodyColor(powerActive ? .systemBlue : boss.baseColor)
+
+        if hasEscaped {
+            // 3 captures in this power-pellet window → boss escapes.
+            // Same respawn path as level-start / post-death so the
+            // visual + audio rhythm is identical.
+            respawn(at: index)
+        } else {
+            bossNode.run(.sequence([
+                .group([
+                    .scale(to: 1.6, duration: 0.25),
+                    .fadeOut(withDuration: 0.25)
+                ]),
+                .run { [weak bossNode] in bossNode?.position = homePoint },
+                .group([
+                    .scale(to: 1.0, duration: 0.2),
+                    .fadeIn(withDuration: 0.2)
+                ]),
+                .run { [weak bossNode] in
+                    bossNode?.physicsBody?.categoryBitMask = PhysicsCategory.boss
+                }
+            ]))
+            boss.node.setBodyColor(powerActive ? .systemBlue : boss.baseColor)
+        }
         refreshTags(powerPelletActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)
     }

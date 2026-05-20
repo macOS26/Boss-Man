@@ -9,7 +9,7 @@ import SpriteKit
 @MainActor
 final class LeaderboardPanel: SKNode {
     /// Must match the leaderboard ID created in App Store Connect.
-    static let leaderboardID = "boss_man.high_score"
+    static let leaderboardID = "BossManLeaderBoard0001"
 
     /// Node name used for click hit-testing on the sign-in link.
     static let signInLinkNodeName = "leaderboard.signin_link"
@@ -18,6 +18,9 @@ final class LeaderboardPanel: SKNode {
     private let titleFontName: String
     private let bodyFontName: String
     private let entriesNode = SKNode()
+    private let titleLabel = SKLabelNode()
+    private var notAuthRetries = 0
+    private let maxNotAuthRetries = 3
 
     init(size: CGSize, titleFont: String, bodyFont: String) {
         self.panelSize = size
@@ -27,6 +30,32 @@ final class LeaderboardPanel: SKNode {
         buildShell()
         showStatus("Loading…")
         load()
+        // GameKit auth is async — when the auth handler eventually
+        // fires (sometimes seconds after the panel appears), reload so
+        // we can pull the cloud leaderboard.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(authStateChanged),
+            name: .GKPlayerAuthenticationDidChangeNotificationName,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func authStateChanged() {
+        print("[GC] auth state changed: isAuthenticated=\(GKLocalPlayer.local.isAuthenticated)")
+        guard GKLocalPlayer.local.isAuthenticated else { return }
+        // GKLocalPlayer flips isAuthenticated before the GameKit session
+        // is fully ready for API calls — calling loadLeaderboards too
+        // soon throws GKError.notAuthenticated. Wait 1.5s for the
+        // session to settle before reloading.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            load()
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -78,13 +107,13 @@ final class LeaderboardPanel: SKNode {
 
         let titleBaselineY = panelSize.height / 2 - adhesiveHeight - adhesiveToTitleGap - 18
 
-        let title = SKLabelNode(fontNamed: titleFontName)
-        title.text = "LEADERBOARD"
-        title.fontSize = 24
-        title.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
-        title.horizontalAlignmentMode = .center
-        title.position = CGPoint(x: 0, y: titleBaselineY)
-        addChild(title)
+        titleLabel.fontName = titleFontName
+        titleLabel.text = "LEADERBOARD"
+        titleLabel.fontSize = 24
+        titleLabel.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
+        titleLabel.horizontalAlignmentMode = .center
+        titleLabel.position = CGPoint(x: 0, y: titleBaselineY)
+        addChild(titleLabel)
 
         let underlineHeight: CGFloat = 2
         let underline = SKShapeNode(
@@ -148,24 +177,62 @@ final class LeaderboardPanel: SKNode {
 
         Task { @MainActor in
             guard GKLocalPlayer.local.isAuthenticated else {
-                if LocalHighScores.load().isEmpty {
-                    showStatus("Sign in to Game Center", asLink: true)
-                }
+                print("[GC] player NOT authenticated; staying on local fallback")
                 return
+            }
+            let lp = GKLocalPlayer.local
+            print("[GC] player \(lp.displayName) authenticated; fetching '\(Self.leaderboardID)'")
+            print("[GC]   gamePlayerID='\(lp.gamePlayerID)' teamPlayerID='\(lp.teamPlayerID)' scopedIDsPersistent=\(lp.scopedIDsArePersistent())")
+            // Sanity probe: ask Game Center for ALL leaderboards on this
+            // app. If THIS succeeds but the ID-specific load fails, the
+            // bug is the leaderboard's server-side state. If THIS also
+            // fails, the bug is the app-to-Game-Center linkage.
+            do {
+                let all = try await GKLeaderboard.loadLeaderboards(IDs: nil)
+                print("[GC]   probe: app has \(all.count) leaderboard(s) registered server-side")
+                for b in all {
+                    print("[GC]   • '\(b.baseLeaderboardID)' title='\(b.title ?? "nil")'")
+                }
+            } catch {
+                print("[GC]   probe FAILED: \(error.localizedDescription)")
             }
             do {
                 let leaderboards = try await GKLeaderboard.loadLeaderboards(IDs: [Self.leaderboardID])
-                guard let board = leaderboards.first else { return }
-                let (_, entries, _) = try await board.loadEntries(
+                print("[GC] loadLeaderboards returned \(leaderboards.count) board(s)")
+                guard let board = leaderboards.first else {
+                    print("[GC] no leaderboard found for ID '\(Self.leaderboardID)' — check ID match + propagation")
+                    return
+                }
+                print("[GC] leaderboard title=\(board.title ?? "nil") baseID=\(board.baseLeaderboardID)")
+                let (_, entries, total) = try await board.loadEntries(
                     for: .global,
                     timeScope: .allTime,
                     range: NSRange(location: 1, length: 10)
                 )
+                print("[GC] loadEntries returned \(entries.count) entries (total=\(total))")
                 if !entries.isEmpty {
                     render(entries: entries)
+                } else {
+                    print("[GC] entries empty — no scores submitted yet, or still propagating")
                 }
             } catch {
-                // Keep local fallback on screen; nothing to do.
+                print("[GC] fetch FAILED: \(error.localizedDescription) | \(error)")
+                // GKError.notAuthenticated (code 6) often fires when the
+                // session is still settling — retry once after a short
+                // delay before giving up.
+                if (error as NSError).code == GKError.notAuthenticated.rawValue,
+                   notAuthRetries < maxNotAuthRetries {
+                    notAuthRetries += 1
+                    print("[GC] retry \(notAuthRetries)/\(maxNotAuthRetries) in 2s …")
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    load()
+                } else if (error as NSError).code == GKError.notAuthenticated.rawValue {
+                    print("[GC] giving up — Game Center doesn't recognize this app yet")
+                    print("[GC] Most likely fix: open the leaderboard in App Store Connect,")
+                    print("[GC]   add an English (U.S.) Localization, then click Save.")
+                    print("[GC]   Without a localization, Game Center treats the leaderboard")
+                    print("[GC]   as 'not ready' and rejects all reads/writes with Code 6.")
+                }
             }
         }
     }
@@ -173,6 +240,7 @@ final class LeaderboardPanel: SKNode {
     private func renderLocalFallback() {
         let locals = LocalHighScores.load()
         guard !locals.isEmpty else { return }
+        titleLabel.fontColor = .systemRed
         entriesNode.removeAllChildren()
         let rowHeight: CGFloat = 28
         let leftEdge = -panelSize.width / 2 + 18
@@ -192,6 +260,7 @@ final class LeaderboardPanel: SKNode {
     }
 
     private func render(entries: [GKLeaderboard.Entry]) {
+        titleLabel.fontColor = .systemGreen
         entriesNode.removeAllChildren()
         let rowHeight: CGFloat = 28
         let leftEdge = -panelSize.width / 2 + 18

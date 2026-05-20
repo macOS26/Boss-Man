@@ -71,33 +71,6 @@ final class TitleScene: SKScene {
         }
     }
 
-    override func mouseDown(with event: NSEvent) {
-        let scenePoint = event.location(in: self)
-        let node = atPoint(scenePoint)
-        if hasSignInLink(node) {
-            openGameCenterSettings()
-        }
-    }
-
-    private func hasSignInLink(_ node: SKNode) -> Bool {
-        var current: SKNode? = node
-        while let n = current {
-            if n.name == LeaderboardPanel.signInLinkNodeName { return true }
-            current = n.parent
-        }
-        return false
-    }
-
-    private func openGameCenterSettings() {
-        // System Settings → Game Center pane. GameKit's authenticate-
-        // Handler is one-shot per session; once the user dismisses the
-        // sign-in sheet, the only reliable way back is through System
-        // Settings.
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Game-Center-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
     /// Loads the CC0 red-stapler SVG (Wikimedia Commons) bundled with the app.
     /// Falls back to a procedural drawing if the asset can't be loaded.
     private func makeStapler() -> SKNode {

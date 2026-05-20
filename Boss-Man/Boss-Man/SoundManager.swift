@@ -346,6 +346,40 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
+    /// Star-Trek-style transporter shimmer used during the boss spawn /
+    /// respawn fade. Pairs an ascending sweep with a descending sweep
+    /// plus high-frequency sparkle, bell-enveloped over the fade window.
+    func playTeleport() {
+        play(buffer: cached("teleport") { self.buildTeleport() })
+    }
+
+    private func buildTeleport() -> AVAudioPCMBuffer {
+        let duration: TimeInterval = 1.5
+        let buffer = makeBuffer(seconds: duration)
+        let data = buffer.floatChannelData![0]
+        let frames = Int(buffer.frameLength)
+        let durF = Float(duration)
+        let ascStart: Float = 220
+        let ascEnd: Float = 1400
+        let descStart: Float = 1400
+        let descEnd: Float = 220
+        var phaseAsc: Float = 0
+        var phaseDesc: Float = 0
+        let dt: Float = 1.0 / Float(sampleRate)
+        for i in 0..<frames {
+            let t = Float(i) / Float(sampleRate)
+            let progress = t / durF
+            let ascFreq = ascStart * pow(ascEnd / ascStart, progress)
+            let descFreq = descStart * pow(descEnd / descStart, progress)
+            phaseAsc += 2 * .pi * ascFreq * dt
+            phaseDesc += 2 * .pi * descFreq * dt
+            let env = sin(.pi * progress) // bell — 0 at edges, 1 mid
+            let shimmer = Float.random(in: -1...1) * 0.06
+            data[i] = (sin(phaseAsc) * 0.20 + sin(phaseDesc) * 0.15 + shimmer) * env
+        }
+        return buffer
+    }
+
     // MARK: - Synthesis
 
     private func play(buffer: AVAudioPCMBuffer) {
