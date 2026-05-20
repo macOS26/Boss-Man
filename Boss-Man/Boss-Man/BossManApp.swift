@@ -4,6 +4,19 @@ import SpriteKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    static let startFullscreenKey = "Boss-Man.startFullscreen"
+
+    /// User preference: launch fullscreen on next start. Defaults to true
+    /// the first time the app runs so new users get the immersive view.
+    static var startFullscreenPreference: Bool {
+        get {
+            let defaults = UserDefaults.standard
+            if defaults.object(forKey: startFullscreenKey) == nil { return true }
+            return defaults.bool(forKey: startFullscreenKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: startFullscreenKey) }
+    }
+
     // Opt in to secure coding for state restoration so the runtime stops
     // warning "not on all supported macOS versions of this application."
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -11,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var window: NSWindow!
+    private var startFullscreenMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
@@ -35,7 +49,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "Boss-Man"
         window.center()
         window.contentView = skView
+        window.collectionBehavior.insert(.fullScreenPrimary)
         window.makeKeyAndOrderFront(nil)
+
+        if AppDelegate.startFullscreenPreference {
+            // Defer until after the window is on-screen so AppKit's
+            // fullscreen transition has a valid starting frame.
+            DispatchQueue.main.async { [weak window] in
+                window?.toggleFullScreen(nil)
+            }
+        }
+    }
+
+    @objc private func toggleStartFullscreenPreference(_ sender: Any?) {
+        AppDelegate.startFullscreenPreference.toggle()
+        startFullscreenMenuItem?.state = AppDelegate.startFullscreenPreference ? .on : .off
+    }
+
+    @objc private func toggleWindowFullscreen(_ sender: Any?) {
+        window?.toggleFullScreen(nil)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -53,6 +85,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
 
+        let startFullscreenItem = appMenu.addItem(
+            withTitle: "Start in Full Screen",
+            action: #selector(toggleStartFullscreenPreference(_:)),
+            keyEquivalent: ""
+        )
+        startFullscreenItem.target = self
+        startFullscreenItem.state = AppDelegate.startFullscreenPreference ? .on : .off
+        startFullscreenMenuItem = startFullscreenItem
+        appMenu.addItem(NSMenuItem.separator())
+
         let hideItem = appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         hideItem.keyEquivalentModifierMask = [.command]
 
@@ -66,6 +108,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.keyEquivalentModifierMask = [.command]
 
         appMenuItem.submenu = appMenu
+
+        let viewMenuItem = NSMenuItem()
+        mainMenu.addItem(viewMenuItem)
+        let viewMenu = NSMenu(title: "View")
+        let fullscreenItem = viewMenu.addItem(
+            withTitle: "Enter Full Screen",
+            action: #selector(toggleWindowFullscreen(_:)),
+            keyEquivalent: "f"
+        )
+        fullscreenItem.target = self
+        fullscreenItem.keyEquivalentModifierMask = [.command, .control]
+        viewMenuItem.submenu = viewMenu
 
         let windowMenuItem = NSMenuItem()
         mainMenu.addItem(windowMenuItem)
