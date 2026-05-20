@@ -3,7 +3,15 @@ import GameController
 import GameKit
 import SpriteKit
 
-final class GameScene: SKScene, SKPhysicsContactDelegate {
+final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputControllerDelegate {
+    // MARK: - PointerInputControllerDelegate
+
+    var isGameOverForInput: Bool { isGameOver }
+
+    func inputControllerDidRequest(_ direction: MoveDirection) {
+        queueDirection(direction)
+    }
+
     private struct BossEntity {
         let name: String
         let baseColor: NSColor
@@ -122,34 +130,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
-    private func recordRunScoreLocally() {
-        // Space-Bar pattern: prefer Game Center's displayName when
-        // authenticated and the value is meaningful (>3 chars), fall
-        // back to a generic "Player" tag otherwise.
-        let displayName = GKLocalPlayer.local.displayName
-        let name = (GKLocalPlayer.local.isAuthenticated && displayName.count > 3)
-            ? displayName
-            : "Player"
-        LocalHighScores.record(name: name, score: score)
-    }
-
-    /// Submits this run's final score to the global Game Center
-    /// leaderboard. Game Center already keeps each player's best, so we
-    /// submit the run total — not the local highScore (which is just a
-    /// device-local UserDefaults persistence convenience).
-    private func submitRunScoreToGameCenter() {
-        guard GKLocalPlayer.local.isAuthenticated, score > 0 else { return }
-        GKLeaderboard.submitScore(
-            score,
-            context: 0,
-            player: GKLocalPlayer.local,
-            leaderboardIDs: [LeaderboardPanel.leaderboardID]
-        ) { error in
-            if let error {
-                NSLog("Game Center score submit failed: \(error.localizedDescription)")
-            }
-        }
-    }
     private var powerPelletCapturesThisCycle = 0
 
     private var workerDirection: MoveDirection?
@@ -162,28 +142,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var isPowerPelletMode = false
     private var powerPelletModeEndsAt: TimeInterval = 0
 
-    private var fishNode: SKNode?
-    private var fishGrid = CGPoint(x: 35, y: 8)
-    private var fishPreviousGrid: CGPoint?
-    private var lastFishMove: TimeInterval = 0
-    private let fishMoveInterval: TimeInterval = 0.22
-
-    // Joystick + D-pad: track the last dominant stick direction so we only
-    // queue a new MoveDirection on edge transitions (stick crossing into a
-    // new direction), not every analog-value update.
-    private var lastPadDirection: MoveDirection?
-    private let padDeadzone: Float = 0.35
-
-    // Mouse / trackpad pointer movement: accumulate per-event deltas until
-    // the dominant axis crosses a threshold, then queue the corresponding
-    // direction. A short idle gap resets the accumulator so successive
-    // flicks read cleanly.
-    private var mouseAccumX: CGFloat = 0
-    private var mouseAccumY: CGFloat = 0
-    private var lastMouseTime: TimeInterval = 0
-    private let mouseThreshold: CGFloat = 18
-    private let mouseRestartGap: TimeInterval = 0.25
-    private var cursorIsHidden = false
+    private let inputController = PointerInputController()
+    private var travelerSpawner: TravelerSpawner!
 
     override func didMove(to view: SKView) {
         backgroundColor = NSColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
@@ -195,19 +155,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         pathfinder = Pathfinder(map: gridMap)
         mazeBuilder = MazeBuilder(map: gridMap, powerPelletPositions: powerPelletPositions, machineNames: machineNames)
         hud = HUD(requiredItems: requiredItems)
+        travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
 
         buildLevel()
         hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
         sound.startBackgroundMusic()
-        setupGameController()
+        inputController.delegate = self
+        inputController.start()
         // SKView forwards mouseDown/Dragged/Moved to the running scene as
         // long as the window opts in to mouse-moved delivery.
         view.window?.acceptsMouseMovedEvents = true
-        hideCursor()
+        inputController.hideCursor()
     }
 
     override func willMove(from view: SKView) {
-        unhideCursor()
+        inputController.unhideCursor()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -241,109 +203,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if workerDirection == nil { workerDirection = direction }
     }
 
-    // MARK: - Gamepad (MFi / Xbox / DualShock / DualSense)
-
-    private func setupGameController() {
-        GCController.startWirelessControllerDiscovery()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleControllerDidConnect(_:)),
-            name: .GCControllerDidConnect,
-            object: nil
-        )
-        GCController.controllers().forEach(configureGameController(_:))
-    }
-
-    @objc private func handleControllerDidConnect(_ notification: Notification) {
-        guard let controller = notification.object as? GCController else { return }
-        configureGameController(controller)
-    }
-
-    private func configureGameController(_ controller: GCController) {
-        guard let gamepad = controller.extendedGamepad else { return }
-        gamepad.dpad.valueChangedHandler = { [weak self] _, x, y in
-            self?.handlePadAxis(x: x, y: y)
-        }
-        gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, x, y in
-            self?.handlePadAxis(x: x, y: y)
-        }
-    }
-
-    private func handlePadAxis(x: Float, y: Float) {
-        let absX = abs(x), absY = abs(y)
-        let direction: MoveDirection?
-        if max(absX, absY) < padDeadzone {
-            direction = nil
-        } else if absX > absY {
-            direction = x < 0 ? .left : .right
-        } else {
-            // GCController y axis: up is positive.
-            direction = y > 0 ? .up : .down
-        }
-        guard direction != lastPadDirection else { return }
-        lastPadDirection = direction
-        if let direction, !isGameOver {
-            DispatchQueue.main.async { [weak self] in
-                self?.queueDirection(direction)
-            }
-        }
-    }
-
     // MARK: - Mouse / trackpad pointer
 
-    /// SKView forwards mouseDown / mouseDragged / mouseMoved to its
-    /// running scene through the NSResponder chain (this is the
-    /// documented exception: scrollWheel is NOT forwarded, but the
-    /// mouse-* family is). With the cursor hidden during play, the
-    /// pointer acts as a virtual stick — move it in a direction past
-    /// the threshold and PETE queues that turn. event.deltaX/deltaY
-    /// give us relative motion regardless of where the (invisible)
-    /// cursor actually is on screen.
     override func mouseMoved(with event: NSEvent) {
-        handlePointerDelta(dx: event.deltaX, dy: event.deltaY)
+        inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
     }
 
     override func mouseDragged(with event: NSEvent) {
-        handlePointerDelta(dx: event.deltaX, dy: event.deltaY)
-    }
-
-    private func handlePointerDelta(dx: CGFloat, dy: CGFloat) {
-        guard !isGameOver else { return }
-        let now = CACurrentMediaTime()
-        if now - lastMouseTime > mouseRestartGap {
-            mouseAccumX = 0
-            mouseAccumY = 0
-        }
-        lastMouseTime = now
-        mouseAccumX += dx
-        mouseAccumY += dy
-        let absX = abs(mouseAccumX), absY = abs(mouseAccumY)
-        guard max(absX, absY) >= mouseThreshold else { return }
-        let direction: MoveDirection
-        if absX > absY {
-            direction = mouseAccumX > 0 ? .right : .left
-        } else {
-            // NSEvent.deltaY is positive when the cursor moves DOWN on
-            // screen (AppKit uses screen coords for deltas), so up = neg.
-            direction = mouseAccumY < 0 ? .up : .down
-        }
-        queueDirection(direction)
-        mouseAccumX = 0
-        mouseAccumY = 0
-    }
-
-    // MARK: - Cursor
-
-    private func hideCursor() {
-        guard !cursorIsHidden else { return }
-        NSCursor.hide()
-        cursorIsHidden = true
-    }
-
-    private func unhideCursor() {
-        guard cursorIsHidden else { return }
-        NSCursor.unhide()
-        cursorIsHidden = false
+        inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -358,11 +225,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         stepBosses(currentTime: currentTime)
-
-        if fishNode != nil, currentTime - lastFishMove > fishMoveInterval {
-            lastFishMove = currentTime
-            stepFish()
-        }
+        travelerSpawner.step(at: currentTime)
 
         if gameOverFlash > 0, currentTime > gameOverFlash {
             gameOverFlash = 0
@@ -426,7 +289,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
            bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) {
-            catchFish(fishBody.node)
+            catchTraveler(fishBody.node)
         }
     }
 
@@ -447,25 +310,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         ]))
     }
 
-    private func catchFish(_ node: SKNode?) {
-        guard fishNode === node, let fish = fishNode else { return }
-        let points = currentTraveler().points
-        score += points
+    private func catchTraveler(_ node: SKNode?) {
+        guard let caught = travelerSpawner.tryCatch(node) else { return }
+        score += caught.traveler.points
         sound.playFishOrTreat()
         refreshHUD()
-        let emoji = (fish as? SKLabelNode)?.text ?? "🎁"
-        hud.showMessage("Caught \(emoji)! +\(points)", duration: 2)
-        showScorePopup(points, at: fish.position)
-
-        fish.physicsBody = nil
-        fish.run(.sequence([
-            .group([
-                .scale(to: 1.6, duration: 0.25),
-                .fadeOut(withDuration: 0.25)
-            ]),
-            .removeFromParent()
-        ]))
-        fishNode = nil
+        hud.showMessage("Caught \(caught.emoji)! +\(caught.traveler.points)", duration: 2)
+        showScorePopup(caught.traveler.points, at: caught.position)
     }
 
     private func currentLevelRows() -> [String] {
@@ -479,82 +330,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         hud.install(in: self)
         spawnCharacters()
         refreshHUD()
-        scheduleTravelerVisits(traveler: currentTraveler())
+        let scheduledLevel = level
+        let traveler = currentTraveler()
+        travelerSpawner.scheduleVisits(of: traveler) { [weak self] in
+            guard let self else { return false }
+            return self.level == scheduledLevel && !self.isGameOver
+        }
     }
 
     private func currentTraveler() -> LevelTraveler {
         levelTravelers[(level - 1) % levelTravelers.count]
-    }
-
-    private func scheduleTravelerVisits(traveler: LevelTraveler) {
-        let scheduledLevel = level
-        let spawnAction: (TimeInterval, String) -> Void = { [weak self] delay, key in
-            guard let self else { return }
-            self.run(.sequence([
-                .wait(forDuration: delay),
-                .run { [weak self] in
-                    guard let self = self, self.level == scheduledLevel, !self.isGameOver else { return }
-                    self.spawnTraveler(traveler)
-                }
-            ]), withKey: key)
-        }
-        spawnAction(6, "travelerVisit1")
-        spawnAction(36, "travelerVisit2")
-    }
-
-    private func spawnTraveler(_ traveler: LevelTraveler) {
-        fishNode?.removeFromParent()
-        let label = SKLabelNode()
-        label.text = traveler.emoji
-        label.fontSize = 36
-        label.verticalAlignmentMode = .center
-        label.horizontalAlignmentMode = .center
-        label.zPosition = 9
-        fishGrid = CGPoint(x: 35, y: 8)
-        fishPreviousGrid = nil
-        label.position = gridMap.point(for: fishGrid)
-        label.physicsBody = SKPhysicsBody(circleOfRadius: 10)
-        label.physicsBody?.isDynamic = false
-        label.physicsBody?.categoryBitMask = PhysicsCategory.fish
-        label.physicsBody?.contactTestBitMask = PhysicsCategory.worker
-        label.physicsBody?.collisionBitMask = 0
-        addChild(label)
-        fishNode = label
-        lastFishMove = 0
-        sound.playTravelerArrive(traveler.sound)
-    }
-
-    private func stepFish() {
-        guard let fish = fishNode else { return }
-        let exit = CGPoint(x: 0, y: 8)
-        if fishGrid == exit {
-            fish.run(.sequence([.fadeOut(withDuration: 0.3), .removeFromParent()]))
-            fishNode = nil
-            return
-        }
-        var neighbors: [CGPoint] = []
-        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-            let next = CGPoint(x: fishGrid.x + CGFloat(dx), y: fishGrid.y + CGFloat(dy))
-            if gridMap.isWalkable(next) { neighbors.append(next) }
-        }
-        var candidates = neighbors
-        if let prev = fishPreviousGrid, candidates.count > 1 {
-            candidates.removeAll { $0 == prev }
-        }
-        guard !candidates.isEmpty else { return }
-        let next: CGPoint
-        if Int.random(in: 0..<10) < 6, let towardExit = candidates.min(by: {
-            Pathfinder.manhattanDistance($0, exit) < Pathfinder.manhattanDistance($1, exit)
-        }) {
-            next = towardExit
-        } else {
-            next = candidates.randomElement()!
-        }
-        let dx = next.x - fishGrid.x
-        if dx != 0 { fish.xScale = dx < 0 ? 1 : -1 }
-        fishPreviousGrid = fishGrid
-        fishGrid = next
-        fish.run(.move(to: gridMap.point(for: next), duration: fishMoveInterval))
     }
 
     private func refreshHUD() {
@@ -798,9 +583,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func triggerGameOver() {
         isGameOver = true
-        unhideCursor()
-        submitRunScoreToGameCenter()
-        recordRunScoreLocally()
+        inputController.unhideCursor()
+        GameCenterClient.submitScore(score, to: LeaderboardPanel.leaderboardID)
+        LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: score)
         sound.stopBackgroundMusic()
         sound.playGameOver()
         workerDirection = nil
@@ -818,7 +603,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func restartGame() {
         hud.hideGameOver()
         sound.startBackgroundMusic()
-        hideCursor()
+        inputController.hideCursor()
         isGameOver = false
         level = 1
         lives = HUD.maxLives
@@ -835,7 +620,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         isPowerPelletMode = false
         powerPelletModeEndsAt = 0
         bosses.removeAll()
-        fishNode = nil
+        travelerSpawner?.reset()
         removeAllActions()
         removeAllChildren()
         buildLevel()
@@ -934,7 +719,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func startNextLevel() {
         level += 1
         bosses.removeAll()
-        fishNode = nil
+        travelerSpawner?.reset()
         removeAllActions()
         removeAllChildren()
         reportItems.removeAll()
