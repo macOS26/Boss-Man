@@ -4,7 +4,6 @@
 # Boss-Man
 
 The Video Game, runs on macOS 14.6 or later
-
 An Office Space inspired Maze Game built using SpriteKit and Swift for macOS
 
 ## Theme
