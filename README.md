@@ -13,7 +13,7 @@ You are an office worker trapped in a maze of cubicles. Eat the glowing office d
 
 ## Controls
 
-- Arrow keys: move the worker
+- Arrow keys, WASD, Trackpad or Mouse, Joysstick and DPAD coming soon: move the worker
 - Space: to play
 
 ## Made with Agent!
