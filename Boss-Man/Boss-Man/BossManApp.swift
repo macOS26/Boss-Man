@@ -1,5 +1,6 @@
 import AppKit
 import Darwin
+import GameKit
 import SpriteKit
 
 @MainActor
@@ -68,6 +69,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 window?.toggleFullScreen(nil)
             }
         }
+
+        authenticateGameCenter()
+    }
+
+    /// Authenticates the local Game Center player so macOS can populate
+    /// the Game Overlay's "Now Playing" tile with this app's icon and
+    /// player state. First run on an unsigned-in machine will hand back
+    /// a sign-in view controller; we present it in a transient window.
+    private func authenticateGameCenter() {
+        GKLocalPlayer.local.authenticateHandler = { [weak self] viewController, error in
+            if let viewController {
+                self?.presentGameCenterAuth(viewController)
+                return
+            }
+            if let error {
+                NSLog("Game Center auth failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func presentGameCenterAuth(_ viewController: NSViewController) {
+        let authWindow = NSWindow(contentViewController: viewController)
+        authWindow.styleMask = [.titled, .closable]
+        authWindow.title = "Sign in to Game Center"
+        authWindow.center()
+        authWindow.makeKeyAndOrderFront(nil)
     }
 
     @objc private func toggleStartFullscreenPreference(_ sender: Any?) {
