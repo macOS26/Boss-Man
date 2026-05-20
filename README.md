@@ -12,13 +12,16 @@
 - Eat the glowing office dots, visit the printer/fax/copier/collator to collect every TPS report item, and avoid the BOSS.
 - If the BOSS catches you before the TPS report is delivered to a brown desk, you lose the pages.
 
+## Download the DMG
+
+https://github.com/macOS26/Boss-Man/releases
+
 ## Controls
 
 - Arrow keys, WASD, Trackpad or Mouse, Joysstick and DPAD coming soon: move the worker
 - Space: to play
 
-## Made with Agent!
-This arcade style video game was created using Agent, autonomous agentic AI, for macOS 26.4.1 https://github.com/macos26/agent
 
-## Download the DMG
-https://github.com/macOS26/Boss-Man/releases
+## Made with Agent!
+
+This arcade style video game was created using Agent, autonomous agentic AI, for macOS 26.4.1 https://github.com/macos26/agent
