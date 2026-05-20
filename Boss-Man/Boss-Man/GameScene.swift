@@ -116,6 +116,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.collectedDots += 1
         state.bumpScore(by: 1)
         sound.playDotBlip()
+        workerController.applyChompDelay()
         refreshHUD()
         if state.collectedDots >= state.dotCount { startNextLevel() }
     }
@@ -250,6 +251,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
         LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
         sound.stopBackgroundMusic()
+        sound.stopPowerPelletAmbient()
         sound.playGameOver()
         workerController.resetMotion()
         bossController.stopAll()
@@ -260,6 +262,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         bossController.clear()
         travelerSpawner.reset()
         powerPellet.deactivate()
+        sound.stopPowerPelletAmbient()
         removeAllActions()
         removeAllChildren()
         gameOverFlash = 0
@@ -296,12 +299,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func startPowerPelletMode() {
         powerPellet.activate(now: lastUpdateTime)
         bossController.setPowerPelletActive(true)
+        sound.startPowerPelletAmbient()
         hud.showMessage("Power pellet! Capture the bosses for 20 seconds.", duration: 3)
     }
 
     private func endPowerPelletMode() {
         powerPellet.deactivate()
         bossController.setPowerPelletActive(false)
+        sound.stopPowerPelletAmbient()
         hud.showMessage("Power pellet mode ended.", duration: 2)
     }
 

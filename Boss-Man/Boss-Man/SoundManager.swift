@@ -6,6 +6,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let engine = AVAudioEngine()
     private let effectsPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
+    private let ambientPlayer = AVAudioPlayerNode()
+    private var powerPelletAmbientBuffer: AVAudioPCMBuffer?
     private let speech = AVSpeechSynthesizer()
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
 
@@ -109,8 +111,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         super.init()
         engine.attach(effectsPlayer)
         engine.attach(musicPlayer)
+        engine.attach(ambientPlayer)
         engine.connect(effectsPlayer, to: engine.mainMixerNode, format: format)
         engine.connect(musicPlayer, to: engine.mainMixerNode, format: format)
+        engine.connect(ambientPlayer, to: engine.mainMixerNode, format: format)
+        ambientPlayer.volume = 0.55
         // Lower mixer headroom so speech + music + effects can't sum past
         // full-scale and clip — clipping is what's audible as "crackle"
         // when the speech synthesizer's audio unit kicks in alongside ours.
@@ -292,6 +297,46 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     func stopBackgroundMusic() {
         musicEnabled = false
         musicPlayer.stop()
+    }
+
+    // MARK: - Power-pellet ambient
+
+    /// Starts a faint, distant looping warble that lasts the duration
+    /// of power-pellet mode. Tells the player "the bosses are scared"
+    /// without overpowering the music underneath.
+    func startPowerPelletAmbient() {
+        if powerPelletAmbientBuffer == nil {
+            powerPelletAmbientBuffer = buildPowerPelletAmbient()
+        }
+        guard let buffer = powerPelletAmbientBuffer else { return }
+        ambientPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
+        if !ambientPlayer.isPlaying { ambientPlayer.play() }
+    }
+
+    func stopPowerPelletAmbient() {
+        ambientPlayer.stop()
+    }
+
+    private func buildPowerPelletAmbient() -> AVAudioPCMBuffer {
+        // Two-second loop: low sine carrier modulated by a slow 0.5 Hz
+        // amplitude pulse, plus a subtle overtone. Output is intentionally
+        // quiet (~0.18 peak before the player's 0.55 volume scaling) so
+        // it sits "underneath" everything else.
+        let duration: TimeInterval = 2.0
+        let buffer = makeBuffer(seconds: duration)
+        let data = buffer.floatChannelData![0]
+        let frames = Int(buffer.frameLength)
+        let baseFreq: Float = 78
+        let overtone: Float = baseFreq * 2.5
+        let modFreq: Float = 0.5
+        for i in 0..<frames {
+            let t = Float(i) / Float(sampleRate)
+            let envelope = (sin(2 * .pi * modFreq * t) + 1.0) * 0.5
+            let carrier = sin(2 * .pi * baseFreq * t) * 0.14
+            let harmonic = sin(2 * .pi * overtone * t) * 0.04
+            data[i] = (carrier + harmonic) * envelope
+        }
+        return buffer
     }
 
     // MARK: - Synthesis

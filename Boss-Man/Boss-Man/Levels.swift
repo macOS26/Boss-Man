@@ -17,8 +17,6 @@ struct LevelTraveler {
 
 // Ms. Pac-Man-style level mascots: each level has a roaming emoji that
 // crosses the floor twice and plays a distinct distant sound on arrival.
-// Point progression matches Ms. Pac-Man fruit ladder
-// (100/200/500/700/1000/2000/5000), then holds at 5000 for higher floors.
 let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "🐟", sound: .water,       points: 100),
     LevelTraveler(emoji: "🍩", sound: .glaze,       points: 200),

@@ -29,6 +29,10 @@ final class BossController {
         let moveInterval: TimeInterval
         let moveDuration: TimeInterval
         var lastMove: TimeInterval
+        /// Set to true after a tunnel teleport so the next planned step is
+        /// forced toward an interior (non-doorway) neighbor — the boss
+        /// "commits" through the doorway and can't whip back in.
+        var mustExitDoorway: Bool = false
     }
 
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] = [
@@ -182,29 +186,52 @@ final class BossController {
         guard let delegate else { return }
         let boss = entities[index]
         let blinkyGrid = firstBossGrid
-        guard let move = boss.ai.planNextStep(
+
+        let move: BossAI.Move
+        if entities[index].mustExitDoorway, let exit = forcedExit(from: boss.ai.grid) {
+            // Commit: after a tunnel teleport, the boss must step out to a
+            // non-doorway interior neighbor regardless of what the AI would
+            // otherwise pick. Clear the flag so subsequent steps planned
+            // normally.
+            let from = boss.ai.grid
+            boss.ai.teleport(to: exit)
+            entities[index].mustExitDoorway = false
+            move = BossAI.Move(from: from, to: exit)
+        } else if let planned = boss.ai.planNextStep(
             workerGrid: delegate.workerGrid,
             workerDirection: delegate.workerDirection,
             blinkyGrid: blinkyGrid,
             flee: delegate.isPowerPelletMode
-        ) else {
+        ) {
+            move = planned
+        } else {
             boss.node.stopWalking()
             return
         }
+
         boss.node.startWalking()
         let isPartnerEdge = abs(move.to.x - move.from.x) + abs(move.to.y - move.from.y) > 1
         if isPartnerEdge {
             boss.node.removeAction(forKey: "bossMove")
             boss.node.position = gridMap.point(for: move.to)
         } else {
+            // Slow down both entering AND exiting a tunnel doorway; full
+            // speed for plain interior steps.
+            let touchesDoorway =
+                gridMap.tunnelPartner(of: move.from) != nil ||
+                gridMap.tunnelPartner(of: move.to) != nil
+            let stepDuration = touchesDoorway ? boss.moveDuration * 2.0 : boss.moveDuration
+
             boss.node.run(.sequence([
-                SKAction.move(to: gridMap.point(for: move.to), duration: boss.moveDuration),
+                SKAction.move(to: gridMap.point(for: move.to), duration: stepDuration),
                 .run { [weak self] in
                     guard let self else { return }
                     if let partner = self.gridMap.tunnelPartner(of: move.to),
                        self.gridMap.isWalkable(partner) {
                         self.entities[index].node.position = self.gridMap.point(for: partner)
                         self.entities[index].ai.teleport(to: partner)
+                        // Next step must exit the doorway — no reversal allowed.
+                        self.entities[index].mustExitDoorway = true
                     }
                 }
             ]), withKey: "bossMove")
@@ -216,6 +243,18 @@ final class BossController {
                 delegate.bossDidCatchWorker()
             }
         }
+    }
+
+    /// Returns the first walkable non-doorway neighbor of `grid`, used
+    /// to force a boss to exit a tunnel mouth without reversing.
+    private func forcedExit(from grid: CGPoint) -> CGPoint? {
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let next = CGPoint(x: grid.x + CGFloat(dx), y: grid.y + CGFloat(dy))
+            if gridMap.isWalkable(next), gridMap.tunnelPartner(of: next) == nil {
+                return next
+            }
+        }
+        return nil
     }
 
     /// Public capture entry point: also handles the case where the
