@@ -40,31 +40,58 @@ final class LeaderboardPanel: SKNode {
             width: panelSize.width,
             height: panelSize.height
         )
-        let bg = SKShapeNode(rect: rect, cornerRadius: 14)
-        bg.fillColor = NSColor(calibratedWhite: 0, alpha: 0.16)
-        bg.strokeColor = NSColor(calibratedWhite: 0, alpha: 0.55)
-        bg.lineWidth = 2
-        addChild(bg)
+
+        // Drop shadow: slightly larger, offset down-right, dark and soft.
+        let shadow = SKShapeNode(rect: rect.offsetBy(dx: 6, dy: -8).insetBy(dx: -2, dy: -2), cornerRadius: 4)
+        shadow.fillColor = NSColor(calibratedWhite: 0, alpha: 0.28)
+        shadow.strokeColor = .clear
+        shadow.zPosition = -1
+        let blur = SKEffectNode()
+        blur.shouldEnableEffects = true
+        blur.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 6])
+        blur.addChild(shadow)
+        addChild(blur)
+
+        // The Post-it itself: classic 3M canary yellow with a faint
+        // square corner (Post-its have very tight radii, not rounded
+        // pills) and no stroke.
+        let postIt = SKShapeNode(rect: rect, cornerRadius: 3)
+        postIt.fillColor = NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.39, alpha: 1)
+        postIt.strokeColor = .clear
+        addChild(postIt)
+
+        // Subtle darker band along the top edge — fakes the adhesive
+        // strip that's slightly more saturated than the body of the note.
+        let adhesive = SKShapeNode(rect: CGRect(
+            x: rect.minX,
+            y: rect.maxY - 14,
+            width: rect.width,
+            height: 14
+        ), cornerRadius: 3)
+        adhesive.fillColor = NSColor(calibratedRed: 0.98, green: 0.79, blue: 0.30, alpha: 0.55)
+        adhesive.strokeColor = .clear
+        addChild(adhesive)
 
         let title = SKLabelNode(fontNamed: titleFontName)
         title.text = "LEADERBOARD"
-        title.fontSize = 22
-        title.fontColor = .black
+        title.fontSize = 24
+        title.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
         title.horizontalAlignmentMode = .center
-        title.position = CGPoint(x: 0, y: panelSize.height / 2 - 34)
+        title.position = CGPoint(x: 0, y: panelSize.height / 2 - 38)
+        title.zRotation = 0.015
         addChild(title)
 
         let underline = SKShapeNode(rect: CGRect(
-            x: -panelSize.width / 2 + 18,
-            y: panelSize.height / 2 - 48,
-            width: panelSize.width - 36,
+            x: -panelSize.width / 2 + 22,
+            y: panelSize.height / 2 - 52,
+            width: panelSize.width - 44,
             height: 1.5
         ))
-        underline.fillColor = NSColor(calibratedWhite: 0, alpha: 0.45)
+        underline.fillColor = NSColor(calibratedWhite: 0, alpha: 0.40)
         underline.strokeColor = .clear
         addChild(underline)
 
-        entriesNode.position = CGPoint(x: 0, y: panelSize.height / 2 - 76)
+        entriesNode.position = CGPoint(x: 0, y: panelSize.height / 2 - 80)
         addChild(entriesNode)
     }
 
