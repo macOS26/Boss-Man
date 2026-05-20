@@ -16,17 +16,5 @@ You are an office worker trapped in a maze of cubicles. Eat the glowing office d
 - Arrow keys: move the worker
 - Space: to play
 
-## Run in Xcode
-
-1. Open this folder in Xcode as a Swift Package, or open `Package.swift`.
-2. Select the `Boss-Man` executable scheme.
-3. Press Run.
-
-## Run from Terminal
-
-```bash
-swift run Boss-Man
-```
-
 ## Made with Agent!
 This arcade style video game was created using Agent, autonomous agentic AI, for macOS 26.4.1 https://github.com/macos26/agent
