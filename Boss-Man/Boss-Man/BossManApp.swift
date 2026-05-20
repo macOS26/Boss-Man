@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var window: NSWindow!
     private var startFullscreenMenuItem: NSMenuItem?
+    private var fullscreenMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
@@ -52,6 +53,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.collectionBehavior.insert(.fullScreenPrimary)
         window.makeKeyAndOrderFront(nil)
 
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(windowFullscreenStateChanged(_:)),
+                           name: NSWindow.didEnterFullScreenNotification, object: window)
+        center.addObserver(self, selector: #selector(windowFullscreenStateChanged(_:)),
+                           name: NSWindow.didExitFullScreenNotification, object: window)
+
         if AppDelegate.startFullscreenPreference {
             // Defer until after the window is on-screen so AppKit's
             // fullscreen transition has a valid starting frame.
@@ -68,6 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleWindowFullscreen(_ sender: Any?) {
         window?.toggleFullScreen(nil)
+    }
+
+    @objc private func windowFullscreenStateChanged(_ notification: Notification) {
+        let isFullscreen = window?.styleMask.contains(.fullScreen) ?? false
+        fullscreenMenuItem?.title = isFullscreen ? "Exit Full Screen" : "Enter Full Screen"
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -119,6 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         fullscreenItem.target = self
         fullscreenItem.keyEquivalentModifierMask = [.command, .control]
+        fullscreenMenuItem = fullscreenItem
         viewMenuItem.submenu = viewMenu
 
         let windowMenuItem = NSMenuItem()
