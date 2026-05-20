@@ -11,6 +11,9 @@ final class LeaderboardPanel: SKNode {
     /// Must match the leaderboard ID created in App Store Connect.
     static let leaderboardID = "boss_man.high_score"
 
+    /// Node name used for click hit-testing on the sign-in link.
+    static let signInLinkNodeName = "leaderboard.signin_link"
+
     private let panelSize: CGSize
     private let titleFontName: String
     private let bodyFontName: String
@@ -65,21 +68,48 @@ final class LeaderboardPanel: SKNode {
         addChild(entriesNode)
     }
 
-    private func showStatus(_ text: String) {
+    private func showStatus(_ text: String, asLink: Bool = false) {
         entriesNode.removeAllChildren()
         let label = SKLabelNode(fontNamed: bodyFontName)
         label.text = text
         label.fontSize = 18
-        label.fontColor = NSColor(calibratedWhite: 0, alpha: 0.7)
+        label.fontColor = asLink
+            ? NSColor(calibratedRed: 0.0, green: 0.30, blue: 0.85, alpha: 1)
+            : NSColor(calibratedWhite: 0, alpha: 0.7)
         label.horizontalAlignmentMode = .center
         label.position = CGPoint(x: 0, y: -panelSize.height / 4)
+        if asLink {
+            label.name = Self.signInLinkNodeName
+            // Faux underline so it reads as an actionable link.
+            let underline = SKShapeNode(rect: CGRect(
+                x: -label.frame.width / 2 - 4,
+                y: label.position.y - 6,
+                width: label.frame.width + 8,
+                height: 1.5
+            ))
+            underline.fillColor = label.fontColor ?? .blue
+            underline.strokeColor = .clear
+            underline.name = Self.signInLinkNodeName
+            entriesNode.addChild(underline)
+            // Expand the hit target so the click is forgiving.
+            let hit = SKShapeNode(rect: CGRect(
+                x: -panelSize.width / 2 + 18,
+                y: label.position.y - 18,
+                width: panelSize.width - 36,
+                height: 38
+            ))
+            hit.fillColor = .clear
+            hit.strokeColor = .clear
+            hit.name = Self.signInLinkNodeName
+            entriesNode.addChild(hit)
+        }
         entriesNode.addChild(label)
     }
 
     private func load() {
         Task { @MainActor in
             guard GKLocalPlayer.local.isAuthenticated else {
-                showStatus("Sign in to Game Center")
+                showStatus("Sign in to Game Center", asLink: true)
                 return
             }
             do {
