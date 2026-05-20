@@ -19,3 +19,6 @@
 
 ## Made with Agent!
 This arcade style video game was created using Agent, autonomous agentic AI, for macOS 26.4.1 https://github.com/macos26/agent
+
+## Download the DMG
+https://github.com/macOS26/Boss-Man/releases
