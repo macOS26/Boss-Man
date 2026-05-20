@@ -123,8 +123,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func recordRunScoreLocally() {
-        let name = GKLocalPlayer.local.isAuthenticated
-            ? (GKLocalPlayer.local.alias.isEmpty ? "Player" : GKLocalPlayer.local.alias)
+        // Space-Bar pattern: prefer Game Center's displayName when
+        // authenticated and the value is meaningful (>3 chars), fall
+        // back to a generic "Player" tag otherwise.
+        let displayName = GKLocalPlayer.local.displayName
+        let name = (GKLocalPlayer.local.isAuthenticated && displayName.count > 3)
+            ? displayName
             : "Player"
         LocalHighScores.record(name: name, score: score)
     }
