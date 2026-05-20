@@ -51,6 +51,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.contentView = skView
         window.collectionBehavior.insert(.fullScreenPrimary)
+        // No browser-style tab bar — the game is a single window.
+        window.tabbingMode = .disallowed
         window.makeKeyAndOrderFront(nil)
 
         let center = NotificationCenter.default
