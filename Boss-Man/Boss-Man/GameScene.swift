@@ -1,5 +1,6 @@
 import AppKit
 import GameController
+import GameKit
 import SpriteKit
 
 final class GameScene: SKScene, SKPhysicsContactDelegate {
@@ -117,6 +118,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         didSet {
             if highScore != oldValue {
                 UserDefaults.standard.set(highScore, forKey: GameScene.highScoreKey)
+            }
+        }
+    }
+
+    /// Submits this run's final score to the global Game Center
+    /// leaderboard. Game Center already keeps each player's best, so we
+    /// submit the run total — not the local highScore (which is just a
+    /// device-local UserDefaults persistence convenience).
+    private func submitRunScoreToGameCenter() {
+        guard GKLocalPlayer.local.isAuthenticated, score > 0 else { return }
+        GKLeaderboard.submitScore(
+            score,
+            context: 0,
+            player: GKLocalPlayer.local,
+            leaderboardIDs: [LeaderboardPanel.leaderboardID]
+        ) { error in
+            if let error {
+                NSLog("Game Center score submit failed: \(error.localizedDescription)")
             }
         }
     }
@@ -756,6 +775,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func triggerGameOver() {
         isGameOver = true
         unhideCursor()
+        submitRunScoreToGameCenter()
         sound.stopBackgroundMusic()
         sound.playGameOver()
         workerDirection = nil

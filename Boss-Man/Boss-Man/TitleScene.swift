@@ -48,6 +48,15 @@ final class TitleScene: SKScene {
             hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06)
             addChild(hs)
         }
+
+        let panelSize = CGSize(width: 320, height: 400)
+        let panel = LeaderboardPanel(
+            size: panelSize,
+            titleFont: titleFont,
+            bodyFont: "Menlo-Bold"
+        )
+        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5)
+        addChild(panel)
     }
 
     override func keyDown(with event: NSEvent) {
