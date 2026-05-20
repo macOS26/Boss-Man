@@ -25,9 +25,6 @@ final class WorkerController {
     private let sound: SoundManager
     private let moveInterval: TimeInterval = 0.14
     private let moveDuration: TimeInterval = 0.14
-    /// Small extra delay added to the next step when PETE eats a dot,
-    /// matching the original Pac-Man's ~15% chomp slowdown.
-    private let chompPenalty: TimeInterval = 0.025
     private var isMoving = false
     private var lastMove: TimeInterval = 0
     private var lastUpdateTime: TimeInterval = 0
@@ -67,12 +64,6 @@ final class WorkerController {
     func queueDirection(_ direction: MoveDirection) {
         queuedDirection = direction
         if self.direction == nil { self.direction = direction }
-    }
-
-    /// Pushes the next-step gate forward by the chomp penalty so PETE
-    /// briefly slows after eating a dot.
-    func applyChompDelay() {
-        lastMove += chompPenalty
     }
 
     func resetMotion() {
