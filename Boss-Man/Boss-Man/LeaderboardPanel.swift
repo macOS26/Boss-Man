@@ -56,19 +56,21 @@ final class LeaderboardPanel: SKNode {
         // square corner (Post-its have very tight radii, not rounded
         // pills) and no stroke.
         let postIt = SKShapeNode(rect: rect, cornerRadius: 3)
-        postIt.fillColor = NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.39, alpha: 1)
+        postIt.fillColor = NSColor(calibratedRed: 1.0, green: 0.95, blue: 0.22, alpha: 1)
         postIt.strokeColor = .clear
         addChild(postIt)
 
-        // Subtle darker band along the top edge — fakes the adhesive
-        // strip that's slightly more saturated than the body of the note.
+        // Adhesive band along the top edge: noticeably taller and a
+        // little more saturated than the body so it reads as the
+        // sticky strip on a real Post-it.
+        let adhesiveHeight: CGFloat = 38
         let adhesive = SKShapeNode(rect: CGRect(
             x: rect.minX,
-            y: rect.maxY - 14,
+            y: rect.maxY - adhesiveHeight,
             width: rect.width,
-            height: 14
+            height: adhesiveHeight
         ), cornerRadius: 3)
-        adhesive.fillColor = NSColor(calibratedRed: 0.98, green: 0.79, blue: 0.30, alpha: 0.55)
+        adhesive.fillColor = NSColor(calibratedRed: 0.99, green: 0.83, blue: 0.20, alpha: 0.70)
         adhesive.strokeColor = .clear
         addChild(adhesive)
 
@@ -77,12 +79,12 @@ final class LeaderboardPanel: SKNode {
         title.fontSize = 24
         title.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
         title.horizontalAlignmentMode = .center
-        title.position = CGPoint(x: 0, y: panelSize.height / 2 - 38)
+        title.position = CGPoint(x: 0, y: panelSize.height / 2 - adhesiveHeight - 26)
         addChild(title)
 
         let underline = SKShapeNode(rect: CGRect(
             x: -panelSize.width / 2 + 22,
-            y: panelSize.height / 2 - 52,
+            y: panelSize.height / 2 - adhesiveHeight - 40,
             width: panelSize.width - 44,
             height: 1.5
         ))
@@ -90,7 +92,7 @@ final class LeaderboardPanel: SKNode {
         underline.strokeColor = .clear
         addChild(underline)
 
-        entriesNode.position = CGPoint(x: 0, y: panelSize.height / 2 - 80)
+        entriesNode.position = CGPoint(x: 0, y: panelSize.height / 2 - adhesiveHeight - 68)
         addChild(entriesNode)
     }
 
