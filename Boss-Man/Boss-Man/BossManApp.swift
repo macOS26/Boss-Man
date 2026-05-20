@@ -35,8 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         skView.ignoresSiblingOrder = true
         skView.preferredFramesPerSecond = 60
         skView.shouldCullNonVisibleNodes = true
-        skView.showsFPS = true
-        skView.showsNodeCount = true
+        skView.showsFPS = false
+        skView.showsNodeCount = false
         skView.disableDepthStencilBuffer = false
         
         // do not remove

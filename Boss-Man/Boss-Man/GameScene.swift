@@ -15,8 +15,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         CGPoint(x: 2, y: 1), CGPoint(x: 33, y: 1)
     ]
     private let cubicleColors: [NSColor] = [
-        .systemBlue, .systemTeal, .systemIndigo, .systemGreen, .systemPink, .systemBrown
-    ]
+        .systemBlue, .systemTeal, .systemIndigo, .systemGreen, .systemPink, .systemBrown,
+        .systemPurple, .systemRed, .systemOrange, .systemYellow, .systemCyan, //.systemGray (save Mint for Men in Black Level)
+    ]x
 
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
