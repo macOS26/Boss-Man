@@ -102,7 +102,7 @@ final class BossController {
             tag.position = CGPoint(x: 0, y: 24)
             node.addChild(tag)
 
-            entities.append(Entity(
+            let entity = Entity(
                 name: blueprint.name,
                 baseColor: blueprint.color,
                 tieColor: blueprint.tie,
@@ -114,7 +114,9 @@ final class BossController {
                 moveInterval: moveInterval / blueprint.speed,
                 moveDuration: moveDuration / blueprint.speed,
                 lastMove: 0
-            ))
+            )
+            entities.append(entity)
+            scheduleStepper(for: entity)
         }
     }
 
@@ -130,7 +132,9 @@ final class BossController {
     func teleportAllToSpawn() {
         for boss in entities {
             boss.ai.teleport(to: boss.spawn)
-            boss.node.removeAllActions()
+            // Keep the keyed stepper alive — only cancel the current
+            // move animation so the boss snaps home and keeps stepping.
+            boss.node.removeAction(forKey: "bossMove")
             boss.node.stopWalking()
             boss.node.run(SKAction.move(to: gridMap.point(for: boss.spawn), duration: 0.2))
         }
@@ -171,15 +175,20 @@ final class BossController {
         }
     }
 
-    // MARK: - Per-frame stepping
+    // MARK: - Stepping (SKAction-driven per boss)
 
-    func step(at currentTime: TimeInterval) {
-        for index in entities.indices {
-            if currentTime - entities[index].lastMove > entities[index].moveInterval {
-                entities[index].lastMove = currentTime
-                stepOne(at: index)
+    private func scheduleStepper(for entity: Entity) {
+        let bossName = entity.name
+        let stepper = SKAction.repeatForever(.sequence([
+            .wait(forDuration: entity.moveInterval),
+            .run { [weak self] in
+                guard let self,
+                      let index = self.entities.firstIndex(where: { $0.name == bossName })
+                else { return }
+                self.stepOne(at: index)
             }
-        }
+        ]))
+        entity.node.run(stepper, withKey: "bossStepper")
     }
 
     private func stepOne(at index: Int) {
@@ -270,7 +279,9 @@ final class BossController {
         captureStreak += 1
         let points = 100 * captureStreak
         boss.ai.teleport(to: boss.spawn)
-        boss.node.removeAllActions()
+        // Cancel the current move only — keep the keyed stepper alive
+        // so the boss resumes chasing after the capture animation.
+        boss.node.removeAction(forKey: "bossMove")
         boss.node.stopWalking()
         boss.node.physicsBody?.categoryBitMask = 0
         let homePoint = gridMap.point(for: boss.spawn)

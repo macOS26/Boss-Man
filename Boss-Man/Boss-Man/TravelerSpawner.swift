@@ -18,7 +18,6 @@ final class TravelerSpawner {
     private var node: SKNode?
     private var grid = CGPoint(x: 35, y: 8)
     private var previousGrid: CGPoint?
-    private var lastMove: TimeInterval = 0
     private var activeTraveler: LevelTraveler?
 
     init(scene: SKScene, gridMap: GridMap, sound: SoundManager) {
@@ -56,10 +55,12 @@ final class TravelerSpawner {
         spawnLater(36, "travelerVisit2")
     }
 
-    func step(at currentTime: TimeInterval) {
-        guard node != nil, currentTime - lastMove > moveInterval else { return }
-        lastMove = currentTime
-        stepNode()
+    private func scheduleStepper(on traveler: SKNode) {
+        let stepper = SKAction.repeatForever(.sequence([
+            .wait(forDuration: moveInterval),
+            .run { [weak self] in self?.stepNode() }
+        ]))
+        traveler.run(stepper, withKey: "travelerStepper")
     }
 
     /// Returns the caught traveler's info + screen position if the
@@ -104,7 +105,7 @@ final class TravelerSpawner {
         scene.addChild(label)
         node = label
         activeTraveler = traveler
-        lastMove = 0
+        scheduleStepper(on: label)
         sound.playTravelerArrive(traveler.sound)
     }
 

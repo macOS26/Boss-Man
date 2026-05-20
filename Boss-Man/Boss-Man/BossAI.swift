@@ -86,16 +86,13 @@ final class BossAI {
         if let previousGrid, options.count > 1 {
             options.removeAll { $0 == previousGrid }
         }
-        var bestOption: CGPoint?
-        var bestDistance = -1
-        for option in options {
-            let distance = pathfinder.shortestPath(from: option, to: target)?.count ?? Int.max
-            if distance > bestDistance {
-                bestDistance = distance
-                bestOption = option
-            }
-        }
-        return bestOption
+        // Cheap Manhattan distance heuristic instead of a full BFS per
+        // neighbor. Flee mode runs every boss step, so dropping the
+        // O(N) pathfind for an O(1) heuristic eliminates the worst CPU
+        // spike in blue-mode play.
+        return options.max(by: {
+            Pathfinder.manhattanDistance($0, target) < Pathfinder.manhattanDistance($1, target)
+        })
     }
 
     private func randomStep() -> CGPoint? {

@@ -23,11 +23,8 @@ final class WorkerController {
 
     private let gridMap: GridMap
     private let sound: SoundManager
-    private let moveInterval: TimeInterval = 0.14
     private let moveDuration: TimeInterval = 0.14
     private var isMoving = false
-    private var lastMove: TimeInterval = 0
-    private var lastUpdateTime: TimeInterval = 0
 
     init(spawnGrid: CGPoint, gridMap: GridMap, sound: SoundManager) {
         self.grid = spawnGrid
@@ -64,13 +61,16 @@ final class WorkerController {
     func queueDirection(_ direction: MoveDirection) {
         queuedDirection = direction
         if self.direction == nil { self.direction = direction }
+        // Kick off motion immediately from rest — the chained SKAction
+        // completion handler self-perpetuates from there, no per-frame
+        // update loop required.
+        if !isMoving { attemptStep() }
     }
 
     func resetMotion() {
         direction = nil
         queuedDirection = nil
         isMoving = false
-        lastMove = 0
         node.removeAction(forKey: "workerMove")
         node.stopWalking()
     }
@@ -90,16 +90,6 @@ final class WorkerController {
         }
     }
 
-    /// Called each scene `update`. Honors the turn buffer: tries the
-    /// queued direction first (and consumes it only when walkable);
-    /// otherwise continues in the current direction. Queue persists
-    /// until honored or replaced by new input.
-    func update(currentTime: TimeInterval) {
-        lastUpdateTime = currentTime
-        guard !isMoving, currentTime - lastMove > moveInterval else { return }
-        attemptStep()
-    }
-
     private func attemptStep() {
         if let queued = queuedDirection,
            gridMap.isWalkable(neighbor(of: grid, in: queued)) {
@@ -112,7 +102,6 @@ final class WorkerController {
             node.stopWalking()
             return
         }
-        lastMove = lastUpdateTime
         startStep(toward: next, direction: direction)
     }
 
@@ -133,7 +122,6 @@ final class WorkerController {
                     self.delegate?.workerDidEnterTile(partner)
                 }
                 self.isMoving = false
-                self.lastMove = self.lastUpdateTime
                 if self.delegate?.isGameOver == false {
                     self.attemptStep()
                 }

@@ -17,8 +17,12 @@ final class Pathfinder {
     }
 
     func shortestPath(from start: CGPoint, to goal: CGPoint) -> [CGPoint]? {
+        // Int-packed coordinate keys instead of String interpolation —
+        // BFS visits hundreds of cells per call and bosses in flee mode
+        // run several BFS calls per frame; allocating String keys for
+        // each visit was the dominant accumulating heap pressure.
         var frontier = [start]
-        var cameFrom = [gridKey(start): start]
+        var cameFrom: [Int: CGPoint] = [Pathfinder.gridKey(start): start]
         var head = 0
 
         while head < frontier.count {
@@ -29,22 +33,23 @@ final class Pathfinder {
                 var path = [current]
                 var step = current
                 while step != start {
-                    guard let previous = cameFrom[gridKey(step)] else { return nil }
+                    guard let previous = cameFrom[Pathfinder.gridKey(step)] else { return nil }
                     step = previous
                     path.append(step)
                 }
                 return path.reversed()
             }
 
-            for neighbor in map.walkableNeighbors(of: current) where cameFrom[gridKey(neighbor)] == nil {
+            for neighbor in map.walkableNeighbors(of: current) where cameFrom[Pathfinder.gridKey(neighbor)] == nil {
                 frontier.append(neighbor)
-                cameFrom[gridKey(neighbor)] = current
+                cameFrom[Pathfinder.gridKey(neighbor)] = current
             }
         }
         return nil
     }
 
-    private func gridKey(_ grid: CGPoint) -> String {
-        "\(Int(grid.x)),\(Int(grid.y))"
+    @inline(__always)
+    private static func gridKey(_ grid: CGPoint) -> Int {
+        Int(grid.x) &* 1000 &+ Int(grid.y)
     }
 }

@@ -27,14 +27,12 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let state = RoundState()
     private let inputController = PointerInputController()
     private let contactRouter = ContactRouter()
-    private let powerPellet = PowerPelletTimer(duration: 20)
+    private let powerPellet = PowerPelletTimer()
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
 
     private(set) var isGameOver = false
-    private var lastUpdateTime: TimeInterval = 0
-    private var gameOverFlash: TimeInterval = 0
     var isPowerPelletMode: Bool { powerPellet.isActive }
 
     // MARK: - Lifecycle
@@ -66,18 +64,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         inputController.unhideCursor()
     }
 
-    override func update(_ currentTime: TimeInterval) {
-        lastUpdateTime = currentTime
-        if isGameOver { return }
-        if powerPellet.hasExpired(now: currentTime) { endPowerPelletMode() }
-        workerController.update(currentTime: currentTime)
-        bossController.step(at: currentTime)
-        travelerSpawner.step(at: currentTime)
-        if gameOverFlash > 0, currentTime > gameOverFlash {
-            gameOverFlash = 0
-            workerController.node.setBodyColor(.systemTeal)
-        }
-    }
+    // All subsystems are SKAction-driven; nothing needed per-frame.
 
     // MARK: - Input
     override func keyDown(with event: NSEvent) {
@@ -233,7 +220,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         mazeBuilder.resetGrayedMachines(in: self, names: requiredItems)
         refreshHUD()
         workerController.node.setBodyColor(.systemOrange)
-        gameOverFlash = CACurrentMediaTime() + 0.5
+        let worker = workerController.node
+        worker.run(.sequence([
+            .wait(forDuration: 0.5),
+            .run { [weak worker] in worker?.setBodyColor(.systemTeal) }
+        ]), withKey: "gameOverFlash")
         workerController.resetMotion()
         workerController.teleport(to: workerSpawn)
         bossController.teleportAllToSpawn()
@@ -263,7 +254,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         powerPellet.deactivate()
         removeAllActions()
         removeAllChildren()
-        gameOverFlash = 0
         buildLevel()
     }
 
@@ -295,14 +285,16 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     // MARK: - Power pellet
     private func startPowerPelletMode() {
-        powerPellet.activate(now: lastUpdateTime)
+        powerPellet.activate()
         bossController.setPowerPelletActive(true)
-        // Beat once per second on the existing effects player — no
-        // dedicated audio node so the render thread stays light.
         run(.repeatForever(.sequence([
             .run { [weak self] in self?.sound.playPowerPelletBeat() },
             .wait(forDuration: 1.0)
         ])), withKey: "powerPelletBeat")
+        run(.sequence([
+            .wait(forDuration: 20),
+            .run { [weak self] in self?.endPowerPelletMode() }
+        ]), withKey: "powerPelletExpiry")
         hud.showMessage("Power pellet! Capture the bosses for 20 seconds.", duration: 3)
     }
 
@@ -310,6 +302,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         powerPellet.deactivate()
         bossController.setPowerPelletActive(false)
         removeAction(forKey: "powerPelletBeat")
+        removeAction(forKey: "powerPelletExpiry")
         hud.showMessage("Power pellet mode ended.", duration: 2)
     }
 

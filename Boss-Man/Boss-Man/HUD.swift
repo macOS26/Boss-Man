@@ -13,6 +13,14 @@ final class HUD {
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
+    // Cache the last-rendered text so we only reassign SKLabelNode.text
+    // (which forces a glyph re-rasterization) when the string actually
+    // changes. refreshHUD fires on every dot pickup — without caching,
+    // each label rebuilds its texture ~7x per second.
+    private var lastStatusText: String?
+    private var lastTpsText: String?
+    private var lastLevelEmojisText: String?
+    private var lastLivesCount: Int = -1
 
     init(requiredItems: [String]) {
         self.requiredItems = requiredItems
@@ -96,21 +104,35 @@ final class HUD {
     ]
 
     func updateStatus(score: Int, highScore: Int, level: Int, dots: Int, total: Int, reports: Int, items: Set<String>) {
-        statusLabel.text = "Score: \(score)   High: \(highScore)   Level: \(level)   Dots: \(dots)/\(total)   Reports: \(reports)"
+        let statusText = "Score: \(score)   High: \(highScore)   Level: \(level)   Dots: \(dots)/\(total)   Reports: \(reports)"
+        if statusText != lastStatusText {
+            statusLabel.text = statusText
+            lastStatusText = statusText
+        }
         let parts = requiredItems
             .map { name -> String in
                 let icon = HUD.emojiByName[name] ?? name
                 return items.contains(name) ? "✅\(icon)" : "❌\(icon)"
             }
             .joined(separator: "  ")
-        tpsLabel.text = "TPS: \(parts)"
+        let tpsText = "TPS: \(parts)"
+        if tpsText != lastTpsText {
+            tpsLabel.text = tpsText
+            lastTpsText = tpsText
+        }
     }
 
     func updateLevelEmojis(_ emojis: [String]) {
-        levelEmojisLabel.text = emojis.joined(separator: " ")
+        let text = emojis.joined(separator: " ")
+        if text != lastLevelEmojisText {
+            levelEmojisLabel.text = text
+            lastLevelEmojisText = text
+        }
     }
 
     func updateLives(_ count: Int) {
+        if count == lastLivesCount { return }
+        lastLivesCount = count
         for (i, icon) in lifeIcons.enumerated() {
             icon.isHidden = i >= count
         }

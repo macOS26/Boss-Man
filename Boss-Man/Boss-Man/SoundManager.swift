@@ -7,6 +7,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let effectsPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
     private var powerPelletBeatBuffer: AVAudioPCMBuffer?
+    /// Synthesized PCM buffer cache. Every sound effect used to rebuild
+    /// its waveform on each call — playFootstep alone fires ~7x/sec and
+    /// allocated a fresh ~1100-sample buffer each time. Cache by string
+    /// key so each effect is synthesized exactly once and reused.
+    private var bufferCache: [String: AVAudioPCMBuffer] = [:]
     private let speech = AVSpeechSynthesizer()
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
 
@@ -152,57 +157,68 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
 
     // MARK: - Public events
 
+    /// Returns the cached buffer for `key`, building it via `build` on
+    /// first request. All sound effects are deterministic enough to be
+    /// safely reused — trades a small amount of variation for huge CPU
+    /// savings (~7 footstep + dot-blip syntheses per second).
+    private func cached(_ key: String, _ build: () -> AVAudioPCMBuffer) -> AVAudioPCMBuffer {
+        if let buf = bufferCache[key] { return buf }
+        let built = build()
+        bufferCache[key] = built
+        return built
+    }
+
     func playDotBlip() {
         dotToggle.toggle()
-        let freq: Float = dotToggle ? 988 : 1175 // alternating two-note "wakka"
-        play(buffer: tone(frequency: freq, duration: 0.05, volume: 0.22))
+        let key = dotToggle ? "dotA" : "dotB"
+        let freq: Float = dotToggle ? 988 : 1175
+        play(buffer: cached(key) { self.tone(frequency: freq, duration: 0.05, volume: 0.22) })
     }
 
     func playPowerPellet() {
-        play(buffer: sweep(from: 220, to: 660, duration: 0.45, volume: 0.35))
+        play(buffer: cached("powerPellet") { self.sweep(from: 220, to: 660, duration: 0.45, volume: 0.35) })
     }
 
     func playFootstep() {
-        play(buffer: tone(frequency: 140, duration: 0.025, volume: 0.07, decay: 60))
+        play(buffer: cached("footstep") { self.tone(frequency: 140, duration: 0.025, volume: 0.07, decay: 60) })
     }
 
     func playCaptureBoss(streak: Int) {
         let base: Float = 440
         let arp: [Float] = [base, base * 1.5, base * 2, base * 3]
-        let segDuration: TimeInterval = 0.08
-        let buffer = sequence(notes: Array(arp.prefix(max(2, min(4, streak + 1)))),
-                              perNote: segDuration,
-                              volume: 0.35)
-        play(buffer: buffer)
+        let count = max(2, min(4, streak + 1))
+        play(buffer: cached("captureBoss-\(count)") {
+            self.sequence(notes: Array(arp.prefix(count)), perNote: 0.08, volume: 0.35)
+        })
         speak(bossCaptureLines.randomElement() ?? "Yeah.", priority: false)
     }
 
     func playCaughtByBoss() {
-        play(buffer: sweep(from: 330, to: 60, duration: 0.7, volume: 0.4))
+        play(buffer: cached("caughtByBoss") { self.sweep(from: 330, to: 60, duration: 0.7, volume: 0.4) })
         speak(caughtLines.randomElement() ?? "Ohh, yeah.", priority: true)
     }
 
     func playFishOrTreat() {
-        play(buffer: sequence(notes: [1320, 1760, 2093], perNote: 0.08, volume: 0.3))
+        play(buffer: cached("fishOrTreat") { self.sequence(notes: [1320, 1760, 2093], perNote: 0.08, volume: 0.3) })
         speak(fishLines.randomElement() ?? "Mmm, yeah.", priority: false)
     }
 
     func playTpsDeliver() {
-        play(buffer: sequence(notes: [660, 880, 1320], perNote: 0.12, volume: 0.35))
+        play(buffer: cached("tpsDeliver") { self.sequence(notes: [660, 880, 1320], perNote: 0.12, volume: 0.35) })
         speak(tpsLines.randomElement() ?? "Sounds great.", priority: false)
     }
 
     func playGameOver() {
-        play(buffer: sequence(notes: [392, 311, 261, 196], perNote: 0.18, volume: 0.4))
+        play(buffer: cached("gameOver") { self.sequence(notes: [392, 311, 261, 196], perNote: 0.18, volume: 0.4) })
         speak(gameOverLines.randomElement() ?? "yeah right!", priority: true)
     }
 
     func playMachine(named name: String) {
         switch name {
-        case "Printer":  play(buffer: synthPrinter())
-        case "Fax":      play(buffer: synthFax())
-        case "Copy":     play(buffer: synthPageFlip())
-        case "Collator": play(buffer: synthCollator())
+        case "Printer":  play(buffer: cached("printer") { self.synthPrinter() })
+        case "Fax":      play(buffer: cached("fax") { self.synthFax() })
+        case "Copy":     play(buffer: cached("pageFlip") { self.synthPageFlip() })
+        case "Collator": play(buffer: cached("collator") { self.synthCollator() })
         default:         playDotBlip()
         }
     }
@@ -211,27 +227,27 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     func playTravelerArrive(_ which: TravelerSound) {
         switch which {
         case .water:
-            play(buffer: sweep(from: 520, to: 180, duration: 0.55, volume: 0.14))
+            play(buffer: cached("trav.water") { self.sweep(from: 520, to: 180, duration: 0.55, volume: 0.14) })
         case .glaze:
-            play(buffer: sequence(notes: [2093, 2637, 3136], perNote: 0.07, volume: 0.13))
+            play(buffer: cached("trav.glaze") { self.sequence(notes: [2093, 2637, 3136], perNote: 0.07, volume: 0.13) })
         case .crunch:
-            play(buffer: synthFiltered(noiseSeconds: 0.35, bursts: 12, volume: 0.18))
+            play(buffer: cached("trav.crunch") { self.synthFiltered(noiseSeconds: 0.35, bursts: 12, volume: 0.18) })
         case .alienBleep:
-            play(buffer: sequence(notes: [880, 1320, 1760, 1320], perNote: 0.06, volume: 0.16))
+            play(buffer: cached("trav.alienBleep") { self.sequence(notes: [880, 1320, 1760, 1320], perNote: 0.06, volume: 0.16) })
         case .jelly:
-            play(buffer: sweep(from: 660, to: 990, duration: 0.7, volume: 0.12))
+            play(buffer: cached("trav.jelly") { self.sweep(from: 660, to: 990, duration: 0.7, volume: 0.12) })
         case .crispTap:
-            play(buffer: tone(frequency: 1568, duration: 0.12, volume: 0.18, decay: 22))
+            play(buffer: cached("trav.crispTap") { self.tone(frequency: 1568, duration: 0.12, volume: 0.18, decay: 22) })
         case .bellDing:
-            play(buffer: sequence(notes: [1568, 2093], perNote: 0.22, volume: 0.16))
+            play(buffer: cached("trav.bellDing") { self.sequence(notes: [1568, 2093], perNote: 0.22, volume: 0.16) })
         case .radioStatic:
-            play(buffer: synthFiltered(noiseSeconds: 0.6, bursts: 1, volume: 0.10))
+            play(buffer: cached("trav.radioStatic") { self.synthFiltered(noiseSeconds: 0.6, bursts: 1, volume: 0.10) })
         case .magicChime:
-            play(buffer: sequence(notes: [1318, 1976, 2637, 3520], perNote: 0.07, volume: 0.13))
+            play(buffer: cached("trav.magicChime") { self.sequence(notes: [1318, 1976, 2637, 3520], perNote: 0.07, volume: 0.13) })
         case .ufoWhoosh:
-            play(buffer: sweep(from: 1760, to: 220, duration: 0.65, volume: 0.13))
+            play(buffer: cached("trav.ufoWhoosh") { self.sweep(from: 1760, to: 220, duration: 0.65, volume: 0.13) })
         case .eyeDrone:
-            play(buffer: tone(frequency: 196, duration: 0.8, volume: 0.18, decay: 2))
+            play(buffer: cached("trav.eyeDrone") { self.tone(frequency: 196, duration: 0.8, volume: 0.18, decay: 2) })
         }
     }
 
@@ -277,7 +293,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func playLevelStart() {
-        play(buffer: sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3))
+        play(buffer: cached("levelStart") { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3) })
         speak(levelStartLines.randomElement() ?? "Yeah.", priority: false)
     }
 

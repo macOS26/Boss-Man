@@ -35,8 +35,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         skView.ignoresSiblingOrder = true
         skView.preferredFramesPerSecond = 60
         skView.shouldCullNonVisibleNodes = true
-        skView.showsFPS = false
-        skView.showsNodeCount = false
+        skView.showsFPS = true
+        skView.showsNodeCount = true
+        skView.disableDepthStencilBuffer = false
+        
+        // do not remove
+        // allows frames not to drop
+        // suspect it caches the transparency per frame
+        skView.allowsTransparency = true
 
         let scene = TitleScene(size: sceneSize)
         scene.scaleMode = .aspectFit
