@@ -212,11 +212,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     override func keyDown(with event: NSEvent) {
         if isGameOver {
-            if event.keyCode == 49 { restartGame() }
+            switch event.keyCode {
+            case 49: restartGame()        // Space → new game
+            case 53: returnToTitleScene() // Escape → back to intro
+            default: break
+            }
             return
         }
         guard let direction = MoveDirection(keyCode: event.keyCode), !event.isARepeat else { return }
         queueDirection(direction)
+    }
+
+    private func returnToTitleScene() {
+        guard let view else { return }
+        hud.hideGameOver()
+        sound.stopBackgroundMusic()
+        let title = TitleScene(size: size)
+        title.scaleMode = .aspectFit
+        view.presentScene(title, transition: .fade(withDuration: 0.5))
     }
 
     /// Single entry point for every input source (keyboard, gamepad

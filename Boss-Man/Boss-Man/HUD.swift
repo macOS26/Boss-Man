@@ -156,13 +156,21 @@ final class HUD {
         prompt.text = "PRESS SPACE TO START A NEW GAME"
         prompt.fontSize = 18
         prompt.fontColor = .systemYellow
-        prompt.position = CGPoint(x: size.width / 2, y: size.height / 2 - 50)
+        prompt.position = CGPoint(x: size.width / 2, y: size.height / 2 - 40)
         prompt.zPosition = 102
         prompt.run(.repeatForever(.sequence([
             .fadeAlpha(to: 0.2, duration: 0.6),
             .fadeAlpha(to: 1.0, duration: 0.6)
         ])))
         overlay.addChild(prompt)
+
+        let exit = SKLabelNode(fontNamed: "Menlo-Bold")
+        exit.text = "PRESS ESC TO RETURN TO TITLE"
+        exit.fontSize = 14
+        exit.fontColor = NSColor(calibratedWhite: 0.75, alpha: 1)
+        exit.position = CGPoint(x: size.width / 2, y: size.height / 2 - 72)
+        exit.zPosition = 102
+        overlay.addChild(exit)
 
         scene.addChild(overlay)
         gameOverOverlay = overlay
