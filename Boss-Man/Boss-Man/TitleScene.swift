@@ -4,7 +4,7 @@ import SpriteKit
 final class TitleScene: SKScene {
     private static let highScoreKey = "Boss-Man.highScore"
     private static let titleFonts = [
-        "Marker Felt Wide"
+        "Marker Felt Thin", "Marker Felt Wide"
     ]
 
     override func didMove(to view: SKView) {
@@ -15,7 +15,11 @@ final class TitleScene: SKScene {
             NSFont(name: $0, size: 90) != nil
         } ?? "Helvetica-Bold"
 
-        let title = SKLabelNode(fontNamed: titleFont)
+        let titleFontBold = TitleScene.titleFonts.last {
+            NSFont(name: $0, size: 90) != nil
+        } ?? "Helvetica-Bold"
+        
+        let title = SKLabelNode(fontNamed: titleFontBold)
         title.text = "BOSS-MAN"
         title.fontSize = 108
         title.fontColor = .black

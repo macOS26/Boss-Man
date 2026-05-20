@@ -9,7 +9,6 @@ final class MazeBuilder {
     var cubicleColor: NSColor = .systemBlue
 
     private var pelletTexture: SKTexture!
-    private var deskTexture: SKTexture!
     private var dotTilemap: SKTileMapNode?
     private(set) var dotPresence: [[Bool]] = []
 
@@ -52,7 +51,7 @@ final class MazeBuilder {
                     if let name = machineNames[char], char != "D" {
                         addMachine(name: name, symbol: String(char), at: position, in: scene)
                     } else if char == "D" {
-                        addDesk(at: position, in: scene)
+                        addBrownBox(at: position, in: scene)
                     }
                 }
             }
@@ -75,6 +74,34 @@ final class MazeBuilder {
         dotPresence[row][column] = false
         dotTilemap?.setTileGroup(nil, forColumn: column, row: row)
         return true
+    }
+
+    /// Mark a machine as collected: gray it out for 15 seconds and
+    /// disable further contacts until the cooldown completes.
+    func grayOutMachine(_ body: SKPhysicsBody, cooldown: TimeInterval = 15) {
+        let machineNode = body.node
+        machineNode?.alpha = 0.55
+        body.contactTestBitMask = 0
+        machineNode?.removeAction(forKey: "machineCooldown")
+        machineNode?.run(.sequence([
+            .wait(forDuration: cooldown),
+            .run { [weak machineNode] in
+                machineNode?.alpha = 1
+                machineNode?.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+            }
+        ]), withKey: "machineCooldown")
+    }
+
+    /// Restore every grayed-out machine in `scene` whose name appears
+    /// in `names` (i.e. the required TPS items). Used after a boss
+    /// catch so the player can complete the report again.
+    func resetGrayedMachines(in scene: SKScene, names: [String]) {
+        for child in scene.children {
+            guard let n = child.name, names.contains(n) else { continue }
+            child.removeAction(forKey: "machineCooldown")
+            child.alpha = 1
+            child.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+        }
     }
 
     private func makeDotTilemap(columns: Int, rows: Int) -> SKTileMapNode {
@@ -162,7 +189,6 @@ final class MazeBuilder {
 
     private func rebuildTextures() {
         pelletTexture = makePelletTexture()
-        deskTexture = makeDeskTexture()
     }
 
     private func renderImage(size: CGSize, draw: @escaping () -> Void) -> NSImage {
@@ -180,20 +206,6 @@ final class MazeBuilder {
             NSColor.white.setStroke()
             let stroke = NSBezierPath(ovalIn: CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2))
             stroke.lineWidth = 2
-            stroke.stroke()
-        }
-        return SKTexture(image: image)
-    }
-
-    private func makeDeskTexture() -> SKTexture {
-        let size = CGSize(width: 30, height: 22)
-        let image = renderImage(size: size) {
-            NSColor(calibratedRed: 0.45, green: 0.25, blue: 0.10, alpha: 1).setFill()
-            let body = CGRect(x: 2, y: 2, width: 26, height: 18)
-            NSBezierPath(rect: body).fill()
-            NSColor.systemOrange.setStroke()
-            let stroke = NSBezierPath(rect: body)
-            stroke.lineWidth = 1
             stroke.stroke()
         }
         return SKTexture(image: image)
@@ -237,18 +249,26 @@ final class MazeBuilder {
         case "F": return "📠"
         case "C": return "📄"
         case "M": return "📚"
-        case "D": return "📥"
+        case "D": return "📦"
         default: return symbol
         }
     }
 
-    private func addDesk(at position: CGPoint, in scene: SKScene) {
-        let desk = SKSpriteNode(texture: deskTexture)
-        desk.position = position
-        desk.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 24))
-        desk.physicsBody?.isDynamic = false
-        desk.physicsBody?.categoryBitMask = PhysicsCategory.tpsBox
-        desk.zPosition = 4
-        scene.addChild(desk)
+    private func addBrownBox(at position: CGPoint, in scene: SKScene) {
+        let box = SKNode()
+        box.name = "Brown Box"
+        box.position = position
+        box.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 28))
+        box.physicsBody?.isDynamic = false
+        box.physicsBody?.categoryBitMask = PhysicsCategory.tpsBox
+        box.zPosition = 4
+        scene.addChild(box)
+
+        let label = SKLabelNode()
+        label.text = "📦"
+        label.fontSize = 28
+        label.verticalAlignmentMode = .center
+        label.position = .zero
+        box.addChild(label)
     }
 }

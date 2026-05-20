@@ -86,12 +86,16 @@ final class LeaderboardPanel: SKNode {
         title.position = CGPoint(x: 0, y: titleBaselineY)
         addChild(title)
 
-        let underline = SKShapeNode(rect: CGRect(
-            x: -panelSize.width / 2 + 22,
-            y: titleBaselineY - 14,
-            width: panelSize.width - 44,
-            height: 1.5
-        ))
+        let underlineHeight: CGFloat = 2
+        let underline = SKShapeNode(
+            rect: CGRect(
+                x: -panelSize.width / 2 + 22,
+                y: titleBaselineY - 14,
+                width: panelSize.width - 44,
+                height: underlineHeight
+            ),
+            cornerRadius: underlineHeight / 2
+        )
         underline.fillColor = NSColor(calibratedWhite: 0, alpha: 0.40)
         underline.strokeColor = .clear
         addChild(underline)
@@ -102,7 +106,7 @@ final class LeaderboardPanel: SKNode {
 
     private func showStatus(_ text: String, asLink: Bool = false) {
         entriesNode.removeAllChildren()
-        let label = SKLabelNode(fontNamed: bodyFontName)
+        let label = SKLabelNode(fontNamed: titleFontName)
         label.text = text
         label.fontSize = 18
         label.fontColor = asLink
@@ -212,7 +216,7 @@ final class LeaderboardPanel: SKNode {
             ? NSColor(calibratedRed: 0.55, green: 0.05, blue: 0.05, alpha: 1)
             : .black
 
-        let rankLabel = SKLabelNode(fontNamed: bodyFontName)
+        let rankLabel = SKLabelNode(fontNamed: titleFontName)
         rankLabel.text = "\(rank)."
         rankLabel.fontSize = 18
         rankLabel.fontColor = color
@@ -220,7 +224,7 @@ final class LeaderboardPanel: SKNode {
         rankLabel.position = CGPoint(x: left, y: y)
         row.addChild(rankLabel)
 
-        let nameLabel = SKLabelNode(fontNamed: bodyFontName)
+        let nameLabel = SKLabelNode(fontNamed: titleFontName)
         nameLabel.text = name
         nameLabel.fontSize = 18
         nameLabel.fontColor = color
@@ -228,7 +232,7 @@ final class LeaderboardPanel: SKNode {
         nameLabel.position = CGPoint(x: left + 36, y: y)
         row.addChild(nameLabel)
 
-        let scoreLabel = SKLabelNode(fontNamed: bodyFontName)
+        let scoreLabel = SKLabelNode(fontNamed: titleFontName)
         scoreLabel.text = "\(score)"
         scoreLabel.fontSize = 18
         scoreLabel.fontColor = color

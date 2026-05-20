@@ -1,24 +1,18 @@
 import AppKit
 import SpriteKit
 
-final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputControllerDelegate, WorkerControllerDelegate, BossControllerDelegate {
+final class GameScene: SKScene, PointerInputControllerDelegate, WorkerControllerDelegate, BossControllerDelegate {
     private let tileSize: CGFloat = 32
     private let workerSpawn = CGPoint(x: 18, y: 7)
     private let powerPelletDuration: TimeInterval = 20
 
     private let requiredItems = ["Printer", "Fax", "Copy", "Collator"]
     private let machineNames: [Character: String] = [
-        "P": "Printer",
-        "F": "Fax",
-        "C": "Copy",
-        "M": "Collator",
-        "D": "Desk"
+        "P": "Printer", "F": "Fax", "C": "Copy", "M": "Collator", "D": "Brown Box"
     ]
     private let powerPelletPositions = [
-        CGPoint(x: 2, y: 15),
-        CGPoint(x: 33, y: 15),
-        CGPoint(x: 2, y: 1),
-        CGPoint(x: 33, y: 1)
+        CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
+        CGPoint(x: 2, y: 1), CGPoint(x: 33, y: 1)
     ]
     private let cubicleColors: [NSColor] = [
         .systemBlue, .systemTeal, .systemIndigo, .systemGreen, .systemPink, .systemBrown
@@ -30,40 +24,25 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
     private var hud: HUD!
     private let sound = SoundManager()
 
+    private let state = RoundState()
     private let inputController = PointerInputController()
+    private let contactRouter = ContactRouter()
+    private let powerPellet = PowerPelletTimer(duration: 20)
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
 
-    private var level = 1
-    private var dotCount = 0
-    private var collectedDots = 0
-    private var tpsReportsCreated = 0
-    private var reportItems: Set<String> = []
-    private var lives = HUD.maxLives
     private(set) var isGameOver = false
-    private static let highScoreKey = "Boss-Man.highScore"
-    private var score = 0
-    private var highScore = UserDefaults.standard.integer(forKey: GameScene.highScoreKey) {
-        didSet {
-            if highScore != oldValue {
-                UserDefaults.standard.set(highScore, forKey: GameScene.highScoreKey)
-            }
-        }
-    }
-
     private var lastUpdateTime: TimeInterval = 0
     private var gameOverFlash: TimeInterval = 0
-    private(set) var isPowerPelletMode = false
-    private var powerPelletModeEndsAt: TimeInterval = 0
+    var isPowerPelletMode: Bool { powerPellet.isActive }
 
     // MARK: - Lifecycle
-
     override func didMove(to view: SKView) {
         backgroundColor = NSColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
         anchorPoint = CGPoint(x: 0, y: 0)
         physicsWorld.gravity = .zero
-        physicsWorld.contactDelegate = self
+        physicsWorld.contactDelegate = contactRouter
 
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         pathfinder = Pathfinder(map: gridMap)
@@ -72,14 +51,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder)
         bossController.delegate = self
+        wireContactRouter()
 
         buildLevel()
         hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
         sound.startBackgroundMusic()
         inputController.delegate = self
         inputController.start()
-        // SKView forwards mouseDown/Dragged/Moved to the running scene as
-        // long as the window opts in to mouse-moved delivery.
         view.window?.acceptsMouseMovedEvents = true
         inputController.hideCursor()
     }
@@ -91,9 +69,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
     override func update(_ currentTime: TimeInterval) {
         lastUpdateTime = currentTime
         if isGameOver { return }
-        if isPowerPelletMode && currentTime >= powerPelletModeEndsAt {
-            endPowerPelletMode()
-        }
+        if powerPellet.hasExpired(now: currentTime) { endPowerPelletMode() }
         workerController.update(currentTime: currentTime)
         bossController.step(at: currentTime)
         travelerSpawner.step(at: currentTime)
@@ -104,7 +80,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
     }
 
     // MARK: - Input
-
     override func keyDown(with event: NSEvent) {
         if isGameOver {
             switch event.keyCode {
@@ -115,7 +90,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
             return
         }
         guard let direction = MoveDirection(keyCode: event.keyCode), !event.isARepeat else { return }
-        queueDirection(direction)
+        workerController.queueDirection(direction)
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -129,97 +104,70 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
     var isGameOverForInput: Bool { isGameOver }
 
     func inputControllerDidRequest(_ direction: MoveDirection) {
-        queueDirection(direction)
-    }
-
-    private func queueDirection(_ direction: MoveDirection) {
         workerController.queueDirection(direction)
     }
 
     // MARK: - WorkerControllerDelegate
-
     var workerGrid: CGPoint { workerController.grid }
     var workerDirection: MoveDirection? { workerController.direction }
 
     func workerDidEnterTile(_ grid: CGPoint) {
         guard mazeBuilder.collectDot(atColumn: Int(grid.x), row: Int(grid.y)) else { return }
-        collectedDots += 1
-        score += 1
+        state.collectedDots += 1
+        state.bumpScore(by: 1)
         sound.playDotBlip()
         refreshHUD()
-        if collectedDots >= dotCount { startNextLevel() }
+        if state.collectedDots >= state.dotCount { startNextLevel() }
     }
 
     // MARK: - BossControllerDelegate
-
-    func bossDidCatchWorker() {
-        bossCaughtWorker()
-    }
+    func bossDidCatchWorker() { bossCaughtWorker() }
 
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
-        score += points
+        state.bumpScore(by: points)
         sound.playCaptureBoss(streak: points / 100)
-        showScorePopup(points, at: position)
+        ScorePopup.show(points, at: position, in: self)
         refreshHUD()
         hud.showMessage("\(name) captured! +\(points)", duration: 2)
     }
 
-    // MARK: - Contact handling
+    // MARK: - Contact wiring
 
-    func didBegin(_ contact: SKPhysicsContact) {
-        if isGameOver { return }
-        let bodies = [contact.bodyA, contact.bodyB]
-
-        if let bossBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss }),
-           bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) {
-            if isPowerPelletMode, let bossNode = bossBody.node as? PixelPerson {
-                bossController.capture(boss: bossNode)
+    private func wireContactRouter() {
+        contactRouter.shouldIgnoreContact = { [weak self] in self?.isGameOver ?? true }
+        contactRouter.onBossTouchedWorker = { [weak self] node in
+            guard let self else { return }
+            if self.isPowerPelletMode, let bossNode = node as? PixelPerson {
+                self.bossController.capture(boss: bossNode)
             } else {
-                bossCaughtWorker()
+                self.bossCaughtWorker()
             }
         }
-
-        if let powerPelletBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.powerPellet }) {
-            powerPelletBody.node?.removeFromParent()
-            score += 5
-            sound.playPowerPellet()
-            startPowerPelletMode()
-            refreshHUD()
+        contactRouter.onPowerPelletTouched = { [weak self] node in
+            node?.removeFromParent()
+            guard let self else { return }
+            self.state.bumpScore(by: 5)
+            self.sound.playPowerPellet()
+            self.startPowerPelletMode()
+            self.refreshHUD()
         }
-
-        if let machineBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.machine }),
-           let name = machineBody.node?.name,
-           requiredItems.contains(name),
-           !reportItems.contains(name) {
-            reportItems.insert(name)
-            sound.playMachine(named: name)
-            let machineNode = machineBody.node
-            machineNode?.alpha = 0.55
-            machineBody.contactTestBitMask = 0
-            machineNode?.removeAction(forKey: "machineCooldown")
-            machineNode?.run(.sequence([
-                .wait(forDuration: 15),
-                .run { [weak machineNode] in
-                    machineNode?.alpha = 1
-                    machineNode?.physicsBody?.contactTestBitMask = PhysicsCategory.worker
-                }
-            ]), withKey: "machineCooldown")
-            refreshHUD()
-            if reportItems.count == requiredItems.count {
-                hud.showMessage("TPS report complete! Deliver it to a brown box.", duration: 4)
-            } else {
-                hud.showMessage("Collected \(name) page for TPS report", duration: 2)
-            }
+        contactRouter.onMachineTouchedWorker = { [weak self] body, name in
+            self?.handleMachine(body: body, name: name)
         }
+        contactRouter.onTpsBoxTouchedWorker = { [weak self] in self?.collectTPSReport() }
+        contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
+    }
 
-        if bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.tpsBox }),
-           bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) {
-            collectTPSReport()
-        }
-
-        if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
-           bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) {
-            catchTraveler(fishBody.node)
+    private func handleMachine(body: SKPhysicsBody, name: String) {
+        guard requiredItems.contains(name), !state.reportItems.contains(name) else { return }
+        state.reportItems.insert(name)
+        sound.playMachine(named: name)
+        mazeBuilder.grayOutMachine(body)
+        refreshHUD()
+        if state.reportItems.count == requiredItems.count {
+            hud.showMessage("TPS report complete! Deliver it to a brown box.", duration: 6)
+        } else {
+            hud.showMessage("Collected \(name) page for TPS report", duration: 2)
         }
     }
 
@@ -227,95 +175,80 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
 
     private func buildLevel() {
         gridMap.setRows(currentLevelRows())
-        mazeBuilder.cubicleColor = cubicleColors[(level - 1) % cubicleColors.count]
-        dotCount = mazeBuilder.build(in: self)
+        mazeBuilder.cubicleColor = cubicleColors[(state.level - 1) % cubicleColors.count]
+        state.dotCount = mazeBuilder.build(in: self)
         hud.install(in: self)
-        spawnWorker()
-        bossController.spawn(forLevel: level)
-        refreshHUD()
-        let scheduledLevel = level
-        let traveler = currentTraveler()
-        travelerSpawner.scheduleVisits(of: traveler) { [weak self] in
-            guard let self else { return false }
-            return self.level == scheduledLevel && !self.isGameOver
-        }
-    }
-
-    private func spawnWorker() {
         workerController = WorkerController(spawnGrid: workerSpawn, gridMap: gridMap, sound: sound)
         workerController.delegate = self
         addChild(workerController.node)
+        bossController.spawn(forLevel: state.level)
+        refreshHUD()
+        let scheduledLevel = state.level
+        travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
+            guard let self else { return false }
+            return self.state.level == scheduledLevel && !self.isGameOver
+        }
     }
 
     private func currentLevelRows() -> [String] {
-        officeMaps[(level - 1) % officeMaps.count]
+        officeMaps[(state.level - 1) % officeMaps.count]
     }
 
     private func currentTraveler() -> LevelTraveler {
-        levelTravelers[(level - 1) % levelTravelers.count]
+        levelTravelers[(state.level - 1) % levelTravelers.count]
     }
 
     private func catchTraveler(_ node: SKNode?) {
         guard let caught = travelerSpawner.tryCatch(node) else { return }
-        score += caught.traveler.points
+        state.bumpScore(by: caught.traveler.points)
         sound.playFishOrTreat()
         refreshHUD()
         hud.showMessage("Caught \(caught.emoji)! +\(caught.traveler.points)", duration: 2)
-        showScorePopup(caught.traveler.points, at: caught.position)
+        ScorePopup.show(caught.traveler.points, at: caught.position, in: self)
     }
 
     private func collectTPSReport() {
-        guard reportItems.count == requiredItems.count else {
+        guard state.reportItems.count == requiredItems.count else {
             hud.showMessage("Brown boxes collect finished TPS reports.", duration: 2)
             return
         }
-        tpsReportsCreated += 1
-        reportItems.removeAll()
-        score += 200
+        state.tpsReportsCreated += 1
+        state.reportItems.removeAll()
+        state.bumpScore(by: 200)
         sound.playTpsDeliver()
-        let gainedLife = lives < HUD.maxLives
-        if gainedLife { lives += 1 }
+        let gainedLife = state.lives < HUD.maxLives
+        if gainedLife { state.lives += 1 }
         refreshHUD()
         hud.showMessage(
-            gainedLife
-                ? "TPS report delivered! +200, extra worker hired."
-                : "TPS report delivered! +200, workers at max.",
+            gainedLife ? "TPS report delivered! +200, extra worker hired."
+                       : "TPS report delivered! +200, workers at max.",
             duration: 3
         )
     }
 
     private func bossCaughtWorker() {
         sound.playCaughtByBoss()
-        lives -= 1
-        reportItems.removeAll()
-        resetGrayedMachines()
+        state.lives -= 1
+        state.reportItems.removeAll()
+        mazeBuilder.resetGrayedMachines(in: self, names: requiredItems)
         refreshHUD()
         workerController.node.setBodyColor(.systemOrange)
         gameOverFlash = CACurrentMediaTime() + 0.5
         workerController.resetMotion()
         workerController.teleport(to: workerSpawn)
         bossController.teleportAllToSpawn()
-        if lives <= 0 {
+        if state.lives <= 0 {
             triggerGameOver()
         } else {
-            hud.showMessage("A boss caught you! \(lives) workers left.", duration: 3)
-        }
-    }
-
-    private func resetGrayedMachines() {
-        for child in children {
-            guard let name = child.name, requiredItems.contains(name) else { continue }
-            child.removeAction(forKey: "machineCooldown")
-            child.alpha = 1
-            child.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+            hud.showMessage("A boss caught you! \(state.lives) workers left.", duration: 3)
         }
     }
 
     private func triggerGameOver() {
         isGameOver = true
         inputController.unhideCursor()
-        GameCenterClient.submitScore(score, to: LeaderboardPanel.leaderboardID)
-        LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: score)
+        GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
+        LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
         sound.stopBackgroundMusic()
         sound.playGameOver()
         workerController.resetMotion()
@@ -323,42 +256,31 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
         hud.showGameOver(in: self)
     }
 
+    private func resetSceneAndBuild() {
+        bossController.clear()
+        travelerSpawner.reset()
+        powerPellet.deactivate()
+        removeAllActions()
+        removeAllChildren()
+        gameOverFlash = 0
+        buildLevel()
+    }
+
     private func restartGame() {
         hud.hideGameOver()
         sound.startBackgroundMusic()
         inputController.hideCursor()
         isGameOver = false
-        level = 1
-        lives = HUD.maxLives
-        tpsReportsCreated = 0
-        collectedDots = 0
-        score = 0
-        reportItems.removeAll()
-        gameOverFlash = 0
-        isPowerPelletMode = false
-        powerPelletModeEndsAt = 0
-        bossController.clear()
-        travelerSpawner.reset()
-        removeAllActions()
-        removeAllChildren()
-        buildLevel()
+        state.resetForNewGame()
+        resetSceneAndBuild()
         hud.showMessage("New game! Collect dots and TPS reports.", duration: 3)
     }
 
     private func startNextLevel() {
-        level += 1
-        bossController.clear()
-        travelerSpawner.reset()
-        removeAllActions()
-        removeAllChildren()
-        reportItems.removeAll()
-        gameOverFlash = 0
-        isPowerPelletMode = false
-        powerPelletModeEndsAt = 0
-        collectedDots = 0
-        buildLevel()
+        state.advanceLevel()
+        resetSceneAndBuild()
         sound.playLevelStart()
-        hud.showMessage("Level \(level)! New office floor loaded.", duration: 3)
+        hud.showMessage("Level \(state.level)! New office floor loaded.", duration: 3)
     }
 
     private func returnToTitleScene() {
@@ -371,46 +293,29 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, PointerInputController
     }
 
     // MARK: - Power pellet
-
     private func startPowerPelletMode() {
-        isPowerPelletMode = true
-        powerPelletModeEndsAt = lastUpdateTime + powerPelletDuration
+        powerPellet.activate(now: lastUpdateTime)
         bossController.setPowerPelletActive(true)
         hud.showMessage("Power pellet! Capture the bosses for 20 seconds.", duration: 3)
     }
 
     private func endPowerPelletMode() {
-        isPowerPelletMode = false
-        powerPelletModeEndsAt = 0
+        powerPellet.deactivate()
         bossController.setPowerPelletActive(false)
         hud.showMessage("Power pellet mode ended.", duration: 2)
     }
 
-    // MARK: - HUD + popups
+    // MARK: - HUD
 
     private func refreshHUD() {
-        if score > highScore { highScore = score }
-        hud.updateStatus(score: score, highScore: highScore, level: level, dots: collectedDots, total: dotCount, reports: tpsReportsCreated, items: reportItems)
-        hud.updateLives(lives)
-        let cyclePosition = ((level - 1) % levelTravelers.count) + 1
+        hud.updateStatus(
+            score: state.score, highScore: state.highScore, level: state.level,
+            dots: state.collectedDots, total: state.dotCount,
+            reports: state.tpsReportsCreated, items: state.reportItems
+        )
+        hud.updateLives(state.lives)
+        let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1
         let emojis = (0..<cyclePosition).map { levelTravelers[$0].emoji }
         hud.updateLevelEmojis(emojis)
-    }
-
-    private func showScorePopup(_ points: Int, at position: CGPoint) {
-        let popup = SKLabelNode(fontNamed: "Menlo-Bold")
-        popup.text = "\(points)"
-        popup.fontSize = 18
-        popup.fontColor = .systemYellow
-        popup.position = CGPoint(x: position.x, y: position.y + 20)
-        popup.zPosition = 12
-        addChild(popup)
-        popup.run(.sequence([
-            .group([
-                .moveBy(x: 0, y: 28, duration: 0.7),
-                .fadeOut(withDuration: 0.7)
-            ]),
-            .removeFromParent()
-        ]))
     }
 }
