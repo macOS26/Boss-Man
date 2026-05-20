@@ -107,30 +107,51 @@ final class LeaderboardPanel: SKNode {
     }
 
     private func load() {
+        // Render local scores first so the panel always has content.
+        renderLocalFallback()
+
         Task { @MainActor in
             guard GKLocalPlayer.local.isAuthenticated else {
-                showStatus("Sign in to Game Center", asLink: true)
+                if LocalHighScores.load().isEmpty {
+                    showStatus("Sign in to Game Center", asLink: true)
+                }
                 return
             }
             do {
                 let leaderboards = try await GKLeaderboard.loadLeaderboards(IDs: [Self.leaderboardID])
-                guard let board = leaderboards.first else {
-                    showStatus("No leaderboard yet")
-                    return
-                }
+                guard let board = leaderboards.first else { return }
                 let (_, entries, _) = try await board.loadEntries(
                     for: .global,
                     timeScope: .allTime,
                     range: NSRange(location: 1, length: 10)
                 )
-                if entries.isEmpty {
-                    showStatus("No scores yet")
-                } else {
+                if !entries.isEmpty {
                     render(entries: entries)
                 }
             } catch {
-                showStatus("Leaderboard unavailable")
+                // Keep local fallback on screen; nothing to do.
             }
+        }
+    }
+
+    private func renderLocalFallback() {
+        let locals = LocalHighScores.load()
+        guard !locals.isEmpty else { return }
+        entriesNode.removeAllChildren()
+        let rowHeight: CGFloat = 28
+        let leftEdge = -panelSize.width / 2 + 18
+        let rightEdge = panelSize.width / 2 - 18
+        for (index, entry) in locals.enumerated() {
+            let y = -CGFloat(index) * rowHeight
+            entriesNode.addChild(row(
+                rank: index + 1,
+                name: entry.name,
+                score: entry.score,
+                y: y,
+                left: leftEdge,
+                right: rightEdge,
+                highlight: false
+            ))
         }
     }
 

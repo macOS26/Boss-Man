@@ -122,6 +122,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+    private func recordRunScoreLocally() {
+        let name = GKLocalPlayer.local.isAuthenticated
+            ? (GKLocalPlayer.local.alias.isEmpty ? "Player" : GKLocalPlayer.local.alias)
+            : "Player"
+        LocalHighScores.record(name: name, score: score)
+    }
+
     /// Submits this run's final score to the global Game Center
     /// leaderboard. Game Center already keeps each player's best, so we
     /// submit the run total — not the local highScore (which is just a
@@ -776,6 +783,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         isGameOver = true
         unhideCursor()
         submitRunScoreToGameCenter()
+        recordRunScoreLocally()
         sound.stopBackgroundMusic()
         sound.playGameOver()
         workerDirection = nil
