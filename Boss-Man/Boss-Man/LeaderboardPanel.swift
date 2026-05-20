@@ -56,7 +56,7 @@ final class LeaderboardPanel: SKNode {
         // square corner (Post-its have very tight radii, not rounded
         // pills) and no stroke.
         let postIt = SKShapeNode(rect: rect, cornerRadius: 3)
-        postIt.fillColor = NSColor(calibratedRed: 1.0, green: 0.95, blue: 0.22, alpha: 1)
+        postIt.fillColor = NSColor(calibratedRed: 1.0, green: 0.92, blue: 0.42, alpha: 1)
         postIt.strokeColor = .clear
         addChild(postIt)
 
