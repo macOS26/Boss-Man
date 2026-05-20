@@ -144,14 +144,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var lastPadDirection: MoveDirection?
     private let padDeadzone: Float = 0.35
 
-    // Trackpad two-finger pan: scrollWheel deltas accumulate until they
-    // cross a directional threshold, then we queue the move and reset.
-    private var swipeAccumX: CGFloat = 0
-    private var swipeAccumY: CGFloat = 0
-    private var lastSwipeTime: TimeInterval = 0
-    private let swipeThreshold: CGFloat = 24
-    private let swipeRestartGap: TimeInterval = 0.35
-    private var scrollMonitor: Any?
+    // Mouse / trackpad pointer movement: accumulate per-event deltas until
+    // the dominant axis crosses a threshold, then queue the corresponding
+    // direction. A short idle gap resets the accumulator so successive
+    // flicks read cleanly.
+    private var mouseAccumX: CGFloat = 0
+    private var mouseAccumY: CGFloat = 0
+    private var lastMouseTime: TimeInterval = 0
+    private let mouseThreshold: CGFloat = 18
+    private let mouseRestartGap: TimeInterval = 0.25
     private var cursorIsHidden = false
 
     override func didMove(to view: SKView) {
@@ -169,15 +170,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
         sound.startBackgroundMusic()
         setupGameController()
-        setupTrackpadSwipeMonitor()
+        // SKView forwards mouseDown/Dragged/Moved to the running scene as
+        // long as the window opts in to mouse-moved delivery.
+        view.window?.acceptsMouseMovedEvents = true
         hideCursor()
     }
 
     override func willMove(from view: SKView) {
-        if let monitor = scrollMonitor {
-            NSEvent.removeMonitor(monitor)
-            scrollMonitor = nil
-        }
         unhideCursor()
     }
 
@@ -247,42 +246,47 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
-    // MARK: - Trackpad swipe (two-finger pan)
+    // MARK: - Mouse / trackpad pointer
 
-    /// SKView forwards keyDown to its scene but does NOT forward
-    /// scrollWheel events — so we register a local NSEvent monitor to
-    /// catch trackpad pans application-wide and route them through the
-    /// same direction queue.
-    private func setupTrackpadSwipeMonitor() {
-        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            self?.handleTrackpadScroll(event)
-            return event
-        }
+    /// SKView forwards mouseDown / mouseDragged / mouseMoved to its
+    /// running scene through the NSResponder chain (this is the
+    /// documented exception: scrollWheel is NOT forwarded, but the
+    /// mouse-* family is). With the cursor hidden during play, the
+    /// pointer acts as a virtual stick — move it in a direction past
+    /// the threshold and PETE queues that turn. event.deltaX/deltaY
+    /// give us relative motion regardless of where the (invisible)
+    /// cursor actually is on screen.
+    override func mouseMoved(with event: NSEvent) {
+        handlePointerDelta(dx: event.deltaX, dy: event.deltaY)
     }
 
-    private func handleTrackpadScroll(_ event: NSEvent) {
-        guard event.hasPreciseScrollingDeltas, !isGameOver else { return }
+    override func mouseDragged(with event: NSEvent) {
+        handlePointerDelta(dx: event.deltaX, dy: event.deltaY)
+    }
+
+    private func handlePointerDelta(dx: CGFloat, dy: CGFloat) {
+        guard !isGameOver else { return }
         let now = CACurrentMediaTime()
-        if now - lastSwipeTime > swipeRestartGap {
-            swipeAccumX = 0
-            swipeAccumY = 0
+        if now - lastMouseTime > mouseRestartGap {
+            mouseAccumX = 0
+            mouseAccumY = 0
         }
-        lastSwipeTime = now
-        swipeAccumX += event.scrollingDeltaX
-        swipeAccumY += event.scrollingDeltaY
-        let absX = abs(swipeAccumX), absY = abs(swipeAccumY)
-        guard max(absX, absY) >= swipeThreshold else { return }
+        lastMouseTime = now
+        mouseAccumX += dx
+        mouseAccumY += dy
+        let absX = abs(mouseAccumX), absY = abs(mouseAccumY)
+        guard max(absX, absY) >= mouseThreshold else { return }
         let direction: MoveDirection
         if absX > absY {
-            // scrollingDeltaX > 0 when fingers move right with natural scrolling.
-            direction = swipeAccumX > 0 ? .right : .left
+            direction = mouseAccumX > 0 ? .right : .left
         } else {
-            // scrollingDeltaY > 0 when fingers move up with natural scrolling.
-            direction = swipeAccumY > 0 ? .up : .down
+            // NSEvent.deltaY is positive when the cursor moves DOWN on
+            // screen (AppKit uses screen coords for deltas), so up = neg.
+            direction = mouseAccumY < 0 ? .up : .down
         }
         queueDirection(direction)
-        swipeAccumX = 0
-        swipeAccumY = 0
+        mouseAccumX = 0
+        mouseAccumY = 0
     }
 
     // MARK: - Cursor
