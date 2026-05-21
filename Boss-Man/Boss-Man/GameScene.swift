@@ -237,11 +237,12 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.tpsReportsDelivered += 1
         state.reportItems.removeAll()
 
-        // Award 1000 points for turning in the TPS report
-        state.bumpScore(by: 1000)
+        // Award points based on level: 200, 300, 400, 500... (+100 per level)
+        let tpsPoints = state.level * 100 + 100
+        state.bumpScore(by: tpsPoints)
         state.currentReportScore = 0
         if let workerPos = workerController?.node.position {
-            ScorePopup.show(1000, at: workerPos, in: self)
+            ScorePopup.show(tpsPoints, at: workerPos, in: self)
         }
 
         sound.playTpsDeliver()
@@ -249,8 +250,8 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         if gainedLife { state.lives += 1 }
         refreshHUD()
         hud.showMessage(
-            gainedLife ? "TPS report turned in! +1000, extra worker hired."
-                       : "TPS report turned in! +1000, workers at max.",
+            gainedLife ? "TPS report turned in! +\(tpsPoints), extra worker hired."
+                       : "TPS report turned in! +\(tpsPoints), workers at max.",
             duration: 3
         )
     }
