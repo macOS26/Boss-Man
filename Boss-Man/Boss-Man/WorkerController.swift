@@ -94,12 +94,11 @@ final class WorkerController {
     /// Boss catch paths must skip if this is set.
     private(set) var isShielded = false
 
-    /// Five-second spawn invulnerability:
-    ///   • 0.0 – 2.0s  solid orange, rapid alpha blink to signal
-    ///                 invulnerability.
-    ///   • 0.0 – 2.5s  contacts disabled.
-    ///   • 2.5 – 5.0s  body color smoothly interpolates orange → teal.
-    ///   • 5.0s        contacts re-armed, isShielded cleared.
+    /// Three-second spawn invulnerability:
+    ///   • 0.0 – 1.2s  solid orange, single alpha pulse.
+    ///   • 0.0 – 1.5s  contacts disabled.
+    ///   • 1.5 – 3.0s  body color smoothly interpolates orange → teal.
+    ///   • 3.0s        contacts re-armed, isShielded cleared.
     /// Cancels any prior shield in flight by reusing the "spawnShield"
     /// action key.
     func applySpawnShield() {
@@ -118,16 +117,16 @@ final class WorkerController {
         // alpha 1 so the subsequent color fade renders at full
         // visibility.
         let blinkCycle = SKAction.sequence([
-            .fadeAlpha(to: 0.35, duration: 1.0),
-            .fadeAlpha(to: 1.0, duration: 1.0)
+            .fadeAlpha(to: 0.35, duration: 0.6),
+            .fadeAlpha(to: 1.0, duration: 0.6)
         ])
         node.run(.sequence([
             .repeat(blinkCycle, count: 1),
             .run { [weak self] in self?.node.alpha = 1 }
         ]), withKey: "spawnShieldBlink")
 
-        let fadeDuration: TimeInterval = 2.5
-        let waitBeforeFade: TimeInterval = 2.5
+        let fadeDuration: TimeInterval = 1.5
+        let waitBeforeFade: TimeInterval = 1.5
 
         let fade = SKAction.customAction(withDuration: fadeDuration) { [weak self] _, elapsed in
             guard let self else { return }
