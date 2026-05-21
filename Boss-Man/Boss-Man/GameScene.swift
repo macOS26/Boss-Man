@@ -106,7 +106,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.bumpScore(by: 1)
         sound.playDotBlip()
         refreshHUD()
-        if state.collectedDots >= state.dotCount { startNextLevel() }
+        if state.collectedDots >= state.dotCount && state.tpsReportsDelivered >= 1 {
+            startNextLevel()
+        } else if state.collectedDots >= state.dotCount && state.tpsReportsDelivered < 1 {
+            hud.showMessage("Turn in at least 1 TPS report to complete the level!", duration: 3)
+        }
     }
 
     // MARK: - BossControllerDelegate
@@ -160,16 +164,29 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
     }
 
+    /// Points awarded for each successive report item: 1st→10, 2nd→25, 3rd→50, 4th→100
+    private let reportItemPoints = [10, 25, 50, 100]
+
     private func handleMachine(body: SKPhysicsBody, name: String) {
         guard requiredItems.contains(name), !state.reportItems.contains(name) else { return }
         state.reportItems.insert(name)
+
+        // Award escalating points for each collected report item
+        let itemIndex = state.reportItems.count - 1
+        if itemIndex < reportItemPoints.count {
+            let pts = reportItemPoints[itemIndex]
+            state.bumpScore(by: pts)
+            state.currentReportScore += pts
+            ScorePopup.show(pts, at: body.node?.position ?? .zero, in: self)
+        }
+
         sound.playMachine(named: name)
         mazeBuilder.grayOutMachine(body)
         refreshHUD()
         if state.reportItems.count == requiredItems.count {
             hud.showMessage("TPS report complete! Deliver it to a brown box.", duration: 6)
         } else {
-            hud.showMessage("Collected \(name) page for TPS report", duration: 2)
+            hud.showMessage("Collected \(name) page for TPS report +\(reportItemPoints[itemIndex])", duration: 2)
         }
     }
 
@@ -217,16 +234,23 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             hud.showMessage("Brown boxes collect finished TPS reports.", duration: 2)
             return
         }
-        state.tpsReportsCreated += 1
+        state.tpsReportsDelivered += 1
         state.reportItems.removeAll()
-        state.bumpScore(by: 200)
+
+        // Award 1000 points for turning in the TPS report
+        state.bumpScore(by: 1000)
+        state.currentReportScore = 0
+        if let workerPos = workerController?.node.position {
+            ScorePopup.show(1000, at: workerPos, in: self)
+        }
+
         sound.playTpsDeliver()
         let gainedLife = state.lives < HUD.maxLives
         if gainedLife { state.lives += 1 }
         refreshHUD()
         hud.showMessage(
-            gainedLife ? "TPS report delivered! +200, extra worker hired."
-                       : "TPS report delivered! +200, workers at max.",
+            gainedLife ? "TPS report turned in! +1000, extra worker hired."
+                       : "TPS report turned in! +1000, workers at max.",
             duration: 3
         )
     }
@@ -234,7 +258,17 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func bossCaughtWorker() {
         sound.playCaughtByBoss()
         state.lives -= 1
+
+        // Show red negative popup for lost TPS report item points
+        if state.currentReportScore > 0 {
+            let lost = state.currentReportScore
+            if let workerPos = workerController?.node.position {
+                ScorePopup.show(-lost, at: workerPos, in: self, color: .systemRed)
+            }
+        }
+
         state.reportItems.removeAll()
+        state.currentReportScore = 0
         mazeBuilder.resetGrayedMachines(in: self, names: requiredItems)
         refreshHUD()
         workerController.resetMotion()
@@ -328,7 +362,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         hud.updateStatus(
             score: state.score, highScore: state.highScore, level: state.level,
             dots: state.collectedDots, total: state.dotCount,
-            reports: state.tpsReportsCreated, items: state.reportItems
+            reports: state.tpsReportsDelivered, items: state.reportItems
         )
         hud.updateLives(state.lives)
         let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1

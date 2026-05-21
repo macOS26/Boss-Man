@@ -13,8 +13,12 @@ final class RoundState {
     var score = 0
     var dotCount = 0
     var collectedDots = 0
-    var tpsReportsCreated = 0
+    var tpsReportsDelivered = 0
     var reportItems: Set<String> = []
+    /// Points accumulated from collecting individual report items in the
+    /// current TPS report cycle (10, 25, 50, 100).  Lost when the boss
+    /// catches PETE, shown as a red negative popup.
+    var currentReportScore = 0
     private(set) var highScore = UserDefaults.standard.integer(forKey: RoundState.highScoreKey)
 
     func bumpScore(by points: Int) {
@@ -29,14 +33,17 @@ final class RoundState {
         level = 1
         lives = HUD.maxLives
         score = 0
-        tpsReportsCreated = 0
+        tpsReportsDelivered = 0
         collectedDots = 0
         reportItems.removeAll()
+        currentReportScore = 0
     }
 
     func advanceLevel() {
         level += 1
         collectedDots = 0
+        tpsReportsDelivered = 0
         reportItems.removeAll()
+        currentReportScore = 0
     }
 }

@@ -5,11 +5,11 @@ import SpriteKit
 /// own file so the scene doesn't have to.
 @MainActor
 enum ScorePopup {
-    static func show(_ points: Int, at position: CGPoint, in scene: SKScene) {
+    static func show(_ points: Int, at position: CGPoint, in scene: SKScene, color: NSColor = .systemYellow) {
         let popup = SKLabelNode(fontNamed: "Menlo-Bold")
-        popup.text = "\(points)"
+        popup.text = points >= 0 ? "+\(points)" : "\(points)"
         popup.fontSize = 18
-        popup.fontColor = .systemYellow
+        popup.fontColor = color
         popup.position = CGPoint(x: position.x, y: position.y + 20)
         popup.zPosition = 12
         scene.addChild(popup)
