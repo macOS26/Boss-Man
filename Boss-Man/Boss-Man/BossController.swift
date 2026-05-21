@@ -6,6 +6,9 @@ protocol BossControllerDelegate: AnyObject {
     var workerGrid: CGPoint { get }
     var workerDirection: MoveDirection? { get }
     var isPowerPelletMode: Bool { get }
+    /// True while PETE is wearing his spawn-protection orange shield;
+    /// boss AI catch logic must short-circuit when this is set.
+    var isPeteShielded: Bool { get }
     func bossDidCatchWorker()
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint)
 }
@@ -375,7 +378,7 @@ final class BossController {
         if Pathfinder.manhattanDistance(move.to, delegate.workerGrid) < 0.5 {
             if entities[index].isInFleeMode {
                 capture(at: index)
-            } else {
+            } else if !delegate.isPeteShielded {
                 // Instantly hide + disable + clear the catching boss
                 // so it can't render or collide while bossCaughtWorker
                 // tears everything down and respawns fresh.
@@ -386,6 +389,8 @@ final class BossController {
                 relocateToSpawn(at: index)
                 delegate.bossDidCatchWorker()
             }
+            // PETE is shielded → ignore. He's invulnerable until the
+            // 5-second spawn shield expires.
         }
     }
 

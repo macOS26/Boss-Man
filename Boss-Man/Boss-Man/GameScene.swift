@@ -35,6 +35,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     private(set) var isGameOver = false
     var isPowerPelletMode: Bool { powerPellet.isActive }
+    var isPeteShielded: Bool { workerController?.isShielded ?? false }
 
     // MARK: - Lifecycle
     override func didMove(to view: SKView) {
@@ -131,7 +132,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             if self.bossController.isImmobilized(boss: bossNode) { return }
             if self.bossController.isInFleeMode(boss: bossNode) {
                 self.bossController.capture(boss: bossNode)
-            } else {
+            } else if !self.workerController.isShielded {
                 // Instantly hide AND disable the catching boss so it can't
                 // render a single frame at PETE's tile or fire another
                 // contact while bossCaughtWorker runs. The teleportAll
@@ -182,6 +183,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         workerController = WorkerController(spawnGrid: workerSpawn, gridMap: gridMap, sound: sound)
         workerController.delegate = self
         addChild(workerController.node)
+        // 5-second spawn shield: orange + invulnerable for 4s, then
+        // a 1s fade to teal. Applies on level start and every restart.
+        workerController.applySpawnShield()
         bossController.spawn(forLevel: state.level)
         refreshHUD()
         let scheduledLevel = state.level
@@ -233,14 +237,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.reportItems.removeAll()
         mazeBuilder.resetGrayedMachines(in: self, names: requiredItems)
         refreshHUD()
-        workerController.node.setBodyColor(.systemOrange)
-        let worker = workerController.node
-        worker.run(.sequence([
-            .wait(forDuration: 0.5),
-            .run { [weak worker] in worker?.setBodyColor(.systemTeal) }
-        ]), withKey: "gameOverFlash")
         workerController.resetMotion()
         workerController.teleport(to: workerSpawn)
+        // 5-second spawn shield: orange + invulnerable for 4s, then
+        // 1s fade back to teal. PETE can't be caught during it.
+        workerController.applySpawnShield()
         bossController.teleportAllToSpawn()
         if state.lives <= 0 {
             triggerGameOver()
@@ -266,6 +267,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         bossController.clear()
         travelerSpawner.reset()
         powerPellet.deactivate()
+        // Kill any blue-mode bassline that was still looping when the
+        // round ended so it doesn't bleed into the next level.
+        sound.stopPowerPelletBass()
+        removeAction(forKey: "powerPelletExpiry")
         removeAllActions()
         removeAllChildren()
         buildLevel()

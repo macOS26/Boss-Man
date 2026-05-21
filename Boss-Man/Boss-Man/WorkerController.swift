@@ -90,6 +90,76 @@ final class WorkerController {
         }
     }
 
+    /// True while PETE is wearing the spawn-protection orange shield.
+    /// Boss catch paths must skip if this is set.
+    private(set) var isShielded = false
+
+    /// Five-second spawn invulnerability:
+    ///   • 0.0 – 2.0s  solid orange, rapid alpha blink to signal
+    ///                 invulnerability.
+    ///   • 0.0 – 2.5s  contacts disabled.
+    ///   • 2.5 – 5.0s  body color smoothly interpolates orange → teal.
+    ///   • 5.0s        contacts re-armed, isShielded cleared.
+    /// Cancels any prior shield in flight by reusing the "spawnShield"
+    /// action key.
+    func applySpawnShield() {
+        node.removeAction(forKey: "spawnShield")
+        node.removeAction(forKey: "spawnShieldBlink")
+        let orange = NSColor.systemOrange
+        let teal = NSColor.systemTeal
+        node.setBodyColor(orange)
+        node.alpha = 1
+        node.physicsBody?.categoryBitMask = 0
+        isShielded = true
+
+        // Blink alpha 1.0 ↔ 0.35 for the first 2 seconds. Four
+        // half-second cycles is a deliberate, readable pulse rather
+        // than a stroboscopic flicker. Ends with an explicit reset to
+        // alpha 1 so the subsequent color fade renders at full
+        // visibility.
+        let blinkCycle = SKAction.sequence([
+            .fadeAlpha(to: 0.35, duration: 1.0),
+            .fadeAlpha(to: 1.0, duration: 1.0)
+        ])
+        node.run(.sequence([
+            .repeat(blinkCycle, count: 1),
+            .run { [weak self] in self?.node.alpha = 1 }
+        ]), withKey: "spawnShieldBlink")
+
+        let fadeDuration: TimeInterval = 2.5
+        let waitBeforeFade: TimeInterval = 2.5
+
+        let fade = SKAction.customAction(withDuration: fadeDuration) { [weak self] _, elapsed in
+            guard let self else { return }
+            let t = CGFloat(elapsed) / CGFloat(fadeDuration)
+            self.node.setBodyColor(WorkerController.lerpColor(from: orange, to: teal, progress: t))
+        }
+
+        node.run(.sequence([
+            .wait(forDuration: waitBeforeFade),
+            fade,
+            .run { [weak self] in
+                guard let self else { return }
+                self.node.setBodyColor(teal)
+                self.node.physicsBody?.categoryBitMask = PhysicsCategory.worker
+                self.isShielded = false
+            }
+        ]), withKey: "spawnShield")
+    }
+
+    /// Linear-RGB interpolation between two NSColors. Converts both
+    /// to deviceRGB first so .redComponent / .greenComponent /
+    /// .blueComponent are safe to read on system colors (which are
+    /// otherwise in catalog/named color spaces and throw at access).
+    private static func lerpColor(from a: NSColor, to b: NSColor, progress t: CGFloat) -> NSColor {
+        let aRGB = a.usingColorSpace(.deviceRGB) ?? a
+        let bRGB = b.usingColorSpace(.deviceRGB) ?? b
+        let r = aRGB.redComponent + (bRGB.redComponent - aRGB.redComponent) * t
+        let g = aRGB.greenComponent + (bRGB.greenComponent - aRGB.greenComponent) * t
+        let bl = aRGB.blueComponent + (bRGB.blueComponent - aRGB.blueComponent) * t
+        return NSColor(calibratedRed: r, green: g, blue: bl, alpha: 1)
+    }
+
     private func attemptStep() {
         if let queued = queuedDirection,
            gridMap.isWalkable(neighbor(of: grid, in: queued)) {
