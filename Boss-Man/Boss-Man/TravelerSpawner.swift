@@ -68,7 +68,6 @@ final class TravelerSpawner {
     /// catch animation and tears the node down.
     func tryCatch(_ candidate: SKNode?) -> (traveler: LevelTraveler, position: CGPoint, emoji: String)? {
         guard let fish = node, fish === candidate, let traveler = activeTraveler else { return nil }
-        let emoji = (fish as? SKLabelNode)?.text ?? "🎁"
         let pos = fish.position
         fish.physicsBody = nil
         fish.run(.sequence([
@@ -80,7 +79,7 @@ final class TravelerSpawner {
         ]))
         node = nil
         activeTraveler = nil
-        return (traveler, pos, emoji)
+        return (traveler, pos, traveler.emoji)
     }
 
     // MARK: - Private
@@ -88,24 +87,44 @@ final class TravelerSpawner {
     private func spawn(_ traveler: LevelTraveler) {
         guard let scene else { return }
         node?.removeFromParent()
-        let label = SKLabelNode()
-        label.text = traveler.emoji
-        label.fontSize = 36
-        label.verticalAlignmentMode = .center
-        label.horizontalAlignmentMode = .center
-        label.zPosition = 9
+
+        // Wrapper SKNode is the physics body / position holder. Its
+        // children — the emoji label and the points tag — are managed
+        // independently so we can flip just the emoji when the
+        // traveler changes direction, without mirroring the points
+        // text.
+        let wrapper = SKNode()
         grid = spawnGrid
         previousGrid = nil
-        label.position = gridMap.point(for: grid)
-        label.physicsBody = SKPhysicsBody(circleOfRadius: 10)
-        label.physicsBody?.isDynamic = false
-        label.physicsBody?.categoryBitMask = PhysicsCategory.fish
-        label.physicsBody?.contactTestBitMask = PhysicsCategory.worker
-        label.physicsBody?.collisionBitMask = 0
-        scene.addChild(label)
-        node = label
+        wrapper.position = gridMap.point(for: grid)
+        wrapper.zPosition = 9
+        wrapper.physicsBody = SKPhysicsBody(circleOfRadius: 10)
+        wrapper.physicsBody?.isDynamic = false
+        wrapper.physicsBody?.categoryBitMask = PhysicsCategory.fish
+        wrapper.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+        wrapper.physicsBody?.collisionBitMask = 0
+
+        let emoji = SKLabelNode()
+        emoji.name = "traveler.emoji"
+        emoji.text = traveler.emoji
+        emoji.fontSize = 36
+        emoji.verticalAlignmentMode = .center
+        emoji.horizontalAlignmentMode = .center
+        wrapper.addChild(emoji)
+
+        let points = SKLabelNode(fontNamed: "Menlo-Bold")
+        points.text = "\(traveler.points)"
+        points.fontSize = 11
+        points.fontColor = .systemYellow
+        points.verticalAlignmentMode = .baseline
+        points.horizontalAlignmentMode = .center
+        points.position = CGPoint(x: 0, y: 24)
+        wrapper.addChild(points)
+
+        scene.addChild(wrapper)
+        node = wrapper
         activeTraveler = traveler
-        scheduleStepper(on: label)
+        scheduleStepper(on: wrapper)
         sound.playTravelerArrive(traveler.sound)
     }
 
@@ -136,7 +155,10 @@ final class TravelerSpawner {
             next = candidates.randomElement()!
         }
         let dx = next.x - grid.x
-        if dx != 0 { fish.xScale = dx < 0 ? 1 : -1 }
+        if dx != 0, let emoji = fish.childNode(withName: "traveler.emoji") {
+            // Flip only the emoji child — the points tag stays upright.
+            emoji.xScale = dx < 0 ? 1 : -1
+        }
         previousGrid = grid
         grid = next
         fish.run(.move(to: gridMap.point(for: next), duration: moveInterval))

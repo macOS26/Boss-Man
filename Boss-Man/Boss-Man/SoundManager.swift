@@ -105,6 +105,21 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private var musicBuffer: AVAudioPCMBuffer?
 
     private var dotToggle = false
+    /// Counter for the multi-stage dot ladder: 12 dots at the original
+    /// pitch pair, 12 dots two scale-degrees up, 12 dots four up,
+    /// 6 dots two below original, then cycle. Reset to 0 after a
+    /// 1.5s pause in eating.
+    private var dotsEatenInCycle: Int = 0
+    private var lastDotEatTime: TimeInterval = 0
+    /// Each stage's (low, high) toggle pair, in Hz, walking the
+    /// C-major scale up then briefly below.
+    private let dotStages: [(Float, Float)] = [
+        (988.00, 1174.66),  // B5 / D6  — original
+        (1174.66, 1396.91), // D6 / F6  — up 2 scale-degrees
+        (1396.91, 1760.00), // F6 / A6  — up 4 scale-degrees
+        (783.99, 987.77)    // G5 / B5  — 2 below original
+    ]
+    private let dotsPerStage: [Int] = [4, 2, 4, 2]
     private var lastSpeechTime: TimeInterval = 0
     private let speechCooldown: TimeInterval = 1.5
     private var musicEnabled = false
@@ -176,10 +191,32 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func playDotBlip() {
+        let now = CACurrentMediaTime()
+        if now - lastDotEatTime > 1.5 {
+            dotsEatenInCycle = 0
+        }
+        lastDotEatTime = now
+
+        // Find which stage the current dot belongs to.
+        let cycleLen = dotsPerStage.reduce(0, +)
+        let positionInCycle = dotsEatenInCycle % cycleLen
+        var stageIndex = 0
+        var threshold = 0
+        for (i, count) in dotsPerStage.enumerated() {
+            threshold += count
+            if positionInCycle < threshold {
+                stageIndex = i
+                break
+            }
+        }
+
         dotToggle.toggle()
-        let key = dotToggle ? "dotA" : "dotB"
-        let freq: Float = dotToggle ? 988 : 1175
+        let pair = dotStages[stageIndex]
+        let freq = dotToggle ? pair.0 : pair.1
+        let key = "dot-\(stageIndex)-\(dotToggle ? "lo" : "hi")"
         play(buffer: cached(key) { self.tone(frequency: freq, duration: 0.05, volume: 0.22) })
+
+        dotsEatenInCycle += 1
     }
 
     func playPowerPellet() {
@@ -341,23 +378,28 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func buildPowerPelletBeat() -> AVAudioPCMBuffer {
-        // Pop-punk-style syncopated bass groove: driving low-E pulse
-        // with a third / fifth lift and a couple of ghosted rests, so
-        // it has the same energy as the bass lines that open songs
-        // like Longview without reproducing a specific copyrighted
-        // riff. 16 sixteenth-note slots over 2 seconds at 120 BPM.
+        // Original pop-punk bass groove. 16 sixteenth-note slots over
+        // 2 seconds (120 BPM) with root pulses on E2, octave jumps to
+        // E3 for energy, walking-up motion through G/A/B, and a few
+        // rests to give it swing. Synthesis is fundamental + a few
+        // harmonics run through soft tanh saturation for a gritty
+        // P-bass-through-an-overdrive timbre.
         let duration: TimeInterval = 2.0
         let buffer = makeBuffer(seconds: duration)
         let data = buffer.floatChannelData![0]
         let frames = Int(buffer.frameLength)
 
         let E2: Float = 82.41
+        let E3: Float = 164.81
         let G2: Float = 98.00
+        let A2: Float = 110.00
         let B2: Float = 123.47
-        let rest: Float = 0
+        let _: Float = 0   // marker for readability of the rest
+
+        // -- Original riff. 16 slots, each ~125ms. Rests = 0. --
         let pattern: [Float] = [
-            E2, E2, rest, E2,  G2, rest, E2, rest,
-            E2, E2, rest, G2,  E2, G2, B2, rest
+            E2, E2, 0,  E3,  E2, 0,  G2, G2,
+            E2, 0,  A2, A2,  G2, 0,  B2, E3
         ]
         let slotFrames = frames / pattern.count
         let attack: Float = 0.005
@@ -365,7 +407,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         for (slot, freq) in pattern.enumerated() {
             let startFrame = slot * slotFrames
             guard freq > 0 else {
-                // Rest — ghost slot stays at zero.
                 for j in 0..<slotFrames where startFrame + j < frames {
                     data[startFrame + j] = 0
                 }
@@ -377,17 +418,19 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                 if t < attack {
                     env = t / attack
                 } else {
-                    // Plucked decay so each note is punchy and short,
-                    // leaving brief gaps that read as the groove's
-                    // rhythm rather than a wash of sound.
-                    env = exp(-4.5 * (t - attack))
+                    // Punchy pluck — quick attack, fast decay, short
+                    // gap before the next note so the groove reads
+                    // rhythmically rather than as a sustained drone.
+                    env = exp(-3.8 * (t - attack))
                 }
-                // Fundamental + slight octave above for a brighter,
-                // more-defined bass tone (closer to a P-bass timbre
-                // than a pure sine).
-                let fundamental = sin(2 * .pi * freq * t)
-                let overtone = sin(2 * .pi * freq * 2 * t) * 0.20
-                data[startFrame + j] = (fundamental + overtone) * 0.30 * env
+                // Layer fundamental + 2nd + 3rd harmonics, then run
+                // through tanh saturation for the slightly clipped
+                // "bass-through-an-overdrive" punk texture.
+                let f1 = sin(2 * .pi * freq * t)
+                let f2 = sin(2 * .pi * freq * 2 * t) * 0.35
+                let f3 = sin(2 * .pi * freq * 3 * t) * 0.12
+                let raw = (f1 + f2 + f3) * 1.8 * env
+                data[startFrame + j] = tanh(raw) * 0.34
             }
         }
         return buffer
