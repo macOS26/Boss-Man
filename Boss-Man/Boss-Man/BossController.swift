@@ -82,58 +82,73 @@ final class BossController {
     func spawn(forLevel level: Int) {
         clear()
         currentLevel = level
-        guard let scene else { return }
         let activeCount = min(max(level, 1), Self.blueprints.count)
         for blueprint in Self.blueprints.prefix(activeCount) {
-            let ai = BossAI(
-                homeGrid: blueprint.spawn,
-                detectionRange: detectionRange,
-                personality: blueprint.personality,
-                pathfinder: pathfinder,
-                map: gridMap
-            )
-            ai.teleport(to: blueprint.spawn)
-
-            let node = PixelPerson(
-                bodyColor: blueprint.color,
-                tieColor: blueprint.tie,
-                hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
-                shoeOutlineColor: .white,
-                pantsColor: blueprint.pants
-            )
-            node.name = blueprint.name
-            node.position = gridMap.point(for: blueprint.spawn)
-            node.physicsBody = SKPhysicsBody(circleOfRadius: 13)
-            node.physicsBody?.allowsRotation = false
-            node.physicsBody?.categoryBitMask = PhysicsCategory.boss
-            node.physicsBody?.contactTestBitMask = PhysicsCategory.worker
-            node.physicsBody?.collisionBitMask = PhysicsCategory.wall
-            node.zPosition = 11
-            scene.addChild(node)
-
-            let tag = SKLabelNode(fontNamed: "Menlo-Bold")
-            tag.text = blueprint.name
-            tag.fontSize = 9
-            tag.fontColor = .white
-            tag.position = CGPoint(x: 0, y: 24)
-            node.addChild(tag)
-
-            let entity = Entity(
-                name: blueprint.name,
-                baseColor: blueprint.color,
-                tieColor: blueprint.tie,
-                pantsColor: blueprint.pants,
-                spawn: blueprint.spawn,
-                ai: ai,
-                node: node,
-                tag: tag,
-                moveInterval: moveInterval / blueprint.speed,
-                moveDuration: moveDuration / blueprint.speed,
-                lastMove: 0
-            )
-            entities.append(entity)
-            respawn(at: entities.count - 1)
+            createAndFreeze(from: blueprint)
         }
+    }
+
+    /// Build a fresh entity from `blueprint`, add it to the scene
+    /// and run it through the spawn freeze (stepper + fade/throb/arm).
+    /// One function used by every respawn-as-boss path: level start,
+    /// post-PETE-death tear-down + rebuild, and the 3-strikes
+    /// power-pellet escape.
+    private func createAndFreeze(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)) {
+        buildEntity(from: blueprint)
+        let index = entities.count - 1
+        scheduleStepper(for: entities[index])
+        applySpawnFreeze(at: index)
+    }
+
+    private func buildEntity(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)) {
+        guard let scene else { return }
+        let ai = BossAI(
+            homeGrid: blueprint.spawn,
+            detectionRange: detectionRange,
+            personality: blueprint.personality,
+            pathfinder: pathfinder,
+            map: gridMap
+        )
+        ai.teleport(to: blueprint.spawn)
+
+        let node = PixelPerson(
+            bodyColor: blueprint.color,
+            tieColor: blueprint.tie,
+            hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
+            shoeOutlineColor: .white,
+            pantsColor: blueprint.pants
+        )
+        node.name = blueprint.name
+        node.position = gridMap.point(for: blueprint.spawn)
+        node.physicsBody = SKPhysicsBody(circleOfRadius: 13)
+        node.physicsBody?.allowsRotation = false
+        node.physicsBody?.categoryBitMask = PhysicsCategory.boss
+        node.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+        node.physicsBody?.collisionBitMask = PhysicsCategory.wall
+        node.zPosition = 11
+        scene.addChild(node)
+
+        let tag = SKLabelNode(fontNamed: "Menlo-Bold")
+        tag.text = blueprint.name
+        tag.fontSize = 9
+        tag.fontColor = .white
+        tag.position = CGPoint(x: 0, y: 24)
+        node.addChild(tag)
+
+        let entity = Entity(
+            name: blueprint.name,
+            baseColor: blueprint.color,
+            tieColor: blueprint.tie,
+            pantsColor: blueprint.pants,
+            spawn: blueprint.spawn,
+            ai: ai,
+            node: node,
+            tag: tag,
+            moveInterval: moveInterval / blueprint.speed,
+            moveDuration: moveDuration / blueprint.speed,
+            lastMove: 0
+        )
+        entities.append(entity)
     }
 
     /// Snaps a boss back to its spawn tile with all per-run state
@@ -157,12 +172,26 @@ final class BossController {
     ///   1. relocateToSpawn  — snap home + reset state
     ///   2. scheduleStepper  — re-queue the AI tick
     ///   3. applySpawnFreeze — fade / throb / re-arm schedule
-    /// Called by level start, post-PETE-death respawn, and the
-    /// 3-strikes-and-out power-pellet escape.
+    /// Called by level start and post-PETE-death respawn.
     private func respawn(at index: Int) {
         relocateToSpawn(at: index)
         scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
+    }
+
+    /// Hard rebuild: remove the boss node from the scene, drop the
+    /// entity, then funnel through createAndFreeze() — the same path
+    /// level-start and post-death respawns use. Used by the 3-strikes
+    /// power-pellet escape so no stale SKAction, physics state, or
+    /// node residue can leak from PETE's tile.
+    private func rebuildEntity(at index: Int) {
+        let bossName = entities[index].name
+        entities[index].node.alpha = 0
+        entities[index].node.removeAllActions()
+        entities[index].node.removeFromParent()
+        entities.remove(at: index)
+        guard let blueprint = Self.blueprints.first(where: { $0.name == bossName }) else { return }
+        createAndFreeze(from: blueprint)
     }
 
     /// Three-second boss spawn / respawn freeze:
@@ -347,9 +376,13 @@ final class BossController {
             if entities[index].isInFleeMode {
                 capture(at: index)
             } else {
-                // Snap the catching boss home FIRST so it isn't sitting
-                // on PETE's tile when bossCaughtWorker (or a follow-up
-                // contact) fires.
+                // Instantly hide + disable + clear the catching boss
+                // so it can't render or collide while bossCaughtWorker
+                // tears everything down and respawns fresh.
+                let catcher = entities[index].node
+                catcher.alpha = 0
+                catcher.physicsBody?.categoryBitMask = 0
+                catcher.removeAllActions()
                 relocateToSpawn(at: index)
                 delegate.bossDidCatchWorker()
             }
@@ -392,10 +425,13 @@ final class BossController {
         let bossNode = boss.node
 
         if hasEscaped {
-            // 3 captures in this power-pellet window → boss escapes.
-            // Same respawn path as level-start / post-death so the
-            // visual + audio rhythm is identical.
-            respawn(at: index)
+            // 3 captures in this power-pellet window → tear this boss
+            // off the board and rebuild it fresh in its corner. Same
+            // path used elsewhere via rebuildEntity(at:).
+            rebuildEntity(at: index)
+            refreshTags(powerPelletActive: powerActive)
+            delegate?.bossDidGetCaptured(name: boss.name, points: points, at: homePoint)
+            return
         } else {
             bossNode.run(.sequence([
                 .group([

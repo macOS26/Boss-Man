@@ -132,10 +132,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             if self.bossController.isInFleeMode(boss: bossNode) {
                 self.bossController.capture(boss: bossNode)
             } else {
-                // Snap the catching boss to its spawn BEFORE the death
-                // sequence runs — keeps it from re-colliding with PETE
-                // mid-flow and gives the rest of bossCaughtWorker a
-                // clean board to work from.
+                // Instantly hide AND disable the catching boss so it can't
+                // render a single frame at PETE's tile or fire another
+                // contact while bossCaughtWorker runs. The teleportAll
+                // call inside bossCaughtWorker will then destroy + respawn
+                // every boss fresh in its corner.
+                bossNode.alpha = 0
+                bossNode.physicsBody?.categoryBitMask = 0
+                bossNode.removeAllActions()
                 self.bossController.relocateAfterCatch(boss: bossNode)
                 self.bossCaughtWorker()
             }

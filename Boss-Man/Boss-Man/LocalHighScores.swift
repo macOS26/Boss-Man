@@ -17,23 +17,35 @@ struct LocalHighScores {
     static func load() -> [Entry] {
         guard let data = UserDefaults.standard.data(forKey: storeKey),
               let entries = try? JSONDecoder().decode([Entry].self, from: data) else {
+            print("[Scores] load: 0 entries")
             return []
         }
+        print("[Scores] load: \(entries.count) entries")
         return entries
     }
 
-    /// Inserts the score if it qualifies for the top-N, returns the
-    /// rank (1-based) of the newly-inserted entry or nil if it didn't
-    /// make the cut.
+    /// Inserts the score into the top-N store unconditionally (every
+    /// completed run is recorded — the panel renders newest at top after
+    /// sorting by score). Returns the 1-based rank of the new entry.
     @discardableResult
     static func record(name: String, score: Int) -> Int? {
-        guard score > 0 else { return nil }
+        guard score > 0 else {
+            print("[Scores] record skipped: score=0")
+            return nil
+        }
         var all = load()
-        all.append(Entry(name: name, score: score, date: Date()))
+        let entry = Entry(name: name, score: score, date: Date())
+        all.append(entry)
         all.sort { $0.score > $1.score }
         let trimmed = Array(all.prefix(maxEntries))
-        guard let data = try? JSONEncoder().encode(trimmed) else { return nil }
+        guard let data = try? JSONEncoder().encode(trimmed) else {
+            print("[Scores] record FAILED to encode")
+            return nil
+        }
         UserDefaults.standard.set(data, forKey: storeKey)
-        return trimmed.firstIndex(where: { $0.score == score && $0.name == name }).map { $0 + 1 }
+        UserDefaults.standard.synchronize()
+        let rank = trimmed.firstIndex(where: { $0.date == entry.date }).map { $0 + 1 }
+        print("[Scores] record: name=\(name) score=\(score) rank=\(rank.map(String.init) ?? "nil") total=\(trimmed.count)")
+        return rank
     }
 }
