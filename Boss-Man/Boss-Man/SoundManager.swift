@@ -111,17 +111,19 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     /// 1.5s pause in eating.
     private var dotsEatenInCycle: Int = 0
     private var lastDotEatTime: TimeInterval = 0
+    
     /// Each stage's (low, high) toggle pair, in Hz, walking the
     /// C-major scale up then briefly below.
     private let dotStages: [(Float, Float)] = [
         (988.00, 1174.66),  // B5 / D6  — original
-        (1174.66, 1396.91), // D6 / F6  — up 2 scale-degrees
+        (1396.91, 1174.66), // F6 / D6  — up 2 scale-degrees
         (1396.91, 1760.00), // F6 / A6  — up 4 scale-degrees
         (783.99, 987.77)    // G5 / B5  — 2 below original
     ]
     private let dotsPerStage: [Int] = [4, 2, 4, 2]
     private var lastSpeechTime: TimeInterval = 0
     private let speechCooldown: TimeInterval = 1.5
+    
     private var musicEnabled = false
 
     private let normalEffectsVolume: Float = 1.0
