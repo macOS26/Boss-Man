@@ -6,6 +6,10 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let engine = AVAudioEngine()
     private let effectsPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
+    /// Dedicated player for the power-pellet bassline loop so we can
+    /// stop() it instantly when blue mode ends — `effectsPlayer`
+    /// queues buffers and can't cancel them mid-flight.
+    private let bassPlayer = AVAudioPlayerNode()
     private var powerPelletBeatBuffer: AVAudioPCMBuffer?
     /// Synthesized PCM buffer cache. Every sound effect used to rebuild
     /// its waveform on each call — playFootstep alone fires ~7x/sec and
@@ -115,8 +119,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         super.init()
         engine.attach(effectsPlayer)
         engine.attach(musicPlayer)
+        engine.attach(bassPlayer)
         engine.connect(effectsPlayer, to: engine.mainMixerNode, format: format)
         engine.connect(musicPlayer, to: engine.mainMixerNode, format: format)
+        engine.connect(bassPlayer, to: engine.mainMixerNode, format: format)
+        bassPlayer.volume = 0.9
         // Lower mixer headroom so speech + music + effects can't sum past
         // full-scale and clip — clipping is what's audible as "crackle"
         // when the speech synthesizer's audio unit kicks in alongside ours.
@@ -313,35 +320,75 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
 
     // MARK: - Power-pellet beat
 
-    /// Plays a single low percussive "Dah" through the existing effects
-    /// player. Cheap enough to schedule once per second from GameScene
-    /// without spinning up another audio node (a third AVAudioPlayerNode
-    /// can cause HAL render-thread overload, which stutters animation).
-    func playPowerPelletBeat() {
+    /// Starts the power-pellet bassline looping on its own player. The
+    /// dedicated bassPlayer lets us cancel the loop instantly via
+    /// stopPowerPelletBass() — without it, queued buffers on the
+    /// shared effectsPlayer continue playing for up to a full pattern
+    /// cycle after blue mode ends, sounding out of sync once the
+    /// bosses return to normal.
+    func startPowerPelletBass() {
         if powerPelletBeatBuffer == nil {
             powerPelletBeatBuffer = buildPowerPelletBeat()
         }
         guard let buffer = powerPelletBeatBuffer else { return }
-        play(buffer: buffer)
+        bassPlayer.stop()
+        bassPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
+        if !bassPlayer.isPlaying { bassPlayer.play() }
+    }
+
+    func stopPowerPelletBass() {
+        bassPlayer.stop()
     }
 
     private func buildPowerPelletBeat() -> AVAudioPCMBuffer {
-        // 220ms low "Dah" — fast attack, exponential decay, single pitch.
-        let duration: TimeInterval = 0.22
+        // Pop-punk-style syncopated bass groove: driving low-E pulse
+        // with a third / fifth lift and a couple of ghosted rests, so
+        // it has the same energy as the bass lines that open songs
+        // like Longview without reproducing a specific copyrighted
+        // riff. 16 sixteenth-note slots over 2 seconds at 120 BPM.
+        let duration: TimeInterval = 2.0
         let buffer = makeBuffer(seconds: duration)
         let data = buffer.floatChannelData![0]
         let frames = Int(buffer.frameLength)
-        let pitch: Float = 175
-        let attack: Float = 0.004
-        for i in 0..<frames {
-            let t = Float(i) / Float(sampleRate)
-            let envelope: Float
-            if t < attack {
-                envelope = t / attack
-            } else {
-                envelope = exp(-5 * (t - attack))
+
+        let E2: Float = 82.41
+        let G2: Float = 98.00
+        let B2: Float = 123.47
+        let rest: Float = 0
+        let pattern: [Float] = [
+            E2, E2, rest, E2,  G2, rest, E2, rest,
+            E2, E2, rest, G2,  E2, G2, B2, rest
+        ]
+        let slotFrames = frames / pattern.count
+        let attack: Float = 0.005
+
+        for (slot, freq) in pattern.enumerated() {
+            let startFrame = slot * slotFrames
+            guard freq > 0 else {
+                // Rest — ghost slot stays at zero.
+                for j in 0..<slotFrames where startFrame + j < frames {
+                    data[startFrame + j] = 0
+                }
+                continue
             }
-            data[i] = sin(2 * .pi * pitch * t) * 0.35 * envelope
+            for j in 0..<slotFrames where startFrame + j < frames {
+                let t = Float(j) / Float(sampleRate)
+                let env: Float
+                if t < attack {
+                    env = t / attack
+                } else {
+                    // Plucked decay so each note is punchy and short,
+                    // leaving brief gaps that read as the groove's
+                    // rhythm rather than a wash of sound.
+                    env = exp(-4.5 * (t - attack))
+                }
+                // Fundamental + slight octave above for a brighter,
+                // more-defined bass tone (closer to a P-bass timbre
+                // than a pure sine).
+                let fundamental = sin(2 * .pi * freq * t)
+                let overtone = sin(2 * .pi * freq * 2 * t) * 0.20
+                data[startFrame + j] = (fundamental + overtone) * 0.30 * env
+            }
         }
         return buffer
     }

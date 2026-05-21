@@ -254,7 +254,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         inputController.unhideCursor()
         GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
         LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
-        removeAction(forKey: "powerPelletBeat")
+        sound.stopPowerPelletBass()
         sound.stopBackgroundMusic()
         sound.playGameOver()
         workerController.resetMotion()
@@ -301,10 +301,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func startPowerPelletMode() {
         powerPellet.activate()
         bossController.setPowerPelletActive(true)
-        run(.repeatForever(.sequence([
-            .run { [weak self] in self?.sound.playPowerPelletBeat() },
-            .wait(forDuration: 1.0)
-        ])), withKey: "powerPelletBeat")
+        sound.startPowerPelletBass()
         run(.sequence([
             .wait(forDuration: 20),
             .run { [weak self] in self?.endPowerPelletMode() }
@@ -315,7 +312,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func endPowerPelletMode() {
         powerPellet.deactivate()
         bossController.setPowerPelletActive(false)
-        removeAction(forKey: "powerPelletBeat")
+        sound.stopPowerPelletBass()
         removeAction(forKey: "powerPelletExpiry")
         hud.showMessage("Power pellet mode ended.", duration: 2)
     }
