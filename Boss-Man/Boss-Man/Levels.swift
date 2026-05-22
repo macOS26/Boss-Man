@@ -5,6 +5,16 @@
 //  Created by Todd Bruss on 5/16/26.
 //
 
+// Level names for the editor (one per officeMaps entry)
+struct Levels {
+    static let levelNames: [String] = [
+        "Level 1 - Office", "Level 2 - Maze", "Level 3 - Basement",
+        "Level 4 - Rooftop", "Level 5 - Server Room", "Level 6 - Executive",
+        "Level 7 - Parking Garage", "Level 8 - Cafeteria", "Level 9 - Conference",
+        "Level 10 - Storage", "Level 11 - Reception", "Level 12 - Penthouse"
+    ]
+}
+
 enum TravelerSound {
     case water, glaze, crunch, alienBleep, jelly, crispTap, bellDing, radioStatic, magicChime, ufoWhoosh, eyeDrone, bigEye
 }

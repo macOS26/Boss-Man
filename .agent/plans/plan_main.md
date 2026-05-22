@@ -1,12 +1,10 @@
-# tps-report-system
+# level-editor
 
-- [ ] 1. 1. Update ScorePopup to support red color for negative points
-- [ ] 2. 2. Update RoundState to track TPS report item points and accumulated TPS report score
-- [ ] 3. 3. Update handleMachine in GameScene to award 10/25/50/100 points for 1st/2nd/3rd/4th report items with ScorePopup
-- [ ] 4. 4. Update collectTPSReport to award 1000 points with ScorePopup
-- [ ] 5. 5. Update bossCaughtWorker to show red negative popup for lost TPS report item points
-- [ ] 6. 6. Update level completion logic: require at least 1 TPS report turned in (not just all dots collected)
-- [ ] 7. 7. Build and test
+- [⏳] 1. Create LevelEditorScene.swift with full 2D Minecraft-like tile editor
+- [ ] 2. Modify Levels.swift - make officeMaps mutable, add LevelStore persistence
+- [ ] 3. Modify BossManApp.swift - add Level Editor menu item
+- [ ] 4. Add LevelEditorScene.swift to Xcode project
+- [ ] 5. Build and verify
 
 ---
-*Status: 7 steps pending*
+*Status: 0 done, 1 in progress, 0 failed, 4 pending*

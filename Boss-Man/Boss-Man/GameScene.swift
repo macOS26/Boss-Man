@@ -252,7 +252,12 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     }
 
     private func currentLevelRows() -> [String] {
-        officeMaps[(state.level - 1) % officeMaps.count]
+        let idx = (state.level - 1) % Levels.levelNames.count
+        let name = Levels.levelNames[idx]
+        if let custom = LevelStore.shared.loadLevel(name: name) {
+            return custom
+        }
+        return officeMaps[idx % officeMaps.count]
     }
 
     private func musicTheme(for level: Int) -> MusicTheme {

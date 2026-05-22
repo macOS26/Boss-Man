@@ -33,7 +33,7 @@ final class TitleScene: SKScene {
         addChild(stapler)
 
         let prompt = SKLabelNode(fontNamed: titleFont)
-        prompt.text = "Press SPACE to Play"
+        prompt.text = "SPACE to Play · E for Editor"
         prompt.fontSize = 40
         prompt.fontColor = .black
         prompt.position = CGPoint(x: size.width / 2, y: size.height * 0.15)
@@ -71,6 +71,10 @@ final class TitleScene: SKScene {
             view?.presentScene(game, transition: .fade(withDuration: 0.5))
         case 53: // esc
             NSApp.terminate(nil)
+        case 14: // E — open Level Editor
+            let editor = LevelEditorScene(size: size)
+            editor.scaleMode = .aspectFit
+            view?.presentScene(editor, transition: .fade(withDuration: 0.3))
         default:
             break
         }
