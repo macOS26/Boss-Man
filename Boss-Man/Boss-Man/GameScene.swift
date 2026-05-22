@@ -78,8 +78,31 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             }
             return
         }
+        switch event.keyCode {
+        case 49:
+            togglePause()
+            return
+        case 53:
+            returnToTitleScene()
+            return
+        default:
+            break
+        }
+        guard !isPaused else { return }
         guard let direction = MoveDirection(keyCode: event.keyCode), !event.isARepeat else { return }
         workerController.queueDirection(direction)
+    }
+
+    private func togglePause() {
+        if isPaused {
+            isPaused = false
+            inputController.hideCursor()
+            hud.showMessage("", duration: 0.1)
+        } else {
+            hud.showMessage("Paused — press SPACE to resume", duration: 9999)
+            inputController.unhideCursor()
+            isPaused = true
+        }
     }
 
     override func mouseMoved(with event: NSEvent) {
