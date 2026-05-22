@@ -6,7 +6,7 @@
 //
 
 enum TravelerSound {
-    case water, glaze, crunch, alienBleep, jelly, crispTap, bellDing, radioStatic, magicChime, ufoWhoosh, eyeDrone, mibBleep
+    case water, glaze, crunch, alienBleep, jelly, crispTap, bellDing, radioStatic, magicChime, ufoWhoosh, eyeDrone, bigEye
 }
 
 struct LevelTraveler {
@@ -28,8 +28,8 @@ let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "📻", sound: .radioStatic, points: 4000),
     LevelTraveler(emoji: "🦄", sound: .magicChime,  points: 5000),
     LevelTraveler(emoji: "👽", sound: .ufoWhoosh,   points: 6000),
-    LevelTraveler(emoji: "👁️", sound: .eyeDrone,    points: 7000),
-    LevelTraveler(emoji: "🧟‍♀️", sound: .mibBleep,    points: 8000)
+    LevelTraveler(emoji: "👀", sound: .eyeDrone,    points: 7000),
+    LevelTraveler(emoji: "👁️", sound: .bigEye,    points: 8000)
 ]
 
 let officeMaps: [[String]] = [

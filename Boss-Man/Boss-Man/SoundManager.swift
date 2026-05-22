@@ -129,6 +129,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let dotsPerStage: [Int] = [4, 2, 4, 2]
     private var lastSpeechTime: TimeInterval = 0
     private let speechCooldown: TimeInterval = 1.5
+    private var teleportPlaying = false
     
     private var musicEnabled = false
 
@@ -300,8 +301,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             play(buffer: cached("trav.ufoWhoosh") { self.sweep(from: 1760, to: 220, duration: 0.65, volume: 0.13) })
         case .eyeDrone:
             play(buffer: cached("trav.eyeDrone") { self.tone(frequency: 196, duration: 0.8, volume: 0.18, decay: 2) })
-        case .mibBleep:
-            play(buffer: cached("trav.mibBleep") { self.sequence(notes: [659, 880, 1175, 1568], perNote: 0.07, volume: 0.14) })
+        case .bigEye:
+            play(buffer: cached("trav.bigEye") { self.sequence(notes: [659, 880, 1175, 1568], perNote: 0.07, volume: 0.14) })
         }
     }
 
@@ -477,11 +478,21 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     /// respawn fade. Pairs an ascending sweep with a descending sweep
     /// plus high-frequency sparkle, bell-enveloped over the fade window.
     func playTeleport() {
-        play(buffer: cached("teleport") { self.buildTeleport() })
+        // 4 bosses spawning at once each call playTeleport(), and
+        // scheduleBuffer queues them back-to-back — perceived as 4x the
+        // length. Allow only one teleport buffer to be in-flight; the
+        // others are silently dropped until this one finishes.
+        if teleportPlaying { return }
+        teleportPlaying = true
+        let buffer = cached("teleport") { self.buildTeleport() }
+        effectsPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
+            DispatchQueue.main.async { self?.teleportPlaying = false }
+        }
+        if !effectsPlayer.isPlaying { effectsPlayer.play() }
     }
 
     private func buildTeleport() -> AVAudioPCMBuffer {
-        let duration: TimeInterval = 1.5
+        let duration: TimeInterval = 1.75
         let buffer = makeBuffer(seconds: duration)
         let data = buffer.floatChannelData![0]
         let frames = Int(buffer.frameLength)
@@ -493,6 +504,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         var phaseAsc: Float = 0
         var phaseDesc: Float = 0
         let dt: Float = 1.0 / Float(sampleRate)
+    
+        print(frames)
         for i in 0..<frames {
             let t = Float(i) / Float(sampleRate)
             let progress = t / durF
