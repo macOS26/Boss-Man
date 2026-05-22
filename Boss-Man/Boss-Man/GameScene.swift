@@ -16,7 +16,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     ]
     private let cubicleColors: [NSColor] = [
         .systemBlue, .systemTeal, .systemIndigo, .systemGreen, .systemPink, .systemBrown,
-        .systemPurple, .systemRed, .systemOrange, .systemYellow, .systemCyan, //.systemGray (save for Men in Black Level)
+        .systemPurple, .systemRed, .systemOrange, .systemYellow, .systemCyan, .systemGray // MIB level 12
     ]
 
     private var gridMap: GridMap!
@@ -55,7 +55,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
         buildLevel()
         hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
-        sound.startBackgroundMusic()
         inputController.delegate = self
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
@@ -216,6 +215,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     // MARK: - Level / round flow
 
     private func buildLevel() {
+        sound.startBackgroundMusic(theme: musicTheme(for: state.level))
         gridMap.setRows(currentLevelRows())
         mazeBuilder.cubicleColor = cubicleColors[(state.level - 1) % cubicleColors.count]
         state.dotCount = mazeBuilder.build(in: self)
@@ -237,6 +237,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     private func currentLevelRows() -> [String] {
         officeMaps[(state.level - 1) % officeMaps.count]
+    }
+
+    private func musicTheme(for level: Int) -> MusicTheme {
+        level % 12 == 0 ? .mib : .normal
     }
 
     private func currentTraveler() -> LevelTraveler {
@@ -336,7 +340,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     private func restartGame() {
         hud.hideGameOver()
-        sound.startBackgroundMusic()
         inputController.hideCursor()
         isGameOver = false
         state.resetForNewGame()

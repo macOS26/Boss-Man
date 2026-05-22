@@ -19,7 +19,8 @@ final class PixelPerson: SKNode {
          hairColor: NSColor,
          shoeOutlineColor: NSColor,
          pantsColor: NSColor,
-         walkExaggeration: CGFloat = 0) {
+         walkExaggeration: CGFloat = 0,
+         wearsSunglasses: Bool = false) {
         self.walkExaggeration = walkExaggeration
         let skin = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
         let shoeColor = NSColor(calibratedRed: 0.12, green: 0.08, blue: 0.05, alpha: 1)
@@ -117,17 +118,35 @@ final class PixelPerson: SKNode {
         hair.position = CGPoint(x: 0, y: 4)
         head.addChild(hair)
 
-        let leftEye = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
-        leftEye.fillColor = .black
-        leftEye.strokeColor = .clear
-        leftEye.position = CGPoint(x: -3, y: 0)
-        head.addChild(leftEye)
+        if wearsSunglasses {
+            // Single black wraparound bar with a faint gloss line — classic
+            // Men-in-Black shades. Sits a hair lower than the eye row to
+            // cover the bridge of the nose.
+            let shades = SKShapeNode(rectOf: CGSize(width: 12, height: 3), cornerRadius: 1)
+            shades.fillColor = .black
+            shades.strokeColor = NSColor(calibratedWhite: 0, alpha: 1)
+            shades.lineWidth = 0.5
+            shades.position = CGPoint(x: 0, y: 0)
+            head.addChild(shades)
 
-        let rightEye = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
-        rightEye.fillColor = .black
-        rightEye.strokeColor = .clear
-        rightEye.position = CGPoint(x: 3, y: 0)
-        head.addChild(rightEye)
+            let gloss = SKShapeNode(rectOf: CGSize(width: 10, height: 0.6))
+            gloss.fillColor = NSColor(calibratedWhite: 1, alpha: 0.55)
+            gloss.strokeColor = .clear
+            gloss.position = CGPoint(x: 0, y: 0.7)
+            shades.addChild(gloss)
+        } else {
+            let leftEye = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            leftEye.fillColor = .black
+            leftEye.strokeColor = .clear
+            leftEye.position = CGPoint(x: -3, y: 0)
+            head.addChild(leftEye)
+
+            let rightEye = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            rightEye.fillColor = .black
+            rightEye.strokeColor = .clear
+            rightEye.position = CGPoint(x: 3, y: 0)
+            head.addChild(rightEye)
+        }
     }
 
     required init?(coder aDecoder: NSCoder) {

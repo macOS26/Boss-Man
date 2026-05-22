@@ -87,9 +87,28 @@ final class BossController {
         currentLevel = level
         let activeCount = min(max(level, 1), Self.blueprints.count)
         for blueprint in Self.blueprints.prefix(activeCount) {
-            createAndFreeze(from: blueprint)
+            createAndFreeze(from: themed(blueprint, level: level))
         }
     }
+
+    /// On the MIB level (every 12th floor) every boss is reskinned in
+    /// a black suit, black tie, black slacks. The actual sunglasses
+    /// overlay is applied by PixelPerson when `wearsSunglasses == true`,
+    /// which buildEntity infers from `isMIBLevel`.
+    private func themed(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), level: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
+        guard isMIBLevel(level) else { return blueprint }
+        return (
+            name: blueprint.name,
+            color: .black,
+            tie: .black,
+            pants: .black,
+            spawn: blueprint.spawn,
+            personality: blueprint.personality,
+            speed: blueprint.speed
+        )
+    }
+
+    private func isMIBLevel(_ level: Int) -> Bool { level % 12 == 0 }
 
     /// Build a fresh entity from `blueprint`, add it to the scene
     /// and run it through the spawn freeze (stepper + fade/throb/arm).
@@ -119,7 +138,8 @@ final class BossController {
             tieColor: blueprint.tie,
             hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
             shoeOutlineColor: .white,
-            pantsColor: blueprint.pants
+            pantsColor: blueprint.pants,
+            wearsSunglasses: isMIBLevel(currentLevel)
         )
         node.name = blueprint.name
         node.position = gridMap.point(for: blueprint.spawn)
@@ -194,7 +214,7 @@ final class BossController {
         entities[index].node.removeFromParent()
         entities.remove(at: index)
         guard let blueprint = Self.blueprints.first(where: { $0.name == bossName }) else { return }
-        createAndFreeze(from: blueprint)
+        createAndFreeze(from: themed(blueprint, level: currentLevel))
     }
 
     /// Three-second boss spawn / respawn freeze:

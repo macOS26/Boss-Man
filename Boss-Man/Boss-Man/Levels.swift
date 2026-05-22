@@ -6,7 +6,7 @@
 //
 
 enum TravelerSound {
-    case water, glaze, crunch, alienBleep, jelly, crispTap, bellDing, radioStatic, magicChime, ufoWhoosh, eyeDrone
+    case water, glaze, crunch, alienBleep, jelly, crispTap, bellDing, radioStatic, magicChime, ufoWhoosh, eyeDrone, mibBleep
 }
 
 struct LevelTraveler {
@@ -28,7 +28,8 @@ let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "📻", sound: .radioStatic, points: 4000),
     LevelTraveler(emoji: "🦄", sound: .magicChime,  points: 5000),
     LevelTraveler(emoji: "👽", sound: .ufoWhoosh,   points: 6000),
-    LevelTraveler(emoji: "👁️", sound: .eyeDrone,    points: 7000)
+    LevelTraveler(emoji: "👁️", sound: .eyeDrone,    points: 7000),
+    LevelTraveler(emoji: "🕶️", sound: .mibBleep,    points: 8000)
 ]
 
 let officeMaps: [[String]] = [
@@ -239,6 +240,28 @@ let officeMaps: [[String]] = [
         "#......#......F..........#.........#",
         "#.####.#.####################.####.#",
         "#D....F.........................P..#",
+        "################## #################"
+    ],
+    // Level 12 — MIB. Map structure mirrors level 1 (six 1-pellet
+    // hideout alcoves) but cubicles, bosses, and music are swapped
+    // to the Men-in-Black theme by GameScene + BossController.
+    [
+        "################## #################",
+        "#P...##....F..........#....C....D..#",
+        "#.##.##.######.###.####.##H######..#",
+        "#....#....#....#...#......#.......##",
+        "####.#.##.#.##############H#.#######",
+        "#....#.H#....M..........#..#.......#",
+        "#.######H##############.#.######.#.#",
+        "#........#............#.#........#.#",
+        " .########.##########.#.##########. ",
+        "#....P...............B.........F...#",
+        "#######.######.############.####.###",
+        "#.......#....#............#....#...#",
+        "#.#####.#.##.############.#.##.###.#",
+        "#...C...#.H#..........M...#.H#.....#",
+        "#.#.########.####################.##",
+        "#..............................D...#",
         "################## #################"
     ]
 ]

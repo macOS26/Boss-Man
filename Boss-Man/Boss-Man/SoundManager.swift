@@ -1,6 +1,11 @@
 import AVFoundation
 import Foundation
 
+enum MusicTheme {
+    case normal
+    case mib
+}
+
 @MainActor
 final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let engine = AVAudioEngine()
@@ -102,7 +107,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     ]
     private let sampleRate: Double = 44100
     private let format: AVAudioFormat
-    private var musicBuffer: AVAudioPCMBuffer?
+    private var musicBuffers: [MusicTheme: AVAudioPCMBuffer] = [:]
+    private var currentMusicTheme: MusicTheme = .normal
 
     private var dotToggle = false
     /// Counter for the multi-stage dot ladder: 12 dots at the original
@@ -294,6 +300,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             play(buffer: cached("trav.ufoWhoosh") { self.sweep(from: 1760, to: 220, duration: 0.65, volume: 0.13) })
         case .eyeDrone:
             play(buffer: cached("trav.eyeDrone") { self.tone(frequency: 196, duration: 0.8, volume: 0.18, decay: 2) })
+        case .mibBleep:
+            play(buffer: cached("trav.mibBleep") { self.sequence(notes: [659, 880, 1175, 1568], perNote: 0.07, volume: 0.14) })
         }
     }
 
@@ -343,11 +351,20 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         speak(levelStartLines.randomElement() ?? "Yeah.", priority: false)
     }
 
-    func startBackgroundMusic() {
-        guard !musicEnabled else { return }
+    func startBackgroundMusic(theme: MusicTheme = .normal) {
+        if musicEnabled && currentMusicTheme == theme { return }
+        if musicEnabled { musicPlayer.stop() }
         musicEnabled = true
-        let buffer = musicBuffer ?? buildBackgroundLoop()
-        musicBuffer = buffer
+        currentMusicTheme = theme
+        let buffer = musicBuffers[theme] ?? {
+            let b: AVAudioPCMBuffer
+            switch theme {
+            case .normal: b = buildBackgroundLoop()
+            case .mib:    b = buildSunglassesAtNightLoop()
+            }
+            musicBuffers[theme] = b
+            return b
+        }()
         musicPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         if !musicPlayer.isPlaying { musicPlayer.play() }
     }
@@ -706,6 +723,82 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                 let bass = sin(2 * .pi * bassF * t) * 0.12 * env
                 let lead = leadF == 0 ? 0 : sin(2 * .pi * leadF * t) * 0.06 * env * 0.7
                 data[start + j] = bass + lead
+            }
+        }
+        return buffer
+    }
+
+    /// MIB / "Sunglasses at Night" homage — a punchy 80s synth-pop riff
+    /// in C minor at ~120 BPM. Driving root-octave bass on the down-beats,
+    /// a stabby sawtooth lead playing the iconic descending hook, and a
+    /// 4-on-the-floor noise click for the gated-snare feel. Synthesized
+    /// in-place so we don't bundle copyrighted audio.
+    private func buildSunglassesAtNightLoop() -> AVAudioPCMBuffer {
+        let bpm: Double = 120
+        let sixteenth = 60.0 / bpm / 4.0
+        // Two bars of 16 sixteenth-notes each.
+        let steps = 32
+
+        // C minor bass: pulses C2/G2 on every eighth.
+        let C2: Float = 65.41
+        let G2: Float = 98.00
+        let Eb2: Float = 77.78
+        let bassPattern: [Float] = [
+            C2, 0, C2, 0, G2, 0, C2, 0,
+            Eb2, 0, Eb2, 0, G2, 0, Eb2, 0,
+            C2, 0, C2, 0, G2, 0, C2, 0,
+            G2, 0, Eb2, 0, C2, 0, G2, 0
+        ]
+        // Lead hook: a descending C-minor pentatonic riff that evokes the
+        // "I wear my sunglasses at niiight" cadence without quoting it.
+        let G5: Float  = 783.99
+        let F5: Float  = 698.46
+        let Eb5: Float = 622.25
+        let D5: Float  = 587.33
+        let C5: Float  = 523.25
+        let Bb4: Float = 466.16
+        let leadPattern: [Float] = [
+            0, G5, F5, Eb5, 0, D5, 0, C5,
+            0, G5, F5, Eb5, 0, F5, 0, Eb5,
+            0, G5, F5, Eb5, 0, D5, 0, Bb4,
+            0, C5, 0, Eb5, 0, D5, C5, 0
+        ]
+
+        let frames = AVAudioFrameCount(sampleRate * sixteenth * Double(steps))
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        let data = buffer.floatChannelData![0]
+        let perFrames = Int(sampleRate * sixteenth)
+
+        for idx in 0..<steps {
+            let bassF = bassPattern[idx]
+            let leadF = leadPattern[idx]
+            let start = idx * perFrames
+            for j in 0..<perFrames {
+                let t = Float(j) / Float(sampleRate)
+                let env = exp(-5.5 * t) * (t < 0.005 ? t / 0.005 : 1)
+                // Bass: fundamental + a touch of 2nd harmonic, soft saturation.
+                var bass: Float = 0
+                if bassF > 0 {
+                    let s = sin(2 * .pi * bassF * t) + 0.45 * sin(2 * .pi * bassF * 2 * t)
+                    bass = tanh(s * 1.2) * 0.14 * env
+                }
+                // Lead: detuned sawtooth-ish stab for that 80s synth bite.
+                var lead: Float = 0
+                if leadF > 0 {
+                    let phase = leadF * t
+                    let saw1 = 2 * (phase - floor(phase + 0.5))
+                    let saw2 = 2 * ((leadF * 1.005) * t - floor((leadF * 1.005) * t + 0.5))
+                    lead = (saw1 + saw2) * 0.05 * env
+                }
+                // 4-on-the-floor click on every quarter note for groove.
+                var click: Float = 0
+                if idx % 4 == 0 && j < Int(sampleRate * 0.012) {
+                    let n = Float.random(in: -1...1)
+                    let clickEnv = exp(-90 * t)
+                    click = n * clickEnv * 0.06
+                }
+                data[start + j] = bass + lead + click
             }
         }
         return buffer
