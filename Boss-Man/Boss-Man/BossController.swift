@@ -143,7 +143,7 @@ final class BossController {
         )
         node.name = blueprint.name
         node.position = gridMap.point(for: blueprint.spawn)
-        node.physicsBody = SKPhysicsBody(circleOfRadius: 13)
+        node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
         node.physicsBody?.allowsRotation = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker

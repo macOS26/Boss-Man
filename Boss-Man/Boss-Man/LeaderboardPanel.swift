@@ -45,7 +45,6 @@ final class LeaderboardPanel: SKNode {
     }
 
     @objc private func authStateChanged() {
-        print("[GC] auth state changed: isAuthenticated=\(GKLocalPlayer.local.isAuthenticated)")
         if GKLocalPlayer.local.isAuthenticated {
             fetchEntries()
         }
@@ -178,11 +177,9 @@ final class LeaderboardPanel: SKNode {
 
     private func fetchEntries() {
         Task { @MainActor in
-            print("[GC] \(GKLocalPlayer.local.displayName) authenticated; fetching '\(Self.leaderboardID)'")
             do {
                 let leaderboards = try await GKLeaderboard.loadLeaderboards(IDs: [Self.leaderboardID])
                 guard let board = leaderboards.first else {
-                    print("[GC] leaderboard not found — falling back to local")
                     renderLocalFallback()
                     return
                 }
@@ -192,14 +189,11 @@ final class LeaderboardPanel: SKNode {
                     range: NSRange(location: 1, length: 10)
                 )
                 if entries.isEmpty {
-                    print("[GC] leaderboard empty — falling back to local")
                     renderLocalFallback()
                 } else {
-                    print("[GC] showing \(entries.count) Game Center entries")
                     render(entries: entries)
                 }
             } catch {
-                print("[GC] fetch failed (\(error.localizedDescription)) — falling back to local")
                 renderLocalFallback()
             }
         }

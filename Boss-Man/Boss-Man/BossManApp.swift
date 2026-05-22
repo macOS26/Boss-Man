@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         skView.shouldCullNonVisibleNodes = true
         skView.showsFPS = false
         skView.showsNodeCount = false
-        skView.showsPhysics = true // DEBUG: draw physics body outlines
+        skView.showsPhysics = false // DEBUG: draw physics body outlines
         skView.disableDepthStencilBuffer = false
         
         // do not remove

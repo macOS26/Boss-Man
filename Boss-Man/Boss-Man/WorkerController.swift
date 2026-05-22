@@ -50,7 +50,7 @@ final class WorkerController {
         tag.fontColor = .white
         tag.position = CGPoint(x: 0, y: 24)
         node.addChild(tag)
-        node.physicsBody = SKPhysicsBody(circleOfRadius: 12)
+        node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
         node.physicsBody?.allowsRotation = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.worker
         node.physicsBody?.contactTestBitMask = PhysicsCategory.dot | PhysicsCategory.boss | PhysicsCategory.machine | PhysicsCategory.tpsBox | PhysicsCategory.goldDisc | PhysicsCategory.fish

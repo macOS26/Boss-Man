@@ -9,7 +9,7 @@ final class MazeBuilder {
     var cubicleColor: NSColor = .systemBlue
     /// DEBUG: when true, skip dot AND gold-disc rendering so the
     /// level completes the moment a TPS report is delivered.
-    var debugSkipDots: Bool = true
+    var debugSkipDots: Bool = false
     /// Number of gold discs actually rendered by the most recent
     /// build(). Used by GameScene to know how many to expect collected.
     private(set) var placedGoldDiscs: Int = 0
@@ -222,7 +222,7 @@ final class MazeBuilder {
     private func addGoldDisc(at position: CGPoint, in scene: SKScene) {
         let pellet = SKSpriteNode(texture: pelletTexture)
         pellet.position = position
-        pellet.physicsBody = SKPhysicsBody(circleOfRadius: 14)
+        pellet.physicsBody = SKPhysicsBody(circleOfRadius: 11)
         pellet.physicsBody?.isDynamic = false
         pellet.physicsBody?.categoryBitMask = PhysicsCategory.goldDisc
         pellet.zPosition = 6

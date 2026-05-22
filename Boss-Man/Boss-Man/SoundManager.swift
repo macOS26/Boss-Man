@@ -16,6 +16,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     /// queues buffers and can't cancel them mid-flight.
     private let bassPlayer = AVAudioPlayerNode()
     private var goldDiscBeatBuffer: AVAudioPCMBuffer?
+    private var mibGoldDiscBeatBuffer: AVAudioPCMBuffer?
     /// Synthesized PCM buffer cache. Every sound effect used to rebuild
     /// its waveform on each call — playFootstep alone fires ~7x/sec and
     /// allocated a fresh ~1100-sample buffer each time. Cache by string
@@ -94,10 +95,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         "Solid work."
     ]
     private let gameOverLines = [
-        "Outta here, pal.",
-        "Pack it up.",
-        "Buh-bye.",
-        "Security, escort him."
+        "Please clear out your desk.",
+        "Security, escort him.",
+        "If you would work Saturday, that'd be great.",
+        "Have you've seen my shiny red stapler?",
+        "Please add a cover sheet for your TPS Report."
     ]
     private let levelStartLines = [
         "Hi there.",
@@ -125,6 +127,15 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         (1396.91, 1174.66), // F6 / D6  — up 2 scale-degrees
         (1396.91, 1760.00), // F6 / A6  — up 4 scale-degrees
         (783.99, 987.77)    // G5 / B5  — 2 below original
+    ]
+    /// MIB-level dot ladder: walks the C-minor pentatonic so each blip
+    /// agrees with the slowed "Sunglasses" lead. Same 4-stage cadence
+    /// shape so it climbs and resolves on the same cycle length.
+    private let mibDotStages: [(Float, Float)] = [
+        (523.25, 622.25),  // C5  / Eb5  — root + minor 3rd
+        (622.25, 783.99),  // Eb5 / G5   — climb
+        (783.99, 1046.50), // G5  / C6   — peak
+        (932.33, 783.99)   // Bb5 / G5   — resolve down
     ]
     private let dotsPerStage: [Int] = [4, 2, 4, 2]
     private var lastSpeechTime: TimeInterval = 0
@@ -163,7 +174,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         do {
             try engine.start()
         } catch {
-            print("Audio engine failed to start: \(error)")
         }
     }
 
@@ -171,7 +181,18 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
 
     private func setDucked(_ ducked: Bool) {
         effectsPlayer.volume = ducked ? duckedEffectsVolume : normalEffectsVolume
-        musicPlayer.volume = ducked ? duckedMusicVolume : normalMusicVolume
+        let base = ducked ? duckedMusicVolume : normalMusicVolume
+        musicPlayer.volume = base * themeMusicMultiplier(currentMusicTheme)
+    }
+
+    /// Per-theme music level. MIB level rides at half volume so the
+    /// 80s synth lead doesn't drown out the bosses' speech and the
+    /// gold-disc bassline.
+    private func themeMusicMultiplier(_ theme: MusicTheme) -> Float {
+        switch theme {
+        case .normal: return 1.0
+        case .mib:    return 0.625
+        }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
@@ -220,10 +241,15 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         }
 
         dotToggle.toggle()
-        let pair = dotStages[stageIndex]
+        // MIB level uses its own C-minor pentatonic ladder at half
+        // volume so the blips agree harmonically with the slowed
+        // "Sunglasses" lead and sit under it instead of poking through.
+        let mib = currentMusicTheme == .mib
+        let pair = mib ? mibDotStages[stageIndex] : dotStages[stageIndex]
         let freq = dotToggle ? pair.0 : pair.1
-        let key = "dot-\(stageIndex)-\(dotToggle ? "lo" : "hi")"
-        play(buffer: cached(key) { self.tone(frequency: freq, duration: 0.05, volume: 0.22) })
+        let vol: Float = mib ? 0.11 : 0.22
+        let key = "dot-\(stageIndex)-\(dotToggle ? "lo" : "hi")\(mib ? "-mib" : "")"
+        play(buffer: cached(key) { self.tone(frequency: freq, duration: 0.05, volume: vol) })
 
         dotsEatenInCycle += 1
     }
@@ -366,6 +392,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             musicBuffers[theme] = b
             return b
         }()
+        musicPlayer.volume = normalMusicVolume * themeMusicMultiplier(theme)
         musicPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         if !musicPlayer.isPlaying { musicPlayer.play() }
     }
@@ -402,11 +429,17 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     /// cycle after blue mode ends, sounding out of sync once the
     /// bosses return to normal.
     func startGoldDiscBass() {
-        if goldDiscBeatBuffer == nil {
-            goldDiscBeatBuffer = buildGoldDiscBeat()
+        let useMIB = currentMusicTheme == .mib
+        if useMIB {
+            if mibGoldDiscBeatBuffer == nil { mibGoldDiscBeatBuffer = buildMIBGoldDiscBeat() }
+        } else {
+            if goldDiscBeatBuffer == nil { goldDiscBeatBuffer = buildGoldDiscBeat() }
         }
-        guard let buffer = goldDiscBeatBuffer else { return }
+        guard let buffer = useMIB ? mibGoldDiscBeatBuffer : goldDiscBeatBuffer else { return }
         bassPlayer.stop()
+        // MIB level rides the bassline 25% quieter so it sits under the
+        // 80s synth lead instead of fighting it.
+        bassPlayer.volume = 0.9 * (useMIB ? 0.75 : 1.0)
         bassPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         if !bassPlayer.isPlaying { bassPlayer.play() }
     }
@@ -474,6 +507,58 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
+    /// MIB-level bassline: simpler than the default gold-disc groove —
+    /// just C2 / G2 root pulses on every beat (C minor, 100 BPM to
+    /// match the Sunglasses lead), so it locks under the descending
+    /// melody without competing for melodic space. 8 eighth-note slots
+    /// over 4 beats at 100 BPM = 60/100 * 4 = 2.4 seconds.
+    private func buildMIBGoldDiscBeat() -> AVAudioPCMBuffer {
+        let duration: TimeInterval = 60.0 / 100.0 * 4.0
+        let buffer = makeBuffer(seconds: duration)
+        let data = buffer.floatChannelData![0]
+        let frames = Int(buffer.frameLength)
+
+        let C2: Float = 65.41
+        let G2: Float = 98.00
+        // Steady root/fifth pulse on every eighth, rests in between.
+        let pattern: [Float] = [
+            C2, 0, C2, 0, G2, 0, C2, 0
+        ]
+        let slotFrames = frames / pattern.count
+        let attack: Float = 0.006
+
+        for (slot, freq) in pattern.enumerated() {
+            let startFrame = slot * slotFrames
+            guard freq > 0 else {
+                for j in 0..<slotFrames where startFrame + j < frames {
+                    data[startFrame + j] = 0
+                }
+                continue
+            }
+            let slotDuration = Float(slotFrames) / Float(sampleRate)
+            let release: Float = 0.02 // 20ms tail to avoid the click between slots
+            for j in 0..<slotFrames where startFrame + j < frames {
+                let t = Float(j) / Float(sampleRate)
+                var env: Float
+                if t < attack {
+                    env = t / attack
+                } else {
+                    env = exp(-3.2 * (t - attack))
+                }
+                let tailStart = slotDuration - release
+                if t > tailStart {
+                    env *= max(0, (slotDuration - t) / release)
+                }
+                // Pure sine on the fundamental — no harmonics, no
+                // saturation. The synth lead carries the timbre; the
+                // bass just provides a clean pulse so it doesn't go
+                // scratchy when the lead detuned sawtooth stacks on top.
+                data[startFrame + j] = sin(2 * .pi * freq * t) * 0.34 * env
+            }
+        }
+        return buffer
+    }
+
     /// Star-Trek-style transporter shimmer used during the boss spawn /
     /// respawn fade. Pairs an ascending sweep with a descending sweep
     /// plus high-frequency sparkle, bell-enveloped over the fade window.
@@ -505,7 +590,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         var phaseDesc: Float = 0
         let dt: Float = 1.0 / Float(sampleRate)
     
-        print(frames)
         for i in 0..<frames {
             let t = Float(i) / Float(sampleRate)
             let progress = t / durF
@@ -727,7 +811,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private func buildBackgroundLoop() -> AVAudioPCMBuffer {
         // Simple two-bar walking-bass loop at ~110 bpm (8 eighths per bar).
         let bpm: Double = 108
-        let beat = 60.0 / bpm / 2.0 // 8th note
+        let beat = 60.0 / bpm / 2.0 // 8thh note
         let bassPattern: [Float] = [
             130.81, 164.81, 130.81, 196.00,
             174.61, 220.00, 174.61, 261.63,
@@ -765,7 +849,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     /// 4-on-the-floor noise click for the gated-snare feel. Synthesized
     /// in-place so we don't bundle copyrighted audio.
     private func buildSunglassesAtNightLoop() -> AVAudioPCMBuffer {
-        let bpm: Double = 120
+        let bpm: Double = 100
         let sixteenth = 60.0 / bpm / 4.0
         // Four bars of 16 sixteenth-notes each: bars 1–2 carry the
         // descending hook, bars 3–4 answer with an ascending counter-hook.
@@ -775,8 +859,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         let C2: Float = 65.41
         let G2: Float = 98.00
         let Eb2: Float = 77.78
-        let Ab2: Float = 103.83
-        let F2:  Float = 87.31
+        let Ab2: Float = 103.83 
+        let F2: Float = 87.31
         let bassPattern: [Float] = [
             // Hook A — two bars on i / VII / III root motion
             C2, 0, C2, 0, G2, 0, C2, 0,
@@ -806,6 +890,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             0, G5, F5, Eb5, 0, F5, 0, Eb5,
             0, G5, F5, Eb5, 0, D5, 0, Bb4,
             0, C5, 0, Eb5, 0, D5, C5, 0,
+            
             // Hook B — ascending answer that climbs and resolves
             Ab4, 0, C5, 0, Eb5, 0, Ab5, 0,
             G5, 0, F5, 0, Eb5, 0, C5, 0,

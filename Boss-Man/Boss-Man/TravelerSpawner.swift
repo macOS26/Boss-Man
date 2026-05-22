@@ -36,9 +36,11 @@ final class TravelerSpawner {
         activeTraveler = nil
     }
 
-    /// Schedules two visits — at 6s and 36s — but only fires them
+    /// Schedules two visits — at 10s and 40s — but only fires them
     /// while the predicate still returns true. Lets GameScene gate on
     /// level / game-over without exposing its state to this class.
+    /// The 10s lead-in gives PETE time to clear his spawn shield and
+    /// stake out the floor before the first traveler appears.
     func scheduleVisits(of traveler: LevelTraveler, whileActive predicate: @escaping () -> Bool) {
         guard let scene else { return }
         let spawnLater: (TimeInterval, String) -> Void = { [weak self] delay, key in
@@ -51,8 +53,8 @@ final class TravelerSpawner {
                 }
             ]), withKey: key)
         }
-        spawnLater(6, "travelerVisit1")
-        spawnLater(36, "travelerVisit2")
+        spawnLater(10, "travelerVisit1")
+        spawnLater(40, "travelerVisit2")
     }
 
     private func scheduleStepper(on traveler: SKNode) {

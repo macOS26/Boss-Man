@@ -17,10 +17,8 @@ struct LocalHighScores {
     static func load() -> [Entry] {
         guard let data = UserDefaults.standard.data(forKey: storeKey),
               let entries = try? JSONDecoder().decode([Entry].self, from: data) else {
-            print("[Scores] load: 0 entries")
             return []
         }
-        print("[Scores] load: \(entries.count) entries")
         return entries
     }
 
@@ -30,7 +28,6 @@ struct LocalHighScores {
     @discardableResult
     static func record(name: String, score: Int) -> Int? {
         guard score > 0 else {
-            print("[Scores] record skipped: score=0")
             return nil
         }
         var all = load()
@@ -39,13 +36,11 @@ struct LocalHighScores {
         all.sort { $0.score > $1.score }
         let trimmed = Array(all.prefix(maxEntries))
         guard let data = try? JSONEncoder().encode(trimmed) else {
-            print("[Scores] record FAILED to encode")
             return nil
         }
         UserDefaults.standard.set(data, forKey: storeKey)
         UserDefaults.standard.synchronize()
         let rank = trimmed.firstIndex(where: { $0.date == entry.date }).map { $0 + 1 }
-        print("[Scores] record: name=\(name) score=\(score) rank=\(rank.map(String.init) ?? "nil") total=\(trimmed.count)")
         return rank
     }
 }
