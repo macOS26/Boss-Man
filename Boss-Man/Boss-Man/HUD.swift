@@ -3,7 +3,7 @@ import SpriteKit
 
 @MainActor
 final class HUD {
-    static let maxLives = 5
+    static let maxLives = 3
 
     private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let tpsLabel = SKLabelNode(fontNamed: "Menlo-Bold")
