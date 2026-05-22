@@ -11,11 +11,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let engine = AVAudioEngine()
     private let effectsPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
-    /// Dedicated player for the power-pellet bassline loop so we can
+    /// Dedicated player for the gold-disc bassline loop so we can
     /// stop() it instantly when blue mode ends — `effectsPlayer`
     /// queues buffers and can't cancel them mid-flight.
     private let bassPlayer = AVAudioPlayerNode()
-    private var powerPelletBeatBuffer: AVAudioPCMBuffer?
+    private var goldDiscBeatBuffer: AVAudioPCMBuffer?
     /// Synthesized PCM buffer cache. Every sound effect used to rebuild
     /// its waveform on each call — playFootstep alone fires ~7x/sec and
     /// allocated a fresh ~1100-sample buffer each time. Cache by string
@@ -228,8 +228,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         dotsEatenInCycle += 1
     }
 
-    func playPowerPellet() {
-        play(buffer: cached("powerPellet") { self.sweep(from: 220, to: 660, duration: 0.45, volume: 0.35) })
+    func playGoldDisc() {
+        play(buffer: cached("goldDisc") { self.sweep(from: 220, to: 660, duration: 0.45, volume: 0.35) })
     }
 
     func playFootstep() {
@@ -393,29 +393,29 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         if speech.isPaused { speech.continueSpeaking() }
     }
 
-    // MARK: - Power-pellet beat
+    // MARK: - Gold-disc beat
 
-    /// Starts the power-pellet bassline looping on its own player. The
+    /// Starts the gold-disc bassline looping on its own player. The
     /// dedicated bassPlayer lets us cancel the loop instantly via
-    /// stopPowerPelletBass() — without it, queued buffers on the
+    /// stopGoldDiscBass() — without it, queued buffers on the
     /// shared effectsPlayer continue playing for up to a full pattern
     /// cycle after blue mode ends, sounding out of sync once the
     /// bosses return to normal.
-    func startPowerPelletBass() {
-        if powerPelletBeatBuffer == nil {
-            powerPelletBeatBuffer = buildPowerPelletBeat()
+    func startGoldDiscBass() {
+        if goldDiscBeatBuffer == nil {
+            goldDiscBeatBuffer = buildGoldDiscBeat()
         }
-        guard let buffer = powerPelletBeatBuffer else { return }
+        guard let buffer = goldDiscBeatBuffer else { return }
         bassPlayer.stop()
         bassPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         if !bassPlayer.isPlaying { bassPlayer.play() }
     }
 
-    func stopPowerPelletBass() {
+    func stopGoldDiscBass() {
         bassPlayer.stop()
     }
 
-    private func buildPowerPelletBeat() -> AVAudioPCMBuffer {
+    private func buildGoldDiscBeat() -> AVAudioPCMBuffer {
         // Original pop-punk bass groove. 16 sixteenth-note slots over
         // 2 seconds (120 BPM) with root pulses on E2, octave jumps to
         // E3 for energy, walking-up motion through G/A/B, and a few

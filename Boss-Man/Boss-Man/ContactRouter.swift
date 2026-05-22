@@ -11,7 +11,7 @@ final class ContactRouter: NSObject, SKPhysicsContactDelegate {
     var shouldIgnoreContact: () -> Bool = { false }
 
     var onBossTouchedWorker: ((SKNode?) -> Void)?
-    var onPowerPelletTouched: ((SKNode?) -> Void)?
+    var onGoldDiscTouched: ((SKNode?) -> Void)?
     var onMachineTouchedWorker: ((SKPhysicsBody, String) -> Void)?
     var onTpsBoxTouchedWorker: (() -> Void)?
     var onFishTouchedWorker: ((SKNode?) -> Void)?
@@ -24,8 +24,8 @@ final class ContactRouter: NSObject, SKPhysicsContactDelegate {
         if let bossBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss }), hasWorker {
             onBossTouchedWorker?(bossBody.node)
         }
-        if let pellet = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.powerPellet }) {
-            onPowerPelletTouched?(pellet.node)
+        if let pellet = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.goldDisc }) {
+            onGoldDiscTouched?(pellet.node)
         }
         if let machineBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.machine }),
            let name = machineBody.node?.name {

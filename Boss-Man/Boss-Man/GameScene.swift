@@ -4,13 +4,13 @@ import SpriteKit
 final class GameScene: SKScene, PointerInputControllerDelegate, WorkerControllerDelegate, BossControllerDelegate {
     private let tileSize: CGFloat = 32
     private let workerSpawn = CGPoint(x: 18, y: 7)
-    private let powerPelletDuration: TimeInterval = 20
+    private let goldDiscDuration: TimeInterval = 20
 
     private let requiredItems = ["Printer", "Fax", "Copy", "Collator"]
     private let machineNames: [Character: String] = [
         "P": "Printer", "F": "Fax", "C": "Copy", "M": "Collator", "D": "Brown Box"
     ]
-    private let powerPelletPositions = [
+    private let goldDiscPositions = [
         CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
         CGPoint(x: 2, y: 1),  CGPoint(x: 33, y: 1)
     ]
@@ -28,13 +28,13 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let state = RoundState()
     private let inputController = PointerInputController()
     private let contactRouter = ContactRouter()
-    private let powerPellet = PowerPelletTimer()
+    private let goldDisc = GoldDiscTimer()
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
 
     private(set) var isGameOver = false
-    var isPowerPelletMode: Bool { powerPellet.isActive }
+    var isGoldDiscMode: Bool { goldDisc.isActive }
     var isPeteShielded: Bool { workerController?.isShielded ?? false }
 
     // MARK: - Lifecycle
@@ -46,7 +46,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         pathfinder = Pathfinder(map: gridMap)
-        mazeBuilder = MazeBuilder(map: gridMap, powerPelletPositions: powerPelletPositions, machineNames: machineNames)
+        mazeBuilder = MazeBuilder(map: gridMap, goldDiscPositions: goldDiscPositions, machineNames: machineNames)
         hud = HUD(requiredItems: requiredItems)
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound)
@@ -130,9 +130,20 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.bumpScore(by: 1)
         sound.playDotBlip()
         refreshHUD()
-        if state.collectedDots >= state.dotCount && state.tpsReportsDelivered >= 1 {
+        checkLevelComplete()
+    }
+
+    /// Level advances only after every dot AND every gold disc on the
+    /// floor is collected AND at least one TPS report has been turned
+    /// in. Called from each of the three trigger points (dot pickup,
+    /// gold-disc pickup, TPS delivery).
+    private func checkLevelComplete() {
+        let dotsDone = state.collectedDots >= state.dotCount
+        let discsDone = state.collectedGoldDiscs >= state.goldDiscCount
+        guard dotsDone && discsDone else { return }
+        if state.tpsReportsDelivered >= 1 {
             startNextLevel()
-        } else if state.collectedDots >= state.dotCount && state.tpsReportsDelivered < 1 {
+        } else {
             hud.showMessage("Turn in at least 1 TPS report to complete the level!", duration: 3)
         }
     }
@@ -173,13 +184,15 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
                 self.bossCaughtWorker()
             }
         }
-        contactRouter.onPowerPelletTouched = { [weak self] node in
+        contactRouter.onGoldDiscTouched = { [weak self] node in
             node?.removeFromParent()
             guard let self else { return }
             self.state.bumpScore(by: 5)
-            self.sound.playPowerPellet()
-            self.startPowerPelletMode()
+            self.state.collectedGoldDiscs += 1
+            self.sound.playGoldDisc()
+            self.startGoldDiscMode()
             self.refreshHUD()
+            self.checkLevelComplete()
         }
         contactRouter.onMachineTouchedWorker = { [weak self] body, name in
             self?.handleMachine(body: body, name: name)
@@ -221,6 +234,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         gridMap.setRows(currentLevelRows())
         mazeBuilder.cubicleColor = cubicleColors[(state.level - 1) % cubicleColors.count]
         state.dotCount = mazeBuilder.build(in: self)
+        state.goldDiscCount = mazeBuilder.placedGoldDiscs
         hud.install(in: self)
         workerController = WorkerController(spawnGrid: workerSpawn, gridMap: gridMap, sound: sound)
         workerController.delegate = self
@@ -283,6 +297,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
                        : "TPS report turned in! +\(tpsPoints), workers at max.",
             duration: 3
         )
+        // If dots + gold discs were already cleared, this TPS delivery
+        // is what finishes the level.
+        checkLevelComplete()
     }
 
     private func bossCaughtWorker() {
@@ -319,7 +336,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         inputController.unhideCursor()
         GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
         LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
-        sound.stopPowerPelletBass()
+        sound.stopGoldDiscBass()
         sound.stopBackgroundMusic()
         sound.playGameOver()
         workerController.resetMotion()
@@ -330,11 +347,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func resetSceneAndBuild() {
         bossController.clear()
         travelerSpawner.reset()
-        powerPellet.deactivate()
+        goldDisc.deactivate()
         // Kill any blue-mode bassline that was still looping when the
         // round ended so it doesn't bleed into the next level.
-        sound.stopPowerPelletBass()
-        removeAction(forKey: "powerPelletExpiry")
+        sound.stopGoldDiscBass()
+        removeAction(forKey: "goldDiscExpiry")
         removeAllActions()
         removeAllChildren()
         buildLevel()
@@ -365,24 +382,24 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         view.presentScene(title, transition: .fade(withDuration: 0.5))
     }
 
-    // MARK: - Power pellet
-    private func startPowerPelletMode() {
-        powerPellet.activate()
-        bossController.setPowerPelletActive(true)
-        sound.startPowerPelletBass()
+    // MARK: - Gold disc
+    private func startGoldDiscMode() {
+        goldDisc.activate()
+        bossController.setGoldDiscActive(true)
+        sound.startGoldDiscBass()
         run(.sequence([
             .wait(forDuration: 20),
-            .run { [weak self] in self?.endPowerPelletMode() }
-        ]), withKey: "powerPelletExpiry")
-        hud.showMessage("Power pellet! Capture the bosses for 20 seconds.", duration: 3)
+            .run { [weak self] in self?.endGoldDiscMode() }
+        ]), withKey: "goldDiscExpiry")
+        hud.showMessage("Gold disc! Capture the bosses for 20 seconds.", duration: 3)
     }
 
-    private func endPowerPelletMode() {
-        powerPellet.deactivate()
-        bossController.setPowerPelletActive(false)
-        sound.stopPowerPelletBass()
-        removeAction(forKey: "powerPelletExpiry")
-        hud.showMessage("Power pellet mode ended.", duration: 2)
+    private func endGoldDiscMode() {
+        goldDisc.deactivate()
+        bossController.setGoldDiscActive(false)
+        sound.stopGoldDiscBass()
+        removeAction(forKey: "goldDiscExpiry")
+        hud.showMessage("Gold disc mode ended.", duration: 2)
     }
 
     // MARK: - HUD

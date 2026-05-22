@@ -4,17 +4,23 @@ import SpriteKit
 @MainActor
 final class MazeBuilder {
     let map: GridMap
-    let powerPelletPositions: [CGPoint]
+    let goldDiscPositions: [CGPoint]
     let machineNames: [Character: String]
     var cubicleColor: NSColor = .systemBlue
+    /// DEBUG: when true, skip dot AND gold-disc rendering so the
+    /// level completes the moment a TPS report is delivered.
+    var debugSkipDots: Bool = true
+    /// Number of gold discs actually rendered by the most recent
+    /// build(). Used by GameScene to know how many to expect collected.
+    private(set) var placedGoldDiscs: Int = 0
 
     private var pelletTexture: SKTexture!
     private var dotTilemap: SKTileMapNode?
     private(set) var dotPresence: [[Bool]] = []
 
-    init(map: GridMap, powerPelletPositions: [CGPoint], machineNames: [Character: String]) {
+    init(map: GridMap, goldDiscPositions: [CGPoint], machineNames: [Character: String]) {
         self.map = map
-        self.powerPelletPositions = powerPelletPositions
+        self.goldDiscPositions = goldDiscPositions
         self.machineNames = machineNames
     }
 
@@ -43,7 +49,7 @@ final class MazeBuilder {
                 if char == "#" {
                     wallCenters.append(position)
                 } else {
-                    if char == "." || char == "H" {
+                    if (char == "." || char == "H") && !debugSkipDots {
                         dotPresence[rowIndex][columnIndex] = true
                         dotMap.setTileGroup(dotGroup, forColumn: columnIndex, row: rowIndex)
                         dotCount += 1
@@ -59,8 +65,10 @@ final class MazeBuilder {
 
         addWallPhysics(centers: wallCenters, in: scene)
 
-        for grid in powerPelletPositions where map.isWalkable(grid) {
-            addPowerPellet(at: map.point(for: grid), in: scene)
+        placedGoldDiscs = 0
+        for grid in goldDiscPositions where map.isWalkable(grid) {
+            addGoldDisc(at: map.point(for: grid), in: scene)
+            placedGoldDiscs += 1
         }
         return dotCount
     }
@@ -211,12 +219,12 @@ final class MazeBuilder {
         return SKTexture(image: image)
     }
 
-    private func addPowerPellet(at position: CGPoint, in scene: SKScene) {
+    private func addGoldDisc(at position: CGPoint, in scene: SKScene) {
         let pellet = SKSpriteNode(texture: pelletTexture)
         pellet.position = position
         pellet.physicsBody = SKPhysicsBody(circleOfRadius: 14)
         pellet.physicsBody?.isDynamic = false
-        pellet.physicsBody?.categoryBitMask = PhysicsCategory.powerPellet
+        pellet.physicsBody?.categoryBitMask = PhysicsCategory.goldDisc
         pellet.zPosition = 6
         pellet.run(.repeatForever(.sequence([
             .scale(to: 1.25, duration: 0.35),

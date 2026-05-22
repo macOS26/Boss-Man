@@ -8,11 +8,13 @@ import Foundation
 final class RoundState {
     static let highScoreKey = "Boss-Man.highScore"
 
-    var level = 12 // DEBUG: starts on MIB level for testing
+    var level = 11 // DEBUG: starts on MIB level for testing
     var lives = HUD.maxLives
     var score = 0
     var dotCount = 0
     var collectedDots = 0
+    var goldDiscCount = 0
+    var collectedGoldDiscs = 0
     var tpsReportsDelivered = 0
     var reportItems: Set<String> = []
     /// Points accumulated from collecting individual report items in the
@@ -30,11 +32,12 @@ final class RoundState {
     }
 
     func resetForNewGame() {
-        level = 12 // DEBUG: restart also lands on MIB level for testing
+        level = 11 // DEBUG: restart also lands on MIB level for testing
         lives = HUD.maxLives
         score = 0
         tpsReportsDelivered = 0
         collectedDots = 0
+        collectedGoldDiscs = 0
         reportItems.removeAll()
         currentReportScore = 0
     }
@@ -42,6 +45,7 @@ final class RoundState {
     func advanceLevel() {
         level += 1
         collectedDots = 0
+        collectedGoldDiscs = 0
         tpsReportsDelivered = 0
         reportItems.removeAll()
         currentReportScore = 0

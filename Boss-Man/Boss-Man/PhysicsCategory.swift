@@ -7,6 +7,6 @@ struct PhysicsCategory {
     static let boss: UInt32 = 1 << 3
     static let machine: UInt32 = 1 << 4
     static let tpsBox: UInt32 = 1 << 5
-    static let powerPellet: UInt32 = 1 << 6
+    static let goldDisc: UInt32 = 1 << 6
     static let fish: UInt32 = 1 << 7
 }

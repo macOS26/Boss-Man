@@ -5,7 +5,7 @@ import SpriteKit
 protocol BossControllerDelegate: AnyObject {
     var workerGrid: CGPoint { get }
     var workerDirection: MoveDirection? { get }
-    var isPowerPelletMode: Bool { get }
+    var isGoldDiscMode: Bool { get }
     /// True while PETE is wearing his spawn-protection orange shield;
     /// boss AI catch logic must short-circuit when this is set.
     var isPeteShielded: Bool { get }
@@ -16,7 +16,7 @@ protocol BossControllerDelegate: AnyObject {
 /// Owns the boss roster, per-floor blueprints, and all per-frame
 /// chasing / fleeing / capture animation. GameScene tells it when to
 /// spawn for a given level, when to step each frame, and when to flip
-/// into power-pellet mode; BossController calls back through the
+/// into gold-disc mode; BossController calls back through the
 /// delegate when a boss catches PETE or PETE captures a boss.
 @MainActor
 final class BossController {
@@ -37,12 +37,12 @@ final class BossController {
         /// "commits" through the doorway and can't whip back in.
         var mustExitDoorway: Bool = false
         /// True while this boss is in scared/blue mode and capturable.
-        /// Toggled per-boss so a boss that has "escaped" power-pellet
+        /// Toggled per-boss so a boss that has "escaped" gold-disc
         /// mode by being captured 3 times can return to dangerous even
-        /// while the global power-pellet timer is still running.
+        /// while the global gold-disc timer is still running.
         var isInFleeMode: Bool = false
         /// Number of times PETE has captured this boss in the current
-        /// power-pellet window. After 3 the boss respawns as a regular
+        /// gold-disc window. After 3 the boss respawns as a regular
         /// boss (immobile + immune for 3 seconds while fading back in).
         var captureCount: Int = 0
         /// During the 3-second post-escape spawn freeze, the boss can't
@@ -114,7 +114,7 @@ final class BossController {
     /// and run it through the spawn freeze (stepper + fade/throb/arm).
     /// One function used by every respawn-as-boss path: level start,
     /// post-PETE-death tear-down + rebuild, and the 3-strikes
-    /// power-pellet escape.
+    /// gold-disc escape.
     private func createAndFreeze(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)) {
         buildEntity(from: blueprint)
         let index = entities.count - 1
@@ -205,7 +205,7 @@ final class BossController {
     /// Hard rebuild: remove the boss node from the scene, drop the
     /// entity, then funnel through createAndFreeze() — the same path
     /// level-start and post-death respawns use. Used by the 3-strikes
-    /// power-pellet escape so no stale SKAction, physics state, or
+    /// gold-disc escape so no stale SKAction, physics state, or
     /// node residue can leak from PETE's tile.
     private func rebuildEntity(at index: Int) {
         let bossName = entities[index].name
@@ -277,20 +277,20 @@ final class BossController {
         }
     }
 
-    // MARK: - Power pellet
+    // MARK: - Gold disc
 
-    func setPowerPelletActive(_ active: Bool) {
+    func setGoldDiscActive(_ active: Bool) {
         captureStreak = 0
         for i in entities.indices {
             entities[i].captureCount = 0
             entities[i].isInFleeMode = active
             entities[i].node.setBodyColor(active ? .systemBlue : entities[i].baseColor)
         }
-        refreshTags(powerPelletActive: active)
+        refreshTags(goldDiscActive: active)
     }
 
     /// True only when this specific boss is currently capturable. After
-    /// 3 captures in a single power-pellet window the boss flips back
+    /// 3 captures in a single gold-disc window the boss flips back
     /// to dangerous even while the global timer keeps running.
     func isInFleeMode(boss node: PixelPerson) -> Bool {
         entities.first(where: { $0.node === node })?.isInFleeMode ?? false
@@ -310,10 +310,10 @@ final class BossController {
         relocateToSpawn(at: index)
     }
 
-    private func refreshTags(powerPelletActive: Bool) {
+    private func refreshTags(goldDiscActive: Bool) {
         let next = 100 * (captureStreak + 1)
         for boss in entities {
-            if powerPelletActive && boss.isInFleeMode {
+            if goldDiscActive && boss.isInFleeMode {
                 boss.tag.text = "\(next)"
                 boss.tag.fontColor = .systemYellow
             } else {
@@ -358,7 +358,7 @@ final class BossController {
             workerGrid: delegate.workerGrid,
             workerDirection: delegate.workerDirection,
             blinkyGrid: blinkyGrid,
-            flee: delegate.isPowerPelletMode
+            flee: delegate.isGoldDiscMode
         ) {
             move = planned
         } else {
@@ -438,7 +438,7 @@ final class BossController {
         entities[index].captureCount += 1
         let points = 100 * captureStreak
         let hasEscaped = entities[index].captureCount >= 3
-        let powerActive = delegate?.isPowerPelletMode ?? false
+        let powerActive = delegate?.isGoldDiscMode ?? false
 
         boss.ai.teleport(to: boss.spawn)
         boss.node.removeAction(forKey: "bossMove")
@@ -448,16 +448,16 @@ final class BossController {
         let bossNode = boss.node
 
         if hasEscaped {
-            // 3 captures in this power-pellet window → tear this boss
+            // 3 captures in this gold-disc window → tear this boss
             // off the board and rebuild it fresh in its corner. Same
             // path used elsewhere via rebuildEntity(at:).
             rebuildEntity(at: index)
-            refreshTags(powerPelletActive: powerActive)
+            refreshTags(goldDiscActive: powerActive)
             // Once every boss has escaped (none left in flee mode),
-            // kill the global power-pellet bassline — nothing on the
+            // kill the global gold-disc bassline — nothing on the
             // board is capturable anymore.
             if powerActive && !entities.contains(where: { $0.isInFleeMode }) {
-                sound.stopPowerPelletBass()
+                sound.stopGoldDiscBass()
             }
             delegate?.bossDidGetCaptured(name: boss.name, points: points, at: homePoint)
             return
@@ -478,7 +478,7 @@ final class BossController {
             ]))
             boss.node.setBodyColor(powerActive ? .systemBlue : boss.baseColor)
         }
-        refreshTags(powerPelletActive: powerActive)
+        refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)
     }
 }
