@@ -8,7 +8,7 @@ import Foundation
 final class RoundState {
     static let highScoreKey = "Boss-Man.highScore"
 
-    var level = 1
+    var level = 12 // DEBUG: starts on MIB level for testing
     var lives = HUD.maxLives
     var score = 0
     var dotCount = 0
@@ -30,7 +30,7 @@ final class RoundState {
     }
 
     func resetForNewGame() {
-        level = 1
+        level = 12 // DEBUG: restart also lands on MIB level for testing
         lives = HUD.maxLives
         score = 0
         tpsReportsDelivered = 0

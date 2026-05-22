@@ -1,6 +1,18 @@
 # Level scripts
 
-## level_check.py (recommended)
+## validate_level.swift (current geometry)
+
+Single-map validator used while designing new floors. Paste a candidate 17×36 maze into the `map` array at the top, then:
+
+```sh
+swift scripts/validate_level.swift
+```
+
+On success it prints the maze formatted as a Swift literal you can paste into `Boss-Man/Boss-Man/Levels.swift`. On failure it lists every rule violation.
+
+Checks: row count + width, perimeter walls, top/bottom + side tunnel gaps, walkability of the four power-pellet corners + four boss spawn cells + the worker spawn, 1-pellet H-alcove rule (3 walls + 1 pellet + wall behind), minimum 6 hideouts, and tunnel-aware flood-fill connectivity from the worker spawn.
+
+## level_check.py (legacy)
 
 Validates `Sources/Boss-Man/Levels.swift`:
 
@@ -16,6 +28,8 @@ python3 scripts/level_check.py Sources/Boss-Man/Levels.swift
 ```
 
 Exit prints `Summary: N levels, K issues`.
+
+> Note: `level_check.py` and `level_check.sh` were written against an older 30-wide layout. Prefer `validate_level.swift` for current designs.
 
 ## level_check.sh (legacy, awk)
 

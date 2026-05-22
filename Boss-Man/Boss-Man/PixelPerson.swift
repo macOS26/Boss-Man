@@ -67,7 +67,8 @@ final class PixelPerson: SKNode {
         addChild(torso)
 
         tie.fillColor = tieColor
-        tie.strokeColor = .clear
+        tie.strokeColor = wearsSunglasses ? .white : .clear
+        tie.lineWidth = wearsSunglasses ? 1 : 0
         tie.position = CGPoint(x: 0, y: -2)
         tie.zPosition = 3
         addChild(tie)
@@ -119,21 +120,15 @@ final class PixelPerson: SKNode {
         head.addChild(hair)
 
         if wearsSunglasses {
-            // Single black wraparound bar with a faint gloss line — classic
-            // Men-in-Black shades. Sits a hair lower than the eye row to
-            // cover the bridge of the nose.
-            let shades = SKShapeNode(rectOf: CGSize(width: 12, height: 3), cornerRadius: 1)
-            shades.fillColor = .black
-            shades.strokeColor = NSColor(calibratedWhite: 0, alpha: 1)
-            shades.lineWidth = 0.5
+            // 🕶️ emoji as the shades graphic — sized to span the head's
+            // eye row.
+            let shades = SKLabelNode(text: "🕶️")
+            shades.fontSize = 11
+            shades.verticalAlignmentMode = .center
+            shades.horizontalAlignmentMode = .center
             shades.position = CGPoint(x: 0, y: 0)
+            shades.zPosition = 5
             head.addChild(shades)
-
-            let gloss = SKShapeNode(rectOf: CGSize(width: 10, height: 0.6))
-            gloss.fillColor = NSColor(calibratedWhite: 1, alpha: 0.55)
-            gloss.strokeColor = .clear
-            gloss.position = CGPoint(x: 0, y: 0.7)
-            shades.addChild(gloss)
         } else {
             let leftEye = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
             leftEye.fillColor = .black

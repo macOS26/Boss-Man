@@ -374,6 +374,24 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         musicPlayer.stop()
     }
 
+    /// Pause every audio source — background music, effects, the power-
+    /// pellet bassline, and any in-flight speech. Used by the in-game
+    /// SPACE pause so the world goes silent. `resumeAudio()` brings
+    /// everything back without rebuilding state.
+    func pauseAudio() {
+        if musicPlayer.isPlaying { musicPlayer.pause() }
+        if effectsPlayer.isPlaying { effectsPlayer.pause() }
+        if bassPlayer.isPlaying { bassPlayer.pause() }
+        if speech.isSpeaking { speech.pauseSpeaking(at: .word) }
+    }
+
+    func resumeAudio() {
+        if musicEnabled { musicPlayer.play() }
+        effectsPlayer.play()
+        bassPlayer.play()
+        if speech.isPaused { speech.continueSpeaking() }
+    }
+
     // MARK: - Power-pellet beat
 
     /// Starts the power-pellet bassline looping on its own player. The
@@ -736,32 +754,50 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private func buildSunglassesAtNightLoop() -> AVAudioPCMBuffer {
         let bpm: Double = 120
         let sixteenth = 60.0 / bpm / 4.0
-        // Two bars of 16 sixteenth-notes each.
-        let steps = 32
+        // Four bars of 16 sixteenth-notes each: bars 1–2 carry the
+        // descending hook, bars 3–4 answer with an ascending counter-hook.
+        let steps = 64
 
         // C minor bass: pulses C2/G2 on every eighth.
         let C2: Float = 65.41
         let G2: Float = 98.00
         let Eb2: Float = 77.78
+        let Ab2: Float = 103.83
+        let F2:  Float = 87.31
         let bassPattern: [Float] = [
+            // Hook A — two bars on i / VII / III root motion
             C2, 0, C2, 0, G2, 0, C2, 0,
             Eb2, 0, Eb2, 0, G2, 0, Eb2, 0,
             C2, 0, C2, 0, G2, 0, C2, 0,
-            G2, 0, Eb2, 0, C2, 0, G2, 0
+            G2, 0, Eb2, 0, C2, 0, G2, 0,
+            // Hook B — two bars walking up through VI / iv
+            Ab2, 0, Ab2, 0, Eb2, 0, Ab2, 0,
+            F2, 0, F2, 0, C2, 0, F2, 0,
+            Ab2, 0, Ab2, 0, Eb2, 0, G2, 0,
+            G2, 0, G2, 0, C2, 0, G2, 0
         ]
-        // Lead hook: a descending C-minor pentatonic riff that evokes the
-        // "I wear my sunglasses at niiight" cadence without quoting it.
+        // Hook A: descending pentatonic stab; Hook B: ascending
+        // counter-melody up to A♭5 / C6 for a brighter, hopeful answer.
         let G5: Float  = 783.99
         let F5: Float  = 698.46
         let Eb5: Float = 622.25
         let D5: Float  = 587.33
         let C5: Float  = 523.25
         let Bb4: Float = 466.16
+        let Ab4: Float = 415.30
+        let Ab5: Float = 830.61
+        let C6:  Float = 1046.50
         let leadPattern: [Float] = [
+            // Hook A — descending "sunglasses at night" cadence
             0, G5, F5, Eb5, 0, D5, 0, C5,
             0, G5, F5, Eb5, 0, F5, 0, Eb5,
             0, G5, F5, Eb5, 0, D5, 0, Bb4,
-            0, C5, 0, Eb5, 0, D5, C5, 0
+            0, C5, 0, Eb5, 0, D5, C5, 0,
+            // Hook B — ascending answer that climbs and resolves
+            Ab4, 0, C5, 0, Eb5, 0, Ab5, 0,
+            G5, 0, F5, 0, Eb5, 0, C5, 0,
+            Ab4, 0, C5, Eb5, 0, G5, Ab5, C6,
+            0, Ab5, G5, 0, Eb5, 0, C5, 0
         ]
 
         let frames = AVAudioFrameCount(sampleRate * sixteenth * Double(steps))

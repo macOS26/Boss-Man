@@ -12,11 +12,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     ]
     private let powerPelletPositions = [
         CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
-        CGPoint(x: 2, y: 1), CGPoint(x: 33, y: 1)
+        CGPoint(x: 2, y: 1),  CGPoint(x: 33, y: 1)
     ]
     private let cubicleColors: [NSColor] = [
-        .systemBlue, .systemTeal, .systemIndigo, .systemGreen, .systemPink, .systemBrown,
-        .systemPurple, .systemRed, .systemOrange, .systemYellow, .systemCyan, .systemGray // MIB level 12
+        .systemBlue,   .systemTeal, .systemIndigo, .systemGreen,  .systemPink, .systemBrown,
+        .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray // MIB level 12
     ]
 
     private var gridMap: GridMap!
@@ -95,12 +95,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func togglePause() {
         if isPaused {
             isPaused = false
+            sound.resumeAudio()
             inputController.hideCursor()
             hud.showMessage("", duration: 0.1)
         } else {
             hud.showMessage("Paused — press SPACE to resume", duration: 9999)
             inputController.unhideCursor()
             isPaused = true
+            sound.pauseAudio()
         }
     }
 
