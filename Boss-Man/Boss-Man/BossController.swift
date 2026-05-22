@@ -291,14 +291,12 @@ final class BossController {
     }
 
     private func refreshTags(powerPelletActive: Bool) {
-        if powerPelletActive {
-            let next = 100 * (captureStreak + 1)
-            for boss in entities {
+        let next = 100 * (captureStreak + 1)
+        for boss in entities {
+            if powerPelletActive && boss.isInFleeMode {
                 boss.tag.text = "\(next)"
                 boss.tag.fontColor = .systemYellow
-            }
-        } else {
-            for boss in entities {
+            } else {
                 boss.tag.text = boss.name
                 boss.tag.fontColor = .white
             }
@@ -435,6 +433,12 @@ final class BossController {
             // path used elsewhere via rebuildEntity(at:).
             rebuildEntity(at: index)
             refreshTags(powerPelletActive: powerActive)
+            // Once every boss has escaped (none left in flee mode),
+            // kill the global power-pellet bassline — nothing on the
+            // board is capturable anymore.
+            if powerActive && !entities.contains(where: { $0.isInFleeMode }) {
+                sound.stopPowerPelletBass()
+            }
             delegate?.bossDidGetCaptured(name: boss.name, points: points, at: homePoint)
             return
         } else {
