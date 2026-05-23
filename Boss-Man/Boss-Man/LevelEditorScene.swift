@@ -267,10 +267,10 @@ class LevelEditorScene: SKScene {
         }
         
         let btnData: [(String, NSColor, String)] = [
-            (Strings.Editor.prev,     NSColor(white: 0.28, alpha: 1.0),              Strings.EditorButton.prev),
-            (Strings.Editor.next,     NSColor(white: 0.28, alpha: 1.0),              Strings.EditorButton.next),
-            (Strings.Editor.undo,  NSColor(white: 0.22, alpha: 1.0),              Strings.EditorButton.undo),
-            (Strings.Editor.redo, NSColor(white: 0.22, alpha: 1.0),              Strings.EditorButton.redo),
+            (Strings.Editor.prev,     NSColor(white: 0.42, alpha: 1.0),              Strings.EditorButton.prev),
+            (Strings.Editor.next,     NSColor(white: 0.34, alpha: 1.0),              Strings.EditorButton.next),
+            (Strings.Editor.undo,     NSColor(white: 0.26, alpha: 1.0),              Strings.EditorButton.undo),
+            (Strings.Editor.redo,     NSColor(white: 0.18, alpha: 1.0),              Strings.EditorButton.redo),
             (Strings.Editor.clear,      NSColor(calibratedRed: 0.6, green: 0.15, blue: 0.15, alpha: 1.0), Strings.EditorButton.clear),
             (Strings.Editor.save,  NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
             (Strings.Editor.revealFile, NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal),
