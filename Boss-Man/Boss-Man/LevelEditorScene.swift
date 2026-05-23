@@ -623,6 +623,17 @@ class LevelEditorScene: SKScene {
         statusLabel?.text = Strings.Editor.redoToast
     }
 
+    private func flashButton(named name: String) {
+        // Dim the button + its label briefly so the click registers visually.
+        for node in uiContainer.children where node.name == name {
+            node.removeAction(forKey: "btnFlash")
+            node.run(.sequence([
+                .fadeAlpha(to: 0.55, duration: 0.05),
+                .fadeAlpha(to: 1.0,  duration: 0.20)
+            ]), withKey: "btnFlash")
+        }
+    }
+
     private func copyLevel() {
         clipboard = mapRows
         statusLabel?.text = Strings.Editor.copyToast
@@ -693,6 +704,7 @@ class LevelEditorScene: SKScene {
             }
             
             let name = hitNodes.first?.name ?? Strings.empty
+            if name.hasPrefix("btn_") { flashButton(named: name) }
             switch name {
             case Strings.EditorButton.prev:
                 let count = Levels.levelNames.count
