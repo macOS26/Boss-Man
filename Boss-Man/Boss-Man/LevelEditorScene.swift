@@ -576,7 +576,7 @@ class LevelEditorScene: SKScene {
             node.strokeColor = NSColor(white: 0.4, alpha: 1.0)
             if i < EditorTile.all.count && EditorTile.all[i] == selectedTile {
                 highlightOverlay?.removeFromParent()
-                let overlay = SKShapeNode(rect: node.frame.insetBy(dx: -1, dy: -1))
+                let overlay = SKShapeNode(rect: node.frame.insetBy(dx: 2, dy: 2))
                 overlay.fillColor = NSColor.yellow.withAlphaComponent(0.10)
                 overlay.strokeColor = NSColor.yellow
                 overlay.lineWidth = 1.5
