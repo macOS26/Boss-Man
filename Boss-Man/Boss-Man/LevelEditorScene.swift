@@ -137,6 +137,8 @@ class LevelEditorScene: SKScene {
     private var undoStack: [[String]] = []
     private var redoStack: [[String]] = []
     private var clipboard: [String]? = nil
+    private var buttonBaseColors: [String: NSColor] = [:]
+    private var buttonNodes: [String: SKShapeNode] = [:]
     private let maxUndoDepth = 50
     var saveButton: SKShapeNode!
     var saveButtonLabel: SKLabelNode?
@@ -285,6 +287,8 @@ class LevelEditorScene: SKScene {
         let btnHeight: CGFloat = 17
         let btnSpacing: CGFloat = 19
         let btnStartY = palStartY - 24 - CGFloat(EditorTile.all.count) * palSpacing - 13
+        buttonBaseColors.removeAll()
+        buttonNodes.removeAll()
 
         for (i, (title, color, name)) in btnData.enumerated() {
             let by = btnStartY - CGFloat(i) * btnSpacing
@@ -295,6 +299,8 @@ class LevelEditorScene: SKScene {
             btn.zPosition = 101
             btn.name = name
             uiContainer.addChild(btn)
+            buttonBaseColors[name] = color
+            buttonNodes[name] = btn
 
             let lbl = SKLabelNode(text: title)
             lbl.fontName = Strings.Font.menloBold
@@ -624,13 +630,14 @@ class LevelEditorScene: SKScene {
     }
 
     private func flashButton(named name: String) {
-        // Dim the button + its label briefly so the click registers visually.
-        for node in uiContainer.children where node.name == name {
-            node.removeAction(forKey: "btnFlash")
-            node.run(.sequence([
-                .fadeAlpha(to: 0.55, duration: 0.05),
-                .fadeAlpha(to: 1.0,  duration: 0.20)
-            ]), withKey: "btnFlash")
+        // Mirror the SAVE button pattern: swap fillColor to a brightened
+        // variant of the base, then restore it after 0.5s.
+        guard let btn = buttonNodes[name], let base = buttonBaseColors[name] else { return }
+        let bright = base.blended(withFraction: 0.45, of: .white) ?? base
+        btn.fillColor = bright
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak btn] in
+            guard let self, let btn else { return }
+            btn.fillColor = self.buttonBaseColors[name] ?? base
         }
     }
 
