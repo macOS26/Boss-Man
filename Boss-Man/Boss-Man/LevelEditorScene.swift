@@ -618,6 +618,19 @@ class LevelEditorScene: SKScene {
         statusLabel?.text = Strings.Editor.redoToast
     }
 
+    private func confirmClearLevel() {
+        let alert = NSAlert()
+        alert.messageText = Strings.Editor.clearConfirmTitle
+        alert.informativeText = Strings.Editor.clearConfirmBody
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: Strings.Editor.clearConfirmDestructive)
+        alert.addButton(withTitle: Strings.Editor.clearConfirmCancel)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        pushUndoSnapshot()
+        mapRows = mapRows.map { _ in String(repeating: Strings.Tile.floor, count: gridCols) }
+        rebuildGrid()
+    }
+
     override func mouseDown(with event: NSEvent) {
         pushUndoSnapshot()
         handleInput(event.location(in: self), begin: true)
@@ -668,9 +681,7 @@ class LevelEditorScene: SKScene {
                 redo()
                 return
             case Strings.EditorButton.clear:
-                pushUndoSnapshot()
-                mapRows = mapRows.map { _ in String(repeating: Strings.Tile.floor, count: gridCols) }
-                rebuildGrid()
+                confirmClearLevel()
                 return
             case Strings.EditorButton.save:
                 saveCurrentLevel()
@@ -747,6 +758,10 @@ class LevelEditorScene: SKScene {
         case 124:
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             loadCurrentLevel()
+            return
+        case 51 where event.modifierFlags.contains(.command):
+            // ⌘⌫ — destructive, so route through the same confirm dialog as the CLEAR button.
+            confirmClearLevel()
             return
         default: break
         }

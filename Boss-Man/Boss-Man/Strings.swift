@@ -152,11 +152,15 @@ enum Strings {
     // MARK: - Level Editor copy / labels
     enum Editor {
         static let title         = "LEVEL EDITOR"
-        static let prev          = "< PREV"
+        static let prev          = "PREV >"
         static let next          = "NEXT >"
         static let undo          = "UNDO (⌘Z)"
         static let redo          = "REDO (⇧⌘Z)"
-        static let clear         = "CLEAR"
+        static let clear         = "CLEAR (⌘⌫)"
+        static let clearConfirmTitle       = "Clear this level?"
+        static let clearConfirmBody        = "This wipes every tile to floor. You can undo immediately with ⌘Z."
+        static let clearConfirmDestructive = "Clear"
+        static let clearConfirmCancel      = "Cancel"
         static let save          = "SAVE (⌘S)"
         static let revealFile    = "REVEAL FILE (⌘R)"
         static let play          = "PLAY (⌘P)"
