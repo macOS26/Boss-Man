@@ -64,10 +64,8 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound)
         bossController.delegate = self
         wireContactRouter()
-
         buildLevel()
-        hud.showMessage(state.practiceMode ? Strings.Message.practiceMode : Strings.Message.intro,
-                        duration: 3)
+        hud.showMessage(state.practiceMode ? Strings.Message.practiceMode : Strings.Message.intro, duration: 3)
         inputController.delegate = self
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
