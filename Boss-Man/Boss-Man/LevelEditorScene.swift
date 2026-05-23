@@ -579,7 +579,7 @@ class LevelEditorScene: SKScene {
                 let overlay = SKShapeNode(rect: node.frame.insetBy(dx: 2, dy: 2))
                 overlay.fillColor = NSColor.yellow.withAlphaComponent(0.10)
                 overlay.strokeColor = NSColor.yellow
-                overlay.lineWidth = 1.5
+                overlay.lineWidth = 1
                 overlay.zPosition = 110
                 uiContainer.addChild(overlay)
                 highlightOverlay = overlay
