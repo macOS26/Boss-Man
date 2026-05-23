@@ -22,9 +22,14 @@ final class RoundState {
     /// catches PETE, shown as a red negative popup.
     var currentReportScore = 0
     private(set) var highScore = UserDefaults.standard.integer(forKey: RoundState.highScoreKey)
+    /// When true, score updates do NOT persist to UserDefaults or the
+    /// in-memory high-score field. Used by editor-launched playtests so
+    /// custom levels can't pollute the leaderboard / high score.
+    var practiceMode = false
 
     func bumpScore(by points: Int) {
         score += points
+        guard !practiceMode else { return }
         if score > highScore {
             highScore = score
             UserDefaults.standard.set(highScore, forKey: Self.highScoreKey)

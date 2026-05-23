@@ -34,6 +34,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private var bossController: BossController!
 
     private(set) var isGameOver = false
+    /// Set by the level editor before presenting this scene. When true,
+    /// the game won't submit to Game Center, won't update the local
+    /// high-score list, and won't persist the UserDefaults high score.
+    /// HUD also flags it so the player knows the run is unranked.
+    var practiceMode: Bool {
+        get { state.practiceMode }
+        set { state.practiceMode = newValue }
+    }
     var isGoldDiscMode: Bool { goldDisc.isActive }
     var isPeteShielded: Bool { workerController?.isShielded ?? false }
 
@@ -54,7 +62,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         wireContactRouter()
 
         buildLevel()
-        hud.showMessage("Collect office dots and finish the TPS report!", duration: 3)
+        let startMsg = state.practiceMode
+            ? "PRACTICE MODE — score not saved"
+            : "Collect office dots and finish the TPS report!"
+        hud.showMessage(startMsg, duration: 3)
         inputController.delegate = self
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
@@ -344,8 +355,13 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func triggerGameOver() {
         isGameOver = true
         inputController.unhideCursor()
-        GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
-        LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
+        // Editor-launched playtests are banned from both leaderboards
+        // (Game Center + the local high-score list) so custom levels
+        // can't pollute the rankings.
+        if !state.practiceMode {
+            GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
+            LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
+        }
         sound.stopGoldDiscBass()
         sound.stopBackgroundMusic()
         sound.playGameOver()

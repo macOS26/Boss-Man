@@ -690,6 +690,10 @@ class LevelEditorScene: SKScene {
                 saveCurrentLevel()
                 let game = GameScene(size: size)
                 game.scaleMode = .aspectFit
+                // Editor playtests are unranked — no Game Center
+                // submission, no local high-score record, no UserDefaults
+                // high-score update.
+                game.practiceMode = true
                 view?.presentScene(game, transition: .fade(withDuration: 0.5))
                 return
             case "btn_back":
