@@ -195,6 +195,10 @@ final class PixelPerson: SKNode {
         rightArm.fillColor = color
     }
 
+    func setTieColor(_ color: NSColor) {
+        tie.fillColor = color
+    }
+
     // MARK: - Tie outline (used to mark flee-mode bosses)
     func setTieOutline(color: NSColor?, lineWidth: CGFloat = 1) {
         if let color {

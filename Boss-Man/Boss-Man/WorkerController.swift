@@ -89,6 +89,7 @@ final class WorkerController {
         let orange = NSColor.systemOrange
         let teal = NSColor.systemBlue // PETE's shirt color (named "teal" historically)
         node.setBodyColor(orange)
+        node.setTieColor(.systemBlue)
         node.alpha = 1
         node.physicsBody?.categoryBitMask = 0
         isShielded = true
@@ -109,6 +110,7 @@ final class WorkerController {
             guard let self else { return }
             let t = CGFloat(elapsed) / CGFloat(fadeDuration)
             self.node.setBodyColor(WorkerController.lerpColor(from: orange, to: teal, progress: t))
+            self.node.setTieColor(WorkerController.lerpColor(from: .systemBlue, to: .systemOrange, progress: t))
         }
 
         node.run(.sequence([
@@ -117,6 +119,7 @@ final class WorkerController {
             .run { [weak self] in
                 guard let self else { return }
                 self.node.setBodyColor(teal)
+                self.node.setTieColor(.systemOrange)
                 self.node.physicsBody?.categoryBitMask = PhysicsCategory.worker
                 self.isShielded = false
             }
