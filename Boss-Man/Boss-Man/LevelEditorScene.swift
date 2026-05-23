@@ -387,7 +387,7 @@ class LevelEditorScene: SKScene {
         let parity = row + col
         addFloor(to: container, size: size, parity: parity)
         addContent(to: container, char: ch, size: size)
-    }
+    }ins
 
     private func renderTile(char: Character, size: CGFloat, isPaletteSwatch: Bool = false) -> SKNode {
         let container = SKNode()
@@ -577,7 +577,7 @@ class LevelEditorScene: SKScene {
             if i < EditorTile.all.count && EditorTile.all[i] == selectedTile {
                 highlightOverlay?.removeFromParent()
                 let overlay = SKShapeNode(rect: node.frame.insetBy(dx: 1, dy: 1))
-                overlay.fillColor = .clear
+                overlay.fillColor = NSColor.yellow.withAlphaComponent(0.10)
                 overlay.strokeColor = NSColor.yellow
                 overlay.lineWidth = 1.5
                 overlay.zPosition = 110
