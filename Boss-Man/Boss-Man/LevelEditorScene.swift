@@ -284,7 +284,7 @@ class LevelEditorScene: SKScene {
         ]
         let btnHeight: CGFloat = 17
         let btnSpacing: CGFloat = 19
-        let btnStartY = palStartY - 24 - CGFloat(EditorTile.all.count) * palSpacing - 18
+        let btnStartY = palStartY - 24 - CGFloat(EditorTile.all.count) * palSpacing - 13
 
         for (i, (title, color, name)) in btnData.enumerated() {
             let by = btnStartY - CGFloat(i) * btnSpacing
