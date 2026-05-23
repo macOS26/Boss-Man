@@ -309,10 +309,10 @@ enum Strings {
 
     // MARK: - Machines / TPS report items
     enum Machine {
-        static let printer    = "Printer"
-        static let fax        = "Fax"
-        static let coverSheet = "Cover Sheet"
-        static let bookBinder = "Book Binder"
+        static let printer    = "TPS Printer"
+        static let fax        = "TPS Fax Machine"
+        static let coverSheet = "TPS Cover Sheet"
+        static let bookBinder = "TPS Book Binder"
         static let brownBox   = "Brown TPS Box"
 
         static let required: [String] = [printer, fax, coverSheet, bookBinder]
