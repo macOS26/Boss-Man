@@ -192,6 +192,11 @@ enum Strings {
         static let header = "LEADERBOARD"
         static func rankLabel(_ rank: Int) -> String { "\(rank)." }
         static func scoreLabel(_ score: Int) -> String { "\(score)" }
+        static let newHighScoreTitle = "NEW HIGH SCORE!"
+        static let enterUsernamePrompt = "Enter your username:"
+        static let usernamePlaceholder = "Player"
+        static let saveButton = "Save"
+        static let skipButton = "Skip"
     }
 
     // MARK: - Score popup

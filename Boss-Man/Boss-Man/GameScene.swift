@@ -123,6 +123,22 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
     }
 
+    override func mouseUp(with event: NSEvent) {
+        guard isGameOver else { return }
+        let loc = convert(event.location(in: self), from: self)
+        let hitNames = nodes(at: loc).compactMap { $0.name }
+
+        if hitNames.contains(UsernameDialog.confirmButtonName),
+           let dialog = childNode(withName: UsernameDialog.nodeName) as? UsernameDialog {
+            dialog.handleConfirm()
+            dialog.removeFromParent()
+        } else if hitNames.contains(UsernameDialog.skipButtonName),
+                  let dialog = childNode(withName: UsernameDialog.nodeName) as? UsernameDialog {
+            dialog.handleSkip()
+            dialog.removeFromParent()
+        }
+    }
+
     var isGameOverForInput: Bool { isGameOver }
 
     func inputControllerDidRequest(_ direction: MoveDirection) {
@@ -330,7 +346,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         inputController.unhideCursor()
         if !state.practiceMode {
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
-            LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
+
+            // Check if this score qualifies for the local leaderboard
+            let defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
+            if LocalHighScores.qualifies(name: defaultName, score: state.score) {
+                showUsernameDialog(defaultName: defaultName)
+            } else {
+                LocalHighScores.record(name: defaultName, score: state.score)
+            }
         }
         sound.stopGoldDiscBass()
         sound.stopBackgroundMusic()
@@ -338,6 +361,25 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         workerController.resetMotion()
         bossController.stopAll()
         hud.showGameOver(in: self)
+    }
+
+    private func showUsernameDialog(defaultName: String) {
+        let dialog = UsernameDialog(
+            size: CGSize(width: 320, height: 220),
+            fontName: Strings.Font.menloBold,
+            onConfirm: { [weak self] name in
+                guard let self else { return }
+                LocalHighScores.record(name: name, score: self.state.score)
+            },
+            onSkip: { [weak self] in
+                guard let self else { return }
+                LocalHighScores.record(name: defaultName, score: self.state.score)
+            }
+        )
+        dialog.position = CGPoint(x: frame.midX, y: frame.midY)
+        dialog.zPosition = 2000
+        addChild(dialog)
+        dialog.attachFieldToView()
     }
 
     private func resetSceneAndBuild() {
