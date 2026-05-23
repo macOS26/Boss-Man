@@ -296,8 +296,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         switch name {
         case "Printer":  play(buffer: cached("printer") { self.synthPrinter() })
         case "Fax":      play(buffer: cached("fax") { self.synthFax() })
-        case "Copy":     play(buffer: cached("pageFlip") { self.synthPageFlip() })
-        case "Collator": play(buffer: cached("collator") { self.synthCollator() })
+        case "Cover Sheet":     play(buffer: cached("pageFlip") { self.synthPageFlip() })
+        case "Book Binder": play(buffer: cached("collator") { self.synthCollator() })
         default:         playDotBlip()
         }
     }
@@ -846,8 +846,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     /// MIB / "Sunglasses at Night" homage — a punchy 80s synth-pop riff
     /// in C minor at ~120 BPM. Driving root-octave bass on the down-beats,
     /// a stabby sawtooth lead playing the iconic descending hook, and a
-    /// 4-on-the-floor noise click for the gated-snare feel. Synthesized
-    /// in-place so we don't bundle copyrighted audio.
+    /// 4-on-the-floor noise click for the gated-snare feel. Sin-place so we don't bundle copyrighted audio.
     private func buildSunglassesAtNightLoop() -> AVAudioPCMBuffer {
         let bpm: Double = 100
         let sixteenth = 60.0 / bpm / 4.0

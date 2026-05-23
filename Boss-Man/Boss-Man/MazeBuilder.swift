@@ -14,6 +14,22 @@ final class MazeBuilder {
     /// build(). Used by GameScene to know how many to expect collected.
     private(set) var placedGoldDiscs: Int = 0
 
+    /// Spawn positions parsed from the level char grid during the most
+    /// recent build(). If the level doesn't specify a position with the
+    /// corresponding char, the entry is nil and GameScene / BossController
+    /// fall back to their hardcoded defaults.
+    ///
+    /// Char codes:
+    ///   `O` — Gold disc (collected as power-up)
+    ///   `W` — PETE / Worker spawn
+    ///   `1` — BOSS spawn      (red)
+    ///   `2` — LUMBERGH spawn  (purple)
+    ///   `3` — WADDAMS spawn   (orange)
+    ///   `4` — BOLTON spawn    (pink)
+    private(set) var workerSpawnFromMap: CGPoint?
+    private(set) var bossSpawnsFromMap: [Int: CGPoint] = [:]
+    private(set) var goldDiscPositionsFromMap: [CGPoint] = []
+
     private var pelletTexture: SKTexture!
     private var dotTilemap: SKTileMapNode?
     private(set) var dotPresence: [[Bool]] = []
@@ -33,6 +49,9 @@ final class MazeBuilder {
         let cols = map.rows.first?.count ?? 0
         let rowCount = map.rows.count
         dotPresence = Array(repeating: Array(repeating: false, count: cols), count: rowCount)
+        workerSpawnFromMap = nil
+        bossSpawnsFromMap = [:]
+        goldDiscPositionsFromMap = []
 
         let background = makeBackground()
         scene.addChild(background)
@@ -59,6 +78,15 @@ final class MazeBuilder {
                     } else if char == "D" {
                         addBrownBox(at: position, in: scene)
                     }
+                    switch char {
+                    case "O": goldDiscPositionsFromMap.append(grid)
+                    case "W": workerSpawnFromMap = grid
+                    case "1": bossSpawnsFromMap[0] = grid
+                    case "2": bossSpawnsFromMap[1] = grid
+                    case "3": bossSpawnsFromMap[2] = grid
+                    case "4": bossSpawnsFromMap[3] = grid
+                    default:  break
+                    }
                 }
             }
         }
@@ -66,7 +94,12 @@ final class MazeBuilder {
         addWallPhysics(centers: wallCenters, in: scene)
 
         placedGoldDiscs = 0
-        for grid in goldDiscPositions where map.isWalkable(grid) {
+        // Prefer disc positions parsed from the map; fall back to the
+        // hardcoded four-corner positions passed at init time.
+        let discsToPlace = goldDiscPositionsFromMap.isEmpty
+            ? goldDiscPositions
+            : goldDiscPositionsFromMap
+        for grid in discsToPlace where map.isWalkable(grid) {
             addGoldDisc(at: map.point(for: grid), in: scene)
             placedGoldDiscs += 1
         }

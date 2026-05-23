@@ -99,8 +99,8 @@ final class HUD {
     private static let emojiByName: [String: String] = [
         "Printer": "🖨️",
         "Fax": "📠",
-        "Copy": "📄",
-        "Collator": "📚"
+        "Cover Sheet": "📄",
+        "Book Binder": "📚"
     ]
 
     func updateStatus(score: Int, highScore: Int, level: Int, dots: Int, total: Int, reports: Int, items: Set<String>) {

@@ -6,9 +6,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let workerSpawn = CGPoint(x: 18, y: 7)
     private let goldDiscDuration: TimeInterval = 20
 
-    private let requiredItems = ["Printer", "Fax", "Copy", "Collator"]
+    private let requiredItems = ["Printer", "Fax", "Cover Sheet", "Book Binder"]
     private let machineNames: [Character: String] = [
-        "P": "Printer", "F": "Fax", "C": "Copy", "M": "Collator", "D": "Brown Box"
+        "P": "Printer", "F": "Fax", "C": "Cover Sheet", "M": "Book Binder", "D": "Brown Box"
     ]
     private let goldDiscPositions = [
         CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
@@ -236,13 +236,18 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.dotCount = mazeBuilder.build(in: self)
         state.goldDiscCount = mazeBuilder.placedGoldDiscs
         hud.install(in: self)
-        workerController = WorkerController(spawnGrid: workerSpawn, gridMap: gridMap, sound: sound)
+        // The level file can override PETE's spawn (char `W`) and each
+        // of the four bosses' spawn cells (`1`/`2`/`3`/`4`). Anything
+        // unspecified falls back to the hardcoded default.
+        let spawn = mazeBuilder.workerSpawnFromMap ?? workerSpawn
+        workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
         workerController.delegate = self
         addChild(workerController.node)
         // 5-second spawn shield: orange + invulnerable for 4s, then
         // a 1s fade to teal. Applies on level start and every restart.
         workerController.applySpawnShield()
-        bossController.spawn(forLevel: state.level)
+        bossController.spawn(forLevel: state.level,
+                             spawnOverrides: mazeBuilder.bossSpawnsFromMap)
         refreshHUD()
         let scheduledLevel = state.level
         travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
@@ -324,7 +329,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         mazeBuilder.resetGrayedMachines(in: self, names: requiredItems)
         refreshHUD()
         workerController.resetMotion()
-        workerController.teleport(to: workerSpawn)
+        workerController.teleport(to: mazeBuilder.workerSpawnFromMap ?? workerSpawn)
         // 5-second spawn shield: orange + invulnerable for 4s, then
         // 1s fade back to teal. PETE can't be caught during it.
         workerController.applySpawnShield()

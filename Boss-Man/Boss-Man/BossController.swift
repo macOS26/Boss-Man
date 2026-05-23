@@ -82,13 +82,44 @@ final class BossController {
 
     // MARK: - Roster lifecycle
 
-    func spawn(forLevel level: Int) {
+    func spawn(forLevel level: Int, spawnOverrides: [Int: CGPoint] = [:]) {
         clear()
         currentLevel = level
-        let activeCount = min(max(level, 1), Self.blueprints.count)
-        for blueprint in Self.blueprints.prefix(activeCount) {
-            createAndFreeze(from: themed(blueprint, level: level))
+        currentSpawnOverrides = spawnOverrides
+        // If the level file specifies boss spawns (chars 1/2/3/4), use
+        // ONLY those — don't auto-add the rest from the blueprint count.
+        // Levels without any boss chars fall back to the legacy
+        // "min(level, 4)" ramp so the bundled defaults still play.
+        let indices: [Int]
+        if spawnOverrides.isEmpty {
+            indices = Array(0..<min(max(level, 1), Self.blueprints.count))
+        } else {
+            indices = spawnOverrides.keys.sorted()
         }
+        for index in indices {
+            guard index >= 0, index < Self.blueprints.count else { continue }
+            let blueprint = Self.blueprints[index]
+            let overridden = withOverride(blueprint, index: index)
+            createAndFreeze(from: themed(overridden, level: level))
+        }
+    }
+
+    /// Remembered between spawn() calls so the post-3-capture rebuild
+    /// (rebuildEntity → createAndFreeze) lands a boss back on the same
+    /// map-driven spawn cell instead of snapping to the default corner.
+    private var currentSpawnOverrides: [Int: CGPoint] = [:]
+
+    private func withOverride(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), index: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
+        guard let override = currentSpawnOverrides[index] else { return blueprint }
+        return (
+            name: blueprint.name,
+            color: blueprint.color,
+            tie: blueprint.tie,
+            pants: blueprint.pants,
+            spawn: override,
+            personality: blueprint.personality,
+            speed: blueprint.speed
+        )
     }
 
     /// On the MIB level (every 12th floor) every boss is reskinned in
@@ -213,8 +244,12 @@ final class BossController {
         entities[index].node.removeAllActions()
         entities[index].node.removeFromParent()
         entities.remove(at: index)
-        guard let blueprint = Self.blueprints.first(where: { $0.name == bossName }) else { return }
-        createAndFreeze(from: themed(blueprint, level: currentLevel))
+        guard let blueprintIndex = Self.blueprints.firstIndex(where: { $0.name == bossName }) else { return }
+        let blueprint = Self.blueprints[blueprintIndex]
+        // Honor the map-driven spawn override on respawn so a boss that
+        // escapes via 3 captures rebuilds at the level's authored cell.
+        let overridden = withOverride(blueprint, index: blueprintIndex)
+        createAndFreeze(from: themed(overridden, level: currentLevel))
     }
 
     /// Three-second boss spawn / respawn freeze:
