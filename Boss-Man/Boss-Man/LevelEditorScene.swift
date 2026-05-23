@@ -139,6 +139,10 @@ class LevelEditorScene: SKScene {
     private var clipboard: [String]? = nil
     private var buttonBaseColors: [String: NSColor] = [:]
     private var buttonNodes: [String: SKShapeNode] = [:]
+    /// PREV/NEXT trigger loadCurrentLevel() → buildUI() which tears the
+    /// just-flashed button out of the scene. We stash the name here so
+    /// buildUI() can re-flash the freshly-rebuilt button.
+    private var pendingFlashName: String?
     private let maxUndoDepth = 50
     var saveButton: SKShapeNode!
     var saveButtonLabel: SKLabelNode?
@@ -321,6 +325,10 @@ class LevelEditorScene: SKScene {
         
         updatePaletteHighlight()
         updateLevelLabel()
+        if let pending = pendingFlashName {
+            pendingFlashName = nil
+            flashButton(named: pending)
+        }
     }
     
     // MARK: - Grid
@@ -716,10 +724,12 @@ class LevelEditorScene: SKScene {
             case Strings.EditorButton.prev:
                 let count = Levels.levelNames.count
                 currentLevelIndex = (currentLevelIndex - 1 + count) % count
+                pendingFlashName = Strings.EditorButton.prev
                 loadCurrentLevel()
                 return
             case Strings.EditorButton.next:
                 currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
+                pendingFlashName = Strings.EditorButton.next
                 loadCurrentLevel()
                 return
             case Strings.EditorButton.undo:
@@ -807,10 +817,12 @@ class LevelEditorScene: SKScene {
         case 123:
             let count = Levels.levelNames.count
             currentLevelIndex = (currentLevelIndex - 1 + count) % count
+            pendingFlashName = Strings.EditorButton.prev
             loadCurrentLevel()
             return
         case 124:
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
+            pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
             return
         case 51 where event.modifierFlags.contains(.command):
