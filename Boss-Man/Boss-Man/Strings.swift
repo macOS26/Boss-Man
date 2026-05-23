@@ -197,6 +197,7 @@ enum Strings {
         static let usernamePlaceholder = "Player"
         static let saveButton = "Save"
         static let skipButton = "Skip"
+        static let noScores = "No local scores yet."
     }
 
     // MARK: - Score popup

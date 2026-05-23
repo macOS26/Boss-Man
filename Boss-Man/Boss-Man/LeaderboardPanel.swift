@@ -179,7 +179,10 @@ final class LeaderboardPanel: SKNode {
 
     private func renderLocalFallback() {
         let locals = LocalHighScores.load()
-        guard !locals.isEmpty else { return }
+        guard !locals.isEmpty else {
+            showStatus(Strings.Leaderboard.noScores)
+            return
+        }
         titleLabel.fontColor = .systemRed
         entriesNode.removeAllChildren()
         let rowHeight: CGFloat = 28
