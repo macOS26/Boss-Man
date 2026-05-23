@@ -253,17 +253,31 @@ final class MazeBuilder {
     }
 
     private func addGoldDisc(at position: CGPoint, in scene: SKScene) {
-        let pellet = SKSpriteNode(texture: pelletTexture)
-        pellet.position = position
-        pellet.physicsBody = SKPhysicsBody(circleOfRadius: 11)
-        pellet.physicsBody?.isDynamic = false
-        pellet.physicsBody?.categoryBitMask = PhysicsCategory.goldDisc
-        pellet.zPosition = 6
-        pellet.run(.repeatForever(.sequence([
+        // Same visual as the level editor's gold disc swatch: yellow
+        // core circle + soft yellow halo + dark-gold stroke. Container
+        // node so the physics body and pulse scale apply to the whole
+        // composite.
+        let disc = SKNode()
+        disc.position = position
+        disc.zPosition = 6
+        let radius = map.tileSize * 0.28
+        let halo = SKShapeNode(circleOfRadius: radius * 1.35)
+        halo.fillColor = NSColor.systemYellow.withAlphaComponent(0.30)
+        halo.strokeColor = .clear
+        disc.addChild(halo)
+        let core = SKShapeNode(circleOfRadius: radius)
+        core.fillColor = .systemYellow
+        core.strokeColor = NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
+        core.lineWidth = 1
+        disc.addChild(core)
+        disc.physicsBody = SKPhysicsBody(circleOfRadius: 11)
+        disc.physicsBody?.isDynamic = false
+        disc.physicsBody?.categoryBitMask = PhysicsCategory.goldDisc
+        disc.run(.repeatForever(.sequence([
             .scale(to: 1.25, duration: 0.35),
             .scale(to: 1.0, duration: 0.35)
         ])))
-        scene.addChild(pellet)
+        scene.addChild(disc)
     }
 
     private func addMachine(name: String, symbol: String, at position: CGPoint, in scene: SKScene) {

@@ -42,6 +42,15 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         get { state.practiceMode }
         set { state.practiceMode = newValue }
     }
+    /// Override the starting level. Setter writes the round state's
+    /// `level` directly, so it must be assigned BEFORE the scene's
+    /// `didMove(to:)` (i.e. immediately after `GameScene(size:)`).
+    /// The editor uses this to launch a playtest on whatever floor the
+    /// designer is currently viewing.
+    var startingLevel: Int {
+        get { state.level }
+        set { state.level = max(1, newValue) }
+    }
     var isGoldDiscMode: Bool { goldDisc.isActive }
     var isPeteShielded: Bool { workerController?.isShielded ?? false }
 

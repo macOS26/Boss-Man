@@ -172,6 +172,15 @@ class LevelEditorScene: SKScene {
     /// swatch. Drawn separately so the swatch's own fill stays behind its
     /// preview icon + label.
     var highlightOverlay: SKShapeNode?
+
+    /// Undo / redo stacks of full mapRows snapshots. One snapshot is
+    /// captured at the START of each paint stroke (mouse-down) and
+    /// before any bulk op like CLEAR / load. Cmd+Z pops undo onto redo,
+    /// Cmd+Shift+Z pops redo onto undo. Capped to `maxUndoDepth` so
+    /// long sessions don't bloat memory.
+    private var undoStack: [[String]] = []
+    private var redoStack: [[String]] = []
+    private let maxUndoDepth = 50
     var saveButton: SKShapeNode!
     
     var gridOffsetX: CGFloat = 12
@@ -286,6 +295,8 @@ class LevelEditorScene: SKScene {
         let btnData: [(String, NSColor, String)] = [
             ("< PREV",     NSColor(white: 0.28, alpha: 1.0),              "btn_prev"),
             ("NEXT >",     NSColor(white: 0.28, alpha: 1.0),              "btn_next"),
+            ("UNDO (⌘Z)",  NSColor(white: 0.22, alpha: 1.0),              "btn_undo"),
+            ("REDO (⇧⌘Z)", NSColor(white: 0.22, alpha: 1.0),              "btn_redo"),
             ("CLEAR",      NSColor(calibratedRed: 0.6, green: 0.15, blue: 0.15, alpha: 1.0), "btn_clear"),
             ("SAVE (⌘S)",  NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), "btn_save"),
             ("REVEAL FILE", NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), "btn_reveal"),
@@ -583,7 +594,10 @@ class LevelEditorScene: SKScene {
             return loadCurrentLevel()
         }
         let name = names[currentLevelIndex]
-        
+        // Switching floors invalidates the undo history.
+        undoStack.removeAll()
+        redoStack.removeAll()
+
         if let rows = LevelStore.shared.loadLevel(name: name) {
             mapRows = rows
             gridRows = rows.count
@@ -631,7 +645,42 @@ class LevelEditorScene: SKScene {
     }
     
     // MARK: - Input
+    // MARK: - Undo / redo
+
+    /// Snapshot current mapRows onto the undo stack. Call BEFORE
+    /// mutating mapRows. Wipes the redo stack since any new edit
+    /// invalidates redo history.
+    private func pushUndoSnapshot() {
+        undoStack.append(mapRows)
+        if undoStack.count > maxUndoDepth { undoStack.removeFirst() }
+        redoStack.removeAll()
+    }
+
+    func undo() {
+        guard let prev = undoStack.popLast() else {
+            statusLabel?.text = "Nothing to undo"
+            return
+        }
+        redoStack.append(mapRows)
+        mapRows = prev
+        rebuildGrid()
+        statusLabel?.text = "Undo"
+    }
+
+    func redo() {
+        guard let next = redoStack.popLast() else {
+            statusLabel?.text = "Nothing to redo"
+            return
+        }
+        undoStack.append(mapRows)
+        mapRows = next
+        rebuildGrid()
+        statusLabel?.text = "Redo"
+    }
+
     override func mouseDown(with event: NSEvent) {
+        // One undo entry per stroke (mouse-down), not per dragged cell.
+        pushUndoSnapshot()
         handleInput(event.location(in: self), begin: true)
     }
     
@@ -676,7 +725,14 @@ class LevelEditorScene: SKScene {
                 currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
                 loadCurrentLevel()
                 return
+            case "btn_undo":
+                undo()
+                return
+            case "btn_redo":
+                redo()
+                return
             case "btn_clear":
+                pushUndoSnapshot()
                 mapRows = mapRows.map { _ in String(repeating: " ", count: gridCols) }
                 rebuildGrid()
                 return
@@ -694,6 +750,9 @@ class LevelEditorScene: SKScene {
                 // submission, no local high-score record, no UserDefaults
                 // high-score update.
                 game.practiceMode = true
+                // Start the playtest on whatever level the editor is
+                // currently showing (1-based for the engine).
+                game.startingLevel = currentLevelIndex + 1
                 view?.presentScene(game, transition: .fade(withDuration: 0.5))
                 return
             case "btn_back":
@@ -760,6 +819,14 @@ class LevelEditorScene: SKScene {
             case "0": selectedTile = .empty
             case "s" where event.modifierFlags.contains(.command):
                 saveCurrentLevel()
+            case "z" where event.modifierFlags.contains([.command, .shift]):
+                redo()
+            case "z" where event.modifierFlags.contains(.command):
+                undo()
+            case "Z" where event.modifierFlags.contains(.command):
+                // Shift+Cmd+Z reports the upper-case letter on some
+                // keyboard layouts, so handle that variant too.
+                redo()
             default: break
             }
         }
