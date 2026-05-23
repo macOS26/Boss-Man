@@ -1,15 +1,9 @@
 import CoreGraphics
 
-/// Per-boss chase personality — mirrors the four classic Pac-Man ghosts.
 enum BossPersonality {
-    /// Blinky-style: head straight for the worker's tile.
     case directChase
-    /// Pinky-style: aim for the tile N steps ahead of the worker's current direction.
     case ambushAhead(tiles: Int)
-    /// Clyde-style: chase until inside `threshold` tiles of the worker, then retreat to `scatterGrid`.
     case timidScatter(scatterGrid: CGPoint, threshold: CGFloat)
-    /// Inky-style: pivot two tiles ahead of the worker, then double the vector from Blinky's tile
-    /// to produce a flanking target. Requires a `blinkyGrid` at plan time.
     case flanker(pivotTiles: Int)
 }
 
@@ -47,8 +41,6 @@ final class BossAI {
             next = stepAwayFrom(workerGrid)
         } else {
             let target = chaseTarget(workerGrid: workerGrid, workerDirection: workerDirection, blinkyGrid: blinkyGrid)
-            // Try personality target first; if unreachable (wall, off-grid), degrade to direct
-            // chase, then to a random step so the boss never freezes.
             next = pathfinder.shortestStep(from: grid, to: target)
                 ?? pathfinder.shortestStep(from: grid, to: workerGrid)
                 ?? randomStep()
@@ -76,7 +68,6 @@ final class BossAI {
             let delta = dir.delta
             let pivot = CGPoint(x: workerGrid.x + CGFloat(delta.dx * pivotTiles),
                                 y: workerGrid.y + CGFloat(delta.dy * pivotTiles))
-            // Reflect Blinky through the pivot — same trick the original Inky uses.
             return CGPoint(x: 2 * pivot.x - blinky.x, y: 2 * pivot.y - blinky.y)
         }
     }
@@ -86,10 +77,6 @@ final class BossAI {
         if let previousGrid, options.count > 1 {
             options.removeAll { $0 == previousGrid }
         }
-        // Cheap Manhattan distance heuristic instead of a full BFS per
-        // neighbor. Flee mode runs every boss step, so dropping the
-        // O(N) pathfind for an O(1) heuristic eliminates the worst CPU
-        // spike in blue-mode play.
         return options.max(by: {
             Pathfinder.manhattanDistance($0, target) < Pathfinder.manhattanDistance($1, target)
         })

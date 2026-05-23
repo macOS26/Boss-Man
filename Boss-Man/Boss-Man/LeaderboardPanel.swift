@@ -2,17 +2,11 @@ import AppKit
 import GameKit
 import SpriteKit
 
-/// Game Center top-scores panel for the title screen. Renders ten
-/// entries from the global leaderboard, falling back to a status
-/// message when the player isn't signed in or the leaderboard hasn't
-/// been set up in App Store Connect yet.
 @MainActor
 final class LeaderboardPanel: SKNode {
-    /// Must match the leaderboard ID created in App Store Connect.
-    static let leaderboardID = "BossManLeaderBoard0001"
+    static let leaderboardID = Strings.GameCenter.leaderboardID
 
-    /// Node name used for click hit-testing on the sign-in link.
-    static let signInLinkNodeName = "leaderboard.signin_link"
+    static let signInLinkNodeName = Strings.NodeName.signInLink
 
     private let panelSize: CGSize
     private let titleFontName: String
@@ -28,10 +22,8 @@ final class LeaderboardPanel: SKNode {
         self.bodyFontName = bodyFont
         super.init()
         buildShell()
-        showStatus("Loading…")
+        showStatus(Strings.App.loading)
         load()
-        // Auth is async — if the auth handler fires after we've already
-        // tried (and failed) the first fetch, reload then.
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(authStateChanged),
@@ -51,7 +43,7 @@ final class LeaderboardPanel: SKNode {
     }
 
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        fatalError(Strings.System.initCoderUnsupported)
     }
 
     private func buildShell() {
@@ -62,29 +54,22 @@ final class LeaderboardPanel: SKNode {
             height: panelSize.height
         )
 
-        // Drop shadow: slightly larger, offset down-right, dark and soft.
         let shadow = SKShapeNode(rect: rect.offsetBy(dx: 6, dy: -8).insetBy(dx: -2, dy: -2))
         shadow.fillColor = NSColor(calibratedWhite: 0, alpha: 0.14)
         shadow.strokeColor = .clear
         shadow.zPosition = -1
         let blur = SKEffectNode()
         blur.shouldEnableEffects = true
-        blur.filter = CIFilter(name: "CIGaussianBlur", parameters: ["inputRadius": 6])
+        blur.filter = CIFilter(name: Strings.CoreImage.gaussianBlur,
+                               parameters: [Strings.CoreImage.inputRadiusKey: 6])
         blur.addChild(shadow)
         addChild(blur)
 
-        // The Post-it itself: classic 3M canary yellow with a faint
-        // square corner (Post-its have very tight radii, not rounded
-        // pills) and no stroke.
         let postIt = SKShapeNode(rect: rect)
         postIt.fillColor = NSColor(calibratedRed: 1.0, green: 0.92, blue: 0.42, alpha: 1)
         postIt.strokeColor = .clear
         addChild(postIt)
 
-        // Adhesive band along the top edge: a little more saturated
-        // than the body so it reads as the sticky strip on a real
-        // Post-it. 10pt of breathing room sits between the strip and
-        // the LEADERBOARD title.
         let adhesiveHeight: CGFloat = 32
         let adhesiveToTitleGap: CGFloat = 10
         let adhesive = SKShapeNode(rect: CGRect(
@@ -100,7 +85,7 @@ final class LeaderboardPanel: SKNode {
         let titleBaselineY = panelSize.height / 2 - adhesiveHeight - adhesiveToTitleGap - 18
 
         titleLabel.fontName = titleFontName
-        titleLabel.text = "LEADERBOARD"
+        titleLabel.text = Strings.Leaderboard.header
         titleLabel.fontSize = 24
         titleLabel.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
         titleLabel.horizontalAlignmentMode = .center
@@ -137,7 +122,6 @@ final class LeaderboardPanel: SKNode {
         label.position = CGPoint(x: 0, y: -panelSize.height / 4)
         if asLink {
             label.name = Self.signInLinkNodeName
-            // Faux underline so it reads as an actionable link.
             let underline = SKShapeNode(rect: CGRect(
                 x: -label.frame.width / 2 - 4,
                 y: label.position.y - 6,
@@ -148,7 +132,6 @@ final class LeaderboardPanel: SKNode {
             underline.strokeColor = .clear
             underline.name = Self.signInLinkNodeName
             entriesNode.addChild(underline)
-            // Expand the hit target so the click is forgiving.
             let hit = SKShapeNode(rect: CGRect(
                 x: -panelSize.width / 2 + 18,
                 y: label.position.y - 18,
@@ -163,13 +146,8 @@ final class LeaderboardPanel: SKNode {
         entriesNode.addChild(label)
     }
 
-    /// Entry point. If the player is already authenticated, fetch
-    /// immediately. Otherwise do nothing — the auth-state notification
-    /// observer set up in init() will fire whenever GameKit finishes
-    /// authenticating and call fetchEntries() exactly once. No timers,
-    /// no polling.
     private func load() {
-        showStatus("Loading…")
+        showStatus(Strings.App.loading)
         if GKLocalPlayer.local.isAuthenticated {
             fetchEntries()
         }
@@ -245,7 +223,7 @@ final class LeaderboardPanel: SKNode {
         let row = SKNode()
 
         let rankLabel = SKLabelNode(fontNamed: titleFontName)
-        rankLabel.text = "\(rank)."
+        rankLabel.text = Strings.Leaderboard.rankLabel(rank)
         rankLabel.fontSize = 18
         rankLabel.fontColor = color
         rankLabel.horizontalAlignmentMode = .left
@@ -261,7 +239,7 @@ final class LeaderboardPanel: SKNode {
         row.addChild(nameLabel)
 
         let scoreLabel = SKLabelNode(fontNamed: titleFontName)
-        scoreLabel.text = "\(score)"
+        scoreLabel.text = Strings.Leaderboard.scoreLabel(score)
         scoreLabel.fontSize = 18
         scoreLabel.fontColor = color
         scoreLabel.horizontalAlignmentMode = .right

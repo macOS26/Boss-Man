@@ -6,18 +6,11 @@ protocol BossControllerDelegate: AnyObject {
     var workerGrid: CGPoint { get }
     var workerDirection: MoveDirection? { get }
     var isGoldDiscMode: Bool { get }
-    /// True while PETE is wearing his spawn-protection orange shield;
-    /// boss AI catch logic must short-circuit when this is set.
     var isPeteShielded: Bool { get }
     func bossDidCatchWorker()
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint)
 }
 
-/// Owns the boss roster, per-floor blueprints, and all per-frame
-/// chasing / fleeing / capture animation. GameScene tells it when to
-/// spawn for a given level, when to step each frame, and when to flip
-/// into gold-disc mode; BossController calls back through the
-/// delegate when a boss catches PETE or PETE captures a boss.
 @MainActor
 final class BossController {
     struct Entity {
@@ -32,29 +25,17 @@ final class BossController {
         let moveInterval: TimeInterval
         let moveDuration: TimeInterval
         var lastMove: TimeInterval
-        /// Set to true after a tunnel teleport so the next planned step is
-        /// forced toward an interior (non-doorway) neighbor — the boss
-        /// "commits" through the doorway and can't whip back in.
         var mustExitDoorway: Bool = false
-        /// True while this boss is in scared/blue mode and capturable.
-        /// Toggled per-boss so a boss that has "escaped" gold-disc
-        /// mode by being captured 3 times can return to dangerous even
-        /// while the global gold-disc timer is still running.
         var isInFleeMode: Bool = false
-        /// Number of times PETE has captured this boss in the current
-        /// gold-disc window. After 3 the boss respawns as a regular
-        /// boss (immobile + immune for 3 seconds while fading back in).
         var captureCount: Int = 0
-        /// During the 3-second post-escape spawn freeze, the boss can't
-        /// step and contacts with PETE are ignored.
         var isImmobilized: Bool = false
     }
 
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] = [
-        ("BOSS", .systemRed, .black, .darkGray, CGPoint(x: 34, y: 15), .directChase, 1.0),
-        ("LUMBERGH", .systemPurple, .systemYellow, .darkGray, CGPoint(x: 1, y: 1), .ambushAhead(tiles: 4), 0.85),
-        ("WADDAMS", .systemOrange, .systemRed, .darkGray, CGPoint(x: 34, y: 1), .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8), 0.70),
-        ("BOLTON", .systemPink, .systemTeal, .darkGray, CGPoint(x: 1, y: 15), .flanker(pivotTiles: 2), 0.78)
+        (Strings.Boss.boss,     .systemRed,    .black,        .darkGray, CGPoint(x: 34, y: 15), .directChase,                                                          1.00),
+        (Strings.Boss.lumbergh, .systemPink,   .systemYellow, .darkGray, CGPoint(x: 1,  y: 1),  .ambushAhead(tiles: 4),                                                0.85),
+        (Strings.Boss.waddams,  .systemTeal,   .systemBlue,   .darkGray, CGPoint(x: 34, y: 1),  .flanker(pivotTiles: 2),                                               0.78),
+        (Strings.Boss.bolton,   .systemOrange, .systemRed,    .darkGray, CGPoint(x: 1,  y: 15), .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70)
     ]
 
     private let moveInterval: TimeInterval = 0.36
@@ -81,15 +62,10 @@ final class BossController {
     }
 
     // MARK: - Roster lifecycle
-
     func spawn(forLevel level: Int, spawnOverrides: [Int: CGPoint] = [:]) {
         clear()
         currentLevel = level
         currentSpawnOverrides = spawnOverrides
-        // If the level file specifies boss spawns (chars 1/2/3/4), use
-        // ONLY those — don't auto-add the rest from the blueprint count.
-        // Levels without any boss chars fall back to the legacy
-        // "min(level, 4)" ramp so the bundled defaults still play.
         let indices: [Int]
         if spawnOverrides.isEmpty {
             indices = Array(0..<min(max(level, 1), Self.blueprints.count))
@@ -104,9 +80,6 @@ final class BossController {
         }
     }
 
-    /// Remembered between spawn() calls so the post-3-capture rebuild
-    /// (rebuildEntity → createAndFreeze) lands a boss back on the same
-    /// map-driven spawn cell instead of snapping to the default corner.
     private var currentSpawnOverrides: [Int: CGPoint] = [:]
 
     private func withOverride(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), index: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
@@ -122,10 +95,6 @@ final class BossController {
         )
     }
 
-    /// On the MIB level (every 12th floor) every boss is reskinned in
-    /// a black suit, black tie, black slacks. The actual sunglasses
-    /// overlay is applied by PixelPerson when `wearsSunglasses == true`,
-    /// which buildEntity infers from `isMIBLevel`.
     private func themed(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), level: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
         guard isMIBLevel(level) else { return blueprint }
         return (
@@ -141,11 +110,6 @@ final class BossController {
 
     private func isMIBLevel(_ level: Int) -> Bool { level % 12 == 0 }
 
-    /// Build a fresh entity from `blueprint`, add it to the scene
-    /// and run it through the spawn freeze (stepper + fade/throb/arm).
-    /// One function used by every respawn-as-boss path: level start,
-    /// post-PETE-death tear-down + rebuild, and the 3-strikes
-    /// gold-disc escape.
     private func createAndFreeze(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)) {
         buildEntity(from: blueprint)
         let index = entities.count - 1
@@ -182,7 +146,7 @@ final class BossController {
         node.zPosition = 11
         scene.addChild(node)
 
-        let tag = SKLabelNode(fontNamed: "Menlo-Bold")
+        let tag = SKLabelNode(fontNamed: Strings.Font.menloBold)
         tag.text = blueprint.name
         tag.fontSize = 9
         tag.fontColor = .white
@@ -205,10 +169,6 @@ final class BossController {
         entities.append(entity)
     }
 
-    /// Snaps a boss back to its spawn tile with all per-run state
-    /// reset (no fade, no animation, no scheduling). Always called
-    /// before applySpawnFreeze so the boss is guaranteed to be at
-    /// home before the freeze visual starts.
     private func relocateToSpawn(at index: Int) {
         let entity = entities[index]
         let node = entity.node
@@ -222,22 +182,12 @@ final class BossController {
         entities[index].mustExitDoorway = false
     }
 
-    /// Single source of truth for the full boss spawn cycle:
-    ///   1. relocateToSpawn  — snap home + reset state
-    ///   2. scheduleStepper  — re-queue the AI tick
-    ///   3. applySpawnFreeze — fade / throb / re-arm schedule
-    /// Called by level start and post-PETE-death respawn.
     private func respawn(at index: Int) {
         relocateToSpawn(at: index)
         scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
     }
 
-    /// Hard rebuild: remove the boss node from the scene, drop the
-    /// entity, then funnel through createAndFreeze() — the same path
-    /// level-start and post-death respawns use. Used by the 3-strikes
-    /// gold-disc escape so no stale SKAction, physics state, or
-    /// node residue can leak from PETE's tile.
     private func rebuildEntity(at index: Int) {
         let bossName = entities[index].name
         entities[index].node.alpha = 0
@@ -246,17 +196,10 @@ final class BossController {
         entities.remove(at: index)
         guard let blueprintIndex = Self.blueprints.firstIndex(where: { $0.name == bossName }) else { return }
         let blueprint = Self.blueprints[blueprintIndex]
-        // Honor the map-driven spawn override on respawn so a boss that
-        // escapes via 3 captures rebuilds at the level's authored cell.
         let overridden = withOverride(blueprint, index: blueprintIndex)
         createAndFreeze(from: themed(overridden, level: currentLevel))
     }
 
-    /// Three-second boss spawn / respawn freeze:
-    ///   • 0.0–1.5s  fade in from invisible.
-    ///   • 2.0s       isImmobilized = false (boss starts stepping).
-    ///   • 2.0–3.0s   pulse/throb scale as a "danger imminent" tell.
-    ///   • 3.0s       physics body re-armed — only now can he kill PETE.
     private func applySpawnFreeze(at index: Int) {
         entities[index].isImmobilized = true
         let node = entities[index].node
@@ -265,7 +208,7 @@ final class BossController {
         node.physicsBody?.categoryBitMask = 0
 
         sound.playTeleport()
-        node.run(.fadeIn(withDuration: 1.5), withKey: "spawnFade")
+        node.run(.fadeIn(withDuration: 1.5), withKey: Strings.ActionKey.spawnFade)
 
         node.run(.sequence([
             .wait(forDuration: 2.0),
@@ -274,10 +217,8 @@ final class BossController {
             .run { [weak self] in
                 self?.entities[index].node.physicsBody?.categoryBitMask = PhysicsCategory.boss
             }
-        ]), withKey: "spawnUnfreeze")
+        ]), withKey: Strings.ActionKey.spawnUnfreeze)
 
-        // Three quick pulses in the 2.0–3.0s window — gives the player
-        // a visual cue that this boss is about to become dangerous.
         let pulse = SKAction.sequence([
             .scale(to: 1.18, duration: 0.16),
             .scale(to: 1.0, duration: 0.17)
@@ -285,7 +226,7 @@ final class BossController {
         node.run(.sequence([
             .wait(forDuration: 2.0),
             .repeat(pulse, count: 3)
-        ]), withKey: "spawnThrob")
+        ]), withKey: Strings.ActionKey.spawnThrob)
     }
 
     func clear() {
@@ -297,11 +238,6 @@ final class BossController {
         captureStreak = 0
     }
 
-    /// Called when PETE dies — fully tear every boss down and respawn
-    /// from scratch at the current level. Funnels through the SAME
-    /// spawn(forLevel:spawnOverrides:) path the original level-start
-    /// uses, so map-driven cells (`1`/`2`/`3`/`4`) are preserved across
-    /// every respawn instead of falling back to default corners.
     func teleportAllToSpawn() {
         spawn(forLevel: currentLevel, spawnOverrides: currentSpawnOverrides)
     }
@@ -314,7 +250,6 @@ final class BossController {
     }
 
     // MARK: - Gold disc
-
     func setGoldDiscActive(_ active: Bool) {
         captureStreak = 0
         for i in entities.indices {
@@ -325,22 +260,14 @@ final class BossController {
         refreshTags(goldDiscActive: active)
     }
 
-    /// True only when this specific boss is currently capturable. After
-    /// 3 captures in a single gold-disc window the boss flips back
-    /// to dangerous even while the global timer keeps running.
     func isInFleeMode(boss node: PixelPerson) -> Bool {
         entities.first(where: { $0.node === node })?.isInFleeMode ?? false
     }
 
-    /// True while a boss is in its post-escape freeze — can't move,
-    /// can't catch PETE.
     func isImmobilized(boss node: PixelPerson) -> Bool {
         entities.first(where: { $0.node === node })?.isImmobilized ?? false
     }
 
-    /// Snap a specific boss back to its spawn tile immediately. Used
-    /// the moment a boss catches PETE so the boss isn't sitting on
-    /// top of PETE's respawn point while bossCaughtWorker runs.
     func relocateAfterCatch(boss node: PixelPerson) {
         guard let index = entities.firstIndex(where: { $0.node === node }) else { return }
         relocateToSpawn(at: index)
@@ -360,7 +287,6 @@ final class BossController {
     }
 
     // MARK: - Stepping (SKAction-driven per boss)
-
     private func scheduleStepper(for entity: Entity) {
         let bossName = entity.name
         let stepper = SKAction.repeatForever(.sequence([
@@ -372,7 +298,7 @@ final class BossController {
                 self.stepOne(at: index)
             }
         ]))
-        entity.node.run(stepper, withKey: "bossStepper")
+        entity.node.run(stepper, withKey: Strings.ActionKey.bossStepper)
     }
 
     private func stepOne(at index: Int) {
@@ -382,10 +308,6 @@ final class BossController {
 
         let move: BossAI.Move
         if entities[index].mustExitDoorway, let exit = forcedExit(from: boss.ai.grid) {
-            // Commit: after a tunnel teleport, the boss must step out to a
-            // non-doorway interior neighbor regardless of what the AI would
-            // otherwise pick. Clear the flag so subsequent steps planned
-            // normally.
             let from = boss.ai.grid
             boss.ai.teleport(to: exit)
             entities[index].mustExitDoorway = false
@@ -403,13 +325,24 @@ final class BossController {
         }
 
         boss.node.startWalking()
+        // Eyes + body face the move delta. Horizontal moves flip the
+        // body; vertical moves keep horizontal facing. Name tag is
+        // outside bodyContainer so it never mirrors.
+        let dx = move.to.x - move.from.x
+        let dy = move.to.y - move.from.y
+        let look: MoveDirection? = {
+            if abs(dx) > abs(dy) { return dx < 0 ? .left : .right }
+            if dy != 0 { return dy > 0 ? .up : .down }
+            return nil
+        }()
+        if look == .left  { boss.node.face(left: true)  }
+        if look == .right { boss.node.face(left: false) }
+        boss.node.setLookDirection(look)
         let isPartnerEdge = abs(move.to.x - move.from.x) + abs(move.to.y - move.from.y) > 1
         if isPartnerEdge {
-            boss.node.removeAction(forKey: "bossMove")
+            boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
             boss.node.position = gridMap.point(for: move.to)
         } else {
-            // Slow down both entering AND exiting a tunnel doorway; full
-            // speed for plain interior steps.
             let touchesDoorway =
                 gridMap.tunnelPartner(of: move.from) != nil ||
                 gridMap.tunnelPartner(of: move.to) != nil
@@ -423,19 +356,15 @@ final class BossController {
                        self.gridMap.isWalkable(partner) {
                         self.entities[index].node.position = self.gridMap.point(for: partner)
                         self.entities[index].ai.teleport(to: partner)
-                        // Next step must exit the doorway — no reversal allowed.
                         self.entities[index].mustExitDoorway = true
                     }
                 }
-            ]), withKey: "bossMove")
+            ]), withKey: Strings.ActionKey.bossMove)
         }
         if Pathfinder.manhattanDistance(move.to, delegate.workerGrid) < 0.5 {
             if entities[index].isInFleeMode {
                 capture(at: index)
             } else if !delegate.isPeteShielded {
-                // Instantly hide + disable + clear the catching boss
-                // so it can't render or collide while bossCaughtWorker
-                // tears everything down and respawns fresh.
                 let catcher = entities[index].node
                 catcher.alpha = 0
                 catcher.physicsBody?.categoryBitMask = 0
@@ -443,13 +372,9 @@ final class BossController {
                 relocateToSpawn(at: index)
                 delegate.bossDidCatchWorker()
             }
-            // PETE is shielded → ignore. He's invulnerable until the
-            // 5-second spawn shield expires.
         }
     }
 
-    /// Returns the first walkable non-doorway neighbor of `grid`, used
-    /// to force a boss to exit a tunnel mouth without reversing.
     private func forcedExit(from grid: CGPoint) -> CGPoint? {
         for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
             let next = CGPoint(x: grid.x + CGFloat(dx), y: grid.y + CGFloat(dy))
@@ -460,9 +385,6 @@ final class BossController {
         return nil
     }
 
-    /// Public capture entry point: also handles the case where the
-    /// physics contact handler detects the catch before our per-frame
-    /// stepping does. Looks up by PixelPerson node.
     func capture(boss node: PixelPerson) {
         guard let index = entities.firstIndex(where: { $0.node === node }) else { return }
         capture(at: index)
@@ -477,21 +399,15 @@ final class BossController {
         let powerActive = delegate?.isGoldDiscMode ?? false
 
         boss.ai.teleport(to: boss.spawn)
-        boss.node.removeAction(forKey: "bossMove")
+        boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
         boss.node.stopWalking()
         boss.node.physicsBody?.categoryBitMask = 0
         let homePoint = gridMap.point(for: boss.spawn)
         let bossNode = boss.node
 
         if hasEscaped {
-            // 3 captures in this gold-disc window → tear this boss
-            // off the board and rebuild it fresh in its corner. Same
-            // path used elsewhere via rebuildEntity(at:).
             rebuildEntity(at: index)
             refreshTags(goldDiscActive: powerActive)
-            // Once every boss has escaped (none left in flee mode),
-            // kill the global gold-disc bassline — nothing on the
-            // board is capturable anymore.
             if powerActive && !entities.contains(where: { $0.isInFleeMode }) {
                 sound.stopGoldDiscBass()
             }

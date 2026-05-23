@@ -1,43 +1,27 @@
-//
-//  LevelEditorScene.swift
-//  Boss-Man
-//
-//  2D Minecraft-like Level Editor for BossMan
-//  Uses the EXACT same characters as the real ASCII levels:
-//    '#' = wall, ' ' = floor, '.' = dot/pellet, 'P' = player, 'B' = boss spawn,
-//    'D' = door, 'H' = hideout, 'M' = coffee machine,
-//    'C' = coffee pickup, 'F' = filing cabinet
-//
-
 import AppKit
 import SpriteKit
-import Darwin // removexattr — strips macOS quarantine flag from saved files
+import Darwin
 
 // MARK: - Tile ↔ Character Mapping
-//
-// Editor tiles map 1:1 to the chars used by Levels.swift / MazeBuilder
-// and render with the SAME visuals the game uses in-play: real cubicle
-// walls (per-level color), yellow pellet dots, machine emojis from
-// MazeBuilder.emoji(forSymbol:), a Brown-Box icon for `D`, etc.
 struct EditorTile: Equatable {
     let character: Character
     let displayName: String
 
-    static let empty    = EditorTile(character: " ", displayName: "Floor")
-    static let dot      = EditorTile(character: ".", displayName: "Dot")
-    static let wall     = EditorTile(character: "#", displayName: "Wall")
-    static let hideout  = EditorTile(character: "H", displayName: "Hideout")
-    static let printer  = EditorTile(character: "P", displayName: "Printer")
-    static let fax      = EditorTile(character: "F", displayName: "Fax")
-    static let copy     = EditorTile(character: "C", displayName: "Cover Sheet")
-    static let collator = EditorTile(character: "M", displayName: "Book Binder")
-    static let brownBox = EditorTile(character: "D", displayName: "Brown TPS Box")
-    static let goldDisc = EditorTile(character: "O", displayName: "Gold Disc")
-    static let worker   = EditorTile(character: "W", displayName: "PETE")
-    static let boss1    = EditorTile(character: "1", displayName: "BOSS")
-    static let boss2    = EditorTile(character: "2", displayName: "LUMBERGH")
-    static let boss3    = EditorTile(character: "3", displayName: "WADDAMS")
-    static let boss4    = EditorTile(character: "4", displayName: "BOLTON")
+    static let empty    = EditorTile(character: Strings.Tile.floorChar,      displayName: Strings.Editor.Tile.floor)
+    static let dot      = EditorTile(character: Strings.Tile.dotChar,        displayName: Strings.Editor.Tile.dot)
+    static let wall     = EditorTile(character: Strings.Tile.wallChar,       displayName: Strings.Editor.Tile.wall)
+    static let hideout  = EditorTile(character: Strings.Tile.hideoutChar,    displayName: Strings.Editor.Tile.hideout)
+    static let printer  = EditorTile(character: Strings.Tile.printerChar,    displayName: Strings.Machine.printer)
+    static let fax      = EditorTile(character: Strings.Tile.faxChar,        displayName: Strings.Machine.fax)
+    static let copy     = EditorTile(character: Strings.Tile.coverSheetChar, displayName: Strings.Machine.coverSheet)
+    static let collator = EditorTile(character: Strings.Tile.bookBinderChar, displayName: Strings.Machine.bookBinder)
+    static let brownBox = EditorTile(character: Strings.Tile.brownBoxChar,   displayName: Strings.Machine.brownBox)
+    static let goldDisc = EditorTile(character: Strings.Tile.goldDiscChar,   displayName: Strings.Editor.Tile.goldDisc)
+    static let worker   = EditorTile(character: Strings.Tile.workerChar,     displayName: Strings.Worker.pete)
+    static let boss1    = EditorTile(character: Strings.Tile.boss1Char,      displayName: Strings.Boss.boss)
+    static let boss2    = EditorTile(character: Strings.Tile.boss2Char,      displayName: Strings.Boss.lumbergh)
+    static let boss3    = EditorTile(character: Strings.Tile.boss3Char,      displayName: Strings.Boss.waddams)
+    static let boss4    = EditorTile(character: Strings.Tile.boss4Char,      displayName: Strings.Boss.bolton)
 
     static let all: [EditorTile] = [
         .empty, .dot, .wall, .hideout,
@@ -47,32 +31,21 @@ struct EditorTile: Equatable {
 }
 
 // MARK: - Level Store
-//
-// User-edited levels live in ~/Library/Application Support/Boss-Man/levels.json
-// as a flat name → [rows] dictionary. The bundled defaults in `officeMaps`
-// are used as a fallback for any level not in the file, so the user only
-// pays the storage cost for floors they've actually edited.
-//
-// Why Application Support and not the bundle: the .app bundle is read-only
-// at runtime (and writing to it invalidates the code signature). The user
-// can still find / hand-edit / version-control the JSON externally.
 final class LevelStore {
     static let shared = LevelStore()
 
-    /// `~/Library/Application Support/Boss-Man/levels.json`. Created on
-    /// first save; missing file is treated as "no overrides".
     static var fileURL: URL {
         let fm = FileManager.default
         let dir = (try? fm.url(for: .applicationSupportDirectory,
                                 in: .userDomainMask,
                                 appropriateFor: nil,
                                 create: true))?
-            .appendingPathComponent("Boss-Man", isDirectory: true)
+            .appendingPathComponent(Strings.App.bundleName, isDirectory: true)
             ?? URL(fileURLWithPath: NSHomeDirectory())
-                .appendingPathComponent("Library/Application Support/Boss-Man",
+                .appendingPathComponent("Library/Application Support/\(Strings.App.bundleName)",
                                         isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("levels.json", isDirectory: false)
+        return dir.appendingPathComponent(Strings.Resource.levelsJSON, isDirectory: false)
     }
 
     private func loadCustomLevels() -> [String: [String]] {
@@ -81,7 +54,6 @@ final class LevelStore {
     }
 
     private func saveCustomLevels(_ levels: [String: [String]]) {
-        // Pretty-print so the file is human-editable in Notes/VS Code/etc.
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(levels) else { return }
@@ -89,23 +61,16 @@ final class LevelStore {
         Self.dequarantine(Self.fileURL)
     }
 
-    /// Drops the com.apple.quarantine extended attribute that App
-    /// Sandbox stamps onto every file this app writes. Without this,
-    /// double-clicking the JSON in Finder triggers Gatekeeper's
-    /// "damaged app" warning instead of opening it in Xcode/TextEdit.
     static func dequarantine(_ url: URL) {
-        _ = url.path.withCString { removexattr($0, "com.apple.quarantine", 0) }
+        _ = url.path.withCString { removexattr($0, Strings.Resource.quarantineAttribute, 0) }
     }
 
-    /// Look up a level by name. Returns the user's edited copy if one
-    /// exists, otherwise the bundled default.
     func loadLevel(name: String) -> [String]? {
         if let custom = loadCustomLevels()[name] { return custom }
         guard let idx = Levels.levelNames.firstIndex(of: name) else { return nil }
         return officeMaps[idx]
     }
 
-    /// Look up by zero-based level index — used by GameScene.
     func loadLevel(index: Int) -> [String] {
         guard index >= 0 && index < Levels.levelNames.count else {
             return officeMaps[0]
@@ -119,22 +84,16 @@ final class LevelStore {
         saveCustomLevels(custom)
     }
 
-    /// Wipe the user's edit for one level so it falls back to the bundled
-    /// default again. Useful if the editor saves something unplayable.
     func resetLevel(name: String) {
         var custom = loadCustomLevels()
         custom.removeValue(forKey: name)
         saveCustomLevels(custom)
     }
 
-    /// Open the containing folder in Finder so the user can hand-edit
-    /// or back up `levels.json` directly.
     func revealInFinder() {
         let url = Self.fileURL
-        // If the file doesn't exist yet, write an empty stub so Finder
-        // selects something meaningful.
         if !FileManager.default.fileExists(atPath: url.path) {
-            try? Data("{}".utf8).write(to: url)
+            try? Data(Strings.Resource.emptyJSON.utf8).write(to: url)
         }
         Self.dequarantine(url)
         NSWorkspace.shared.activateFileViewerSelecting([url])
@@ -144,10 +103,10 @@ final class LevelStore {
 // MARK: - Level Editor Scene
 class LevelEditorScene: SKScene {
     
-    var tileSize: CGFloat = 32   // computed dynamically in rebuildGrid
+    var tileSize: CGFloat = 32
     var gridRows = 0
     var gridCols = 0
-    var mapRows: [String] = []          // The actual level data
+    var mapRows: [String] = []
     var selectedTile: EditorTile = .wall
     var currentLevelIndex = 0
     
@@ -158,26 +117,21 @@ class LevelEditorScene: SKScene {
     var tileNodes: [[SKNode]] = []
     var paletteNodes: [SKShapeNode] = []
 
-    // Same cubicle palette GameScene uses; index by level so the
-    // editor wall color matches what the player will see in-play.
+    private static let paletteNamePrefix = Strings.NodeName.palettePrefix
+    private static func paletteName(for char: Character) -> String {
+        "\(paletteNamePrefix)\(char)"
+    }
+
     private static let cubicleColors: [NSColor] = [
         .systemBlue,   .systemTeal, .systemIndigo, .systemGreen,  .systemPink, .systemBrown,
-        .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray // MIB level 12
+        .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray
     ]
     var uiContainer = SKNode()
     var levelLabel: SKLabelNode!
     var levelSubLabel: SKLabelNode!
     var statusLabel: SKLabelNode!
-    /// Stroke-only overlay drawn on top of the currently-selected palette
-    /// swatch. Drawn separately so the swatch's own fill stays behind its
-    /// preview icon + label.
     var highlightOverlay: SKShapeNode?
 
-    /// Undo / redo stacks of full mapRows snapshots. One snapshot is
-    /// captured at the START of each paint stroke (mouse-down) and
-    /// before any bulk op like CLEAR / load. Cmd+Z pops undo onto redo,
-    /// Cmd+Shift+Z pops redo onto undo. Capped to `maxUndoDepth` so
-    /// long sessions don't bloat memory.
     private var undoStack: [[String]] = []
     private var redoStack: [[String]] = []
     private let maxUndoDepth = 50
@@ -202,7 +156,6 @@ class LevelEditorScene: SKScene {
         let panelWidth: CGFloat = 148
         let panelX = frame.width - panelWidth - 4
         
-        // Panel bg
         let panel = SKShapeNode(rect: CGRect(x: panelX, y: 0, width: panelWidth + 4, height: frame.height))
         panel.fillColor = NSColor(white: 0.15, alpha: 0.97)
         panel.strokeColor = NSColor(white: 0.35, alpha: 1.0)
@@ -212,18 +165,16 @@ class LevelEditorScene: SKScene {
         
         let cx = panelX + panelWidth / 2 + 2
         
-        // Title
-        let title = SKLabelNode(text: "LEVEL EDITOR")
-        title.fontName = "Menlo-Bold"
+        let title = SKLabelNode(text: Strings.Editor.title)
+        title.fontName = Strings.Font.menloBold
         title.fontSize = 13
         title.fontColor = NSColor.white
         title.position = CGPoint(x: cx, y: frame.height - 24)
         title.zPosition = 101
         uiContainer.addChild(title)
         
-        // Level name — line 1 ("Level N <traveler emoji>"), line 2 ("Name (N/12)")
-        levelLabel = SKLabelNode(text: "")
-        levelLabel.fontName = "Menlo-Bold"
+        levelLabel = SKLabelNode(text: Strings.empty)
+        levelLabel.fontName = Strings.Font.menloBold
         levelLabel.fontSize = 11
         levelLabel.fontColor = NSColor.cyan
         levelLabel.position = CGPoint(x: cx, y: frame.height - 46)
@@ -231,8 +182,8 @@ class LevelEditorScene: SKScene {
         levelLabel.numberOfLines = 2
         levelLabel.horizontalAlignmentMode = .center
         uiContainer.addChild(levelLabel)
-        levelSubLabel = SKLabelNode(text: "")
-        levelSubLabel.fontName = "Menlo-Bold"
+        levelSubLabel = SKLabelNode(text: Strings.empty)
+        levelSubLabel.fontName = Strings.Font.menloBold
         levelSubLabel.fontSize = 11
         levelSubLabel.fontColor = NSColor.cyan
         levelSubLabel.position = CGPoint(x: cx, y: frame.height - 60)
@@ -240,16 +191,14 @@ class LevelEditorScene: SKScene {
         levelSubLabel.horizontalAlignmentMode = .center
         uiContainer.addChild(levelSubLabel)
         
-        // Status
-        statusLabel = SKLabelNode(text: "Tile: Wall")
-        statusLabel.fontName = "Menlo"
+        statusLabel = SKLabelNode(text: Strings.Editor.tileWallInitial)
+        statusLabel.fontName = Strings.Font.menlo
         statusLabel.fontSize = 10
         statusLabel.fontColor = NSColor.yellow
         statusLabel.position = CGPoint(x: cx, y: frame.height - 78)
         statusLabel.zPosition = 101
         uiContainer.addChild(statusLabel)
         
-        // Palette
         paletteNodes = []
         let palStartY = frame.height - 92
         let palSpacing: CGFloat = 21
@@ -257,51 +206,46 @@ class LevelEditorScene: SKScene {
         for (i, tile) in EditorTile.all.enumerated() {
             let y = palStartY - 24 - CGFloat(i) * palSpacing
             let swatchRect = CGRect(x: panelX + 8, y: y, width: panelWidth - 12, height: palSpacing)
-            // Dark floor background under the swatch so the wall/dot
-            // overlays read the same as in the live grid.
+            let palName = LevelEditorScene.paletteName(for: tile.character)
             let bg = SKShapeNode(rect: swatchRect)
             bg.fillColor = floorColor(forParity: 0)
             bg.strokeColor = NSColor(white: 0.4, alpha: 1.0)
             bg.lineWidth = 1
             bg.zPosition = 101
-            bg.name = "pal_\(tile.character)"
+            bg.name = palName
             uiContainer.addChild(bg)
             paletteNodes.append(bg)
 
-            // Tiny preview node — same renderer as the grid, scaled to
-            // fit on the left side of the swatch.
             let preview = renderTile(char: tile.character, size: palSpacing - 6, isPaletteSwatch: true)
             preview.position = CGPoint(x: panelX + 8 + (palSpacing - 6) / 2 + 3,
                                        y: y + (palSpacing) / 2)
             preview.zPosition = 102
-            preview.name = "pal_\(tile.character)"
+            preview.name = palName
             uiContainer.addChild(preview)
 
             let lbl = SKLabelNode(text: tile.displayName)
-            lbl.fontName = "Menlo-Bold"
+            lbl.fontName = Strings.Font.menloBold
             lbl.fontSize = 10
             lbl.fontColor = .white
             lbl.horizontalAlignmentMode = .left
             lbl.verticalAlignmentMode = .center
-            // Left-justified, sitting just to the right of the preview icon.
             lbl.position = CGPoint(x: panelX + 8 + palSpacing + 4,
                                    y: y + (palSpacing) / 2)
             lbl.zPosition = 102
-            lbl.name = "pal_\(tile.character)"
+            lbl.name = palName
             uiContainer.addChild(lbl)
         }
         
-        // Buttons
         let btnData: [(String, NSColor, String)] = [
-            ("< PREV",     NSColor(white: 0.28, alpha: 1.0),              "btn_prev"),
-            ("NEXT >",     NSColor(white: 0.28, alpha: 1.0),              "btn_next"),
-            ("UNDO (⌘Z)",  NSColor(white: 0.22, alpha: 1.0),              "btn_undo"),
-            ("REDO (⇧⌘Z)", NSColor(white: 0.22, alpha: 1.0),              "btn_redo"),
-            ("CLEAR",      NSColor(calibratedRed: 0.6, green: 0.15, blue: 0.15, alpha: 1.0), "btn_clear"),
-            ("SAVE (⌘S)",  NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), "btn_save"),
-            ("REVEAL FILE", NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), "btn_reveal"),
-            ("PLAY",       NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), "btn_play"),
-            ("BACK (ESC)", NSColor(calibratedRed: 0.45, green: 0.4, blue: 0.15, alpha: 1.0),  "btn_back"),
+            (Strings.Editor.prev,     NSColor(white: 0.28, alpha: 1.0),              Strings.EditorButton.prev),
+            (Strings.Editor.next,     NSColor(white: 0.28, alpha: 1.0),              Strings.EditorButton.next),
+            (Strings.Editor.undo,  NSColor(white: 0.22, alpha: 1.0),              Strings.EditorButton.undo),
+            (Strings.Editor.redo, NSColor(white: 0.22, alpha: 1.0),              Strings.EditorButton.redo),
+            (Strings.Editor.clear,      NSColor(calibratedRed: 0.6, green: 0.15, blue: 0.15, alpha: 1.0), Strings.EditorButton.clear),
+            (Strings.Editor.save,  NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
+            (Strings.Editor.revealFile, NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal),
+            (Strings.Editor.play,       NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), Strings.EditorButton.play),
+            (Strings.Editor.back, NSColor(calibratedRed: 0.45, green: 0.4, blue: 0.15, alpha: 1.0),  Strings.EditorButton.back),
         ]
         let btnHeight: CGFloat = 20
         let btnSpacing: CGFloat = 22
@@ -318,7 +262,7 @@ class LevelEditorScene: SKScene {
             uiContainer.addChild(btn)
 
             let lbl = SKLabelNode(text: title)
-            lbl.fontName = "Menlo-Bold"
+            lbl.fontName = Strings.Font.menloBold
             lbl.fontSize = 9
             lbl.fontColor = NSColor.white
             lbl.verticalAlignmentMode = .center
@@ -328,7 +272,7 @@ class LevelEditorScene: SKScene {
             lbl.name = name
             uiContainer.addChild(lbl)
 
-            if name == "btn_save" { saveButton = btn }
+            if name == Strings.EditorButton.save { saveButton = btn }
         }
         
         updatePaletteHighlight()
@@ -340,14 +284,13 @@ class LevelEditorScene: SKScene {
         gridContainer.removeAllChildren()
         tileNodes = []
         
-        // Auto-calculate tile size so the full grid fits left of the panel
         let availWidth = frame.width - panelWidth - margin * 2 - 8
         let availHeight = frame.height - margin * 2
         
         let fitW = gridCols > 0 ? availWidth / CGFloat(gridCols) : 32
         let fitH = gridRows > 0 ? availHeight / CGFloat(gridRows) : 32
         tileSize = min(fitW, fitH)
-        tileSize = max(tileSize, 4) // minimum 4px per tile
+        tileSize = max(tileSize, 4)
         
         let totalW = CGFloat(gridCols) * tileSize
         let totalH = CGFloat(gridRows) * tileSize
@@ -360,16 +303,11 @@ class LevelEditorScene: SKScene {
             var rowNodes: [SKNode] = []
             for col in 0..<gridCols {
                 let x = offsetX + CGFloat(col) * tileSize
-                // File / array row 0 is the TOP row of the level. SpriteKit
-                // y grows upward, so flip the visual Y so mapRows[0] draws
-                // at the top of the canvas — otherwise the editor and the
-                // game (which iterates `map.rows.reversed()`) disagree
-                // about which side is up.
                 let y = offsetY + CGFloat(gridRows - 1 - row) * tileSize
                 let container = SKNode()
                 container.position = CGPoint(x: x + tileSize / 2, y: y + tileSize / 2)
                 container.zPosition = 10
-                container.name = "tile_\(row)_\(col)"
+                container.name = Strings.Editor.tileNodeName(row: row, col: col)
                 gridContainer.addChild(container)
                 renderTileInto(container, row: row, col: col, size: tileSize)
                 rowNodes.append(container)
@@ -379,10 +317,9 @@ class LevelEditorScene: SKScene {
     }
     
     func charAt(row: Int, col: Int) -> Character {
-        // mapRows[0] is the TOP row of the visual grid (highest Y)
-        guard row < mapRows.count else { return " " }
+        guard row < mapRows.count else { return Strings.Tile.floorChar }
         let chars = Array(mapRows[row])
-        guard col < chars.count else { return " " }
+        guard col < chars.count else { return Strings.Tile.floorChar }
         return chars[col]
     }
     
@@ -402,25 +339,16 @@ class LevelEditorScene: SKScene {
     }
 
     // MARK: - Real game-style rendering (matches MazeBuilder visuals)
-
-    /// Cubicle color for the floor currently being edited — matches the
-    /// GameScene palette so wall color in the editor == wall color in
-    /// play for that level.
     private var currentCubicleColor: NSColor {
         Self.cubicleColors[currentLevelIndex % Self.cubicleColors.count]
     }
 
-    /// Subtle floor checkerboard like MazeBuilder.makeBackground draws.
     private func floorColor(forParity parity: Int) -> NSColor {
         parity.isMultiple(of: 2)
             ? NSColor(calibratedRed: 0.11, green: 0.12, blue: 0.13, alpha: 1)
             : NSColor(calibratedRed: 0.09, green: 0.10, blue: 0.11, alpha: 1)
     }
 
-    /// Render the visuals for `ch` into `container`, centered on
-    /// (0, 0) and sized `size` × `size`. Mirrors MazeBuilder's wall,
-    /// dot, and machine output so the editor reads exactly like the
-    /// game floor.
     private func renderTileInto(_ container: SKNode, row: Int, col: Int, size: CGFloat) {
         let ch = charAt(row: row, col: col)
         let parity = row + col
@@ -428,8 +356,6 @@ class LevelEditorScene: SKScene {
         addContent(to: container, char: ch, size: size)
     }
 
-    /// Standalone tile renderer used by the palette swatches. Falls back
-    /// to the checkerboard parity 0.
     private func renderTile(char: Character, size: CGFloat, isPaletteSwatch: Bool = false) -> SKNode {
         let container = SKNode()
         if !isPaletteSwatch {
@@ -450,44 +376,38 @@ class LevelEditorScene: SKScene {
 
     private func addContent(to container: SKNode, char: Character, size: CGFloat) {
         switch char {
-        case "#":
+        case Strings.Tile.wallChar:
             addWall(to: container, size: size)
-        case ".":
+        case Strings.Tile.dotChar:
             addDot(to: container, size: size)
-        case "H":
-            // Hideouts render as dots in the live game; in the editor
-            // we draw the dot plus a small purple "H" so the designer
-            // can see and validate alcove placement.
+        case Strings.Tile.hideoutChar:
             addDot(to: container, size: size)
-            addLetter(to: container, text: "H", color: .systemPurple, size: size * 0.85)
-        case "P", "F", "C", "M", "D":
-            // Same emoji the live MazeBuilder draws.
+            addLetter(to: container, text: Strings.Tile.hideout, color: .systemPurple, size: size * 0.85)
+        case Strings.Tile.printerChar, Strings.Tile.faxChar,
+             Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar,
+             Strings.Tile.brownBoxChar:
             addEmoji(to: container, text: MazeBuilder.emoji(forSymbol: String(char)), size: size)
-        case "O":
-            // Gold disc — same yellow sphere look as the live pickup.
+        case Strings.Tile.goldDiscChar:
             addGoldDisc(to: container, size: size)
-        case "W":
-            // PETE worker — the live PixelPerson, miniaturized.
+        case Strings.Tile.workerChar:
             addPete(to: container, size: size)
-        case "1":
-            addBoss(to: container, name: "BOSS",
+        case Strings.Tile.boss1Char:
+            addBoss(to: container, name: Strings.Boss.boss,
                     body: .systemRed,    tie: .black,        size: size)
-        case "2":
-            addBoss(to: container, name: "LUMBERGH",
-                    body: .systemPurple, tie: .systemYellow, size: size)
-        case "3":
-            addBoss(to: container, name: "WADDAMS",
+        case Strings.Tile.boss2Char:
+            addBoss(to: container, name: Strings.Boss.lumbergh,
+                    body: .systemPink,   tie: .systemYellow, size: size)
+        case Strings.Tile.boss3Char:
+            addBoss(to: container, name: Strings.Boss.waddams,
+                    body: .systemTeal,   tie: .systemBlue,   size: size)
+        case Strings.Tile.boss4Char:
+            addBoss(to: container, name: Strings.Boss.bolton,
                     body: .systemOrange, tie: .systemRed,    size: size)
-        case "4":
-            addBoss(to: container, name: "BOLTON",
-                    body: .systemPink,   tie: .systemTeal,   size: size)
         default:
             break
         }
     }
 
-    /// Wall = cubicleColor block with edge stroke and the gray "trim"
-    /// rectangle near the top, same as MazeBuilder.makeBackground.
     private func addWall(to container: SKNode, size: CGFloat) {
         let color = currentCubicleColor
         let inset = size * 0.04
@@ -521,7 +441,7 @@ class LevelEditorScene: SKScene {
 
     private func addLetter(to container: SKNode, text: String, color: NSColor, size: CGFloat) {
         let label = SKLabelNode(text: text)
-        label.fontName = "Menlo-Bold"
+        label.fontName = Strings.Font.menloBold
         label.fontSize = size
         label.fontColor = color
         label.verticalAlignmentMode = .center
@@ -531,17 +451,13 @@ class LevelEditorScene: SKScene {
 
     private func addEmoji(to container: SKNode, text: String, size: CGFloat) {
         let label = SKLabelNode(text: text)
-        // Emojis render in any font but Menlo gives a consistent size.
-        label.fontName = "Menlo"
+        label.fontName = Strings.Font.menlo
         label.fontSize = size * 0.72
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
         container.addChild(label)
     }
 
-    /// Glowing yellow sphere identical in spirit to MazeBuilder's gold
-    /// disc sprite. Slightly faked because the live sprite uses a
-    /// texture; here we composite two circles.
     private func addGoldDisc(to container: SKNode, size: CGFloat) {
         let radius = size * 0.28
         let glow = SKShapeNode(circleOfRadius: radius * 1.35)
@@ -555,17 +471,14 @@ class LevelEditorScene: SKScene {
         container.addChild(core)
     }
 
-    /// PETE — the live PixelPerson, scaled to fit the editor cell.
     private func addPete(to container: SKNode, size: CGFloat) {
         let person = PixelPerson(
-            bodyColor: .systemTeal,
-            tieColor: .systemBlue,
+            bodyColor: .systemGreen,
+            tieColor: .systemYellow,
             hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
             shoeOutlineColor: .white,
             pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1)
         )
-        // The PixelPerson body is ~32pt tall in-game; scale to fit the
-        // editor tile.
         person.setScale(size / 38)
         container.addChild(person)
     }
@@ -594,7 +507,6 @@ class LevelEditorScene: SKScene {
             return loadCurrentLevel()
         }
         let name = names[currentLevelIndex]
-        // Switching floors invalidates the undo history.
         undoStack.removeAll()
         redoStack.removeAll()
 
@@ -605,22 +517,21 @@ class LevelEditorScene: SKScene {
         } else {
             gridRows = 17
             gridCols = 36
-            mapRows = Array(repeating: String(repeating: " ", count: gridCols), count: gridRows)
+            mapRows = Array(repeating: String(repeating: Strings.Tile.floor, count: gridCols), count: gridRows)
         }
         
         rebuildGrid()
         updateLevelLabel()
+        // Rebuild the side palette so the Wall swatch reflects this
+        // floor's cubicle color (and any other per-level visuals).
+        buildUI()
     }
     
     func updateLevelLabel() {
         let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
-        // Level names already encode the traveler emoji, e.g.
-        // "Level 1 - 🐟". Just display them verbatim, with the position
-        // counter on the second line.
-        // JSON keys are "Level N - emoji"; drop the " -" for display.
-        levelLabel?.text = names[currentLevelIndex].replacingOccurrences(of: " - ", with: " ")
-        levelSubLabel?.text = "(\(currentLevelIndex + 1)/\(names.count))"
+        levelLabel?.text = names[currentLevelIndex].replacingOccurrences(of: Strings.Editor.nameDashSeparator, with: Strings.HUD.emojiTrailSeparator)
+        levelSubLabel?.text = Strings.Editor.levelCounter(currentLevelIndex + 1, of: names.count)
     }
     
     func updatePaletteHighlight() {
@@ -628,9 +539,6 @@ class LevelEditorScene: SKScene {
             node.lineWidth = 1
             node.strokeColor = NSColor(white: 0.4, alpha: 1.0)
             if i < EditorTile.all.count && EditorTile.all[i] == selectedTile {
-                // Stroke-only overlay sitting on top of everything in
-                // the palette column so the yellow ring is never clipped
-                // and the preview icon + label stay visible.
                 highlightOverlay?.removeFromParent()
                 let overlay = SKShapeNode(rect: node.frame.insetBy(dx: 1, dy: 1))
                 overlay.fillColor = .clear
@@ -641,15 +549,11 @@ class LevelEditorScene: SKScene {
                 highlightOverlay = overlay
             }
         }
-        statusLabel?.text = "Tile: \(selectedTile.displayName)"
+        statusLabel?.text = Strings.Editor.tilePrefix(selectedTile.displayName)
     }
     
     // MARK: - Input
     // MARK: - Undo / redo
-
-    /// Snapshot current mapRows onto the undo stack. Call BEFORE
-    /// mutating mapRows. Wipes the redo stack since any new edit
-    /// invalidates redo history.
     private func pushUndoSnapshot() {
         undoStack.append(mapRows)
         if undoStack.count > maxUndoDepth { undoStack.removeFirst() }
@@ -658,28 +562,27 @@ class LevelEditorScene: SKScene {
 
     func undo() {
         guard let prev = undoStack.popLast() else {
-            statusLabel?.text = "Nothing to undo"
+            statusLabel?.text = Strings.Editor.nothingUndo
             return
         }
         redoStack.append(mapRows)
         mapRows = prev
         rebuildGrid()
-        statusLabel?.text = "Undo"
+        statusLabel?.text = Strings.Editor.undoToast
     }
 
     func redo() {
         guard let next = redoStack.popLast() else {
-            statusLabel?.text = "Nothing to redo"
+            statusLabel?.text = Strings.Editor.nothingRedo
             return
         }
         undoStack.append(mapRows)
         mapRows = next
         rebuildGrid()
-        statusLabel?.text = "Redo"
+        statusLabel?.text = Strings.Editor.redoToast
     }
 
     override func mouseDown(with event: NSEvent) {
-        // One undo entry per stroke (mouse-down), not per dragged cell.
         pushUndoSnapshot()
         handleInput(event.location(in: self), begin: true)
     }
@@ -701,10 +604,9 @@ class LevelEditorScene: SKScene {
     func handleInput(_ loc: CGPoint, begin: Bool) {
         if begin {
             let node = atPoint(loc)
-            let name = node.name ?? ""
+            let name = node.name ?? Strings.empty
             
-            // Palette click
-            if name.hasPrefix("pal_") {
+            if name.hasPrefix(LevelEditorScene.paletteNamePrefix) {
                 let ch = name.suffix(1).first!
                 if let tile = EditorTile.all.first(where: { $0.character == ch }) {
                     selectedTile = tile
@@ -714,48 +616,41 @@ class LevelEditorScene: SKScene {
             }
             
             switch name {
-            case "btn_prev":
-                // Wrap: level 1's PREV jumps to the last level.
+            case Strings.EditorButton.prev:
                 let count = Levels.levelNames.count
                 currentLevelIndex = (currentLevelIndex - 1 + count) % count
                 loadCurrentLevel()
                 return
-            case "btn_next":
-                // Wrap: last level's NEXT jumps back to level 1.
+            case Strings.EditorButton.next:
                 currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
                 loadCurrentLevel()
                 return
-            case "btn_undo":
+            case Strings.EditorButton.undo:
                 undo()
                 return
-            case "btn_redo":
+            case Strings.EditorButton.redo:
                 redo()
                 return
-            case "btn_clear":
+            case Strings.EditorButton.clear:
                 pushUndoSnapshot()
-                mapRows = mapRows.map { _ in String(repeating: " ", count: gridCols) }
+                mapRows = mapRows.map { _ in String(repeating: Strings.Tile.floor, count: gridCols) }
                 rebuildGrid()
                 return
-            case "btn_save":
+            case Strings.EditorButton.save:
                 saveCurrentLevel()
                 return
-            case "btn_reveal":
+            case Strings.EditorButton.reveal:
                 LevelStore.shared.revealInFinder()
                 return
-            case "btn_play":
+            case Strings.EditorButton.play:
                 saveCurrentLevel()
                 let game = GameScene(size: size)
                 game.scaleMode = .aspectFit
-                // Editor playtests are unranked — no Game Center
-                // submission, no local high-score record, no UserDefaults
-                // high-score update.
                 game.practiceMode = true
-                // Start the playtest on whatever level the editor is
-                // currently showing (1-based for the engine).
                 game.startingLevel = currentLevelIndex + 1
                 view?.presentScene(game, transition: .fade(withDuration: 0.5))
                 return
-            case "btn_back":
+            case Strings.EditorButton.back:
                 let title = TitleScene(size: size)
                 title.scaleMode = .aspectFit
                 view?.presentScene(title, transition: .fade(withDuration: 0.3))
@@ -789,43 +684,50 @@ class LevelEditorScene: SKScene {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.saveButton?.fillColor = NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0)
         }
-        statusLabel?.text = "SAVED!"
+        statusLabel?.text = Strings.Editor.savedToast
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self = self else { return }
-            self.statusLabel?.text = "Tile: \(self.selectedTile.displayName)"
+            self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
         }
     }
     
     // MARK: - Keyboard
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 53: // ESC
+        case 53:
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
             view?.presentScene(title, transition: .fade(withDuration: 0.3))
+        case 123:
+            let count = Levels.levelNames.count
+            currentLevelIndex = (currentLevelIndex - 1 + count) % count
+            loadCurrentLevel()
+            return
+        case 124:
+            currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
+            loadCurrentLevel()
+            return
         default: break
         }
         
         if let chars = event.characters {
             switch chars {
-            case "1": selectedTile = .wall
-            case "2": selectedTile = .dot
-            case "3": selectedTile = .hideout
-            case "4": selectedTile = .printer
-            case "5": selectedTile = .fax
-            case "6": selectedTile = .copy
-            case "7": selectedTile = .collator
-            case "8": selectedTile = .brownBox
-            case "0": selectedTile = .empty
-            case "s" where event.modifierFlags.contains(.command):
+            case Strings.Key.digit1: selectedTile = .wall
+            case Strings.Key.digit2: selectedTile = .dot
+            case Strings.Key.digit3: selectedTile = .hideout
+            case Strings.Key.digit4: selectedTile = .printer
+            case Strings.Key.digit5: selectedTile = .fax
+            case Strings.Key.digit6: selectedTile = .copy
+            case Strings.Key.digit7: selectedTile = .collator
+            case Strings.Key.digit8: selectedTile = .brownBox
+            case Strings.Key.digit0: selectedTile = .empty
+            case Strings.KeyEquivalent.save where event.modifierFlags.contains(.command):
                 saveCurrentLevel()
-            case "z" where event.modifierFlags.contains([.command, .shift]):
+            case Strings.KeyEquivalent.undo where event.modifierFlags.contains([.command, .shift]):
                 redo()
-            case "z" where event.modifierFlags.contains(.command):
+            case Strings.KeyEquivalent.undo where event.modifierFlags.contains(.command):
                 undo()
-            case "Z" where event.modifierFlags.contains(.command):
-                // Shift+Cmd+Z reports the upper-case letter on some
-                // keyboard layouts, so handle that variant too.
+            case Strings.KeyEquivalent.undoShift where event.modifierFlags.contains(.command):
                 redo()
             default: break
             }

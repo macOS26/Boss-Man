@@ -1,13 +1,5 @@
-//
-//  levels.swift
-//  Boss-Man
-//
-//  Created by Todd Bruss on 5/16/26.
-//
-
 import Foundation
 
-// Level names for the editor (one per officeMaps entry)
 struct Levels {
     static let levelNames: [String] = [
         "Level 1 - 🐟",  "Level 2 - 🍩",  "Level 3 - 🥨",
@@ -27,8 +19,6 @@ struct LevelTraveler {
     let points: Int
 }
 
-// Ms. Pac-Man-style level mascots: each level has a roaming emoji that
-// crosses the floor twice and plays a distinct distant sound on arrival.
 let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "🐟", sound: .water,       points: 100),
     LevelTraveler(emoji: "🍩", sound: .glaze,       points: 200),
@@ -44,25 +34,16 @@ let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "👁️", sound: .bigEye,    points: 8000)
 ]
 
-// Bundled default levels. The source of truth is `Boss-Man/levels.json`
-// in the app bundle — same JSON format LevelStore uses for user edits:
-//
-//   { "Level 1 - Office": ["row1", "row2", ...], ... }
-//
-// Edit that file directly to update defaults, or copy/paste between it
-// and the user's Application Support file. Falls back to a single empty
-// 17×36 level if the bundle file is missing or malformed.
 let officeMaps: [[String]] = loadOfficeMapsFromBundle()
 
 private func loadOfficeMapsFromBundle() -> [[String]] {
-    guard let url = Bundle.main.url(forResource: "levels", withExtension: "json"),
+    guard let url = Bundle.main.url(forResource: Strings.Resource.levelsFile,
+                                     withExtension: Strings.Resource.levelsExtension),
           let data = try? Data(contentsOf: url),
           let dict = try? JSONDecoder().decode([String: [String]].self, from: data)
     else {
         return Array(repeating: emptyLevelRows(), count: Levels.levelNames.count)
     }
-    // Keep the order of Levels.levelNames; missing entries get an empty
-    // template so the indexed lookups in GameScene never crash.
     return Levels.levelNames.map { dict[$0] ?? emptyLevelRows() }
 }
 

@@ -1,11 +1,6 @@
 import AppKit
 import SpriteKit
 
-/// Owns the periodic "traveler" pickup (fish / coffee / donut / etc.)
-/// that visits each floor twice. The pickup wanders the maze toward a
-/// fixed exit tile and gets caught when PETE walks into it. All of
-/// the per-level coordinates, timing, and wandering AI live here so
-/// GameScene only has to schedule visits and learn when one is caught.
 @MainActor
 final class TravelerSpawner {
     private weak var scene: SKScene?
@@ -19,6 +14,12 @@ final class TravelerSpawner {
     private var grid = CGPoint(x: 35, y: 8)
     private var previousGrid: CGPoint?
     private var activeTraveler: LevelTraveler?
+
+    // MARK: - Continuous spawn chain
+    private var pendingTraveler: LevelTraveler?
+    private var keepSpawning: (() -> Bool)?
+    private let firstVisitDelay: TimeInterval = 10
+    private let respawnDelay:    TimeInterval = 30
 
     init(scene: SKScene, gridMap: GridMap, sound: SoundManager) {
         self.scene = scene
@@ -34,27 +35,32 @@ final class TravelerSpawner {
         node?.removeFromParent()
         node = nil
         activeTraveler = nil
+        pendingTraveler = nil
+        keepSpawning = nil
+        scene?.removeAction(forKey: Strings.ActionKey.travelerVisit1)
+        scene?.removeAction(forKey: Strings.ActionKey.travelerVisit2)
     }
 
-    /// Schedules two visits — at 10s and 40s — but only fires them
-    /// while the predicate still returns true. Lets GameScene gate on
-    /// level / game-over without exposing its state to this class.
-    /// The 10s lead-in gives PETE time to clear his spawn shield and
-    /// stake out the floor before the first traveler appears.
     func scheduleVisits(of traveler: LevelTraveler, whileActive predicate: @escaping () -> Bool) {
+        pendingTraveler = traveler
+        keepSpawning = predicate
+        scheduleNextSpawn(after: firstVisitDelay)
+    }
+
+    private func scheduleNextSpawn(after delay: TimeInterval) {
         guard let scene else { return }
-        let spawnLater: (TimeInterval, String) -> Void = { [weak self] delay, key in
-            guard let self else { return }
-            scene.run(.sequence([
-                .wait(forDuration: delay),
-                .run { [weak self] in
-                    guard let self = self, predicate() else { return }
-                    self.spawn(traveler)
-                }
-            ]), withKey: key)
-        }
-        spawnLater(10, "travelerVisit1")
-        spawnLater(40, "travelerVisit2")
+        scene.removeAction(forKey: Strings.ActionKey.travelerVisit1)
+        scene.run(.sequence([
+            .wait(forDuration: delay),
+            .run { [weak self] in
+                guard let self = self,
+                      let traveler = self.pendingTraveler,
+                      self.keepSpawning?() == true,
+                      self.node == nil
+                else { return }
+                self.spawn(traveler)
+            }
+        ]), withKey: Strings.ActionKey.travelerVisit1)
     }
 
     private func scheduleStepper(on traveler: SKNode) {
@@ -62,12 +68,9 @@ final class TravelerSpawner {
             .wait(forDuration: moveInterval),
             .run { [weak self] in self?.stepNode() }
         ]))
-        traveler.run(stepper, withKey: "travelerStepper")
+        traveler.run(stepper, withKey: Strings.ActionKey.travelerStepper)
     }
 
-    /// Returns the caught traveler's info + screen position if the
-    /// passed node is the active traveler. Side effect: plays the
-    /// catch animation and tears the node down.
     func tryCatch(_ candidate: SKNode?) -> (traveler: LevelTraveler, position: CGPoint, emoji: String)? {
         guard let fish = node, fish === candidate, let traveler = activeTraveler else { return nil }
         let pos = fish.position
@@ -81,20 +84,15 @@ final class TravelerSpawner {
         ]))
         node = nil
         activeTraveler = nil
+        scheduleNextSpawn(after: respawnDelay)
         return (traveler, pos, traveler.emoji)
     }
 
     // MARK: - Private
-
     private func spawn(_ traveler: LevelTraveler) {
         guard let scene else { return }
         node?.removeFromParent()
 
-        // Wrapper SKNode is the physics body / position holder. Its
-        // children — the emoji label and the points tag — are managed
-        // independently so we can flip just the emoji when the
-        // traveler changes direction, without mirroring the points
-        // text.
         let wrapper = SKNode()
         grid = spawnGrid
         previousGrid = nil
@@ -107,14 +105,14 @@ final class TravelerSpawner {
         wrapper.physicsBody?.collisionBitMask = 0
 
         let emoji = SKLabelNode()
-        emoji.name = "traveler.emoji"
+        emoji.name = Strings.NodeName.travelerEmoji
         emoji.text = traveler.emoji
         emoji.fontSize = 36
         emoji.verticalAlignmentMode = .center
         emoji.horizontalAlignmentMode = .center
         wrapper.addChild(emoji)
 
-        let points = SKLabelNode(fontNamed: "Menlo-Bold")
+        let points = SKLabelNode(fontNamed: Strings.Font.menloBold)
         points.text = "\(traveler.points)"
         points.fontSize = 11
         points.fontColor = .systemYellow
@@ -136,6 +134,7 @@ final class TravelerSpawner {
             fish.run(.sequence([.fadeOut(withDuration: 0.3), .removeFromParent()]))
             node = nil
             activeTraveler = nil
+            scheduleNextSpawn(after: respawnDelay)
             return
         }
         var neighbors: [CGPoint] = []
@@ -157,8 +156,7 @@ final class TravelerSpawner {
             next = candidates.randomElement()!
         }
         let dx = next.x - grid.x
-        if dx != 0, let emoji = fish.childNode(withName: "traveler.emoji") {
-            // Flip only the emoji child — the points tag stays upright.
+        if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {
             emoji.xScale = dx < 0 ? 1 : -1
         }
         previousGrid = grid

@@ -1,34 +1,19 @@
 import AppKit
 import GameController
 
-/// Receives directional intents from the input controller and tells it
-/// when the game is over (so input is silently dropped on the game-over
-/// screen). Implemented by GameScene.
 @MainActor
 protocol PointerInputControllerDelegate: AnyObject {
     var isGameOverForInput: Bool { get }
     func inputControllerDidRequest(_ direction: MoveDirection)
 }
 
-/// Aggregates the three non-keyboard input paths Boss-Man supports —
-/// MFi gamepad (D-pad and left thumbstick), mouse/trackpad pointer
-/// motion, and the AppKit cursor visibility — behind a single delegate
-/// surface. GameScene forwards its NSResponder mouse-moved /
-/// mouse-dragged events into handleMouseDelta(dx:dy:); the controller
-/// thresholds and edge-detects, then calls back into the delegate with
-/// a discrete MoveDirection.
 @MainActor
 final class PointerInputController: NSObject {
     weak var delegate: PointerInputControllerDelegate?
 
-    // Gamepad: track the last dominant stick direction so we only
-    // emit on edge transitions, not every analog-value update.
     private var lastPadDirection: MoveDirection?
     private let padDeadzone: Float = 0.35
 
-    // Mouse / trackpad pointer: accumulate per-event deltas until the
-    // dominant axis crosses a threshold, then emit and reset. A short
-    // idle gap also resets so successive flicks read cleanly.
     private var mouseAccumX: CGFloat = 0
     private var mouseAccumY: CGFloat = 0
     private var lastMouseTime: TimeInterval = 0
@@ -38,7 +23,6 @@ final class PointerInputController: NSObject {
     private var cursorIsHidden = false
 
     // MARK: - Lifecycle
-
     func start() {
         GCController.startWirelessControllerDiscovery()
         NotificationCenter.default.addObserver(
@@ -51,7 +35,6 @@ final class PointerInputController: NSObject {
     }
 
     // MARK: - Cursor
-
     func hideCursor() {
         guard !cursorIsHidden else { return }
         NSCursor.hide()
@@ -65,7 +48,6 @@ final class PointerInputController: NSObject {
     }
 
     // MARK: - Pointer
-
     func handleMouseDelta(dx: CGFloat, dy: CGFloat) {
         guard delegate?.isGameOverForInput == false else { return }
         let now = CACurrentMediaTime()
@@ -82,7 +64,6 @@ final class PointerInputController: NSObject {
         if absX > absY {
             direction = mouseAccumX > 0 ? .right : .left
         } else {
-            // AppKit's deltaY is positive when the cursor moves DOWN.
             direction = mouseAccumY < 0 ? .up : .down
         }
         delegate?.inputControllerDidRequest(direction)
@@ -91,7 +72,6 @@ final class PointerInputController: NSObject {
     }
 
     // MARK: - Gamepad
-
     @objc private func handleControllerDidConnect(_ notification: Notification) {
         guard let controller = notification.object as? GCController else { return }
         configure(controller)
@@ -115,7 +95,6 @@ final class PointerInputController: NSObject {
         } else if absX > absY {
             direction = x < 0 ? .left : .right
         } else {
-            // GCController y axis: up is positive.
             direction = y > 0 ? .up : .down
         }
         guard direction != lastPadDirection else { return }

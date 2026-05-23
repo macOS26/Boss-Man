@@ -1,13 +1,7 @@
 import SpriteKit
 
-/// Implements SKPhysicsContactDelegate on behalf of GameScene so the
-/// scene itself doesn't have to. Each category-pair handler is a
-/// closure GameScene assigns in didMove — keeps physics dispatch out
-/// of the scene class without forcing it into an extension.
 @MainActor
 final class ContactRouter: NSObject, SKPhysicsContactDelegate {
-    /// Returning true short-circuits the entire dispatch — used to drop
-    /// contacts during game-over.
     var shouldIgnoreContact: () -> Bool = { false }
 
     var onBossTouchedWorker: ((SKNode?) -> Void)?

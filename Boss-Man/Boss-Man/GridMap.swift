@@ -28,12 +28,9 @@ final class GridMap {
 
     func isWalkable(_ grid: CGPoint) -> Bool {
         guard let character = tile(at: grid) else { return false }
-        return character != "#"
+        return character != Strings.Tile.wallChar
     }
 
-    /// If `grid` is one of the four wrap-around tunnel mouths, returns the
-    /// partner mouth on the opposite edge. Used to teleport upon arrival
-    /// (Pac-Man style).
     func tunnelPartner(of grid: CGPoint) -> CGPoint? {
         let x = Int(grid.x), y = Int(grid.y)
         if y == 8 && x == 0 { return CGPoint(x: 35, y: 8) }
@@ -43,10 +40,8 @@ final class GridMap {
         return nil
     }
 
-    /// True only for cells the worker can enter. Bosses use
-    /// `walkableNeighbors` which skips hideouts.
     func isHideout(_ grid: CGPoint) -> Bool {
-        tile(at: grid) == "H"
+        tile(at: grid) == Strings.Tile.hideoutChar
     }
 
     func walkableNeighbors(of grid: CGPoint) -> [CGPoint] {

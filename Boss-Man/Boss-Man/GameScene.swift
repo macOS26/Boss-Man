@@ -8,11 +8,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     private let requiredItems = Strings.Machine.required
     private let machineNames: [Character: String] = [
-        "P": Strings.Machine.printer,
-        "F": Strings.Machine.fax,
-        "C": Strings.Machine.coverSheet,
-        "M": Strings.Machine.bookBinder,
-        "D": Strings.Machine.brownBox
+        Strings.Tile.printerChar: Strings.Machine.printer,
+        Strings.Tile.faxChar: Strings.Machine.fax,
+        Strings.Tile.coverSheetChar: Strings.Machine.coverSheet,
+        Strings.Tile.bookBinderChar: Strings.Machine.bookBinder,
+        Strings.Tile.brownBoxChar: Strings.Machine.brownBox
     ]
     private let goldDiscPositions = [
         CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
@@ -20,7 +20,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     ]
     private let cubicleColors: [NSColor] = [
         .systemBlue,   .systemTeal, .systemIndigo, .systemGreen,  .systemPink, .systemBrown,
-        .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray // MIB level 12
+        .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray
     ]
 
     private var gridMap: GridMap!
@@ -38,19 +38,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private var bossController: BossController!
 
     private(set) var isGameOver = false
-    /// Set by the level editor before presenting this scene. When true,
-    /// the game won't submit to Game Center, won't update the local
-    /// high-score list, and won't persist the UserDefaults high score.
-    /// HUD also flags it so the player knows the run is unranked.
     var practiceMode: Bool {
         get { state.practiceMode }
         set { state.practiceMode = newValue }
     }
-    /// Override the starting level. Setter writes the round state's
-    /// `level` directly, so it must be assigned BEFORE the scene's
-    /// `didMove(to:)` (i.e. immediately after `GameScene(size:)`).
-    /// The editor uses this to launch a playtest on whatever floor the
-    /// designer is currently viewing.
     var startingLevel: Int {
         get { state.level }
         set { state.level = max(1, newValue) }
@@ -87,8 +78,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         inputController.unhideCursor()
     }
 
-    // All subsystems are SKAction-driven; nothing needed per-frame.
-
     // MARK: - Input
     override func keyDown(with event: NSEvent) {
         if isGameOver {
@@ -119,7 +108,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             isPaused = false
             sound.resumeAudio()
             inputController.hideCursor()
-            hud.showMessage("", duration: 0.1)
+            hud.showMessage(Strings.HUD.empty, duration: 0.1)
         } else {
             hud.showMessage(Strings.Message.paused, duration: 9999)
             inputController.unhideCursor()
@@ -155,10 +144,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         checkLevelComplete()
     }
 
-    /// Level advances only after every dot AND every gold disc on the
-    /// floor is collected AND at least one TPS report has been turned
-    /// in. Called from each of the three trigger points (dot pickup,
-    /// gold-disc pickup, TPS delivery).
     private func checkLevelComplete() {
         let dotsDone = state.collectedDots >= state.dotCount
         let discsDone = state.collectedGoldDiscs >= state.goldDiscCount
@@ -182,23 +167,15 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     }
 
     // MARK: - Contact wiring
-
     private func wireContactRouter() {
         contactRouter.shouldIgnoreContact = { [weak self] in self?.isGameOver ?? true }
         contactRouter.onBossTouchedWorker = { [weak self] node in
             guard let self else { return }
             guard let bossNode = node as? PixelPerson else { return }
-            // Skip while the boss is in its post-escape spawn freeze —
-            // he's visible but can't kill yet.
             if self.bossController.isImmobilized(boss: bossNode) { return }
             if self.bossController.isInFleeMode(boss: bossNode) {
                 self.bossController.capture(boss: bossNode)
             } else if !self.workerController.isShielded {
-                // Instantly hide AND disable the catching boss so it can't
-                // render a single frame at PETE's tile or fire another
-                // contact while bossCaughtWorker runs. The teleportAll
-                // call inside bossCaughtWorker will then destroy + respawn
-                // every boss fresh in its corner.
                 bossNode.alpha = 0
                 bossNode.physicsBody?.categoryBitMask = 0
                 bossNode.removeAllActions()
@@ -223,14 +200,12 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
     }
 
-    /// Points awarded for each successive report item: 1st→10, 2nd→25, 3rd→50, 4th→100
     private let reportItemPoints = [10, 25, 50, 100]
 
     private func handleMachine(body: SKPhysicsBody, name: String) {
         guard requiredItems.contains(name), !state.reportItems.contains(name) else { return }
         state.reportItems.insert(name)
 
-        // Award escalating points for each collected report item
         let itemIndex = state.reportItems.count - 1
         if itemIndex < reportItemPoints.count {
             let pts = reportItemPoints[itemIndex]
@@ -252,7 +227,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     }
 
     // MARK: - Level / round flow
-
     private func buildLevel() {
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
         gridMap.setRows(currentLevelRows())
@@ -260,15 +234,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.dotCount = mazeBuilder.build(in: self)
         state.goldDiscCount = mazeBuilder.placedGoldDiscs
         hud.install(in: self)
-        // The level file can override PETE's spawn (char `W`) and each
-        // of the four bosses' spawn cells (`1`/`2`/`3`/`4`). Anything
-        // unspecified falls back to the hardcoded default.
         let spawn = mazeBuilder.workerSpawnFromMap ?? workerSpawn
         workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
         workerController.delegate = self
         addChild(workerController.node)
-        // 5-second spawn shield: orange + invulnerable for 4s, then
-        // a 1s fade to teal. Applies on level start and every restart.
         workerController.applySpawnShield()
         bossController.spawn(forLevel: state.level,
                              spawnOverrides: mazeBuilder.bossSpawnsFromMap)
@@ -316,7 +285,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.tpsReportsDelivered += 1
         state.reportItems.removeAll()
 
-        // Award points based on level: 200, 300, 400, 500... (+100 per level)
         let tpsPoints = state.level * 100 + 100
         state.bumpScore(by: tpsPoints)
         state.currentReportScore = 0
@@ -328,13 +296,8 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         let gainedLife = state.lives < HUD.maxLives
         if gainedLife { state.lives += 1 }
         refreshHUD()
-        hud.showMessage(
-            gainedLife ? "TPS report turned in! +\(tpsPoints), extra worker hired."
-                       : "TPS report turned in! +\(tpsPoints), workers at max.",
-            duration: 3
-        )
-        // If dots + gold discs were already cleared, this TPS delivery
-        // is what finishes the level.
+        hud.showMessage(Strings.Message.tpsTurnedIn(points: tpsPoints, gainedLife: gainedLife),
+                        duration: 3)
         checkLevelComplete()
     }
 
@@ -342,7 +305,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         sound.playCaughtByBoss()
         state.lives -= 1
 
-        // Show red negative popup for lost TPS report item points
         if state.currentReportScore > 0 {
             let lost = state.currentReportScore
             if let workerPos = workerController?.node.position {
@@ -356,8 +318,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         refreshHUD()
         workerController.resetMotion()
         workerController.teleport(to: mazeBuilder.workerSpawnFromMap ?? workerSpawn)
-        // 5-second spawn shield: orange + invulnerable for 4s, then
-        // 1s fade back to teal. PETE can't be caught during it.
         workerController.applySpawnShield()
         bossController.teleportAllToSpawn()
         if state.lives <= 0 {
@@ -370,9 +330,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func triggerGameOver() {
         isGameOver = true
         inputController.unhideCursor()
-        // Editor-launched playtests are banned from both leaderboards
-        // (Game Center + the local high-score list) so custom levels
-        // can't pollute the rankings.
         if !state.practiceMode {
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
             LocalHighScores.record(name: GameCenterClient.currentPlayerName(), score: state.score)
@@ -389,10 +346,8 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         bossController.clear()
         travelerSpawner.reset()
         goldDisc.deactivate()
-        // Kill any blue-mode bassline that was still looping when the
-        // round ended so it doesn't bleed into the next level.
         sound.stopGoldDiscBass()
-        removeAction(forKey: "goldDiscExpiry")
+        removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
         removeAllActions()
         removeAllChildren()
         buildLevel()
@@ -431,7 +386,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         run(.sequence([
             .wait(forDuration: 20),
             .run { [weak self] in self?.endGoldDiscMode() }
-        ]), withKey: "goldDiscExpiry")
+        ]), withKey: Strings.ActionKey.goldDiscExpiry)
         hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
     }
 
@@ -439,12 +394,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         goldDisc.deactivate()
         bossController.setGoldDiscActive(false)
         sound.stopGoldDiscBass()
-        removeAction(forKey: "goldDiscExpiry")
+        removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
         hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
     }
 
     // MARK: - HUD
-
     private func refreshHUD() {
         hud.updateStatus(
             score: state.score, highScore: state.highScore, level: state.level,

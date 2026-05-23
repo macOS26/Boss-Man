@@ -5,18 +5,14 @@ import SpriteKit
 final class HUD {
     static let maxLives = 3
 
-    private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
-    private let tpsLabel = SKLabelNode(fontNamed: "Menlo-Bold")
-    private let livesLabel = SKLabelNode(fontNamed: "Menlo-Bold")
-    private let messageLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let statusLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let tpsLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let livesLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let levelEmojisLabel = SKLabelNode()
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
-    // Cache the last-rendered text so we only reassign SKLabelNode.text
-    // (which forces a glyph re-rasterization) when the string actually
-    // changes. refreshHUD fires on every dot pickup — without caching,
-    // each label rebuilds its texture ~7x per second.
     private var lastStatusText: String?
     private var lastTpsText: String?
     private var lastLevelEmojisText: String?
@@ -67,8 +63,8 @@ final class HUD {
         let iconSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
             let icon = PixelPerson(
-                bodyColor: .systemTeal,
-                tieColor: .systemBlue,
+                bodyColor: .systemGreen,
+                tieColor: .systemYellow,
                 hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
                 shoeOutlineColor: .white,
                 pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1)
@@ -97,10 +93,10 @@ final class HUD {
     }
 
     private static let emojiByName: [String: String] = [
-        Strings.Machine.printer:    "🖨️",
-        Strings.Machine.fax:        "📠",
-        Strings.Machine.coverSheet: "📄",
-        Strings.Machine.bookBinder: "📚"
+        Strings.Machine.printer:    Strings.Emoji.printer,
+        Strings.Machine.fax:        Strings.Emoji.fax,
+        Strings.Machine.coverSheet: Strings.Emoji.coverSheet,
+        Strings.Machine.bookBinder: Strings.Emoji.bookBinder
     ]
 
     func updateStatus(score: Int, highScore: Int, level: Int, dots: Int, total: Int, reports: Int, items: Set<String>) {
@@ -114,9 +110,11 @@ final class HUD {
         let parts = requiredItems
             .map { name -> String in
                 let icon = HUD.emojiByName[name] ?? name
-                return items.contains(name) ? "✅\(icon)" : "❌\(icon)"
+                return items.contains(name)
+                    ? "\(Strings.Emoji.checked)\(icon)"
+                    : "\(Strings.Emoji.unchecked)\(icon)"
             }
-            .joined(separator: "  ")
+            .joined(separator: Strings.HUD.tpsItemSeparator)
         let tpsText = "\(Strings.HUD.tpsPrefix) \(parts)"
         if tpsText != lastTpsText {
             tpsLabel.text = tpsText
@@ -125,7 +123,7 @@ final class HUD {
     }
 
     func updateLevelEmojis(_ emojis: [String]) {
-        let text = emojis.joined(separator: " ")
+        let text = emojis.joined(separator: Strings.HUD.emojiTrailSeparator)
         if text != lastLevelEmojisText {
             levelEmojisLabel.text = text
             lastLevelEmojisText = text
@@ -142,11 +140,11 @@ final class HUD {
 
     func showMessage(_ text: String, duration: TimeInterval) {
         messageLabel.text = text
-        messageLabel.removeAction(forKey: "clear")
+        messageLabel.removeAction(forKey: Strings.ActionKey.clear)
         messageLabel.run(.sequence([
             .wait(forDuration: duration),
-            .run { [weak self] in self?.messageLabel.text = "" }
-        ]), withKey: "clear")
+            .run { [weak self] in self?.messageLabel.text = Strings.HUD.empty }
+        ]), withKey: Strings.ActionKey.clear)
     }
 
     func showGameOver(in scene: SKScene) {
@@ -168,7 +166,7 @@ final class HUD {
         frame.zPosition = 101
         overlay.addChild(frame)
 
-        let gameOver = SKLabelNode(fontNamed: "Menlo-Bold")
+        let gameOver = SKLabelNode(fontNamed: Strings.Font.menloBold)
         gameOver.text = Strings.HUD.gameOver
         gameOver.fontSize = 56
         gameOver.fontColor = .systemRed
@@ -176,7 +174,7 @@ final class HUD {
         gameOver.zPosition = 102
         overlay.addChild(gameOver)
 
-        let prompt = SKLabelNode(fontNamed: "Menlo-Bold")
+        let prompt = SKLabelNode(fontNamed: Strings.Font.menloBold)
         prompt.text = Strings.HUD.promptNewGame
         prompt.fontSize = 18
         prompt.fontColor = .systemYellow
@@ -188,7 +186,7 @@ final class HUD {
         ])))
         overlay.addChild(prompt)
 
-        let exit = SKLabelNode(fontNamed: "Menlo-Bold")
+        let exit = SKLabelNode(fontNamed: Strings.Font.menloBold)
         exit.text = Strings.HUD.promptTitle
         exit.fontSize = 14
         exit.fontColor = NSColor(calibratedWhite: 0.75, alpha: 1)

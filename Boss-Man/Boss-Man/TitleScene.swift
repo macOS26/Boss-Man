@@ -2,9 +2,9 @@ import AppKit
 import SpriteKit
 
 final class TitleScene: SKScene {
-    private static let highScoreKey = "Boss-Man.highScore"
+    private static let highScoreKey = Strings.DefaultsKey.highScore
     private static let titleFonts = [
-        "Marker Felt Thin", "Marker Felt Wide"
+        Strings.Font.markerFeltThin, Strings.Font.markerFeltWide
     ]
 
     override func didMove(to view: SKView) {
@@ -13,11 +13,11 @@ final class TitleScene: SKScene {
 
         let titleFont = TitleScene.titleFonts.first {
             NSFont(name: $0, size: 90) != nil
-        } ?? "Helvetica-Bold"
+        } ?? Strings.Font.helveticaBold
 
         let titleFontBold = TitleScene.titleFonts.last {
             NSFont(name: $0, size: 90) != nil
-        } ?? "Helvetica-Bold"
+        } ?? Strings.Font.helveticaBold
         
         let title = SKLabelNode(fontNamed: titleFontBold)
         title.text = Strings.Title.gameTitle
@@ -57,7 +57,7 @@ final class TitleScene: SKScene {
         let panel = LeaderboardPanel(
             size: panelSize,
             titleFont: titleFont,
-            bodyFont: "Menlo-Bold"
+            bodyFont: Strings.Font.menloBold
         )
         panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5)
         addChild(panel)
@@ -65,13 +65,13 @@ final class TitleScene: SKScene {
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 49: // space
+        case 49:
             let game = GameScene(size: size)
             game.scaleMode = .aspectFit
             view?.presentScene(game, transition: .fade(withDuration: 0.5))
-        case 53: // esc
+        case 53:
             NSApp.terminate(nil)
-        case 14: // E — open Level Editor
+        case 14:
             let editor = LevelEditorScene(size: size)
             editor.scaleMode = .aspectFit
             view?.presentScene(editor, transition: .fade(withDuration: 0.3))
@@ -80,11 +80,10 @@ final class TitleScene: SKScene {
         }
     }
 
-    /// Loads the CC0 red-stapler SVG (Wikimedia Commons) bundled with the app.
-    /// Falls back to a procedural drawing if the asset can't be loaded.
     private func makeStapler() -> SKNode {
         let targetSize = CGSize(width: 380, height: 290)
-        if let url = Bundle.main.url(forResource: "RedStapler", withExtension: "svg"),
+        if let url = Bundle.main.url(forResource: Strings.Resource.redStaplerFile,
+                                      withExtension: Strings.Resource.redStaplerExtension),
            let image = NSImage(contentsOf: url) {
             image.size = targetSize
             let texture = SKTexture(image: image)

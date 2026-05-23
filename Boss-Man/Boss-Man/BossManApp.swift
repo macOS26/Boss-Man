@@ -5,10 +5,8 @@ import SpriteKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterControllerDelegate {
-    static let startFullscreenKey = "Boss-Man.startFullscreen"
+    static let startFullscreenKey = Strings.DefaultsKey.startFullscreen
 
-    /// User preference: launch fullscreen on next start. Defaults to true
-    /// the first time the app runs so new users get the immersive view.
     static var startFullscreenPreference: Bool {
         get {
             let defaults = UserDefaults.standard
@@ -18,8 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         set { UserDefaults.standard.set(newValue, forKey: startFullscreenKey) }
     }
 
-    // Opt in to secure coding for state restoration so the runtime stops
-    // warning "not on all supported macOS versions of this application."
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         true
     }
@@ -37,12 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         skView.shouldCullNonVisibleNodes = true
         skView.showsFPS = false
         skView.showsNodeCount = false
-        skView.showsPhysics = false // DEBUG: draw physics body outlines
+        skView.showsPhysics = false
         skView.disableDepthStencilBuffer = false
         
-        // do not remove
-        // allows frames not to drop
-        // suspect it caches the transparency per frame
         skView.allowsTransparency = true
 
         let scene = TitleScene(size: sceneSize)
@@ -55,11 +48,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
             backing: .buffered,
             defer: false
         )
-        window.title = "Boss-Man"
+        window.title = Strings.App.bundleName
         window.center()
         window.contentView = skView
         window.collectionBehavior.insert(.fullScreenPrimary)
-        // No browser-style tab bar — the game is a single window.
         window.tabbingMode = .disallowed
         window.makeKeyAndOrderFront(nil)
 
@@ -70,8 +62,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
                            name: NSWindow.didExitFullScreenNotification, object: window)
 
         if AppDelegate.startFullscreenPreference {
-            // Defer until after the window is on-screen so AppKit's
-            // fullscreen transition has a valid starting frame.
             DispatchQueue.main.async { [weak window] in
                 window?.toggleFullScreen(nil)
             }
@@ -80,10 +70,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         authenticateGameCenter()
     }
 
-    /// Authenticates the local Game Center player so macOS can populate
-    /// the Game Overlay's "Now Playing" tile with this app's icon and
-    /// player state. First run on an unsigned-in machine will hand back
-    /// a sign-in view controller; we present it in a transient window.
     private func authenticateGameCenter() {
         GKLocalPlayer.local.authenticateHandler = { [weak self] viewController, error in
             if let viewController {
@@ -91,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
                 return
             }
             if let error {
-                NSLog("Game Center auth failed: \(error.localizedDescription)")
+                NSLog(Strings.App.gameCenterAuthFailed(error.localizedDescription))
             }
         }
     }
@@ -142,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
 
     @objc private func windowFullscreenStateChanged(_ notification: Notification) {
         let isFullscreen = window?.styleMask.contains(.fullScreen) ?? false
-        fullscreenMenuItem?.title = isFullscreen ? "Exit Full Screen" : "Enter Full Screen"
+        fullscreenMenuItem?.title = isFullscreen ? Strings.App.exitFullscreen : Strings.App.enterFullscreen
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -155,15 +141,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         let appMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
-        let appName = "Boss-Man"
+        let appName = Strings.App.bundleName
 
-        appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: Strings.Menu.about(appName), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: Strings.KeyEquivalent.none)
         appMenu.addItem(NSMenuItem.separator())
 
         let startFullscreenItem = appMenu.addItem(
             withTitle: Strings.App.startFullscreen,
             action: #selector(toggleStartFullscreenPreference(_:)),
-            keyEquivalent: ""
+            keyEquivalent: Strings.KeyEquivalent.none
         )
         startFullscreenItem.target = self
         startFullscreenItem.state = AppDelegate.startFullscreenPreference ? .on : .off
@@ -172,39 +158,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         let resetLeaderboardItem = appMenu.addItem(
             withTitle: Strings.App.resetLocalLeaderboard,
             action: #selector(resetLocalLeaderboard(_:)),
-            keyEquivalent: ""
+            keyEquivalent: Strings.KeyEquivalent.none
         )
         resetLeaderboardItem.target = self
 
         let gameCenterItem = appMenu.addItem(
             withTitle: Strings.App.gameCenter,
             action: #selector(openGameCenter(_:)),
-            keyEquivalent: ""
+            keyEquivalent: Strings.KeyEquivalent.none
         )
         gameCenterItem.target = self
         appMenu.addItem(NSMenuItem.separator())
 
-        let hideItem = appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideItem = appMenu.addItem(withTitle: Strings.Menu.hide(appName), action: #selector(NSApplication.hide(_:)), keyEquivalent: Strings.KeyEquivalent.hide)
         hideItem.keyEquivalentModifierMask = [.command]
 
-        let hideOthersItem = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        let hideOthersItem = appMenu.addItem(withTitle: Strings.Menu.hideOthers, action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: Strings.KeyEquivalent.hide)
         hideOthersItem.keyEquivalentModifierMask = [.command, .option]
 
-        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: Strings.Menu.showAll, action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: Strings.KeyEquivalent.none)
         appMenu.addItem(NSMenuItem.separator())
 
-        let quitItem = appMenu.addItem(withTitle: "Quit \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quitItem = appMenu.addItem(withTitle: Strings.Menu.quit(appName), action: #selector(NSApplication.terminate(_:)), keyEquivalent: Strings.KeyEquivalent.quit)
         quitItem.keyEquivalentModifierMask = [.command]
 
         appMenuItem.submenu = appMenu
 
         let viewMenuItem = NSMenuItem()
         mainMenu.addItem(viewMenuItem)
-        let viewMenu = NSMenu(title: "View")
+        let viewMenu = NSMenu(title: Strings.Menu.view)
         let fullscreenItem = viewMenu.addItem(
-            withTitle: "Enter Full Screen",
+            withTitle: Strings.App.enterFullscreen,
             action: #selector(toggleWindowFullscreen(_:)),
-            keyEquivalent: "f"
+            keyEquivalent: Strings.KeyEquivalent.fullscreen
         )
         fullscreenItem.target = self
         fullscreenItem.keyEquivalentModifierMask = [.command, .control]
@@ -213,9 +199,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
 
         let windowMenuItem = NSMenuItem()
         mainMenu.addItem(windowMenuItem)
-        let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let windowMenu = NSMenu(title: Strings.Menu.window)
+        windowMenu.addItem(withTitle: Strings.Menu.minimize, action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: Strings.KeyEquivalent.minimize)
+        windowMenu.addItem(withTitle: Strings.Menu.close, action: #selector(NSWindow.performClose(_:)), keyEquivalent: Strings.KeyEquivalent.close)
         windowMenuItem.submenu = windowMenu
         NSApplication.shared.windowsMenu = windowMenu
 
@@ -227,17 +213,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
 @MainActor
 enum BossManApp {
     static func main() {
-        // Silence the AVSpeechSynthesizer / CoreAudio / Security.framework
-        // stderr chatter (AFPreferences, AVAudioBuffer, AddInstanceForFactory,
-        // DetachedSignatures, HALC overload, etc.). Must run before any
-        // AppKit or AVFoundation symbol is touched so the env var is in
-        // place when those frameworks initialize their logging.
-        setenv("OS_ACTIVITY_MODE", "disable", 1)
+        setenv(Strings.System.osActivityModeKey, Strings.System.osActivityDisable, 1)
         #if !DEBUG
-        // Release-only: route raw stderr fprintf calls from Apple frameworks
-        // to /dev/null. Kept out of Debug so crash diagnostics stay visible
-        // during development.
-        freopen("/dev/null", "w", stderr)
+        freopen(Strings.System.devNull, Strings.System.writeMode, stderr)
         #endif
 
         let app = NSApplication.shared

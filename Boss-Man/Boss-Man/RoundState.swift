@@ -1,14 +1,10 @@
 import Foundation
 
-/// Per-run / per-floor mutable state for Boss-Man. Holds level, lives,
-/// score (with persisted high-score side effect), and TPS-report
-/// progress, plus the small mutators GameScene uses to reset between
-/// rounds and advance between floors.
 @MainActor
 final class RoundState {
-    static let highScoreKey = "Boss-Man.highScore"
+    static let highScoreKey = Strings.DefaultsKey.highScore
 
-    var level = 1 // DEBUG: starts on MIB level for testing
+    var level = 1
     var lives = HUD.maxLives
     var score = 0
     var dotCount = 0
@@ -17,14 +13,8 @@ final class RoundState {
     var collectedGoldDiscs = 0
     var tpsReportsDelivered = 0
     var reportItems: Set<String> = []
-    /// Points accumulated from collecting individual report items in the
-    /// current TPS report cycle (10, 25, 50, 100).  Lost when the boss
-    /// catches PETE, shown as a red negative popup.
     var currentReportScore = 0
     private(set) var highScore = UserDefaults.standard.integer(forKey: RoundState.highScoreKey)
-    /// When true, score updates do NOT persist to UserDefaults or the
-    /// in-memory high-score field. Used by editor-launched playtests so
-    /// custom levels can't pollute the leaderboard / high score.
     var practiceMode = false
 
     func bumpScore(by points: Int) {
@@ -37,7 +27,7 @@ final class RoundState {
     }
 
     func resetForNewGame() {
-        level = 1 // DEBUG: restart also lands on MIB level for testing
+        level = 1
         lives = HUD.maxLives
         score = 0
         tpsReportsDelivered = 0

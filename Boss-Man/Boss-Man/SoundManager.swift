@@ -11,131 +11,71 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let engine = AVAudioEngine()
     private let effectsPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
-    /// Dedicated player for the gold-disc bassline loop so we can
-    /// stop() it instantly when blue mode ends — `effectsPlayer`
-    /// queues buffers and can't cancel them mid-flight.
     private let bassPlayer = AVAudioPlayerNode()
     private var goldDiscBeatBuffer: AVAudioPCMBuffer?
     private var mibGoldDiscBeatBuffer: AVAudioPCMBuffer?
-    /// Synthesized PCM buffer cache. Every sound effect used to rebuild
-    /// its waveform on each call — playFootstep alone fires ~7x/sec and
-    /// allocated a fresh ~1100-sample buffer each time. Cache by string
-    /// key so each effect is synthesized exactly once and reused.
     private var bufferCache: [String: AVAudioPCMBuffer] = [:]
     private let speech = AVSpeechSynthesizer()
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
 
     private static func pickBossVoice() -> AVSpeechSynthesisVoice? {
         let all = AVSpeechSynthesisVoice.speechVoices()
-        // Filter out the legacy novelty voices that sound nothing like a human.
-        let robotic = ["fred", "ralph", "bahh", "bells", "boing", "bubbles",
-                       "cellos", "deranged", "good news", "hysterical",
-                       "pipe organ", "trinoids", "whisper", "zarvox"]
+        let robotic = Strings.Speech.roboticVoiceNames
         let usable = all.filter {
             let n = $0.name.lowercased()
             return !robotic.contains(where: { n.contains($0) })
         }
-        let americanMale = usable.filter { $0.language == "en-US" && $0.gender == .male }
-        let englishMale  = usable.filter { $0.language.hasPrefix("en") && $0.gender == .male }
+        let americanMale = usable.filter { $0.language == Strings.Speech.usEnglish && $0.gender == .male }
+        let englishMale  = usable.filter { $0.language.hasPrefix(Strings.Speech.englishPrefix) && $0.gender == .male }
 
-        // 1) Best en-US male, premium > enhanced, preferring the Lumbergh-ish names.
         if let v = americanMale.first(where: { $0.quality == .premium && SoundManager.looksLumberghLike($0) }) { return v }
         if let v = americanMale.first(where: { $0.quality == .premium }) { return v }
         if let v = americanMale.first(where: { $0.quality == .enhanced && SoundManager.looksLumberghLike($0) }) { return v }
         if let v = americanMale.first(where: { $0.quality == .enhanced }) { return v }
 
-        // 2) Any installed American male, compact OK only as a last resort.
         if let v = americanMale.first(where: { SoundManager.looksLumberghLike($0) }) { return v }
         if let v = americanMale.first { return v }
 
-        // 3) Fall back to any English male, premium first.
         if let v = englishMale.first(where: { $0.quality == .premium }) { return v }
         if let v = englishMale.first(where: { $0.quality == .enhanced }) { return v }
         if let v = englishMale.first { return v }
 
-        return AVSpeechSynthesisVoice(language: "en-US")
+        return AVSpeechSynthesisVoice(language: Strings.Speech.usEnglish)
     }
 
-    /// Names of macOS voices whose timbre is closest to a slow American baritone.
-    /// Ordered roughly by how deep / human they sound — Reed/Rocco/Tom first,
-    /// Alex/Aaron as solid fallbacks, Fred deliberately excluded (too robotic).
     private static func looksLumberghLike(_ v: AVSpeechSynthesisVoice) -> Bool {
         let id = v.identifier.lowercased()
         let name = v.name.lowercased()
-        let preferred = ["reed", "rocco", "tom", "aaron", "alex", "evan", "daniel"]
+        let preferred = Strings.Speech.preferredMaleVoiceNames
         return preferred.contains(where: { id.contains($0) || name.contains($0) })
     }
 
-    // Phonetic spellings and explicit pauses (commas / ellipses) coax AVSpeech
-    // into a slower, more uneven Lumbergh cadence.
-    // Each section uses a vocabulary that does NOT overlap with the others, so
-    // the player can mentally pair a phrase with its event.
-    private let bossCaptureLines = [
-        "Aw, geez.",
-        "Hey now.",
-        "Whoaaa.",
-        "Ouch."
-    ]
-    private let caughtLines = [
-        "TPS reports.",
-        "Cover sheet please.",
-        "Saturday's the day.",
-        "Memo, anyone?"
-    ]
-    private let fishLines = [
-        "Terrific.",
-        "Fantastic.",
-        "Swell.",
-        "Niiice."
-    ]
-    private let tpsLines = [
-        "Atta boy.",
-        "Well done.",
-        "Excellent.",
-        "Solid work."
-    ]
-    private let gameOverLines = [
-        "Please clear out your desk.",
-        "Security, escort him.",
-        "If you would work Saturday, that'd be great.",
-        "Have you've seen my shiny red stapler?",
-        "Please add a cover sheet for your TPS Report."
-    ]
-    private let levelStartLines = [
-        "Hi there.",
-        "What's happening?",
-        "New floor.",
-        "Welcome back."
-    ]
+    private var bossCaptureLines: [String] { Strings.Speech.bossCaptureLines }
+    private var caughtLines:      [String] { Strings.Speech.caughtLines }
+    private var fishLines:        [String] { Strings.Speech.fishLines }
+    private var tpsLines:         [String] { Strings.Speech.tpsLines }
+    private var gameOverLines:    [String] { Strings.Speech.gameOverLines }
+    private var levelStartLines:  [String] { Strings.Speech.levelStartLines }
     private let sampleRate: Double = 44100
     private let format: AVAudioFormat
     private var musicBuffers: [MusicTheme: AVAudioPCMBuffer] = [:]
     private var currentMusicTheme: MusicTheme = .normal
 
     private var dotToggle = false
-    /// Counter for the multi-stage dot ladder: 12 dots at the original
-    /// pitch pair, 12 dots two scale-degrees up, 12 dots four up,
-    /// 6 dots two below original, then cycle. Reset to 0 after a
-    /// 1.5s pause in eating.
     private var dotsEatenInCycle: Int = 0
     private var lastDotEatTime: TimeInterval = 0
     
-    /// Each stage's (low, high) toggle pair, in Hz, walking the
-    /// C-major scale up then briefly below.
     private let dotStages: [(Float, Float)] = [
-        (988.00, 1174.66),  // B5 / D6  — original
-        (1396.91, 1174.66), // F6 / D6  — up 2 scale-degrees
-        (1396.91, 1760.00), // F6 / A6  — up 4 scale-degrees
-        (783.99, 987.77)    // G5 / B5  — 2 below original
+        (988.00, 1174.66),
+        (1396.91, 1174.66),
+        (1396.91, 1760.00),
+        (783.99, 987.77)
     ]
-    /// MIB-level dot ladder: walks the C-minor pentatonic so each blip
-    /// agrees with the slowed "Sunglasses" lead. Same 4-stage cadence
-    /// shape so it climbs and resolves on the same cycle length.
     private let mibDotStages: [(Float, Float)] = [
-        (523.25, 622.25),  // C5  / Eb5  — root + minor 3rd
-        (622.25, 783.99),  // Eb5 / G5   — climb
-        (783.99, 1046.50), // G5  / C6   — peak
-        (932.33, 783.99)   // Bb5 / G5   — resolve down
+        (523.25, 622.25),
+        (622.25, 783.99),
+        (783.99, 1046.50),
+        (932.33, 783.99)
     ]
     private let dotsPerStage: [Int] = [4, 2, 4, 2]
     private var lastSpeechTime: TimeInterval = 0
@@ -159,16 +99,10 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         engine.connect(musicPlayer, to: engine.mainMixerNode, format: format)
         engine.connect(bassPlayer, to: engine.mainMixerNode, format: format)
         bassPlayer.volume = 0.9
-        // Lower mixer headroom so speech + music + effects can't sum past
-        // full-scale and clip — clipping is what's audible as "crackle"
-        // when the speech synthesizer's audio unit kicks in alongside ours.
         engine.mainMixerNode.outputVolume = 0.55
         effectsPlayer.volume = normalEffectsVolume
         musicPlayer.volume = normalMusicVolume
         speech.delegate = self
-        // Give the output audio unit a larger render slice so the HAL has
-        // more slack before it logs an overload (and audibly crackles)
-        // when AVSpeechSynthesizer spins up its own audio path.
         let outputAU = engine.outputNode.auAudioUnit
         outputAU.maximumFramesToRender = max(outputAU.maximumFramesToRender, 4096)
         do {
@@ -178,16 +112,12 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     // MARK: - Speech ducking
-
     private func setDucked(_ ducked: Bool) {
         effectsPlayer.volume = ducked ? duckedEffectsVolume : normalEffectsVolume
         let base = ducked ? duckedMusicVolume : normalMusicVolume
         musicPlayer.volume = base * themeMusicMultiplier(currentMusicTheme)
     }
 
-    /// Per-theme music level. MIB level rides at half volume so the
-    /// 80s synth lead doesn't drown out the bosses' speech and the
-    /// gold-disc bassline.
     private func themeMusicMultiplier(_ theme: MusicTheme) -> Float {
         switch theme {
         case .normal: return 1.0
@@ -208,11 +138,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     // MARK: - Public events
-
-    /// Returns the cached buffer for `key`, building it via `build` on
-    /// first request. All sound effects are deterministic enough to be
-    /// safely reused — trades a small amount of variation for huge CPU
-    /// savings (~7 footstep + dot-blip syntheses per second).
     private func cached(_ key: String, _ build: () -> AVAudioPCMBuffer) -> AVAudioPCMBuffer {
         if let buf = bufferCache[key] { return buf }
         let built = build()
@@ -227,7 +152,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         }
         lastDotEatTime = now
 
-        // Find which stage the current dot belongs to.
         let cycleLen = dotsPerStage.reduce(0, +)
         let positionInCycle = dotsEatenInCycle % cycleLen
         var stageIndex = 0
@@ -241,99 +165,93 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         }
 
         dotToggle.toggle()
-        // MIB level uses its own C-minor pentatonic ladder at half
-        // volume so the blips agree harmonically with the slowed
-        // "Sunglasses" lead and sit under it instead of poking through.
         let mib = currentMusicTheme == .mib
         let pair = mib ? mibDotStages[stageIndex] : dotStages[stageIndex]
         let freq = dotToggle ? pair.0 : pair.1
         let vol: Float = mib ? 0.11 : 0.22
-        let key = "dot-\(stageIndex)-\(dotToggle ? "lo" : "hi")\(mib ? "-mib" : "")"
+        let key = Strings.SoundCache.dotKey(stage: stageIndex, highToggle: !dotToggle, mib: mib)
         play(buffer: cached(key) { self.tone(frequency: freq, duration: 0.05, volume: vol) })
 
         dotsEatenInCycle += 1
     }
 
     func playGoldDisc() {
-        play(buffer: cached("goldDisc") { self.sweep(from: 220, to: 660, duration: 0.45, volume: 0.35) })
+        play(buffer: cached(Strings.SoundCache.goldDisc) { self.sweep(from: 220, to: 660, duration: 0.45, volume: 0.35) })
     }
 
     func playFootstep() {
-        play(buffer: cached("footstep") { self.tone(frequency: 140, duration: 0.025, volume: 0.07, decay: 60) })
+        play(buffer: cached(Strings.SoundCache.footstep) { self.tone(frequency: 140, duration: 0.025, volume: 0.07, decay: 60) })
     }
 
     func playCaptureBoss(streak: Int) {
         let base: Float = 440
         let arp: [Float] = [base, base * 1.5, base * 2, base * 3]
         let count = max(2, min(4, streak + 1))
-        play(buffer: cached("captureBoss-\(count)") {
+        play(buffer: cached("\(Strings.SoundCache.captureBossPrefix)\(count)") {
             self.sequence(notes: Array(arp.prefix(count)), perNote: 0.08, volume: 0.35)
         })
-        speak(bossCaptureLines.randomElement() ?? "Yeah.", priority: false)
+        speak(bossCaptureLines.randomElement() ?? Strings.Speech.fallback, priority: false)
     }
 
     func playCaughtByBoss() {
-        play(buffer: cached("caughtByBoss") { self.sweep(from: 330, to: 60, duration: 0.7, volume: 0.4) })
-        speak(caughtLines.randomElement() ?? "Ohh, yeah.", priority: true)
+        play(buffer: cached(Strings.SoundCache.caughtByBoss) { self.sweep(from: 330, to: 60, duration: 0.7, volume: 0.4) })
+        speak(caughtLines.randomElement() ?? Strings.Speech.caughtFallback, priority: true)
     }
 
     func playFishOrTreat() {
-        play(buffer: cached("fishOrTreat") { self.sequence(notes: [1320, 1760, 2093], perNote: 0.08, volume: 0.3) })
-        speak(fishLines.randomElement() ?? "Mmm, yeah.", priority: false)
+        play(buffer: cached(Strings.SoundCache.fishOrTreat) { self.sequence(notes: [1320, 1760, 2093], perNote: 0.08, volume: 0.3) })
+        speak(fishLines.randomElement() ?? Strings.Speech.fishFallback, priority: false)
     }
 
     func playTpsDeliver() {
-        play(buffer: cached("tpsDeliver") { self.sequence(notes: [660, 880, 1320], perNote: 0.12, volume: 0.35) })
-        speak(tpsLines.randomElement() ?? "Sounds great.", priority: false)
+        play(buffer: cached(Strings.SoundCache.tpsDeliver) { self.sequence(notes: [660, 880, 1320], perNote: 0.12, volume: 0.35) })
+        speak(tpsLines.randomElement() ?? Strings.Speech.tpsFallback, priority: false)
     }
 
     func playGameOver() {
-        play(buffer: cached("gameOver") { self.sequence(notes: [392, 311, 261, 196], perNote: 0.18, volume: 0.4) })
-        speak(gameOverLines.randomElement() ?? "yeah right!", priority: true)
+        play(buffer: cached(Strings.SoundCache.gameOver) { self.sequence(notes: [392, 311, 261, 196], perNote: 0.18, volume: 0.4) })
+        speak(gameOverLines.randomElement() ?? Strings.Speech.gameOverFallback, priority: true)
     }
 
     func playMachine(named name: String) {
         switch name {
-        case "Printer":  play(buffer: cached("printer") { self.synthPrinter() })
-        case "Fax":      play(buffer: cached("fax") { self.synthFax() })
-        case "Cover Sheet":     play(buffer: cached("pageFlip") { self.synthPageFlip() })
-        case "Book Binder": play(buffer: cached("collator") { self.synthCollator() })
+        case Strings.Machine.printer:    play(buffer: cached(Strings.SoundCache.printer)  { self.synthPrinter()  })
+        case Strings.Machine.fax:        play(buffer: cached(Strings.SoundCache.fax)      { self.synthFax()      })
+        case Strings.Machine.coverSheet: play(buffer: cached(Strings.SoundCache.pageFlip) { self.synthPageFlip() })
+        case Strings.Machine.bookBinder: play(buffer: cached(Strings.SoundCache.collator) { self.synthCollator() })
         default:         playDotBlip()
         }
     }
 
-    /// Quiet, distinct "distant" cue when a roaming traveler enters the floor.
     func playTravelerArrive(_ which: TravelerSound) {
         switch which {
         case .water:
-            play(buffer: cached("trav.water") { self.sweep(from: 520, to: 180, duration: 0.55, volume: 0.14) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)water") { self.sweep(from: 520, to: 180, duration: 0.55, volume: 0.14) })
         case .glaze:
-            play(buffer: cached("trav.glaze") { self.sequence(notes: [2093, 2637, 3136], perNote: 0.07, volume: 0.13) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)glaze") { self.sequence(notes: [2093, 2637, 3136], perNote: 0.07, volume: 0.13) })
         case .crunch:
-            play(buffer: cached("trav.crunch") { self.synthFiltered(noiseSeconds: 0.35, bursts: 12, volume: 0.18) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)crunch") { self.synthFiltered(noiseSeconds: 0.35, bursts: 12, volume: 0.18) })
         case .alienBleep:
-            play(buffer: cached("trav.alienBleep") { self.sequence(notes: [880, 1320, 1760, 1320], perNote: 0.06, volume: 0.16) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)alienBleep") { self.sequence(notes: [880, 1320, 1760, 1320], perNote: 0.06, volume: 0.16) })
         case .jelly:
-            play(buffer: cached("trav.jelly") { self.sweep(from: 660, to: 990, duration: 0.7, volume: 0.12) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)jelly") { self.sweep(from: 660, to: 990, duration: 0.7, volume: 0.12) })
         case .crispTap:
-            play(buffer: cached("trav.crispTap") { self.tone(frequency: 1568, duration: 0.12, volume: 0.18, decay: 22) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)crispTap") { self.tone(frequency: 1568, duration: 0.12, volume: 0.18, decay: 22) })
         case .bellDing:
-            play(buffer: cached("trav.bellDing") { self.sequence(notes: [1568, 2093], perNote: 0.22, volume: 0.16) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)bellDing") { self.sequence(notes: [1568, 2093], perNote: 0.22, volume: 0.16) })
         case .radioStatic:
-            play(buffer: cached("trav.radioStatic") { self.synthFiltered(noiseSeconds: 0.6, bursts: 1, volume: 0.10) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)radioStatic") { self.synthFiltered(noiseSeconds: 0.6, bursts: 1, volume: 0.10) })
         case .magicChime:
-            play(buffer: cached("trav.magicChime") { self.sequence(notes: [1318, 1976, 2637, 3520], perNote: 0.07, volume: 0.13) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)magicChime") { self.sequence(notes: [1318, 1976, 2637, 3520], perNote: 0.07, volume: 0.13) })
         case .ufoWhoosh:
-            play(buffer: cached("trav.ufoWhoosh") { self.sweep(from: 1760, to: 220, duration: 0.65, volume: 0.13) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)ufoWhoosh") { self.sweep(from: 1760, to: 220, duration: 0.65, volume: 0.13) })
         case .eyeDrone:
-            play(buffer: cached("trav.eyeDrone") { self.tone(frequency: 196, duration: 0.8, volume: 0.18, decay: 2) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)eyeDrone") { self.tone(frequency: 196, duration: 0.8, volume: 0.18, decay: 2) })
         case .bigEye:
-            play(buffer: cached("trav.bigEye") { self.sequence(notes: [659, 880, 1175, 1568], perNote: 0.07, volume: 0.14) })
+            play(buffer: cached("\(Strings.SoundCache.travelerPrefix)bigEye") { self.sequence(notes: [659, 880, 1175, 1568], perNote: 0.07, volume: 0.14) })
         }
     }
 
-    /// Filtered-noise bed used by crunch/static traveler cues.
-    /// `bursts == 1` → continuous shaped noise (radio); higher counts → granular crackle.
     private func synthFiltered(noiseSeconds total: TimeInterval, bursts: Int, volume: Float) -> AVAudioPCMBuffer {
         let buffer = makeBuffer(seconds: total)
         let data = buffer.floatChannelData![0]
@@ -353,13 +271,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                 }
             }
         }
-        // One-pole low-pass → subtract to brighten, gives a thin, distant timbre.
         var lp: Float = 0
         for i in 0..<frames {
             lp = 0.78 * lp + 0.22 * data[i]
             data[i] = (data[i] - lp) * volume
         }
-        // Fade in/out so it doesn't pop.
         let fade: Float = 0.04
         let durF = Float(total)
         for i in 0..<frames {
@@ -374,8 +290,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func playLevelStart() {
-        play(buffer: cached("levelStart") { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3) })
-        speak(levelStartLines.randomElement() ?? "Yeah.", priority: false)
+        play(buffer: cached(Strings.SoundCache.levelStart) { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3) })
+        speak(levelStartLines.randomElement() ?? Strings.Speech.fallback, priority: false)
     }
 
     func startBackgroundMusic(theme: MusicTheme = .normal) {
@@ -402,10 +318,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         musicPlayer.stop()
     }
 
-    /// Pause every audio source — background music, effects, the power-
-    /// pellet bassline, and any in-flight speech. Used by the in-game
-    /// SPACE pause so the world goes silent. `resumeAudio()` brings
-    /// everything back without rebuilding state.
     func pauseAudio() {
         if musicPlayer.isPlaying { musicPlayer.pause() }
         if effectsPlayer.isPlaying { effectsPlayer.pause() }
@@ -421,13 +333,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     // MARK: - Gold-disc beat
-
-    /// Starts the gold-disc bassline looping on its own player. The
-    /// dedicated bassPlayer lets us cancel the loop instantly via
-    /// stopGoldDiscBass() — without it, queued buffers on the
-    /// shared effectsPlayer continue playing for up to a full pattern
-    /// cycle after blue mode ends, sounding out of sync once the
-    /// bosses return to normal.
     func startGoldDiscBass() {
         let useMIB = currentMusicTheme == .mib
         if useMIB {
@@ -437,8 +342,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         }
         guard let buffer = useMIB ? mibGoldDiscBeatBuffer : goldDiscBeatBuffer else { return }
         bassPlayer.stop()
-        // MIB level rides the bassline 25% quieter so it sits under the
-        // 80s synth lead instead of fighting it.
         bassPlayer.volume = 0.9 * (useMIB ? 0.75 : 1.0)
         bassPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         if !bassPlayer.isPlaying { bassPlayer.play() }
@@ -449,12 +352,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func buildGoldDiscBeat() -> AVAudioPCMBuffer {
-        // Original pop-punk bass groove. 16 sixteenth-note slots over
-        // 2 seconds (120 BPM) with root pulses on E2, octave jumps to
-        // E3 for energy, walking-up motion through G/A/B, and a few
-        // rests to give it swing. Synthesis is fundamental + a few
-        // harmonics run through soft tanh saturation for a gritty
-        // P-bass-through-an-overdrive timbre.
         let duration: TimeInterval = 2.0
         let buffer = makeBuffer(seconds: duration)
         let data = buffer.floatChannelData![0]
@@ -465,9 +362,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         let G2: Float = 98.00
         let A2: Float = 110.00
         let B2: Float = 123.47
-        let _: Float = 0   // marker for readability of the rest
+        let _: Float = 0
 
-        // -- Original riff. 16 slots, each ~125ms. Rests = 0. --
         let pattern: [Float] = [
             E2, E2, 0,  E3,  E2, 0,  G2, G2,
             E2, 0,  A2, A2,  G2, 0,  B2, E3
@@ -489,14 +385,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                 if t < attack {
                     env = t / attack
                 } else {
-                    // Punchy pluck — quick attack, fast decay, short
-                    // gap before the next note so the groove reads
-                    // rhythmically rather than as a sustained drone.
                     env = exp(-3.8 * (t - attack))
                 }
-                // Layer fundamental + 2nd + 3rd harmonics, then run
-                // through tanh saturation for the slightly clipped
-                // "bass-through-an-overdrive" punk texture.
                 let f1 = sin(2 * .pi * freq * t)
                 let f2 = sin(2 * .pi * freq * 2 * t) * 0.35
                 let f3 = sin(2 * .pi * freq * 3 * t) * 0.12
@@ -507,11 +397,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
-    /// MIB-level bassline: simpler than the default gold-disc groove —
-    /// just C2 / G2 root pulses on every beat (C minor, 100 BPM to
-    /// match the Sunglasses lead), so it locks under the descending
-    /// melody without competing for melodic space. 8 eighth-note slots
-    /// over 4 beats at 100 BPM = 60/100 * 4 = 2.4 seconds.
     private func buildMIBGoldDiscBeat() -> AVAudioPCMBuffer {
         let duration: TimeInterval = 60.0 / 100.0 * 4.0
         let buffer = makeBuffer(seconds: duration)
@@ -520,7 +405,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
 
         let C2: Float = 65.41
         let G2: Float = 98.00
-        // Steady root/fifth pulse on every eighth, rests in between.
         let pattern: [Float] = [
             C2, 0, C2, 0, G2, 0, C2, 0
         ]
@@ -536,7 +420,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                 continue
             }
             let slotDuration = Float(slotFrames) / Float(sampleRate)
-            let release: Float = 0.02 // 20ms tail to avoid the click between slots
+            let release: Float = 0.02
             for j in 0..<slotFrames where startFrame + j < frames {
                 let t = Float(j) / Float(sampleRate)
                 var env: Float
@@ -549,27 +433,16 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                 if t > tailStart {
                     env *= max(0, (slotDuration - t) / release)
                 }
-                // Pure sine on the fundamental — no harmonics, no
-                // saturation. The synth lead carries the timbre; the
-                // bass just provides a clean pulse so it doesn't go
-                // scratchy when the lead detuned sawtooth stacks on top.
                 data[startFrame + j] = sin(2 * .pi * freq * t) * 0.34 * env
             }
         }
         return buffer
     }
 
-    /// Star-Trek-style transporter shimmer used during the boss spawn /
-    /// respawn fade. Pairs an ascending sweep with a descending sweep
-    /// plus high-frequency sparkle, bell-enveloped over the fade window.
     func playTeleport() {
-        // 4 bosses spawning at once each call playTeleport(), and
-        // scheduleBuffer queues them back-to-back — perceived as 4x the
-        // length. Allow only one teleport buffer to be in-flight; the
-        // others are silently dropped until this one finishes.
         if teleportPlaying { return }
         teleportPlaying = true
-        let buffer = cached("teleport") { self.buildTeleport() }
+        let buffer = cached(Strings.SoundCache.teleport) { self.buildTeleport() }
         effectsPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
             DispatchQueue.main.async { self?.teleportPlaying = false }
         }
@@ -597,7 +470,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             let descFreq = descStart * pow(descEnd / descStart, progress)
             phaseAsc += 2 * .pi * ascFreq * dt
             phaseDesc += 2 * .pi * descFreq * dt
-            let env = sin(.pi * progress) // bell — 0 at edges, 1 mid
+            let env = sin(.pi * progress)
             let shimmer = Float.random(in: -1...1) * 0.06
             data[i] = (sin(phaseAsc) * 0.20 + sin(phaseDesc) * 0.15 + shimmer) * env
         }
@@ -605,7 +478,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     // MARK: - Synthesis
-
     private func play(buffer: AVAudioPCMBuffer) {
         effectsPlayer.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
         if !effectsPlayer.isPlaying { effectsPlayer.play() }
@@ -642,7 +514,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             let progress = Float(i) / Float(frames)
             let freq = start * pow(end / start, progress)
             phase += 2 * .pi * freq * dt
-            let env = sin(.pi * (Float(i) / Float(frames))) // bell envelope
+            let env = sin(.pi * (Float(i) / Float(frames)))
             let t = Float(i) * dt
             let release: Float = totalT - t < 0.04 ? max(0, (totalT - t) / 0.04) : 1
             data[i] = sin(phase) * volume * env * release
@@ -669,7 +541,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     // MARK: - Machine sounds
-
     private func makeBuffer(seconds: TimeInterval) -> AVAudioPCMBuffer {
         let frames = AVAudioFrameCount(sampleRate * seconds)
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
@@ -677,7 +548,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
-    /// Inkjet-style mechanical chirps with a quick whir tail.
     private func synthPrinter() -> AVAudioPCMBuffer {
         let chirpCount = 5
         let chirpDur: TimeInterval = 0.055
@@ -689,15 +559,14 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         let gapFrames = Int(sampleRate * gapDur)
         for c in 0..<chirpCount {
             let start = c * (perFrames + gapFrames)
-            let baseFreq: Float = 540 + Float(c % 2) * 280   // alternate back-and-forth head pass
+            let baseFreq: Float = 540 + Float(c % 2) * 280
             for j in 0..<perFrames {
                 let t = Float(j) / Float(sampleRate)
-                let sq: Float = sin(2 * .pi * baseFreq * t) > 0 ? 1 : -1   // square buzz
+                let sq: Float = sin(2 * .pi * baseFreq * t) > 0 ? 1 : -1
                 let env: Float = sin(.pi * Float(j) / Float(perFrames))
                 data[start + j] = sq * env * 0.16
             }
         }
-        // Trailing motor whir (low broadband hum)
         let whirStart = chirpCount * (perFrames + gapFrames)
         let whirFrames = Int(sampleRate * 0.18)
         for j in 0..<whirFrames where whirStart + j < Int(buffer.frameLength) {
@@ -709,14 +578,12 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
-    /// Fax handshake — distinct CNG / CED / training tones with small gaps,
-    /// not a continuous warble.
     private func synthFax() -> AVAudioPCMBuffer {
         let segments: [(freq: Float, dur: TimeInterval, gapAfter: TimeInterval)] = [
-            (1100, 0.16, 0.05),    // calling tone
-            (2100, 0.18, 0.05),    // answer tone
+            (1100, 0.16, 0.05),
+            (2100, 0.18, 0.05),
             (1500, 0.14, 0.04),
-            (2400, 0.22, 0.0)      // training tail
+            (2400, 0.22, 0.0)
         ]
         let total = segments.reduce(0.0) { $0 + $1.dur + $1.gapAfter }
         let buffer = makeBuffer(seconds: total)
@@ -733,7 +600,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                 if t < fadeIn { env = t / fadeIn }
                 else if t > durF - fadeOut { env = max(0, (durF - t) / fadeOut) }
                 else { env = 1 }
-                let wobble: Float = sin(2 * .pi * 14 * t) * 6  // gentle, not gurgling
+                let wobble: Float = sin(2 * .pi * 14 * t) * 6
                 data[offset + j] = sin(2 * .pi * (seg.freq + wobble) * t) * 0.22 * env
             }
             offset += segFrames + Int(sampleRate * seg.gapAfter)
@@ -741,7 +608,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
-    /// Flattening a crinkled piece of paper — sparse random crackles, high-passed.
     private func synthPageFlip() -> AVAudioPCMBuffer {
         let total: TimeInterval = 0.55
         let buffer = makeBuffer(seconds: total)
@@ -749,7 +615,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         let frames = Int(buffer.frameLength)
         for i in 0..<frames { data[i] = 0 }
 
-        // Random short crackles at irregular intervals.
         let crackleCount = 50
         for _ in 0..<crackleCount {
             let startFrame = Int.random(in: 0..<(frames - 256))
@@ -764,14 +629,12 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             }
         }
 
-        // High-pass: subtract a one-pole low-pass to brighten the noise.
         var lp: Float = 0
         for i in 0..<frames {
             lp = 0.82 * lp + 0.18 * data[i]
             data[i] = (data[i] - lp) * 0.85
         }
 
-        // Overall fade in / out so the sample doesn't pop.
         let fade: Float = 0.05
         let durF = Float(total)
         for i in 0..<frames {
@@ -785,7 +648,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
-    /// Four short paper-shuffle bursts simulating a collator stacking pages.
     private func synthCollator() -> AVAudioPCMBuffer {
         let bursts = 4
         let burstDur: TimeInterval = 0.075
@@ -809,9 +671,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func buildBackgroundLoop() -> AVAudioPCMBuffer {
-        // Simple two-bar walking-bass loop at ~110 bpm (8 eighths per bar).
         let bpm: Double = 108
-        let beat = 60.0 / bpm / 2.0 // 8thh note
+        let beat = 60.0 / bpm / 2.0
         let bassPattern: [Float] = [
             130.81, 164.81, 130.81, 196.00,
             174.61, 220.00, 174.61, 261.63,
@@ -843,37 +704,26 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return buffer
     }
 
-    /// MIB / "Sunglasses at Night" homage — a punchy 80s synth-pop riff
-    /// in C minor at ~120 BPM. Driving root-octave bass on the down-beats,
-    /// a stabby sawtooth lead playing the iconic descending hook, and a
-    /// 4-on-the-floor noise click for the gated-snare feel. Sin-place so we don't bundle copyrighted audio.
     private func buildSunglassesAtNightLoop() -> AVAudioPCMBuffer {
         let bpm: Double = 100
         let sixteenth = 60.0 / bpm / 4.0
-        // Four bars of 16 sixteenth-notes each: bars 1–2 carry the
-        // descending hook, bars 3–4 answer with an ascending counter-hook.
         let steps = 64
 
-        // C minor bass: pulses C2/G2 on every eighth.
         let C2: Float = 65.41
         let G2: Float = 98.00
         let Eb2: Float = 77.78
         let Ab2: Float = 103.83 
         let F2: Float = 87.31
         let bassPattern: [Float] = [
-            // Hook A — two bars on i / VII / III root motion
             C2, 0, C2, 0, G2, 0, C2, 0,
             Eb2, 0, Eb2, 0, G2, 0, Eb2, 0,
             C2, 0, C2, 0, G2, 0, C2, 0,
             G2, 0, Eb2, 0, C2, 0, G2, 0,
-            // Hook B — two bars walking up through VI / iv
             Ab2, 0, Ab2, 0, Eb2, 0, Ab2, 0,
             F2, 0, F2, 0, C2, 0, F2, 0,
             Ab2, 0, Ab2, 0, Eb2, 0, G2, 0,
             G2, 0, G2, 0, C2, 0, G2, 0
         ]
-        // Hook A: descending pentatonic stab; Hook B: ascending
-        // counter-melody up to A♭5 / C6 for a brighter, hopeful answer.
         let G5: Float  = 783.99
         let F5: Float  = 698.46
         let Eb5: Float = 622.25
@@ -884,13 +734,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         let Ab5: Float = 830.61
         let C6:  Float = 1046.50
         let leadPattern: [Float] = [
-            // Hook A — descending "sunglasses at night" cadence
             0, G5, F5, Eb5, 0, D5, 0, C5,
             0, G5, F5, Eb5, 0, F5, 0, Eb5,
             0, G5, F5, Eb5, 0, D5, 0, Bb4,
             0, C5, 0, Eb5, 0, D5, C5, 0,
             
-            // Hook B — ascending answer that climbs and resolves
             Ab4, 0, C5, 0, Eb5, 0, Ab5, 0,
             G5, 0, F5, 0, Eb5, 0, C5, 0,
             Ab4, 0, C5, Eb5, 0, G5, Ab5, C6,
@@ -910,13 +758,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             for j in 0..<perFrames {
                 let t = Float(j) / Float(sampleRate)
                 let env = exp(-5.5 * t) * (t < 0.005 ? t / 0.005 : 1)
-                // Bass: fundamental + a touch of 2nd harmonic, soft saturation.
                 var bass: Float = 0
                 if bassF > 0 {
                     let s = sin(2 * .pi * bassF * t) + 0.45 * sin(2 * .pi * bassF * 2 * t)
                     bass = tanh(s * 1.2) * 0.14 * env
                 }
-                // Lead: detuned sawtooth-ish stab for that 80s synth bite.
                 var lead: Float = 0
                 if leadF > 0 {
                     let phase = leadF * t
@@ -924,7 +770,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
                     let saw2 = 2 * ((leadF * 1.005) * t - floor((leadF * 1.005) * t + 0.5))
                     lead = (saw1 + saw2) * 0.05 * env
                 }
-                // 4-on-the-floor click on every quarter note for groove.
                 var click: Float = 0
                 if idx % 4 == 0 && j < Int(sampleRate * 0.012) {
                     let n = Float.random(in: -1...1)
@@ -938,16 +783,15 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     // MARK: - Voice
-
     private func speak(_ text: String, priority: Bool) {
         let now = CACurrentMediaTime()
         if !priority, now - lastSpeechTime < speechCooldown { return }
         lastSpeechTime = now
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.70  // slower drawl
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.70
         utterance.volume = 0.9
-        utterance.pitchMultiplier = 0.80                            // deeper baritone
+        utterance.pitchMultiplier = 0.80
         utterance.preUtteranceDelay = 0.05
         utterance.postUtteranceDelay = 0.06
         if priority { speech.stopSpeaking(at: .immediate) }

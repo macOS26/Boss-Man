@@ -7,12 +7,6 @@ protocol WorkerControllerDelegate: AnyObject {
     func workerDidEnterTile(_ grid: CGPoint)
 }
 
-/// Owns PETE, his grid position, and his Pac-Man-style turn-buffer
-/// movement. GameScene feeds it direction intents from any input
-/// source (keyboard / gamepad / pointer) via queueDirection, and it
-/// calls back through WorkerControllerDelegate whenever PETE actually
-/// finishes stepping into a new tile (so the scene can collect dots,
-/// trigger level-completes, etc.).
 @MainActor
 final class WorkerController {
     weak var delegate: WorkerControllerDelegate?
@@ -31,8 +25,8 @@ final class WorkerController {
         self.gridMap = gridMap
         self.sound = sound
         self.node = PixelPerson(
-            bodyColor: .systemTeal,
-            tieColor: .systemBlue,
+            bodyColor: .systemGreen,
+            tieColor: .systemYellow,
             hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
             shoeOutlineColor: .white,
             pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1),
@@ -42,10 +36,10 @@ final class WorkerController {
     }
 
     private func configureNode() {
-        node.name = "PETE"
+        node.name = Strings.Worker.pete
         node.position = gridMap.point(for: grid)
-        let tag = SKLabelNode(fontNamed: "Menlo-Bold")
-        tag.text = "PETE"
+        let tag = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        tag.text = Strings.Worker.pete
         tag.fontSize = 9
         tag.fontColor = .white
         tag.position = CGPoint(x: 0, y: 24)
@@ -61,9 +55,6 @@ final class WorkerController {
     func queueDirection(_ direction: MoveDirection) {
         queuedDirection = direction
         if self.direction == nil { self.direction = direction }
-        // Kick off motion immediately from rest — the chained SKAction
-        // completion handler self-perpetuates from there, no per-frame
-        // update loop required.
         if !isMoving { attemptStep() }
     }
 
@@ -71,7 +62,7 @@ final class WorkerController {
         direction = nil
         queuedDirection = nil
         isMoving = false
-        node.removeAction(forKey: "workerMove")
+        node.removeAction(forKey: Strings.ActionKey.workerMove)
         node.stopWalking()
     }
 
@@ -90,20 +81,11 @@ final class WorkerController {
         }
     }
 
-    /// True while PETE is wearing the spawn-protection orange shield.
-    /// Boss catch paths must skip if this is set.
     private(set) var isShielded = false
 
-    /// Three-second spawn invulnerability:
-    ///   • 0.0 – 1.2s  solid orange, single alpha pulse.
-    ///   • 0.0 – 1.5s  contacts disabled.
-    ///   • 1.5 – 3.0s  body color smoothly interpolates orange → teal.
-    ///   • 3.0s        contacts re-armed, isShielded cleared.
-    /// Cancels any prior shield in flight by reusing the "spawnShield"
-    /// action key.
     func applySpawnShield() {
-        node.removeAction(forKey: "spawnShield")
-        node.removeAction(forKey: "spawnShieldBlink")
+        node.removeAction(forKey: Strings.ActionKey.spawnShield)
+        node.removeAction(forKey: Strings.ActionKey.spawnShieldBlink)
         let orange = NSColor.systemOrange
         let teal = NSColor.systemTeal
         node.setBodyColor(orange)
@@ -111,11 +93,6 @@ final class WorkerController {
         node.physicsBody?.categoryBitMask = 0
         isShielded = true
 
-        // Blink alpha 1.0 ↔ 0.35 for the first 2 seconds. Four
-        // half-second cycles is a deliberate, readable pulse rather
-        // than a stroboscopic flicker. Ends with an explicit reset to
-        // alpha 1 so the subsequent color fade renders at full
-        // visibility.
         let blinkCycle = SKAction.sequence([
             .fadeAlpha(to: 0.35, duration: 0.6),
             .fadeAlpha(to: 1.0, duration: 0.6)
@@ -123,7 +100,7 @@ final class WorkerController {
         node.run(.sequence([
             .repeat(blinkCycle, count: 1),
             .run { [weak self] in self?.node.alpha = 1 }
-        ]), withKey: "spawnShieldBlink")
+        ]), withKey: Strings.ActionKey.spawnShieldBlink)
 
         let fadeDuration: TimeInterval = 1.5
         let waitBeforeFade: TimeInterval = 1.5
@@ -143,13 +120,9 @@ final class WorkerController {
                 self.node.physicsBody?.categoryBitMask = PhysicsCategory.worker
                 self.isShielded = false
             }
-        ]), withKey: "spawnShield")
+        ]), withKey: Strings.ActionKey.spawnShield)
     }
 
-    /// Linear-RGB interpolation between two NSColors. Converts both
-    /// to deviceRGB first so .redComponent / .greenComponent /
-    /// .blueComponent are safe to read on system colors (which are
-    /// otherwise in catalog/named color spaces and throw at access).
     private static func lerpColor(from a: NSColor, to b: NSColor, progress t: CGFloat) -> NSColor {
         let aRGB = a.usingColorSpace(.deviceRGB) ?? a
         let bRGB = b.usingColorSpace(.deviceRGB) ?? b
@@ -178,6 +151,15 @@ final class WorkerController {
         isMoving = true
         grid = next
         node.startWalking()
+        // Horizontal moves flip the body; vertical moves keep the
+        // current facing. The name tag stays upright (it sits beside
+        // PixelPerson.bodyContainer, not inside it).
+        switch direction {
+        case .left:  node.face(left: true)
+        case .right: node.face(left: false)
+        case .up, .down: break
+        }
+        node.setLookDirection(direction)
         sound.playFootstep()
         node.run(.sequence([
             SKAction.move(to: gridMap.point(for: next), duration: moveDuration),
@@ -195,7 +177,7 @@ final class WorkerController {
                     self.attemptStep()
                 }
             }
-        ]), withKey: "workerMove")
+        ]), withKey: Strings.ActionKey.workerMove)
     }
 
     private func neighbor(of grid: CGPoint, in direction: MoveDirection) -> CGPoint {

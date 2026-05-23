@@ -17,10 +17,6 @@ final class Pathfinder {
     }
 
     func shortestPath(from start: CGPoint, to goal: CGPoint) -> [CGPoint]? {
-        // Int-packed coordinate keys instead of String interpolation —
-        // BFS visits hundreds of cells per call and bosses in flee mode
-        // run several BFS calls per frame; allocating String keys for
-        // each visit was the dominant accumulating heap pressure.
         var frontier = [start]
         var cameFrom: [Int: CGPoint] = [Pathfinder.gridKey(start): start]
         var head = 0

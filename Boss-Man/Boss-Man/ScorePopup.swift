@@ -1,13 +1,11 @@
 import AppKit
 import SpriteKit
 
-/// One-off "+N" score popup that floats upward and fades. Lives in its
-/// own file so the scene doesn't have to.
 @MainActor
 enum ScorePopup {
     static func show(_ points: Int, at position: CGPoint, in scene: SKScene, color: NSColor = .systemYellow) {
-        let popup = SKLabelNode(fontNamed: "Menlo-Bold")
-        popup.text = points >= 0 ? "+\(points)" : "\(points)"
+        let popup = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        popup.text = Strings.Score.popup(points)
         popup.fontSize = 18
         popup.fontColor = color
         popup.position = CGPoint(x: position.x, y: position.y + 20)

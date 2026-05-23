@@ -7,25 +7,9 @@ final class MazeBuilder {
     let goldDiscPositions: [CGPoint]
     let machineNames: [Character: String]
     var cubicleColor: NSColor = .systemBlue
-    /// DEBUG: when true, skip dot AND gold-disc rendering so the
-    /// level completes the moment a TPS report is delivered.
     var debugSkipDots: Bool = false
-    /// Number of gold discs actually rendered by the most recent
-    /// build(). Used by GameScene to know how many to expect collected.
     private(set) var placedGoldDiscs: Int = 0
 
-    /// Spawn positions parsed from the level char grid during the most
-    /// recent build(). If the level doesn't specify a position with the
-    /// corresponding char, the entry is nil and GameScene / BossController
-    /// fall back to their hardcoded defaults.
-    ///
-    /// Char codes:
-    ///   `O` — Gold disc (collected as power-up)
-    ///   `W` — PETE / Worker spawn
-    ///   `1` — BOSS spawn      (red)
-    ///   `2` — LUMBERGH spawn  (purple)
-    ///   `3` — WADDAMS spawn   (orange)
-    ///   `4` — BOLTON spawn    (pink)
     private(set) var workerSpawnFromMap: CGPoint?
     private(set) var bossSpawnsFromMap: [Int: CGPoint] = [:]
     private(set) var goldDiscPositionsFromMap: [CGPoint] = []
@@ -40,7 +24,6 @@ final class MazeBuilder {
         self.machineNames = machineNames
     }
 
-    /// Builds the maze contents into the scene and returns the number of dots placed.
     @discardableResult
     func build(in scene: SKScene) -> Int {
         rebuildTextures()
@@ -65,27 +48,27 @@ final class MazeBuilder {
             for (columnIndex, char) in row.enumerated() {
                 let grid = CGPoint(x: columnIndex, y: rowIndex)
                 let position = map.point(for: grid)
-                if char == "#" {
+                if char == Strings.Tile.wallChar {
                     wallCenters.append(position)
                 } else {
-                    if (char == "." || char == "H") && !debugSkipDots {
+                    if (char == Strings.Tile.dotChar || char == Strings.Tile.hideoutChar) && !debugSkipDots {
                         dotPresence[rowIndex][columnIndex] = true
                         dotMap.setTileGroup(dotGroup, forColumn: columnIndex, row: rowIndex)
                         dotCount += 1
                     }
-                    if let name = machineNames[char], char != "D" {
+                    if let name = machineNames[char], char != Strings.Tile.brownBoxChar {
                         addMachine(name: name, symbol: String(char), at: position, in: scene)
-                    } else if char == "D" {
+                    } else if char == Strings.Tile.brownBoxChar {
                         addBrownBox(at: position, in: scene)
                     }
                     switch char {
-                    case "O": goldDiscPositionsFromMap.append(grid)
-                    case "W": workerSpawnFromMap = grid
-                    case "1": bossSpawnsFromMap[0] = grid
-                    case "2": bossSpawnsFromMap[1] = grid
-                    case "3": bossSpawnsFromMap[2] = grid
-                    case "4": bossSpawnsFromMap[3] = grid
-                    default:  break
+                    case Strings.Tile.goldDiscChar: goldDiscPositionsFromMap.append(grid)
+                    case Strings.Tile.workerChar:   workerSpawnFromMap = grid
+                    case Strings.Tile.boss1Char:    bossSpawnsFromMap[0] = grid
+                    case Strings.Tile.boss2Char:    bossSpawnsFromMap[1] = grid
+                    case Strings.Tile.boss3Char:    bossSpawnsFromMap[2] = grid
+                    case Strings.Tile.boss4Char:    bossSpawnsFromMap[3] = grid
+                    default: break
                     }
                 }
             }
@@ -94,8 +77,6 @@ final class MazeBuilder {
         addWallPhysics(centers: wallCenters, in: scene)
 
         placedGoldDiscs = 0
-        // Prefer disc positions parsed from the map; fall back to the
-        // hardcoded four-corner positions passed at init time.
         let discsToPlace = goldDiscPositionsFromMap.isEmpty
             ? goldDiscPositions
             : goldDiscPositionsFromMap
@@ -106,7 +87,6 @@ final class MazeBuilder {
         return dotCount
     }
 
-    /// Returns true if a dot was present (and is now removed) at the given grid cell.
     @discardableResult
     func collectDot(atColumn column: Int, row: Int) -> Bool {
         guard row >= 0, row < dotPresence.count,
@@ -117,29 +97,24 @@ final class MazeBuilder {
         return true
     }
 
-    /// Mark a machine as collected: gray it out for 15 seconds and
-    /// disable further contacts until the cooldown completes.
     func grayOutMachine(_ body: SKPhysicsBody, cooldown: TimeInterval = 15) {
         let machineNode = body.node
         machineNode?.alpha = 0.55
         body.contactTestBitMask = 0
-        machineNode?.removeAction(forKey: "machineCooldown")
+        machineNode?.removeAction(forKey: Strings.ActionKey.machineCooldown)
         machineNode?.run(.sequence([
             .wait(forDuration: cooldown),
             .run { [weak machineNode] in
                 machineNode?.alpha = 1
                 machineNode?.physicsBody?.contactTestBitMask = PhysicsCategory.worker
             }
-        ]), withKey: "machineCooldown")
+        ]), withKey: Strings.ActionKey.machineCooldown)
     }
 
-    /// Restore every grayed-out machine in `scene` whose name appears
-    /// in `names` (i.e. the required TPS items). Used after a boss
-    /// catch so the player can complete the report again.
     func resetGrayedMachines(in scene: SKScene, names: [String]) {
         for child in scene.children {
             guard let n = child.name, names.contains(n) else { continue }
-            child.removeAction(forKey: "machineCooldown")
+            child.removeAction(forKey: Strings.ActionKey.machineCooldown)
             child.alpha = 1
             child.physicsBody?.contactTestBitMask = PhysicsCategory.worker
         }
@@ -191,7 +166,7 @@ final class MazeBuilder {
                     let edge = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
                     edge.lineWidth = 1
                     edge.stroke()
-                    if char == "#" {
+                    if char == Strings.Tile.wallChar {
                         let fillRect = rect.insetBy(dx: 1, dy: 1)
                         color.withAlphaComponent(0.55).setFill()
                         NSBezierPath(rect: fillRect).fill()
@@ -253,10 +228,6 @@ final class MazeBuilder {
     }
 
     private func addGoldDisc(at position: CGPoint, in scene: SKScene) {
-        // Same visual as the level editor's gold disc swatch: yellow
-        // core circle + soft yellow halo + dark-gold stroke. Container
-        // node so the physics body and pulse scale apply to the whole
-        // composite.
         let disc = SKNode()
         disc.position = position
         disc.zPosition = 6
@@ -300,18 +271,18 @@ final class MazeBuilder {
 
     static func emoji(forSymbol symbol: String) -> String {
         switch symbol {
-        case "P": return "🖨️"
-        case "F": return "📠"
-        case "C": return "📄"
-        case "M": return "📚"
-        case "D": return "📦"
+        case Strings.Tile.printer:    return Strings.Emoji.printer
+        case Strings.Tile.fax:        return Strings.Emoji.fax
+        case Strings.Tile.coverSheet: return Strings.Emoji.coverSheet
+        case Strings.Tile.bookBinder: return Strings.Emoji.bookBinder
+        case Strings.Tile.brownBox:   return Strings.Emoji.brownBox
         default: return symbol
         }
     }
 
     private func addBrownBox(at position: CGPoint, in scene: SKScene) {
         let box = SKNode()
-        box.name = "Brown TPS Box"
+        box.name = Strings.Machine.brownBox
         box.position = position
         box.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 28))
         box.physicsBody?.isDynamic = false
@@ -320,7 +291,7 @@ final class MazeBuilder {
         scene.addChild(box)
 
         let label = SKLabelNode()
-        label.text = "📦"
+        label.text = Strings.Emoji.brownBox
         label.fontSize = 28
         label.verticalAlignmentMode = .center
         label.position = .zero

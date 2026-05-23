@@ -14,10 +14,10 @@ enum MoveDirection {
 
     init?(keyCode: UInt16) {
         switch keyCode {
-        case 123, 0:  self = .left   // ← / A
-        case 124, 2:  self = .right  // → / D
-        case 125, 1:  self = .down   // ↓ / S
-        case 126, 13: self = .up     // ↑ / W
+        case 123, 0:  self = .left
+        case 124, 2:  self = .right
+        case 125, 1:  self = .down
+        case 126, 13: self = .up
         default: return nil
         }
     }

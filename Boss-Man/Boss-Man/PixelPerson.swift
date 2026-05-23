@@ -2,6 +2,11 @@ import AppKit
 import SpriteKit
 
 final class PixelPerson: SKNode {
+    // All body parts live inside this container so face(left:) can mirror
+    // the entire body without flipping the name tag that callers attach
+    // directly to PixelPerson (the tag stays a sibling of bodyContainer).
+    private let bodyContainer = SKNode()
+
     private let torso: SKShapeNode
     private let leftArm: SKShapeNode
     private let rightArm: SKShapeNode
@@ -10,8 +15,14 @@ final class PixelPerson: SKNode {
     private let tie: SKShapeNode
     private let walkExaggeration: CGFloat
 
+    // MARK: - Eye tracking
+    private var leftEye: SKShapeNode?
+    private var rightEye: SKShapeNode?
+    private static let leftEyeBase  = CGPoint(x: -3, y: 0)
+    private static let rightEyeBase = CGPoint(x:  3, y: 0)
+
     private var walkingPaused = false
-    private var walkActionsAttached: Bool { leftLeg.action(forKey: "walk") != nil }
+    private var walkActionsAttached: Bool { leftLeg.action(forKey: Strings.ActionKey.walk) != nil }
     var isWalking: Bool { walkActionsAttached && !walkingPaused }
 
     init(bodyColor: NSColor,
@@ -32,18 +43,19 @@ final class PixelPerson: SKNode {
         leftArm = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
         rightArm = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
         super.init()
+        addChild(bodyContainer)
 
         leftLeg.fillColor = pantsColor
         leftLeg.strokeColor = .clear
         leftLeg.position = CGPoint(x: -4, y: -14)
         leftLeg.zPosition = 1
-        addChild(leftLeg)
+        bodyContainer.addChild(leftLeg)
 
         rightLeg.fillColor = leftLeg.fillColor
         rightLeg.strokeColor = .clear
         rightLeg.position = CGPoint(x: 4, y: -14)
         rightLeg.zPosition = 1
-        addChild(rightLeg)
+        bodyContainer.addChild(rightLeg)
 
         let leftShoe = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
         leftShoe.fillColor = shoeColor
@@ -64,14 +76,14 @@ final class PixelPerson: SKNode {
         torso.lineWidth = 1.5
         torso.position = CGPoint(x: 0, y: -2)
         torso.zPosition = 2
-        addChild(torso)
+        bodyContainer.addChild(torso)
 
         tie.fillColor = tieColor
         tie.strokeColor = wearsSunglasses ? .white : .clear
         tie.lineWidth = wearsSunglasses ? 1 : 0
         tie.position = CGPoint(x: 0, y: -2)
         tie.zPosition = 3
-        addChild(tie)
+        bodyContainer.addChild(tie)
 
         let collar = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
         collar.fillColor = .white
@@ -84,14 +96,14 @@ final class PixelPerson: SKNode {
         leftArm.lineWidth = 1
         leftArm.position = CGPoint(x: -11, y: -2)
         leftArm.zPosition = 3
-        addChild(leftArm)
+        bodyContainer.addChild(leftArm)
 
         rightArm.fillColor = bodyColor
         rightArm.strokeColor = .white
         rightArm.lineWidth = 1
         rightArm.position = CGPoint(x: 11, y: -2)
         rightArm.zPosition = 3
-        addChild(rightArm)
+        bodyContainer.addChild(rightArm)
 
         let leftHand = SKShapeNode(circleOfRadius: 2.5)
         leftHand.fillColor = skin
@@ -111,7 +123,7 @@ final class PixelPerson: SKNode {
         head.lineWidth = 1
         head.position = CGPoint(x: 0, y: 13)
         head.zPosition = 4
-        addChild(head)
+        bodyContainer.addChild(head)
 
         let hair = SKShapeNode(rectOf: CGSize(width: 14, height: 4))
         hair.fillColor = hairColor
@@ -120,9 +132,7 @@ final class PixelPerson: SKNode {
         head.addChild(hair)
 
         if wearsSunglasses {
-            // 🕶️ emoji as the shades graphic — sized to span the head's
-            // eye row.
-            let shades = SKLabelNode(text: "🕶️")
+            let shades = SKLabelNode(text: Strings.Emoji.sunglasses)
             shades.fontSize = 11
             shades.verticalAlignmentMode = .center
             shades.horizontalAlignmentMode = .center
@@ -130,22 +140,24 @@ final class PixelPerson: SKNode {
             shades.zPosition = 5
             head.addChild(shades)
         } else {
-            let leftEye = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
-            leftEye.fillColor = .black
-            leftEye.strokeColor = .clear
-            leftEye.position = CGPoint(x: -3, y: 0)
-            head.addChild(leftEye)
+            let l = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            l.fillColor = .black
+            l.strokeColor = .clear
+            l.position = Self.leftEyeBase
+            head.addChild(l)
+            leftEye = l
 
-            let rightEye = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
-            rightEye.fillColor = .black
-            rightEye.strokeColor = .clear
-            rightEye.position = CGPoint(x: 3, y: 0)
-            head.addChild(rightEye)
+            let r = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            r.fillColor = .black
+            r.strokeColor = .clear
+            r.position = Self.rightEyeBase
+            head.addChild(r)
+            rightEye = r
         }
     }
 
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        fatalError(Strings.System.initCoderUnsupported)
     }
 
     func setBodyColor(_ color: NSColor) {
@@ -155,7 +167,27 @@ final class PixelPerson: SKNode {
     }
 
     func face(left: Bool) {
-        xScale = left ? -1 : 1
+        // Flip ONLY the body — name tag (added by callers as a direct
+        // child of this PixelPerson) sits beside bodyContainer and stays
+        // upright/readable.
+        bodyContainer.xScale = left ? -1 : 1
+    }
+
+    // MARK: - Eye tracking
+    /// Shifts both eyes 1px in the look direction (relative to the body's
+    /// own coordinate space, so horizontal looks automatically follow
+    /// face(left:)). Pass `nil` to recenter.
+    func setLookDirection(_ dir: MoveDirection?) {
+        guard let leftEye, let rightEye else { return }
+        let offset: CGPoint
+        switch dir {
+        case .left, .right: offset = CGPoint(x: 1, y: 0)
+        case .up:           offset = CGPoint(x: 0, y: 1)
+        case .down:         offset = CGPoint(x: 0, y: -1)
+        case .none:         offset = .zero
+        }
+        leftEye.position  = CGPoint(x: Self.leftEyeBase.x  + offset.x, y: Self.leftEyeBase.y  + offset.y)
+        rightEye.position = CGPoint(x: Self.rightEyeBase.x + offset.x, y: Self.rightEyeBase.y + offset.y)
     }
 
     func startWalking() {
@@ -180,8 +212,8 @@ final class PixelPerson: SKNode {
             SKAction.wait(forDuration: stepDuration),
             legCycle
         ])
-        leftLeg.run(legCycle, withKey: "walk")
-        rightLeg.run(legCycleOffset, withKey: "walk")
+        leftLeg.run(legCycle, withKey: Strings.ActionKey.walk)
+        rightLeg.run(legCycleOffset, withKey: Strings.ActionKey.walk)
 
         let armCycle = SKAction.repeatForever(.sequence([
             SKAction.moveBy(x: 0, y: -armSwing, duration: stepDuration),
@@ -191,8 +223,8 @@ final class PixelPerson: SKNode {
             SKAction.wait(forDuration: stepDuration),
             armCycle
         ])
-        leftArm.run(armCycleOffset, withKey: "walk")
-        rightArm.run(armCycle, withKey: "walk")
+        leftArm.run(armCycleOffset, withKey: Strings.ActionKey.walk)
+        rightArm.run(armCycle, withKey: Strings.ActionKey.walk)
     }
 
     func stopWalking() {

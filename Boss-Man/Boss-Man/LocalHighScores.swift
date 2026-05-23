@@ -1,9 +1,5 @@
 import Foundation
 
-/// Device-local top-N high scores backed by UserDefaults. Used by
-/// LeaderboardPanel as a fallback when Game Center isn't configured
-/// (no .gamekit bundle, no App Store Connect leaderboard) so the title
-/// screen still has something meaningful to display.
 struct LocalHighScores {
     struct Entry: Codable {
         let name: String
@@ -11,7 +7,7 @@ struct LocalHighScores {
         let date: Date
     }
 
-    static let storeKey = "Boss-Man.localHighScores"
+    static let storeKey = Strings.DefaultsKey.localHighScores
     static let maxEntries = 10
 
     static func load() -> [Entry] {
@@ -22,9 +18,6 @@ struct LocalHighScores {
         return entries
     }
 
-    /// Inserts the score into the top-N store unconditionally (every
-    /// completed run is recorded — the panel renders newest at top after
-    /// sorting by score). Returns the 1-based rank of the new entry.
     @discardableResult
     static func record(name: String, score: Int) -> Int? {
         guard score > 0 else {
