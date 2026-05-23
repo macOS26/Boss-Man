@@ -108,7 +108,9 @@ class LevelEditorScene: SKScene {
     var gridCols = 0
     var mapRows: [String] = []
     var selectedTile: EditorTile = .wall
-    var currentLevelIndex = 0
+    var currentLevelIndex = UserDefaults.standard.integer(forKey: "LevelEditor_LastLevelIndex") {
+        didSet { UserDefaults.standard.set(currentLevelIndex, forKey: "LevelEditor_LastLevelIndex") }
+    }
     
     let panelWidth: CGFloat = 148
     let margin: CGFloat = 12
@@ -652,11 +654,18 @@ class LevelEditorScene: SKScene {
     
     func handleInput(_ loc: CGPoint, begin: Bool) {
         if begin {
-            let node = atPoint(loc)
-            let name = node.name ?? Strings.empty
+            // Check all nodes at the click point (including children) so clicking
+            // anywhere in a palette row — sprite, text, or background — works.
+            let hitNodes = nodes(at: loc)
+            let paletteName = hitNodes.compactMap { node -> String? in
+                if let name = node.name, name.hasPrefix(LevelEditorScene.paletteNamePrefix) { return name }
+                if let name = node.parent?.name, name.hasPrefix(LevelEditorScene.paletteNamePrefix) { return name }
+                if let name = node.parent?.parent?.name, name.hasPrefix(LevelEditorScene.paletteNamePrefix) { return name }
+                return nil
+            }.first
             
-            if name.hasPrefix(LevelEditorScene.paletteNamePrefix) {
-                let ch = name.suffix(1).first!
+            if let palName = paletteName {
+                let ch = palName.suffix(1).first!
                 if let tile = EditorTile.all.first(where: { $0.character == ch }) {
                     selectedTile = tile
                     updatePaletteHighlight()
@@ -664,6 +673,7 @@ class LevelEditorScene: SKScene {
                 return
             }
             
+            let name = hitNodes.first?.name ?? Strings.empty
             switch name {
             case Strings.EditorButton.prev:
                 let count = Levels.levelNames.count
