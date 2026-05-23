@@ -690,11 +690,27 @@ class LevelEditorScene: SKScene {
     override func mouseUp(with event: NSEvent) { }
     
     override func rightMouseDown(with event: NSEvent) {
-        paint(at: event.location(in: self), tile: .dot)
+        paintRightClick(at: event.location(in: self))
     }
-    
+
     override func rightMouseDragged(with event: NSEvent) {
-        paint(at: event.location(in: self), tile: .dot)
+        paintRightClick(at: event.location(in: self))
+    }
+
+    /// Right-click toggles wall↔dot when the target is one of those;
+    /// any other tile becomes a dot.
+    private func paintRightClick(at loc: CGPoint) {
+        let col = Int((loc.x - gridOffsetX) / tileSize)
+        let row = gridRows - 1 - Int((loc.y - gridOffsetY) / tileSize)
+        guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
+        let current = charAt(row: row, col: col)
+        let tile: EditorTile
+        switch current {
+        case Strings.Tile.dotChar:  tile = .wall
+        case Strings.Tile.wallChar: tile = .dot
+        default:                    tile = .dot
+        }
+        paint(at: loc, tile: tile)
     }
     
     func handleInput(_ loc: CGPoint, begin: Bool) {
