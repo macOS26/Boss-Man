@@ -233,7 +233,7 @@ class LevelEditorScene: SKScene {
         uiContainer.addChild(statusLabel)
         
         paletteNodes = []
-        let palStartY = frame.height - 92
+        let palStartY = frame.height - 89
         let palSpacing: CGFloat = 21
         
         for (i, tile) in EditorTile.all.enumerated() {
