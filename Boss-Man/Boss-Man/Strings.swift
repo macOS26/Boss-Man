@@ -158,7 +158,7 @@ enum Strings {
         static let next          = "NEXT  >"
         static let undo          = "UNDO  command Z"
         static let redo          = "REDO  shift command Z"
-        static let clear         = "CLEAR command ⌫"
+        static let clear         = "CLEAR command delete"
         static let clearConfirmTitle       = "Clear this level?"
         static let clearConfirmBody        = "This wipes every tile to floor. You can undo immediately with ⌘Z."
         static let clearConfirmDestructive = "Clear"
