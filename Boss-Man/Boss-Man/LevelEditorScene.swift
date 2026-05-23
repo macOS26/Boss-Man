@@ -296,8 +296,8 @@ class LevelEditorScene: SKScene {
             lbl.fontSize = 9
             lbl.fontColor = NSColor.white
             lbl.verticalAlignmentMode = .center
-            lbl.horizontalAlignmentMode = .center
-            lbl.position = CGPoint(x: cx, y: by + btnHeight / 2)
+            lbl.horizontalAlignmentMode = .left
+            lbl.position = CGPoint(x: panelX + 8 + 25, y: by + btnHeight / 2)
             lbl.zPosition = 102
             lbl.name = name
             uiContainer.addChild(lbl)
