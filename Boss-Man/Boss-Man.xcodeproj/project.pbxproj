@@ -10,14 +10,14 @@
 		EA14DCAF2FC16F42002E8617 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = EA14DC752FC16F42002E8617 /* AppIcon.icon */; };
 		EA14DCB02FC16F42002E8617 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA14DC762FC16F42002E8617 /* Assets.xcassets */; };
 		EA14DCB52FC221DA002E8617 /* red-stapler.png in Resources */ = {isa = PBXBuildFile; fileRef = EA14DCB42FC221DA002E8617 /* red-stapler.png */; };
-		EA14DCB92FC22B34002E8617 /* shinyredstapler.png in Resources */ = {isa = PBXBuildFile; fileRef = EA14DCB82FC22B34002E8617 /* shinyredstapler.png */; };
+		EA14DCC12FC22B34002E8617 /* shinyredstapler-emoji.png in Resources */ = {isa = PBXBuildFile; fileRef = EA14DCC02FC22B34002E8617 /* shinyredstapler-emoji.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		EA14DC752FC16F42002E8617 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		EA14DC762FC16F42002E8617 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EA14DCB42FC221DA002E8617 /* red-stapler.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "red-stapler.png"; sourceTree = "<group>"; };
-		EA14DCB82FC22B34002E8617 /* shinyredstapler.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = shinyredstapler.png; sourceTree = "<group>"; };
+		EA14DCC02FC22B34002E8617 /* shinyredstapler-emoji.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "shinyredstapler-emoji.png"; sourceTree = "<group>"; };
 		EAAA3BE62FBB7DEF00D451DE /* Boss-Man.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Boss-Man.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -45,7 +45,7 @@
 			children = (
 				EA14DC762FC16F42002E8617 /* Assets.xcassets */,
 				EA14DC752FC16F42002E8617 /* AppIcon.icon */,
-				EA14DCB82FC22B34002E8617 /* shinyredstapler.png */,
+				EA14DCC02FC22B34002E8617 /* shinyredstapler-emoji.png */,
 				EA14DCB42FC221DA002E8617 /* red-stapler.png */,
 			);
 			path = Resources;
@@ -135,7 +135,7 @@
 				EA14DCAF2FC16F42002E8617 /* AppIcon.icon in Resources */,
 				EA14DCB02FC16F42002E8617 /* Assets.xcassets in Resources */,
 				EA14DCB52FC221DA002E8617 /* red-stapler.png in Resources */,
-				EA14DCB92FC22B34002E8617 /* shinyredstapler.png in Resources */,
+				EA14DCC12FC22B34002E8617 /* shinyredstapler-emoji.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,7 +280,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Boss-Man/Boss-Man.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 469UCUB275;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -296,7 +296,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -318,7 +318,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 469UCUB275;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -344,7 +344,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

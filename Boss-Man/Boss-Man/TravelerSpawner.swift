@@ -128,8 +128,7 @@ final class TravelerSpawner {
             let sprite = SKSpriteNode(texture: SKTexture(image: nsImage))
             let targetHeight: CGFloat = 36 * 0.75
             let aspect = nsImage.size.width / nsImage.size.height
-            // Squash width by 0.8 — intentional distortion to read narrower.
-            sprite.size = CGSize(width: targetHeight * aspect * 0.8, height: targetHeight)
+            sprite.size = CGSize(width: targetHeight * aspect, height: targetHeight)
             visual = sprite
         } else {
             let label = SKLabelNode()

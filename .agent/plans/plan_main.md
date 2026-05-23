@@ -1,10 +1,9 @@
-# level-editor
+# leaderboard-improvements
 
-- [✅] 1. Create LevelEditorScene.swift with full 2D Minecraft-like tile editor
-- [✅] 2. Modify Levels.swift - make officeMaps mutable, add LevelStore persistence
-- [✅] 3. Modify BossManApp.swift - add Level Editor menu item
-- [✅] 4. Add LevelEditorScene.swift to Xcode project
-- [ ] 5. Build and verify
+- [✅] 1. 1. Modify LocalHighScores to only keep each player's HIGHEST score (currently keeps all scores)
+- [⏳] 2. 2. Add a username dialog (SKScene-based) that lets the user enter a custom username when they qualify for the leaderboard
+- [ ] 3. 3. Replace GameCenterClient.currentPlayerName() with the custom username in the score recording path
+- [ ] 4. 4. Build and test
 
 ---
-*Status: 4 done, 0 in progress, 0 failed, 1 pending*
+*Status: 1 done, 1 in progress, 0 failed, 2 pending*
