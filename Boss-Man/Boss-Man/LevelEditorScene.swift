@@ -67,12 +67,15 @@ class LevelStore {
 // MARK: - Level Editor Scene
 class LevelEditorScene: SKScene {
     
-    let tileSize: CGFloat = 32
+    var tileSize: CGFloat = 32   // computed dynamically in rebuildGrid
     var gridRows = 0
     var gridCols = 0
     var mapRows: [String] = []          // The actual level data
     var selectedTile: EditorTile = .wall
     var currentLevelIndex = 0
+    
+    let panelWidth: CGFloat = 148
+    let margin: CGFloat = 12
     
     var gridContainer = SKNode()
     var tileNodes: [[SKShapeNode]] = []
@@ -81,6 +84,9 @@ class LevelEditorScene: SKScene {
     var levelLabel: SKLabelNode!
     var statusLabel: SKLabelNode!
     var saveButton: SKShapeNode!
+    
+    var gridOffsetX: CGFloat = 12
+    var gridOffsetY: CGFloat = 12
     
     // MARK: - Scene Setup
     override func didMove(to view: SKView) {
@@ -211,8 +217,21 @@ class LevelEditorScene: SKScene {
         gridContainer.removeAllChildren()
         tileNodes = []
         
-        let offsetX: CGFloat = 12
-        let offsetY: CGFloat = 12
+        // Auto-calculate tile size so the full grid fits left of the panel
+        let availWidth = frame.width - panelWidth - margin * 2 - 8
+        let availHeight = frame.height - margin * 2
+        
+        let fitW = gridCols > 0 ? availWidth / CGFloat(gridCols) : 32
+        let fitH = gridRows > 0 ? availHeight / CGFloat(gridRows) : 32
+        tileSize = min(fitW, fitH)
+        tileSize = max(tileSize, 4) // minimum 4px per tile
+        
+        let totalW = CGFloat(gridCols) * tileSize
+        let totalH = CGFloat(gridRows) * tileSize
+        let offsetX = (availWidth - totalW) / 2 + margin
+        let offsetY = (availHeight - totalH) / 2 + margin
+        gridOffsetX = offsetX
+        gridOffsetY = offsetY
         
         for row in 0..<gridRows {
             var rowNodes: [SKShapeNode] = []
@@ -383,11 +402,8 @@ class LevelEditorScene: SKScene {
     }
     
     func paint(at loc: CGPoint, tile: EditorTile) {
-        let offsetX: CGFloat = 12
-        let offsetY: CGFloat = 12
-        
-        let col = Int((loc.x - offsetX) / tileSize)
-        let row = Int((loc.y - offsetY) / tileSize)
+        let col = Int((loc.x - gridOffsetX) / tileSize)
+        let row = Int((loc.y - gridOffsetY) / tileSize)
         
         guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
         
