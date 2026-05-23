@@ -20,7 +20,7 @@ final class TitleScene: SKScene {
         } ?? "Helvetica-Bold"
         
         let title = SKLabelNode(fontNamed: titleFontBold)
-        title.text = "BOSS-MAN"
+        title.text = Strings.Title.gameTitle
         title.fontSize = 108
         title.fontColor = .black
         title.position = CGPoint(x: size.width / 2, y: size.height * 0.74)
@@ -33,7 +33,7 @@ final class TitleScene: SKScene {
         addChild(stapler)
 
         let prompt = SKLabelNode(fontNamed: titleFont)
-        prompt.text = "SPACE to Play · E for Editor"
+        prompt.text = Strings.Title.pressSpace
         prompt.fontSize = 40
         prompt.fontColor = .black
         prompt.position = CGPoint(x: size.width / 2, y: size.height * 0.15)
@@ -46,7 +46,7 @@ final class TitleScene: SKScene {
         let high = UserDefaults.standard.integer(forKey: TitleScene.highScoreKey)
         if high > 0 {
             let hs = SKLabelNode(fontNamed: titleFont)
-            hs.text = "HIGH SCORE \(high)"
+            hs.text = Strings.Title.highScore(high)
             hs.fontSize = 26
             hs.fontColor = .black
             hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06)

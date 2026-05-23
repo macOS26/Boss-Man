@@ -31,7 +31,7 @@ struct EditorTile: Equatable {
     static let fax      = EditorTile(character: "F", displayName: "Fax")
     static let copy     = EditorTile(character: "C", displayName: "Cover Sheet")
     static let collator = EditorTile(character: "M", displayName: "Book Binder")
-    static let brownBox = EditorTile(character: "D", displayName: "Brown Box")
+    static let brownBox = EditorTile(character: "D", displayName: "Brown TPS Box")
     static let goldDisc = EditorTile(character: "O", displayName: "Gold Disc")
     static let worker   = EditorTile(character: "W", displayName: "PETE")
     static let boss1    = EditorTile(character: "1", displayName: "BOSS")

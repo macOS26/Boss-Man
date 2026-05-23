@@ -298,11 +298,12 @@ final class BossController {
     }
 
     /// Called when PETE dies — fully tear every boss down and respawn
-    /// from scratch at the current level. Cleaner than per-boss state
-    /// reset because it guarantees zero leftover SKActions, physics
-    /// state, or stale node references.
+    /// from scratch at the current level. Funnels through the SAME
+    /// spawn(forLevel:spawnOverrides:) path the original level-start
+    /// uses, so map-driven cells (`1`/`2`/`3`/`4`) are preserved across
+    /// every respawn instead of falling back to default corners.
     func teleportAllToSpawn() {
-        spawn(forLevel: currentLevel)
+        spawn(forLevel: currentLevel, spawnOverrides: currentSpawnOverrides)
     }
 
     func stopAll() {

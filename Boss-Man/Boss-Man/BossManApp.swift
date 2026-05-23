@@ -99,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
     private func presentGameCenterAuth(_ viewController: NSViewController) {
         let authWindow = NSWindow(contentViewController: viewController)
         authWindow.styleMask = [.titled, .closable]
-        authWindow.title = "Sign in to Game Center"
+        authWindow.title = Strings.App.signInToGameCenter
         authWindow.center()
         authWindow.makeKeyAndOrderFront(nil)
     }
@@ -111,11 +111,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
 
     @objc private func resetLocalLeaderboard(_ sender: Any?) {
         let alert = NSAlert()
-        alert.messageText = "Reset Local Leaderboard?"
-        alert.informativeText = "This clears every high-score entry stored on this Mac. Game Center scores are unaffected and can only be reset from App Store Connect."
+        alert.messageText = Strings.App.resetAlertTitle
+        alert.informativeText = Strings.App.resetAlertBody
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Reset")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: Strings.App.resetButton)
+        alert.addButton(withTitle: Strings.App.cancelButton)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         UserDefaults.standard.removeObject(forKey: LocalHighScores.storeKey)
         UserDefaults.standard.removeObject(forKey: RoundState.highScoreKey)
@@ -130,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         vc.gameCenterDelegate = self
         let hostingWindow = NSWindow(contentViewController: vc)
         hostingWindow.styleMask = [.titled, .closable, .resizable]
-        hostingWindow.title = "Game Center"
+        hostingWindow.title = Strings.App.gameCenter
         hostingWindow.setContentSize(CGSize(width: 720, height: 540))
         hostingWindow.center()
         hostingWindow.makeKeyAndOrderFront(nil)
@@ -161,7 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         appMenu.addItem(NSMenuItem.separator())
 
         let startFullscreenItem = appMenu.addItem(
-            withTitle: "Start in Full Screen",
+            withTitle: Strings.App.startFullscreen,
             action: #selector(toggleStartFullscreenPreference(_:)),
             keyEquivalent: ""
         )
@@ -170,14 +170,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         startFullscreenMenuItem = startFullscreenItem
 
         let resetLeaderboardItem = appMenu.addItem(
-            withTitle: "Reset Local Leaderboard…",
+            withTitle: Strings.App.resetLocalLeaderboard,
             action: #selector(resetLocalLeaderboard(_:)),
             keyEquivalent: ""
         )
         resetLeaderboardItem.target = self
 
         let gameCenterItem = appMenu.addItem(
-            withTitle: "Game Center",
+            withTitle: Strings.App.gameCenter,
             action: #selector(openGameCenter(_:)),
             keyEquivalent: ""
         )

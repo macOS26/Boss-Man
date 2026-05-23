@@ -311,7 +311,7 @@ final class MazeBuilder {
 
     private func addBrownBox(at position: CGPoint, in scene: SKScene) {
         let box = SKNode()
-        box.name = "Brown Box"
+        box.name = "Brown TPS Box"
         box.position = position
         box.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 30, height: 28))
         box.physicsBody?.isDynamic = false

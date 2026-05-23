@@ -6,9 +6,13 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let workerSpawn = CGPoint(x: 18, y: 7)
     private let goldDiscDuration: TimeInterval = 20
 
-    private let requiredItems = ["Printer", "Fax", "Cover Sheet", "Book Binder"]
+    private let requiredItems = Strings.Machine.required
     private let machineNames: [Character: String] = [
-        "P": "Printer", "F": "Fax", "C": "Cover Sheet", "M": "Book Binder", "D": "Brown Box"
+        "P": Strings.Machine.printer,
+        "F": Strings.Machine.fax,
+        "C": Strings.Machine.coverSheet,
+        "M": Strings.Machine.bookBinder,
+        "D": Strings.Machine.brownBox
     ]
     private let goldDiscPositions = [
         CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
@@ -71,10 +75,8 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         wireContactRouter()
 
         buildLevel()
-        let startMsg = state.practiceMode
-            ? "PRACTICE MODE — score not saved"
-            : "Collect office dots and finish the TPS report!"
-        hud.showMessage(startMsg, duration: 3)
+        hud.showMessage(state.practiceMode ? Strings.Message.practiceMode : Strings.Message.intro,
+                        duration: 3)
         inputController.delegate = self
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
@@ -119,7 +121,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             inputController.hideCursor()
             hud.showMessage("", duration: 0.1)
         } else {
-            hud.showMessage("Paused — press SPACE to resume", duration: 9999)
+            hud.showMessage(Strings.Message.paused, duration: 9999)
             inputController.unhideCursor()
             isPaused = true
             sound.pauseAudio()
@@ -164,7 +166,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         if state.tpsReportsDelivered >= 1 {
             startNextLevel()
         } else {
-            hud.showMessage("Turn in at least 1 TPS report to complete the level!", duration: 3)
+            hud.showMessage(Strings.Message.needTPSReport, duration: 3)
         }
     }
 
@@ -176,7 +178,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         sound.playCaptureBoss(streak: points / 100)
         ScorePopup.show(points, at: position, in: self)
         refreshHUD()
-        hud.showMessage("\(name) captured! +\(points)", duration: 2)
+        hud.showMessage(Strings.Message.bossCaptured(name: name, points: points), duration: 2)
     }
 
     // MARK: - Contact wiring
@@ -241,9 +243,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         mazeBuilder.grayOutMachine(body)
         refreshHUD()
         if state.reportItems.count == requiredItems.count {
-            hud.showMessage("TPS report complete! Deliver it to a brown box.", duration: 6)
+            hud.showMessage(Strings.Message.tpsReportReady, duration: 6)
         } else {
-            hud.showMessage("Collected \(name) page for TPS report +\(reportItemPoints[itemIndex])", duration: 2)
+            hud.showMessage(Strings.Message.reportItemCollected(name: name,
+                                                                points: reportItemPoints[itemIndex]),
+                            duration: 2)
         }
     }
 
@@ -298,13 +302,15 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.bumpScore(by: caught.traveler.points)
         sound.playFishOrTreat()
         refreshHUD()
-        hud.showMessage("Caught \(caught.emoji)! +\(caught.traveler.points)", duration: 2)
+        hud.showMessage(Strings.Message.travelerCaught(emoji: caught.emoji,
+                                                       points: caught.traveler.points),
+                        duration: 2)
         ScorePopup.show(caught.traveler.points, at: caught.position, in: self)
     }
 
     private func collectTPSReport() {
         guard state.reportItems.count == requiredItems.count else {
-            hud.showMessage("Brown boxes collect finished TPS reports.", duration: 2)
+            hud.showMessage(Strings.Message.brownBoxHint, duration: 2)
             return
         }
         state.tpsReportsDelivered += 1
@@ -357,7 +363,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         if state.lives <= 0 {
             triggerGameOver()
         } else {
-            hud.showMessage("A boss caught you! \(state.lives) workers left.", duration: 3)
+            hud.showMessage(Strings.Message.bossCaughtYou(state.lives), duration: 3)
         }
     }
 
@@ -398,14 +404,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         isGameOver = false
         state.resetForNewGame()
         resetSceneAndBuild()
-        hud.showMessage("New game! Collect dots and TPS reports.", duration: 3)
+        hud.showMessage(Strings.Message.newGame, duration: 3)
     }
 
     private func startNextLevel() {
         state.advanceLevel()
         resetSceneAndBuild()
         sound.playLevelStart()
-        hud.showMessage("Level \(state.level)! New office floor loaded.", duration: 3)
+        hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
     }
 
     private func returnToTitleScene() {
@@ -426,7 +432,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             .wait(forDuration: 20),
             .run { [weak self] in self?.endGoldDiscMode() }
         ]), withKey: "goldDiscExpiry")
-        hud.showMessage("Gold disc! Capture the bosses for 20 seconds.", duration: 3)
+        hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
     }
 
     private func endGoldDiscMode() {
@@ -434,7 +440,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         bossController.setGoldDiscActive(false)
         sound.stopGoldDiscBass()
         removeAction(forKey: "goldDiscExpiry")
-        hud.showMessage("Gold disc mode ended.", duration: 2)
+        hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
     }
 
     // MARK: - HUD

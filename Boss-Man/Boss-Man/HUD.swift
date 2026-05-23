@@ -59,7 +59,7 @@ final class HUD {
         livesLabel.position = CGPoint(x: 16, y: size.height - 84)
         livesLabel.zPosition = 21
         livesLabel.fontColor = .systemGreen
-        livesLabel.text = "Lives:"
+        livesLabel.text = Strings.HUD.livesPrefix
         scene.addChild(livesLabel)
 
         lifeIcons.removeAll()
@@ -97,14 +97,16 @@ final class HUD {
     }
 
     private static let emojiByName: [String: String] = [
-        "Printer": "🖨️",
-        "Fax": "📠",
-        "Cover Sheet": "📄",
-        "Book Binder": "📚"
+        Strings.Machine.printer:    "🖨️",
+        Strings.Machine.fax:        "📠",
+        Strings.Machine.coverSheet: "📄",
+        Strings.Machine.bookBinder: "📚"
     ]
 
     func updateStatus(score: Int, highScore: Int, level: Int, dots: Int, total: Int, reports: Int, items: Set<String>) {
-        let statusText = "Score: \(score)   High: \(highScore)   Level: \(level)   Dots: \(dots)/\(total)   Reports: \(reports)"
+        let statusText = Strings.HUD.statusLine(score: score, highScore: highScore,
+                                                 level: level, dots: dots,
+                                                 total: total, reports: reports)
         if statusText != lastStatusText {
             statusLabel.text = statusText
             lastStatusText = statusText
@@ -115,7 +117,7 @@ final class HUD {
                 return items.contains(name) ? "✅\(icon)" : "❌\(icon)"
             }
             .joined(separator: "  ")
-        let tpsText = "TPS: \(parts)"
+        let tpsText = "\(Strings.HUD.tpsPrefix) \(parts)"
         if tpsText != lastTpsText {
             tpsLabel.text = tpsText
             lastTpsText = tpsText
@@ -167,7 +169,7 @@ final class HUD {
         overlay.addChild(frame)
 
         let gameOver = SKLabelNode(fontNamed: "Menlo-Bold")
-        gameOver.text = "GAME OVER"
+        gameOver.text = Strings.HUD.gameOver
         gameOver.fontSize = 56
         gameOver.fontColor = .systemRed
         gameOver.position = CGPoint(x: size.width / 2, y: size.height / 2 + 20)
@@ -175,7 +177,7 @@ final class HUD {
         overlay.addChild(gameOver)
 
         let prompt = SKLabelNode(fontNamed: "Menlo-Bold")
-        prompt.text = "PRESS SPACE TO START A NEW GAME"
+        prompt.text = Strings.HUD.promptNewGame
         prompt.fontSize = 18
         prompt.fontColor = .systemYellow
         prompt.position = CGPoint(x: size.width / 2, y: size.height / 2 - 40)
@@ -187,7 +189,7 @@ final class HUD {
         overlay.addChild(prompt)
 
         let exit = SKLabelNode(fontNamed: "Menlo-Bold")
-        exit.text = "PRESS ESC FOR TITLE SCREEN"
+        exit.text = Strings.HUD.promptTitle
         exit.fontSize = 14
         exit.fontColor = NSColor(calibratedWhite: 0.75, alpha: 1)
         exit.position = CGPoint(x: size.width / 2, y: size.height / 2 - 72)
