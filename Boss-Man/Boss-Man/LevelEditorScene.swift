@@ -3,11 +3,10 @@
 //  Boss-Man
 //
 //  2D Minecraft-like Level Editor for BossMan
-//  Uses the same character-based map format as the game:
-//    '#' = wall, ' ' = floor, 'P' = player, 'B' = boss spawn,
-//    'D' = door, 'E' = exit/goal, 'H' = hideout,
-//    'W' = water cooler, 'C' = coffee, 'F' = filing cabinet,
-//    'T' = plant, 'L' = ceiling light, 'c' = computer, 'd' = desk, 'h' = chair
+//  Uses the EXACT same characters as the real ASCII levels:
+//    '#' = wall, ' ' = floor, '.' = dot/pellet, 'P' = player, 'B' = boss spawn,
+//    'D' = door, 'H' = hideout, 'M' = coffee machine,
+//    'C' = coffee pickup, 'F' = filing cabinet
 //
 
 import AppKit
@@ -20,24 +19,18 @@ struct EditorTile: Equatable {
     let color: NSColor
     
     static let empty     = EditorTile(character: " ", displayName: "Floor",   color: NSColor(white: 0.22, alpha: 1.0))
+    static let dot       = EditorTile(character: ".", displayName: "Dot",     color: NSColor(calibratedRed: 0.85, green: 0.75, blue: 0.55, alpha: 1.0))
     static let wall      = EditorTile(character: "#", displayName: "Wall",    color: NSColor(white: 0.50, alpha: 1.0))
     static let player    = EditorTile(character: "P", displayName: "Player",  color: NSColor.cyan)
     static let boss      = EditorTile(character: "B", displayName: "Boss",    color: NSColor.red)
     static let door      = EditorTile(character: "D", displayName: "Door",    color: NSColor(calibratedRed: 0.6, green: 0.4, blue: 0.2, alpha: 1.0))
-    static let exit      = EditorTile(character: "E", displayName: "Exit",    color: NSColor.green)
     static let hideout   = EditorTile(character: "H", displayName: "Hideout", color: NSColor(calibratedRed: 0.3, green: 0.1, blue: 0.5, alpha: 1.0))
-    static let water     = EditorTile(character: "W", displayName: "Water",   color: NSColor(white: 0.75, alpha: 1.0))
+    static let machine   = EditorTile(character: "M", displayName: "Machine", color: NSColor(calibratedRed: 0.5, green: 0.5, blue: 0.1, alpha: 1.0))
     static let coffee    = EditorTile(character: "C", displayName: "Coffee",  color: NSColor(calibratedRed: 0.4, green: 0.2, blue: 0.1, alpha: 1.0))
     static let files     = EditorTile(character: "F", displayName: "Files",   color: NSColor.gray)
-    static let plant     = EditorTile(character: "T", displayName: "Plant",   color: NSColor(calibratedRed: 0.2, green: 0.7, blue: 0.2, alpha: 1.0))
-    static let light     = EditorTile(character: "L", displayName: "Light",   color: NSColor.yellow)
-    static let computer  = EditorTile(character: "c", displayName: "Comp",    color: NSColor.blue)
-    static let desk      = EditorTile(character: "d", displayName: "Desk",    color: NSColor.brown)
-    static let chair     = EditorTile(character: "h", displayName: "Chair",   color: NSColor.orange)
     
     static let all: [EditorTile] = [
-        .empty, .wall, .player, .boss, .door, .exit, .hideout,
-        .water, .coffee, .files, .plant, .light, .computer, .desk, .chair
+        .empty, .dot, .wall, .player, .boss, .door, .hideout, .machine, .coffee, .files
     ]
 }
 
@@ -262,19 +255,14 @@ class LevelEditorScene: SKScene {
     func tileForChar(_ ch: Character) -> EditorTile {
         switch ch {
         case "#": return .wall
+        case ".": return .dot
         case "P": return .player
         case "B": return .boss
         case "D": return .door
-        case "E": return .exit
         case "H": return .hideout
-        case "W": return .water
+        case "M": return .machine
         case "C": return .coffee
         case "F": return .files
-        case "T": return .plant
-        case "L": return .light
-        case "c": return .computer
-        case "d": return .desk
-        case "h": return .chair
         default:  return .empty
         }
     }
@@ -439,14 +427,14 @@ class LevelEditorScene: SKScene {
         if let chars = event.characters {
             switch chars {
             case "1": selectedTile = .wall
-            case "2": selectedTile = .desk
-            case "3": selectedTile = .chair
-            case "4": selectedTile = .computer
-            case "5": selectedTile = .player
-            case "6": selectedTile = .boss
-            case "7": selectedTile = .exit
-            case "8": selectedTile = .door
-            case "9": selectedTile = .hideout
+            case "2": selectedTile = .dot
+            case "3": selectedTile = .player
+            case "4": selectedTile = .boss
+            case "5": selectedTile = .door
+            case "6": selectedTile = .hideout
+            case "7": selectedTile = .machine
+            case "8": selectedTile = .coffee
+            case "9": selectedTile = .files
             case "0": selectedTile = .empty
             case "s" where event.modifierFlags.contains(.command):
                 saveCurrentLevel()
