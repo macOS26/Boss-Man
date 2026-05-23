@@ -690,11 +690,11 @@ class LevelEditorScene: SKScene {
     override func mouseUp(with event: NSEvent) { }
     
     override func rightMouseDown(with event: NSEvent) {
-        paint(at: event.location(in: self), tile: .empty)
+        paint(at: event.location(in: self), tile: .dot)
     }
     
     override func rightMouseDragged(with event: NSEvent) {
-        paint(at: event.location(in: self), tile: .empty)
+        paint(at: event.location(in: self), tile: .dot)
     }
     
     func handleInput(_ loc: CGPoint, begin: Bool) {
