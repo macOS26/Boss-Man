@@ -313,7 +313,7 @@ enum Strings {
         static let fax        = "TPS Fax Machine"
         static let coverSheet = "TPS Cover Sheet"
         static let bookBinder = "TPS Book Binder"
-        static let brownBox   = "Brown TPS Box"
+        static let brownBox   = "TPS Delivery Box"
 
         static let required: [String] = [printer, fax, coverSheet, bookBinder]
     }
