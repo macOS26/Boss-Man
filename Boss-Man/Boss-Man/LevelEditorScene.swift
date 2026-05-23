@@ -30,7 +30,7 @@ struct EditorTile: Equatable {
     static let files     = EditorTile(character: "F", displayName: "Files",   color: NSColor.gray)
     
     static let all: [EditorTile] = [
-        .empty, .dot, .wall, .player, .boss, .door, .hideout, .machine, .coffee, .files
+        .empty, .dot, .wall, .door, .hideout, .machine, .coffee, .files
     ]
 }
 
@@ -428,13 +428,11 @@ class LevelEditorScene: SKScene {
             switch chars {
             case "1": selectedTile = .wall
             case "2": selectedTile = .dot
-            case "3": selectedTile = .player
-            case "4": selectedTile = .boss
-            case "5": selectedTile = .door
-            case "6": selectedTile = .hideout
-            case "7": selectedTile = .machine
-            case "8": selectedTile = .coffee
-            case "9": selectedTile = .files
+            case "3": selectedTile = .door
+            case "4": selectedTile = .hideout
+            case "5": selectedTile = .machine
+            case "6": selectedTile = .coffee
+            case "7": selectedTile = .files
             case "0": selectedTile = .empty
             case "s" where event.modifierFlags.contains(.command):
                 saveCurrentLevel()
