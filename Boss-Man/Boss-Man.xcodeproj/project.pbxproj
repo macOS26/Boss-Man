@@ -6,7 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		EA14DCAF2FC16F42002E8617 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = EA14DC752FC16F42002E8617 /* AppIcon.icon */; };
+		EA14DCB02FC16F42002E8617 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA14DC762FC16F42002E8617 /* Assets.xcassets */; };
+		EA14DCB52FC221DA002E8617 /* red-stapler.png in Resources */ = {isa = PBXBuildFile; fileRef = EA14DCB42FC221DA002E8617 /* red-stapler.png */; };
+		EA14DCB92FC22B34002E8617 /* shinyredstapler.png in Resources */ = {isa = PBXBuildFile; fileRef = EA14DCB82FC22B34002E8617 /* shinyredstapler.png */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		EA14DC752FC16F42002E8617 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		EA14DC762FC16F42002E8617 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		EA14DCB42FC221DA002E8617 /* red-stapler.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "red-stapler.png"; sourceTree = "<group>"; };
+		EA14DCB82FC22B34002E8617 /* shinyredstapler.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = shinyredstapler.png; sourceTree = "<group>"; };
 		EAAA3BE62FBB7DEF00D451DE /* Boss-Man.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Boss-Man.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -29,10 +40,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		EA14DCBA2FC22B75002E8617 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EA14DC762FC16F42002E8617 /* Assets.xcassets */,
+				EA14DC752FC16F42002E8617 /* AppIcon.icon */,
+				EA14DCB82FC22B34002E8617 /* shinyredstapler.png */,
+				EA14DCB42FC221DA002E8617 /* red-stapler.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		EAAA3BDD2FBB7DEF00D451DE = {
 			isa = PBXGroup;
 			children = (
 				EAAA3BE82FBB7DEF00D451DE /* Boss-Man */,
+				EA14DCBA2FC22B75002E8617 /* Resources */,
 				EAAA3BE72FBB7DEF00D451DE /* Products */,
 			);
 			sourceTree = "<group>";
@@ -109,6 +132,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EA14DCAF2FC16F42002E8617 /* AppIcon.icon in Resources */,
+				EA14DCB02FC16F42002E8617 /* Assets.xcassets in Resources */,
+				EA14DCB52FC221DA002E8617 /* red-stapler.png in Resources */,
+				EA14DCB92FC22B34002E8617 /* shinyredstapler.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

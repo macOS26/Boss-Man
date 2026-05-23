@@ -88,6 +88,19 @@ final class TravelerSpawner {
         return (traveler, pos, traveler.emoji)
     }
 
+    private func loadBundleImage(named name: String) -> NSImage? {
+        // Try both raster (.png) and vector (.svg) extensions so a
+        // traveler entry can point at either kind of asset.
+        for ext in [Strings.Resource.redStaplerExtension,
+                    Strings.Resource.travelerStaplerExtension] {
+            if let url = Bundle.main.url(forResource: name, withExtension: ext),
+               let img = NSImage(contentsOf: url) {
+                return img
+            }
+        }
+        return nil
+    }
+
     // MARK: - Private
     private func spawn(_ traveler: LevelTraveler) {
         guard let scene else { return }
@@ -104,19 +117,35 @@ final class TravelerSpawner {
         wrapper.physicsBody?.contactTestBitMask = PhysicsCategory.worker
         wrapper.physicsBody?.collisionBitMask = 0
 
-        let emoji = SKLabelNode()
-        emoji.name = Strings.NodeName.travelerEmoji
-        emoji.text = traveler.emoji
-        emoji.fontSize = 36
-        emoji.verticalAlignmentMode = .center
-        emoji.horizontalAlignmentMode = .center
-        // The scissors glyph points up-left by default; rotate -90° so
-        // the blades lie horizontally. Horizontal-flip on movement still
-        // works the same way (xScale ±1 in stepNode).
-        if traveler.emoji == "✂️" {
-            emoji.zRotation = -.pi / 2
+        // If the level traveler provides an image, render it as a real
+        // sprite (PNG asset, scaled to roughly match the 36pt emoji
+        // glyph). Otherwise fall back to the text emoji. Either way
+        // the node uses Strings.NodeName.travelerEmoji so stepNode's
+        // left/right xScale flip still finds it.
+        let visual: SKNode
+        if let imageName = traveler.image,
+           let nsImage = NSImage(named: imageName) ?? loadBundleImage(named: imageName) {
+            let sprite = SKSpriteNode(texture: SKTexture(image: nsImage))
+            let targetHeight: CGFloat = 36 * 0.75
+            let aspect = nsImage.size.width / nsImage.size.height
+            // Squash width by 0.8 — intentional distortion to read narrower.
+            sprite.size = CGSize(width: targetHeight * aspect * 0.8, height: targetHeight)
+            visual = sprite
+        } else {
+            let label = SKLabelNode()
+            label.text = traveler.emoji
+            label.fontSize = 36
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            // The scissors glyph points up-left by default; rotate -90°
+            // so the blades lie horizontally.
+            if traveler.emoji == "✂️" {
+                label.zRotation = -.pi / 2
+            }
+            visual = label
         }
-        wrapper.addChild(emoji)
+        visual.name = Strings.NodeName.travelerEmoji
+        wrapper.addChild(visual)
 
         let points = SKLabelNode(fontNamed: Strings.Font.menloBold)
         points.text = "\(traveler.points)"

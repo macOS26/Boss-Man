@@ -371,6 +371,15 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         guard let view else { return }
         hud.hideGameOver()
         sound.stopBackgroundMusic()
+        // ESC during a playtest launched from the level editor returns
+        // to the editor (on the same floor), not the title screen.
+        if state.practiceMode {
+            let editor = LevelEditorScene(size: size)
+            editor.scaleMode = .aspectFit
+            editor.currentLevelIndex = max(0, state.level - 1)
+            view.presentScene(editor, transition: .fade(withDuration: 0.5))
+            return
+        }
         let title = TitleScene(size: size)
         title.scaleMode = .aspectFit
         view.presentScene(title, transition: .fade(withDuration: 0.5))

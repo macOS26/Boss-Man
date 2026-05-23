@@ -29,11 +29,15 @@ final class BossController {
         var isInFleeMode: Bool = false
         var captureCount: Int = 0
         var isImmobilized: Bool = false
+        // Index into Self.blueprints. Stored on the entity so duplicate
+        // spawns of the same boss type still rebuild correctly after
+        // capture (lookup by node identity, not name).
+        let blueprintIndex: Int
     }
 
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] = [
         (Strings.Boss.boss,     .systemRed,    .black,        .darkGray, CGPoint(x: 34, y: 15), .directChase,                                                          1.00),
-        (Strings.Boss.lumbergh, .systemPink,   .systemYellow, .darkGray, CGPoint(x: 1,  y: 1),  .ambushAhead(tiles: 4),                                                0.85),
+        (Strings.Boss.lumbergh, NSColor.systemPink.withAlphaComponent(0.75), .systemYellow, .darkGray, CGPoint(x: 1,  y: 1),  .ambushAhead(tiles: 4),                    0.85),
         (Strings.Boss.waddams,  .systemTeal,   .systemBlue,   .darkGray, CGPoint(x: 34, y: 1),  .flanker(pivotTiles: 2),                                               0.78),
         (Strings.Boss.bolton,   .systemOrange, .systemRed,    .darkGray, CGPoint(x: 1,  y: 15), .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70)
     ]
@@ -62,38 +66,32 @@ final class BossController {
     }
 
     // MARK: - Roster lifecycle
-    func spawn(forLevel level: Int, spawnOverrides: [Int: CGPoint] = [:]) {
+    //
+    // `spawnOverrides` is an ORDERED ARRAY of (blueprintIndex, position)
+    // pairs — not a dictionary — so the same boss type can appear
+    // multiple times (e.g. two BOBs / multiple bosses past 4) and the
+    // level can spawn more than 4 total.
+    func spawn(forLevel level: Int, spawnOverrides: [(blueprintIndex: Int, position: CGPoint)] = []) {
         clear()
         currentLevel = level
         currentSpawnOverrides = spawnOverrides
-        let indices: [Int]
         if spawnOverrides.isEmpty {
-            indices = Array(0..<min(max(level, 1), Self.blueprints.count))
+            let count = min(max(level, 1), Self.blueprints.count)
+            for index in 0..<count {
+                let blueprint = Self.blueprints[index]
+                createAndFreeze(from: themed(blueprint, level: level), blueprintIndex: index)
+            }
         } else {
-            indices = spawnOverrides.keys.sorted()
-        }
-        for index in indices {
-            guard index >= 0, index < Self.blueprints.count else { continue }
-            let blueprint = Self.blueprints[index]
-            let overridden = withOverride(blueprint, index: index)
-            createAndFreeze(from: themed(overridden, level: level))
+            for (index, position) in spawnOverrides {
+                guard index >= 0, index < Self.blueprints.count else { continue }
+                var blueprint = Self.blueprints[index]
+                blueprint.spawn = position
+                createAndFreeze(from: themed(blueprint, level: level), blueprintIndex: index)
+            }
         }
     }
 
-    private var currentSpawnOverrides: [Int: CGPoint] = [:]
-
-    private func withOverride(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), index: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
-        guard let override = currentSpawnOverrides[index] else { return blueprint }
-        return (
-            name: blueprint.name,
-            color: blueprint.color,
-            tie: blueprint.tie,
-            pants: blueprint.pants,
-            spawn: override,
-            personality: blueprint.personality,
-            speed: blueprint.speed
-        )
-    }
+    private var currentSpawnOverrides: [(blueprintIndex: Int, position: CGPoint)] = []
 
     private func themed(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), level: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
         guard isMIBLevel(level) else { return blueprint }
@@ -110,14 +108,14 @@ final class BossController {
 
     private func isMIBLevel(_ level: Int) -> Bool { level % 12 == 0 }
 
-    private func createAndFreeze(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)) {
-        buildEntity(from: blueprint)
+    private func createAndFreeze(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), blueprintIndex: Int) {
+        buildEntity(from: blueprint, blueprintIndex: blueprintIndex)
         let index = entities.count - 1
         scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
     }
 
-    private func buildEntity(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)) {
+    private func buildEntity(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), blueprintIndex: Int) {
         guard let scene else { return }
         let ai = BossAI(
             homeGrid: blueprint.spawn,
@@ -134,7 +132,8 @@ final class BossController {
             hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
             shoeOutlineColor: .white,
             pantsColor: blueprint.pants,
-            wearsSunglasses: isMIBLevel(currentLevel)
+            wearsSunglasses: isMIBLevel(currentLevel),
+            headYOffset: -1
         )
         node.name = blueprint.name
         node.position = gridMap.point(for: blueprint.spawn)
@@ -164,7 +163,8 @@ final class BossController {
             tag: tag,
             moveInterval: moveInterval / blueprint.speed,
             moveDuration: moveDuration / blueprint.speed,
-            lastMove: 0
+            lastMove: 0,
+            blueprintIndex: blueprintIndex
         )
         entities.append(entity)
     }
@@ -177,6 +177,7 @@ final class BossController {
         entity.ai.teleport(to: entity.spawn)
         node.position = gridMap.point(for: entity.spawn)
         node.setBodyColor(entity.baseColor)
+        node.setTieOutline(color: nil)
         entities[index].captureCount = 0
         entities[index].isInFleeMode = false
         entities[index].mustExitDoorway = false
@@ -189,15 +190,19 @@ final class BossController {
     }
 
     private func rebuildEntity(at index: Int) {
-        let bossName = entities[index].name
+        // Preserve the captured boss's blueprint identity AND its
+        // original spawn point — with duplicate bosses, blueprint
+        // index alone doesn't determine the home tile.
+        let blueprintIndex = entities[index].blueprintIndex
+        let spawn = entities[index].spawn
         entities[index].node.alpha = 0
         entities[index].node.removeAllActions()
         entities[index].node.removeFromParent()
         entities.remove(at: index)
-        guard let blueprintIndex = Self.blueprints.firstIndex(where: { $0.name == bossName }) else { return }
-        let blueprint = Self.blueprints[blueprintIndex]
-        let overridden = withOverride(blueprint, index: blueprintIndex)
-        createAndFreeze(from: themed(overridden, level: currentLevel))
+        guard blueprintIndex >= 0, blueprintIndex < Self.blueprints.count else { return }
+        var blueprint = Self.blueprints[blueprintIndex]
+        blueprint.spawn = spawn
+        createAndFreeze(from: themed(blueprint, level: currentLevel), blueprintIndex: blueprintIndex)
     }
 
     private func applySpawnFreeze(at index: Int) {
@@ -256,6 +261,7 @@ final class BossController {
             entities[i].captureCount = 0
             entities[i].isInFleeMode = active
             entities[i].node.setBodyColor(active ? .systemBlue : entities[i].baseColor)
+            entities[i].node.setTieOutline(color: active ? .systemYellow : nil)
         }
         refreshTags(goldDiscActive: active)
     }
@@ -288,12 +294,13 @@ final class BossController {
 
     // MARK: - Stepping (SKAction-driven per boss)
     private func scheduleStepper(for entity: Entity) {
-        let bossName = entity.name
+        // Identify by node, not name — duplicate bosses (two BOBs) share a name.
+        let bossNode = entity.node
         let stepper = SKAction.repeatForever(.sequence([
             .wait(forDuration: entity.moveInterval),
-            .run { [weak self] in
-                guard let self,
-                      let index = self.entities.firstIndex(where: { $0.name == bossName })
+            .run { [weak self, weak bossNode] in
+                guard let self, let bossNode,
+                      let index = self.entities.firstIndex(where: { $0.node === bossNode })
                 else { return }
                 self.stepOne(at: index)
             }
@@ -429,6 +436,7 @@ final class BossController {
                 }
             ]))
             boss.node.setBodyColor(powerActive ? .systemBlue : boss.baseColor)
+            boss.node.setTieOutline(color: powerActive ? .systemYellow : nil)
         }
         refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)

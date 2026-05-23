@@ -87,7 +87,7 @@ final class WorkerController {
         node.removeAction(forKey: Strings.ActionKey.spawnShield)
         node.removeAction(forKey: Strings.ActionKey.spawnShieldBlink)
         let orange = NSColor.systemOrange
-        let teal = NSColor.systemTeal
+        let teal = NSColor.systemBlue // PETE's shirt color (named "teal" historically)
         node.setBodyColor(orange)
         node.alpha = 1
         node.physicsBody?.categoryBitMask = 0

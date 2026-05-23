@@ -81,13 +81,19 @@ final class TitleScene: SKScene {
     }
 
     private func makeStapler() -> SKNode {
-        let targetSize = CGSize(width: 380, height: 290)
+        let maxSize = CGSize(width: 380, height: 290)
         if let url = Bundle.main.url(forResource: Strings.Resource.redStaplerFile,
                                       withExtension: Strings.Resource.redStaplerExtension),
            let image = NSImage(contentsOf: url) {
-            image.size = targetSize
+            let source = image.size
+            // Fit inside maxSize while preserving aspect so the new PNG
+            // doesn't get squashed.
+            let scale = min(maxSize.width / source.width,
+                            maxSize.height / source.height)
+            let fitted = CGSize(width: source.width  * scale,
+                                height: source.height * scale)
             let texture = SKTexture(image: image)
-            let sprite = SKSpriteNode(texture: texture, size: targetSize)
+            let sprite = SKSpriteNode(texture: texture, size: fitted)
             return sprite
         }
         return makeFallbackStapler()

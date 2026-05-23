@@ -11,7 +11,9 @@ final class MazeBuilder {
     private(set) var placedGoldDiscs: Int = 0
 
     private(set) var workerSpawnFromMap: CGPoint?
-    private(set) var bossSpawnsFromMap: [Int: CGPoint] = [:]
+    // Ordered list — duplicate blueprintIndex values are allowed so a level can
+    // place multiple bosses of the same type, or more than 4 bosses total.
+    private(set) var bossSpawnsFromMap: [(blueprintIndex: Int, position: CGPoint)] = []
     private(set) var goldDiscPositionsFromMap: [CGPoint] = []
 
     private var pelletTexture: SKTexture!
@@ -33,7 +35,7 @@ final class MazeBuilder {
         let rowCount = map.rows.count
         dotPresence = Array(repeating: Array(repeating: false, count: cols), count: rowCount)
         workerSpawnFromMap = nil
-        bossSpawnsFromMap = [:]
+        bossSpawnsFromMap = []
         goldDiscPositionsFromMap = []
 
         let background = makeBackground()
@@ -64,10 +66,10 @@ final class MazeBuilder {
                     switch char {
                     case Strings.Tile.goldDiscChar: goldDiscPositionsFromMap.append(grid)
                     case Strings.Tile.workerChar:   workerSpawnFromMap = grid
-                    case Strings.Tile.boss1Char:    bossSpawnsFromMap[0] = grid
-                    case Strings.Tile.boss2Char:    bossSpawnsFromMap[1] = grid
-                    case Strings.Tile.boss3Char:    bossSpawnsFromMap[2] = grid
-                    case Strings.Tile.boss4Char:    bossSpawnsFromMap[3] = grid
+                    case Strings.Tile.boss1Char:    bossSpawnsFromMap.append((0, grid))
+                    case Strings.Tile.boss2Char:    bossSpawnsFromMap.append((1, grid))
+                    case Strings.Tile.boss3Char:    bossSpawnsFromMap.append((2, grid))
+                    case Strings.Tile.boss4Char:    bossSpawnsFromMap.append((3, grid))
                     default: break
                     }
                 }

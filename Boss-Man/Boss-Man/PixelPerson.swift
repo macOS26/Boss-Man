@@ -31,7 +31,8 @@ final class PixelPerson: SKNode {
          shoeOutlineColor: NSColor,
          pantsColor: NSColor,
          walkExaggeration: CGFloat = 0,
-         wearsSunglasses: Bool = false) {
+         wearsSunglasses: Bool = false,
+         headYOffset: CGFloat = 0) {
         self.walkExaggeration = walkExaggeration
         let skin = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
         let shoeColor = NSColor(calibratedRed: 0.12, green: 0.08, blue: 0.05, alpha: 1)
@@ -71,6 +72,19 @@ final class PixelPerson: SKNode {
         rightShoe.position = CGPoint(x: 1, y: -5)
         rightLeg.addChild(rightShoe)
 
+        // When the body color is translucent (e.g. DOM at 0.75 alpha),
+        // paint a solid white backing behind the torso + arms so the
+        // floor doesn't show through. Cheap no-op for opaque bodies.
+        let needsBacking = bodyColor.alphaComponent < 1.0
+        if needsBacking {
+            let torsoBack = SKShapeNode(rectOf: CGSize(width: 18, height: 16), cornerRadius: 2)
+            torsoBack.fillColor = .white
+            torsoBack.strokeColor = .clear
+            torsoBack.position = CGPoint(x: 0, y: -2)
+            torsoBack.zPosition = 1.5
+            bodyContainer.addChild(torsoBack)
+        }
+
         torso.fillColor = bodyColor
         torso.strokeColor = .white
         torso.lineWidth = 1.5
@@ -90,6 +104,21 @@ final class PixelPerson: SKNode {
         collar.strokeColor = .clear
         collar.position = CGPoint(x: 0, y: 5)
         torso.addChild(collar)
+
+        if needsBacking {
+            let leftArmBack = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
+            leftArmBack.fillColor = .white
+            leftArmBack.strokeColor = .clear
+            leftArmBack.position = CGPoint(x: -11, y: -2)
+            leftArmBack.zPosition = 2.5
+            bodyContainer.addChild(leftArmBack)
+            let rightArmBack = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
+            rightArmBack.fillColor = .white
+            rightArmBack.strokeColor = .clear
+            rightArmBack.position = CGPoint(x: 11, y: -2)
+            rightArmBack.zPosition = 2.5
+            bodyContainer.addChild(rightArmBack)
+        }
 
         leftArm.fillColor = bodyColor
         leftArm.strokeColor = .white
@@ -121,7 +150,7 @@ final class PixelPerson: SKNode {
         head.fillColor = skin
         head.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
         head.lineWidth = 1
-        head.position = CGPoint(x: 0, y: 13)
+        head.position = CGPoint(x: 0, y: 13 + headYOffset)
         head.zPosition = 4
         bodyContainer.addChild(head)
 
@@ -164,6 +193,17 @@ final class PixelPerson: SKNode {
         torso.fillColor = color
         leftArm.fillColor = color
         rightArm.fillColor = color
+    }
+
+    // MARK: - Tie outline (used to mark flee-mode bosses)
+    func setTieOutline(color: NSColor?, lineWidth: CGFloat = 1) {
+        if let color {
+            tie.strokeColor = color
+            tie.lineWidth = lineWidth
+        } else {
+            tie.strokeColor = .clear
+            tie.lineWidth = 0
+        }
     }
 
     func face(left: Bool) {

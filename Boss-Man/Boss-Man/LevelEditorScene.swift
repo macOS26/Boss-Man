@@ -136,6 +136,8 @@ class LevelEditorScene: SKScene {
     private var redoStack: [[String]] = []
     private let maxUndoDepth = 50
     var saveButton: SKShapeNode!
+    var saveButtonLabel: SKLabelNode?
+    private let autosaveInterval: TimeInterval = 60
     
     var gridOffsetX: CGFloat = 12
     var gridOffsetY: CGFloat = 12
@@ -147,6 +149,34 @@ class LevelEditorScene: SKScene {
         addChild(uiContainer)
         buildUI()
         loadCurrentLevel()
+        scheduleAutosave()
+    }
+
+    private func scheduleAutosave() {
+        removeAction(forKey: "autosave")
+        let tick = SKAction.sequence([
+            .wait(forDuration: autosaveInterval),
+            .run { [weak self] in self?.performAutosave() }
+        ])
+        run(.repeatForever(tick), withKey: "autosave")
+    }
+
+    private func performAutosave() {
+        // Use the SAME save path as the SAVE button (no duplicate logic);
+        // just override the post-save status / button-label visuals so
+        // the user can distinguish autosave from a manual ⌘S.
+        saveCurrentLevel()
+        let originalLabel = Strings.Editor.save
+        saveButtonLabel?.text = "AUTOSAVE 1 min"
+        statusLabel?.text = "AUTOSAVE 1 min"
+        run(.sequence([
+            .wait(forDuration: 3),
+            .run { [weak self] in
+                guard let self else { return }
+                self.saveButtonLabel?.text = originalLabel
+                self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
+            }
+        ]), withKey: "autosaveRevert")
     }
     
     // MARK: - UI
@@ -272,7 +302,10 @@ class LevelEditorScene: SKScene {
             lbl.name = name
             uiContainer.addChild(lbl)
 
-            if name == Strings.EditorButton.save { saveButton = btn }
+            if name == Strings.EditorButton.save {
+                saveButton = btn
+                saveButtonLabel = lbl
+            }
         }
         
         updatePaletteHighlight()
@@ -396,7 +429,8 @@ class LevelEditorScene: SKScene {
                     body: .systemRed,    tie: .black,        size: size)
         case Strings.Tile.boss2Char:
             addBoss(to: container, name: Strings.Boss.lumbergh,
-                    body: .systemPink,   tie: .systemYellow, size: size)
+                    body: NSColor.systemPink.withAlphaComponent(0.75),
+                    tie: .systemYellow, size: size)
         case Strings.Tile.boss3Char:
             addBoss(to: container, name: Strings.Boss.waddams,
                     body: .systemTeal,   tie: .systemBlue,   size: size)
@@ -493,7 +527,9 @@ class LevelEditorScene: SKScene {
             tieColor: tie,
             hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
             shoeOutlineColor: .white,
-            pantsColor: .darkGray
+            pantsColor: .darkGray,
+            wearsSunglasses: false,
+            headYOffset: -1
         )
         person.setScale(size / 38)
         container.addChild(person)
@@ -643,12 +679,7 @@ class LevelEditorScene: SKScene {
                 LevelStore.shared.revealInFinder()
                 return
             case Strings.EditorButton.play:
-                saveCurrentLevel()
-                let game = GameScene(size: size)
-                game.scaleMode = .aspectFit
-                game.practiceMode = true
-                game.startingLevel = currentLevelIndex + 1
-                view?.presentScene(game, transition: .fade(withDuration: 0.5))
+                playCurrentLevel()
                 return
             case Strings.EditorButton.back:
                 let title = TitleScene(size: size)
@@ -674,6 +705,16 @@ class LevelEditorScene: SKScene {
         }
     }
     
+    // MARK: - Play
+    func playCurrentLevel() {
+        saveCurrentLevel()
+        let game = GameScene(size: size)
+        game.scaleMode = .aspectFit
+        game.practiceMode = true
+        game.startingLevel = currentLevelIndex + 1
+        view?.presentScene(game, transition: .fade(withDuration: 0.5))
+    }
+
     // MARK: - Save
     func saveCurrentLevel() {
         let names = Levels.levelNames
@@ -723,6 +764,11 @@ class LevelEditorScene: SKScene {
             case Strings.Key.digit0: selectedTile = .empty
             case Strings.KeyEquivalent.save where event.modifierFlags.contains(.command):
                 saveCurrentLevel()
+            case Strings.KeyEquivalent.play where event.modifierFlags.contains(.command):
+                // ⌘P launches a playtest on whatever level we're viewing.
+                playCurrentLevel()
+            case Strings.KeyEquivalent.reveal where event.modifierFlags.contains(.command):
+                LevelStore.shared.revealInFinder()
             case Strings.KeyEquivalent.undo where event.modifierFlags.contains([.command, .shift]):
                 redo()
             case Strings.KeyEquivalent.undo where event.modifierFlags.contains(.command):

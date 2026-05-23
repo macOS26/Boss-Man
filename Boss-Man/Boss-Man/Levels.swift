@@ -17,6 +17,17 @@ struct LevelTraveler {
     let emoji: String
     let sound: TravelerSound
     let points: Int
+    /// Optional bundle image (PNG) rendered in place of the text emoji.
+    /// When set, TravelerSpawner draws an SKSpriteNode of this asset
+    /// (still subject to the horizontal-flip on movement direction).
+    let image: String?
+
+    init(emoji: String, sound: TravelerSound, points: Int, image: String? = nil) {
+        self.emoji = emoji
+        self.sound = sound
+        self.points = points
+        self.image = image
+    }
 }
 
 let levelTravelers: [LevelTraveler] = [
@@ -25,7 +36,7 @@ let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "☕️", sound: .crunch,      points: 400),
     LevelTraveler(emoji: "🥤", sound: .alienBleep,  points: 800),
     LevelTraveler(emoji: "🧋", sound: .jelly,       points: 1000),
-    LevelTraveler(emoji: "✂️", sound: .crispTap,    points: 2000),
+    LevelTraveler(emoji: "✂️", sound: .crispTap,    points: 2000, image: Strings.Resource.travelerStaplerFile),
     LevelTraveler(emoji: "🍉", sound: .bellDing,    points: 3000),
     LevelTraveler(emoji: "🧇", sound: .radioStatic, points: 4000),
     LevelTraveler(emoji: "🍦", sound: .magicChime,  points: 5000),

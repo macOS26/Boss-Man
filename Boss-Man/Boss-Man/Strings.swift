@@ -62,6 +62,8 @@ enum Strings {
         static let save       = "s"
         static let undo       = "z"
         static let undoShift  = "Z"
+        static let play       = "p"
+        static let reveal     = "r"
     }
 
     // MARK: - Plain keyboard chars (event.characters values)
@@ -127,8 +129,11 @@ enum Strings {
         static let levelsExtension   = "json"
         static let levelsJSON        = "levels.json"
         static let emptyJSON         = "{}"
-        static let redStaplerFile    = "RedStapler"
-        static let redStaplerExtension = "svg"
+        static let redStaplerFile    = "red-stapler"
+        static let redStaplerExtension = "png"
+        // Level-6 traveler-only SVG (separate asset from the title-screen PNG).
+        static let travelerStaplerFile      = "shinyredstapler"
+        static let travelerStaplerExtension = "png"
         static let quarantineAttribute = "com.apple.quarantine"
     }
 
@@ -153,8 +158,8 @@ enum Strings {
         static let redo          = "REDO (⇧⌘Z)"
         static let clear         = "CLEAR"
         static let save          = "SAVE (⌘S)"
-        static let revealFile    = "REVEAL FILE"
-        static let play          = "PLAY"
+        static let revealFile    = "REVEAL FILE (⌘R)"
+        static let play          = "PLAY (⌘P)"
         static let back          = "BACK (ESC)"
         static let nothingUndo   = "Nothing to undo"
         static let nothingRedo   = "Nothing to redo"
@@ -251,7 +256,8 @@ enum Strings {
             "TPS reports.",
             "Cover sheet please.",
             "Saturday's the day.",
-            "Memo, anyone?"
+            "Memo, anyone?",
+            "Did you see my shiny red stapler?"
         ]
         static let fishLines = [
             "Terrific.",
@@ -269,7 +275,7 @@ enum Strings {
             "Please clear out your desk.",
             "Security, escort him.",
             "If you would work Saturday, that'd be great.",
-            "Have you've seen my shiny red stapler?",
+            "Did you see my shiny red stapler?",
             "Please add a cover sheet for your TPS Report."
         ]
         static let levelStartLines = [
