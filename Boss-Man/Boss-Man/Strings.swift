@@ -319,10 +319,10 @@ enum Strings {
 
     // MARK: - Boss display names
     enum Boss {
-        static let boss     = "BOSS"
-        static let lumbergh = "LUMBERGH"
-        static let waddams  = "WADDAMS"
-        static let bolton   = "BOLTON"
+        static let boss     = "BILL"
+        static let lumbergh = "DOM"
+        static let waddams  = "BOB"
+        static let bolton   = "STAN"
     }
 
     // MARK: - HUD persistent labels

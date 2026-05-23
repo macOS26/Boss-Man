@@ -110,6 +110,12 @@ final class TravelerSpawner {
         emoji.fontSize = 36
         emoji.verticalAlignmentMode = .center
         emoji.horizontalAlignmentMode = .center
+        // The scissors glyph points up-left by default; rotate -90° so
+        // the blades lie horizontally. Horizontal-flip on movement still
+        // works the same way (xScale ±1 in stepNode).
+        if traveler.emoji == "✂️" {
+            emoji.zRotation = -.pi / 2
+        }
         wrapper.addChild(emoji)
 
         let points = SKLabelNode(fontNamed: Strings.Font.menloBold)

@@ -2,10 +2,10 @@ import Foundation
 
 struct Levels {
     static let levelNames: [String] = [
-        "Level 1 - 🐟",  "Level 2 - 🍩",  "Level 3 - 🥨",
-        "Level 4 - 👾",  "Level 5 - 🪼",  "Level 6 - 🍏",
-        "Level 7 - 🍎",  "Level 8 - 📻",  "Level 9 - 🦄",
-        "Level 10 - 👽", "Level 11 - 👀", "Level 12 - 👁️"
+        "Level 1 - 🐟",  "Level 2 - 🍩",  "Level 3 - ☕️",
+        "Level 4 - 🥤",  "Level 5 - 🧋",  "Level 6 - ✂️",
+        "Level 7 - 🍉",  "Level 8 - 🧇",  "Level 9 - 🍦",
+        "Level 10 - 🍰", "Level 11 - 👀", "Level 12 - 👁️"
     ]
 }
 
@@ -22,14 +22,14 @@ struct LevelTraveler {
 let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "🐟", sound: .water,       points: 100),
     LevelTraveler(emoji: "🍩", sound: .glaze,       points: 200),
-    LevelTraveler(emoji: "🥨", sound: .crunch,      points: 400),
-    LevelTraveler(emoji: "👾", sound: .alienBleep,  points: 800),
-    LevelTraveler(emoji: "🪼", sound: .jelly,       points: 1000),
-    LevelTraveler(emoji: "🍏", sound: .crispTap,    points: 2000),
-    LevelTraveler(emoji: "🍎", sound: .bellDing,    points: 3000),
-    LevelTraveler(emoji: "📻", sound: .radioStatic, points: 4000),
-    LevelTraveler(emoji: "🦄", sound: .magicChime,  points: 5000),
-    LevelTraveler(emoji: "👽", sound: .ufoWhoosh,   points: 6000),
+    LevelTraveler(emoji: "☕️", sound: .crunch,      points: 400),
+    LevelTraveler(emoji: "🥤", sound: .alienBleep,  points: 800),
+    LevelTraveler(emoji: "🧋", sound: .jelly,       points: 1000),
+    LevelTraveler(emoji: "✂️", sound: .crispTap,    points: 2000),
+    LevelTraveler(emoji: "🍉", sound: .bellDing,    points: 3000),
+    LevelTraveler(emoji: "🧇", sound: .radioStatic, points: 4000),
+    LevelTraveler(emoji: "🍦", sound: .magicChime,  points: 5000),
+    LevelTraveler(emoji: "🍰", sound: .ufoWhoosh,   points: 6000),
     LevelTraveler(emoji: "👀", sound: .eyeDrone,    points: 7000),
     LevelTraveler(emoji: "👁️", sound: .bigEye,    points: 8000)
 ]

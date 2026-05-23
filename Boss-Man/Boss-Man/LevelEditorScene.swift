@@ -473,8 +473,8 @@ class LevelEditorScene: SKScene {
 
     private func addPete(to container: SKNode, size: CGFloat) {
         let person = PixelPerson(
-            bodyColor: .systemGreen,
-            tieColor: .systemYellow,
+            bodyColor: .systemBlue,
+            tieColor: .systemOrange,
             hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
             shoeOutlineColor: .white,
             pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1)

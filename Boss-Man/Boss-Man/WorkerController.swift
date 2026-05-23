@@ -25,8 +25,8 @@ final class WorkerController {
         self.gridMap = gridMap
         self.sound = sound
         self.node = PixelPerson(
-            bodyColor: .systemGreen,
-            tieColor: .systemYellow,
+            bodyColor: .systemBlue,
+            tieColor: .systemOrange,
             hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
             shoeOutlineColor: .white,
             pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1),
