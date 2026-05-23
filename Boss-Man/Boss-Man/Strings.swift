@@ -64,6 +64,8 @@ enum Strings {
         static let undoShift  = "Z"
         static let play       = "p"
         static let reveal     = "r"
+        static let copy       = "c"
+        static let paste      = "v"
     }
 
     // MARK: - Plain keyboard chars (event.characters values)
@@ -166,8 +168,13 @@ enum Strings {
         static let clearConfirmCancel      = "Cancel"
         static let save          = "SAVE  command S"
         static let revealFile    = "SHOW  command R"
+        static let copy          = "COPY  command C"
+        static let paste         = "PASTE command V"
         static let play          = "PLAY  command P"
         static let back          = "BACK  ESC"
+        static let copyToast     = "Copied"
+        static let pasteToast    = "Pasted"
+        static let nothingPaste  = "Nothing to paste"
         static let nothingUndo   = "Nothing to undo"
         static let nothingRedo   = "Nothing to redo"
         static let undoToast     = "Undo"
@@ -220,6 +227,8 @@ enum Strings {
         static let clear     = "btn_clear"
         static let save      = "btn_save"
         static let reveal    = "btn_reveal"
+        static let copy      = "btn_copy"
+        static let paste     = "btn_paste"
         static let play      = "btn_play"
         static let back      = "btn_back"
     }

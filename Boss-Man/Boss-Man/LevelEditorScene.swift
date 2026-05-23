@@ -136,6 +136,7 @@ class LevelEditorScene: SKScene {
 
     private var undoStack: [[String]] = []
     private var redoStack: [[String]] = []
+    private var clipboard: [String]? = nil
     private let maxUndoDepth = 50
     var saveButton: SKShapeNode!
     var saveButtonLabel: SKLabelNode?
@@ -275,12 +276,14 @@ class LevelEditorScene: SKScene {
             (Strings.Editor.redo,     NSColor(white: 0.18, alpha: 1.0),              Strings.EditorButton.redo),
             (Strings.Editor.clear,      NSColor(calibratedRed: 0.6, green: 0.15, blue: 0.15, alpha: 1.0), Strings.EditorButton.clear),
             (Strings.Editor.save,  NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
+            (Strings.Editor.copy,  NSColor(calibratedRed: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
+            (Strings.Editor.paste, NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
             (Strings.Editor.revealFile, NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal),
             (Strings.Editor.play,       NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), Strings.EditorButton.play),
             (Strings.Editor.back, NSColor(calibratedRed: 0.45, green: 0.4, blue: 0.15, alpha: 1.0),  Strings.EditorButton.back),
         ]
-        let btnHeight: CGFloat = 20
-        let btnSpacing: CGFloat = 22
+        let btnHeight: CGFloat = 17
+        let btnSpacing: CGFloat = 19
         let btnStartY = palStartY - 24 - CGFloat(EditorTile.all.count) * palSpacing - 18
 
         for (i, (title, color, name)) in btnData.enumerated() {
@@ -620,6 +623,22 @@ class LevelEditorScene: SKScene {
         statusLabel?.text = Strings.Editor.redoToast
     }
 
+    private func copyLevel() {
+        clipboard = mapRows
+        statusLabel?.text = Strings.Editor.copyToast
+    }
+
+    private func pasteLevel() {
+        guard let rows = clipboard, !rows.isEmpty else {
+            statusLabel?.text = Strings.Editor.nothingPaste
+            return
+        }
+        pushUndoSnapshot()
+        mapRows = rows
+        rebuildGrid()
+        statusLabel?.text = Strings.Editor.pasteToast
+    }
+
     private func confirmClearLevel() {
         let alert = NSAlert()
         alert.messageText = Strings.Editor.clearConfirmTitle
@@ -695,6 +714,12 @@ class LevelEditorScene: SKScene {
                 return
             case Strings.EditorButton.save:
                 saveCurrentLevel()
+                return
+            case Strings.EditorButton.copy:
+                copyLevel()
+                return
+            case Strings.EditorButton.paste:
+                pasteLevel()
                 return
             case Strings.EditorButton.reveal:
                 LevelStore.shared.revealInFinder()
@@ -794,6 +819,10 @@ class LevelEditorScene: SKScene {
                 playCurrentLevel()
             case Strings.KeyEquivalent.reveal where event.modifierFlags.contains(.command):
                 LevelStore.shared.revealInFinder()
+            case Strings.KeyEquivalent.copy where event.modifierFlags.contains(.command):
+                copyLevel()
+            case Strings.KeyEquivalent.paste where event.modifierFlags.contains(.command):
+                pasteLevel()
             case Strings.KeyEquivalent.undo where event.modifierFlags.contains([.command, .shift]):
                 redo()
             case Strings.KeyEquivalent.undo where event.modifierFlags.contains(.command):
