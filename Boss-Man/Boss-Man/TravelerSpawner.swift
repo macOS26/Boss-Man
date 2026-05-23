@@ -192,7 +192,15 @@ final class TravelerSpawner {
         }
         let dx = next.x - grid.x
         if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {
-            emoji.xScale = dx < 0 ? 1 : -1
+            // Default art faces LEFT, so dx>0 (rightward) flips. For
+            // assets that already face RIGHT (LevelTraveler.facesRight),
+            // invert: dx>0 keeps natural orientation, dx<0 flips.
+            let facesRight = activeTraveler?.facesRight ?? false
+            if facesRight {
+                emoji.xScale = dx < 0 ? -1 : 1
+            } else {
+                emoji.xScale = dx < 0 ? 1 : -1
+            }
         }
         previousGrid = grid
         grid = next

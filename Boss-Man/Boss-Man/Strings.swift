@@ -131,8 +131,9 @@ enum Strings {
         static let emptyJSON         = "{}"
         static let redStaplerFile    = "red-stapler"
         static let redStaplerExtension = "png"
-        // Level-6 traveler-only SVG (separate asset from the title-screen PNG).
-        static let travelerStaplerFile      = "shinyredstapler"
+        // Level-6 traveler-only PNG (separate asset from the title-screen PNG).
+        // This asset faces RIGHT by default — see LevelTraveler.facesRight.
+        static let travelerStaplerFile      = "shinyredstapler-emoji"
         static let travelerStaplerExtension = "png"
         static let quarantineAttribute = "com.apple.quarantine"
     }

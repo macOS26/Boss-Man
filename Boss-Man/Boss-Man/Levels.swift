@@ -21,12 +21,17 @@ struct LevelTraveler {
     /// When set, TravelerSpawner draws an SKSpriteNode of this asset
     /// (still subject to the horizontal-flip on movement direction).
     let image: String?
+    /// True when the source art faces RIGHT by default. TravelerSpawner
+    /// inverts its xScale flip accordingly so the sprite always faces
+    /// the direction of travel.
+    let facesRight: Bool
 
-    init(emoji: String, sound: TravelerSound, points: Int, image: String? = nil) {
+    init(emoji: String, sound: TravelerSound, points: Int, image: String? = nil, facesRight: Bool = false) {
         self.emoji = emoji
         self.sound = sound
         self.points = points
         self.image = image
+        self.facesRight = facesRight
     }
 }
 
@@ -36,7 +41,7 @@ let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "☕️", sound: .crunch,      points: 400),
     LevelTraveler(emoji: "🥤", sound: .alienBleep,  points: 800),
     LevelTraveler(emoji: "🧋", sound: .jelly,       points: 1000),
-    LevelTraveler(emoji: "✂️", sound: .crispTap,    points: 2000, image: Strings.Resource.travelerStaplerFile),
+    LevelTraveler(emoji: "✂️", sound: .crispTap,    points: 2000, image: Strings.Resource.travelerStaplerFile, facesRight: true),
     LevelTraveler(emoji: "🍉", sound: .bellDing,    points: 3000),
     LevelTraveler(emoji: "🧇", sound: .radioStatic, points: 4000),
     LevelTraveler(emoji: "🍦", sound: .magicChime,  points: 5000),
