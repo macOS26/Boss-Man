@@ -153,7 +153,7 @@ final class MazeBuilder {
         // +1 on width: the maze visual is shifted 1px left elsewhere,
         // so the background grows 1px to the right to keep its right
         // edge aligned with the scene.
-        let size = CGSize(width: CGFloat(cols) * tile + 1, height: CGFloat(rows) * tile)
+        let size = CGSize(width: CGFloat(cols) * tile + 2, height: CGFloat(rows) * tile)
         let color = cubicleColor
         let image = renderImage(size: size) {
             for (rowIndex, row) in self.map.rows.reversed().enumerated() {
