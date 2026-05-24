@@ -84,7 +84,7 @@ final class HUD {
         messageLabel.fontColor = .systemYellow
         scene.addChild(messageLabel)
 
-        levelEmojisContainer.position = CGPoint(x: size.width - 16, y: size.height - 30)
+        levelEmojisContainer.position = CGPoint(x: size.width - 28, y: size.height - 30)
         levelEmojisContainer.zPosition = 21
         scene.addChild(levelEmojisContainer)
     }
@@ -130,7 +130,8 @@ final class HUD {
         let count = travelers.count
         for (i, t) in travelers.enumerated() {
             let glyph = TravelerGlyph.makeNode(for: t, pointSize: pointSize)
-            glyph.position = CGPoint(x: CGFloat(i - (count - 1)) * spacing, y: 0)
+            let yOffset: CGFloat = t.image != nil ? -3 : 0
+            glyph.position = CGPoint(x: CGFloat(i - (count - 1)) * spacing, y: yOffset)
             levelEmojisContainer.addChild(glyph)
         }
     }
