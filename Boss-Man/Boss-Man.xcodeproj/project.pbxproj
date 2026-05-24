@@ -78,6 +78,7 @@
 				EAAA3BE22FBB7DEF00D451DE /* Sources */,
 				EAAA3BE32FBB7DEF00D451DE /* Frameworks */,
 				EAAA3BE42FBB7DEF00D451DE /* Resources */,
+				EA9988002FCC000000000001 /* Strip xattrs */,
 			);
 			buildRules = (
 			);
@@ -126,6 +127,28 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		EA9988002FCC000000000001 /* Strip xattrs */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Strip xattrs";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Strip com.apple.quarantine (and other) extended attributes from\n# every file in the built app bundle. Apple rejects TestFlight\n# uploads where any payload file carries quarantine xattrs (error\n# 91109). Asset PNGs dragged in from Downloads/Safari are the\n# usual offender.\nxattr -cr \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" || true\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 		EAAA3BE42FBB7DEF00D451DE /* Resources */ = {
@@ -296,7 +319,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -344,7 +367,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bossman.toddbruss;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
