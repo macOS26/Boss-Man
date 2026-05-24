@@ -30,7 +30,6 @@ final class UsernameDialog: SKNode {
     }
 
     private func buildUI() {
-        // Dim overlay
         let overlay = SKShapeNode(rect: CGRect(x: -2000, y: -2000, width: 4000, height: 4000))
         overlay.fillColor = NSColor(calibratedWhite: 0, alpha: 0.45)
         overlay.strokeColor = .clear
@@ -44,7 +43,6 @@ final class UsernameDialog: SKNode {
             height: panelSize.height
         )
 
-        // Panel background
         let bg = SKShapeNode(rect: rect, cornerRadius: 12)
         bg.fillColor = NSColor(calibratedWhite: 1, alpha: 0.96)
         bg.strokeColor = NSColor(calibratedWhite: 0.7, alpha: 1)
@@ -52,7 +50,6 @@ final class UsernameDialog: SKNode {
         bg.zPosition = 1000
         addChild(bg)
 
-        // Title
         let title = SKLabelNode(fontNamed: fontName)
         title.text = Strings.Leaderboard.newHighScoreTitle
         title.fontSize = 22
@@ -62,7 +59,6 @@ final class UsernameDialog: SKNode {
         title.zPosition = 1001
         addChild(title)
 
-        // Prompt
         let prompt = SKLabelNode(fontNamed: fontName)
         prompt.text = Strings.Leaderboard.enterUsernamePrompt
         prompt.fontSize = 16
@@ -72,7 +68,6 @@ final class UsernameDialog: SKNode {
         prompt.zPosition = 1001
         addChild(prompt)
 
-        // Confirm button
         let confirmBtn = SKShapeNode(rect: CGRect(x: -55, y: -panelSize.height / 2 + 18, width: 110, height: 34), cornerRadius: 8)
         confirmBtn.fillColor = .systemBlue
         confirmBtn.strokeColor = .clear
@@ -91,7 +86,6 @@ final class UsernameDialog: SKNode {
         confirmLabel.name = Self.confirmButtonName
         addChild(confirmLabel)
 
-        // Skip button
         let skipBtn = SKShapeNode(rect: CGRect(x: -40, y: -panelSize.height / 2 + 58, width: 80, height: 24), cornerRadius: 6)
         skipBtn.fillColor = .clear
         skipBtn.strokeColor = NSColor(calibratedWhite: 0.6, alpha: 1)
@@ -112,7 +106,6 @@ final class UsernameDialog: SKNode {
         addChild(skipLabel)
     }
 
-    /// Attach the NSTextField to the SKView after this node is added to a scene.
     func attachFieldToView() {
         guard let view = scene?.view, field == nil else { return }
 

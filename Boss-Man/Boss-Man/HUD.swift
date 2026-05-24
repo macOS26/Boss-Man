@@ -9,10 +9,6 @@ final class HUD {
     private let tpsLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let livesLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
-    // Container holds a row of glyph nodes (emoji labels OR PNG sprites),
-    // laid out right-to-left from the container origin. Replaces the old
-    // SKLabelNode so PNG-backed travelers (e.g. the level-6 stapler) can
-    // render in the trail.
     private let levelEmojisContainer = SKNode()
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
@@ -124,7 +120,6 @@ final class HUD {
     }
 
     func updateLevelEmojis(_ travelers: [LevelTraveler]) {
-        // Cache key — recompute layout only when the trail set changes.
         let key = travelers.map { $0.image ?? $0.emoji }.joined(separator: ",")
         if key == lastLevelEmojisText { return }
         lastLevelEmojisText = key
@@ -132,7 +127,6 @@ final class HUD {
         levelEmojisContainer.removeAllChildren()
         let pointSize: CGFloat = 18
         let spacing:   CGFloat = 26
-        // Right-anchored: rightmost glyph sits at x=0, others fan left.
         let count = travelers.count
         for (i, t) in travelers.enumerated() {
             let glyph = TravelerGlyph.makeNode(for: t, pointSize: pointSize)

@@ -133,8 +133,6 @@ enum Strings {
         static let emptyJSON         = "{}"
         static let redStaplerFile    = "red-stapler"
         static let redStaplerExtension = "png"
-        // Level-6 traveler-only PNG (separate asset from the title-screen PNG).
-        // This asset faces RIGHT by default — see LevelTraveler.facesRight.
         static let travelerStaplerFile      = "shinyredstapler-emoji"
         static let travelerStaplerExtension = "png"
         static let quarantineAttribute = "com.apple.quarantine"
@@ -155,8 +153,6 @@ enum Strings {
     // MARK: - Level Editor copy / labels
     enum Editor {
         static let title         = "LEVEL EDITOR"
-        // Labels are padded so the suffix column (arrows / parenthesised
-        // shortcuts) lines up in the editor's monospaced font.
         static let prev          = "PREV  <"
         static let next          = "NEXT  >"
         static let undo          = "UNDO  command Z"

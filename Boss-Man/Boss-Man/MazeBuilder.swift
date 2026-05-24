@@ -11,8 +11,6 @@ final class MazeBuilder {
     private(set) var placedGoldDiscs: Int = 0
 
     private(set) var workerSpawnFromMap: CGPoint?
-    // Ordered list — duplicate blueprintIndex values are allowed so a level can
-    // place multiple bosses of the same type, or more than 4 bosses total.
     private(set) var bossSpawnsFromMap: [(blueprintIndex: Int, position: CGPoint)] = []
     private(set) var goldDiscPositionsFromMap: [CGPoint] = []
 
@@ -150,9 +148,6 @@ final class MazeBuilder {
         let cols = map.rows.first?.count ?? 30
         let rows = map.rows.count
         let tile = map.tileSize
-        // +1 on width: the maze visual is shifted 1px left elsewhere,
-        // so the background grows 1px to the right to keep its right
-        // edge aligned with the scene.
         let size = CGSize(width: CGFloat(cols) * tile + 2, height: CGFloat(rows) * tile)
         let color = cubicleColor
         let image = renderImage(size: size) {

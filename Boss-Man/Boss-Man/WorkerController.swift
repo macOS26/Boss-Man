@@ -87,7 +87,7 @@ final class WorkerController {
         node.removeAction(forKey: Strings.ActionKey.spawnShield)
         node.removeAction(forKey: Strings.ActionKey.spawnShieldBlink)
         let orange = NSColor.systemOrange
-        let teal = NSColor.systemBlue // PETE's shirt color (named "teal" historically)
+        let teal = NSColor.systemBlue
         node.setBodyColor(orange)
         node.setTieColor(.systemBlue)
         node.alpha = 1
@@ -154,9 +154,6 @@ final class WorkerController {
         isMoving = true
         grid = next
         node.startWalking()
-        // Horizontal moves flip the body; vertical moves keep the
-        // current facing. The name tag stays upright (it sits beside
-        // PixelPerson.bodyContainer, not inside it).
         switch direction {
         case .left:  node.face(left: true)
         case .right: node.face(left: false)

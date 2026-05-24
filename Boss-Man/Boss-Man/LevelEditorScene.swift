@@ -65,9 +65,6 @@ final class LevelStore {
         _ = url.path.withCString { removexattr($0, Strings.Resource.quarantineAttribute, 0) }
     }
 
-    // Playfield is locked to 37×17 (tile = 30pt). Normalize on load so
-    // older 36-col custom saves and any oversized bundled rows render
-    // identically — pad with floor on the right, truncate excess.
     static let mapCols = 37
     static let mapRows = 17
 
@@ -156,18 +153,10 @@ class LevelEditorScene: SKScene {
     private var undoStack: [[String]] = []
     private var redoStack: [[String]] = []
     private var clipboard: [String]? = nil
-    /// Snapshot hash of mapRows as it was when the level loaded (or last
-    /// saved). Compared on navigation to decide whether to autosave.
     private var lastSavedHash: Int = 0
     private var buttonBaseColors: [String: NSColor] = [:]
     private var buttonNodes: [String: SKShapeNode] = [:]
-    /// PREV/NEXT trigger loadCurrentLevel() → buildUI() which tears the
-    /// just-flashed button out of the scene. We stash the name here so
-    /// buildUI() can re-flash the freshly-rebuilt button.
     private var pendingFlashName: String?
-    /// Glyph node sitting to the right of levelLabel. Rebuilt each level
-    /// change so PNG-backed travelers (e.g. level 6 stapler) can render
-    /// as a sprite instead of the ✂️ emoji.
     private var levelHeadingGlyph: SKNode?
     private let maxUndoDepth = 50
     var saveButton: SKShapeNode!
@@ -185,7 +174,6 @@ class LevelEditorScene: SKScene {
         buildUI()
         loadCurrentLevel()
         scheduleAutosave()
-        // Flush unsaved changes on app quit.
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleAppWillTerminate),
@@ -213,9 +201,6 @@ class LevelEditorScene: SKScene {
     }
 
     private func performAutosave() {
-        // Use the SAME save path as the SAVE button (no duplicate logic);
-        // just override the post-save status / button-label visuals so
-        // the user can distinguish autosave from a manual ⌘S.
         saveCurrentLevel()
         let originalLabel = Strings.Editor.save
         saveButtonLabel?.text = "AUTOSAVE 1 min"
@@ -609,8 +594,6 @@ class LevelEditorScene: SKScene {
         undoStack.removeAll()
         redoStack.removeAll()
 
-        // Editor is locked to 37 cols × 17 rows. Pad shorter rows with
-        // floor; truncate longer ones so the grid math always matches.
         let targetCols = 37
         let targetRows = 17
         if let rows = LevelStore.shared.loadLevel(name: name) {
@@ -631,20 +614,14 @@ class LevelEditorScene: SKScene {
         
         rebuildGrid()
         updateLevelLabel()
-        // Rebuild the side palette so the Wall swatch reflects this
-        // floor's cubicle color (and any other per-level visuals).
         buildUI()
         lastSavedHash = mapHash()
     }
 
-    /// Stable hash of the current map. Joining with "\n" ensures row
-    /// boundaries are preserved (so "ab"+"cd" ≠ "abc"+"d").
     private func mapHash() -> Int {
         mapRows.joined(separator: "\n").hashValue
     }
 
-    /// PREV/NEXT/ESC entry points call this first. If mapRows differs
-    /// from what's on disk, perform a silent save and update the hash.
     private func autosaveIfDirty() {
         if mapHash() != lastSavedHash {
             saveCurrentLevel()
@@ -655,8 +632,6 @@ class LevelEditorScene: SKScene {
     func updateLevelLabel() {
         let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
-        // Label holds "Level N"; the per-level glyph (emoji OR stapler PNG)
-        // is a sibling node positioned right of the label's text frame.
         let baseName = names[currentLevelIndex]
         levelLabel?.text = baseName
         levelSubLabel?.text = Strings.Editor.levelCounter(currentLevelIndex + 1, of: names.count)
@@ -664,11 +639,7 @@ class LevelEditorScene: SKScene {
         levelHeadingGlyph?.removeFromParent()
         guard let lbl = levelLabel else { return }
         let traveler = levelTravelers[currentLevelIndex % levelTravelers.count]
-        // Match label's visual height so the sprite isn't bigger than the text.
         let glyph = TravelerGlyph.makeNode(for: traveler, pointSize: lbl.fontSize)
-        // calculateAccumulatedFrame reflects the new text width AND the
-        // visual midline — using midY avoids the baseline drift that made
-        // the sprite float above the cap line.
         let lblFrame = lbl.calculateAccumulatedFrame()
         glyph.position = CGPoint(x: lblFrame.maxX + 6, y: lblFrame.midY)
         glyph.zPosition = lbl.zPosition
@@ -725,8 +696,6 @@ class LevelEditorScene: SKScene {
     }
 
     private func flashButton(named name: String) {
-        // Mirror the SAVE button pattern: swap fillColor to a brightened
-        // variant of the base, then restore it after 0.5s.
         guard let btn = buttonNodes[name], let base = buttonBaseColors[name] else { return }
         let bright = base.blended(withFraction: 0.45, of: .white) ?? base
         btn.fillColor = bright
@@ -784,8 +753,6 @@ class LevelEditorScene: SKScene {
         paintRightClick(at: event.location(in: self))
     }
 
-    /// Right-click toggles wall↔dot when the target is one of those;
-    /// any other tile becomes a dot.
     private func paintRightClick(at loc: CGPoint) {
         let col = Int((loc.x - gridOffsetX) / tileSize)
         let row = gridRows - 1 - Int((loc.y - gridOffsetY) / tileSize)
@@ -802,8 +769,6 @@ class LevelEditorScene: SKScene {
     
     func handleInput(_ loc: CGPoint, begin: Bool) {
         if begin {
-            // Check all nodes at the click point (including children) so clicking
-            // anywhere in a palette row — sprite, text, or background — works.
             let hitNodes = nodes(at: loc)
             let paletteName = hitNodes.compactMap { node -> String? in
                 if let name = node.name, name.hasPrefix(LevelEditorScene.paletteNamePrefix) { return name }
@@ -888,8 +853,6 @@ class LevelEditorScene: SKScene {
     
     // MARK: - Play
     func playCurrentLevel() {
-        // Only save if mapRows differs from disk — skips the SAVED toast
-        // when the user just wants to re-test an unmodified level.
         autosaveIfDirty()
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit
@@ -938,7 +901,6 @@ class LevelEditorScene: SKScene {
             loadCurrentLevel()
             return
         case 51 where event.modifierFlags.contains(.command):
-            // ⌘⌫ — destructive, so route through the same confirm dialog as the CLEAR button.
             flashButton(named: Strings.EditorButton.clear)
             confirmClearLevel()
             return
@@ -960,7 +922,6 @@ class LevelEditorScene: SKScene {
                 flashButton(named: Strings.EditorButton.save)
                 saveCurrentLevel()
             case Strings.KeyEquivalent.play where event.modifierFlags.contains(.command):
-                // ⌘P launches a playtest on whatever level we're viewing.
                 flashButton(named: Strings.EditorButton.play)
                 playCurrentLevel()
             case Strings.KeyEquivalent.reveal where event.modifierFlags.contains(.command):

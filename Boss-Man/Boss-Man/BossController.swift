@@ -29,9 +29,6 @@ final class BossController {
         var isInFleeMode: Bool = false
         var captureCount: Int = 0
         var isImmobilized: Bool = false
-        // Index into Self.blueprints. Stored on the entity so duplicate
-        // spawns of the same boss type still rebuild correctly after
-        // capture (lookup by node identity, not name).
         let blueprintIndex: Int
     }
 
@@ -66,11 +63,6 @@ final class BossController {
     }
 
     // MARK: - Roster lifecycle
-    //
-    // `spawnOverrides` is an ORDERED ARRAY of (blueprintIndex, position)
-    // pairs — not a dictionary — so the same boss type can appear
-    // multiple times (e.g. two BOBs / multiple bosses past 4) and the
-    // level can spawn more than 4 total.
     func spawn(forLevel level: Int, spawnOverrides: [(blueprintIndex: Int, position: CGPoint)] = []) {
         clear()
         currentLevel = level
@@ -190,9 +182,6 @@ final class BossController {
     }
 
     private func rebuildEntity(at index: Int) {
-        // Preserve the captured boss's blueprint identity AND its
-        // original spawn point — with duplicate bosses, blueprint
-        // index alone doesn't determine the home tile.
         let blueprintIndex = entities[index].blueprintIndex
         let spawn = entities[index].spawn
         entities[index].node.alpha = 0
@@ -294,7 +283,6 @@ final class BossController {
 
     // MARK: - Stepping (SKAction-driven per boss)
     private func scheduleStepper(for entity: Entity) {
-        // Identify by node, not name — duplicate bosses (two BOBs) share a name.
         let bossNode = entity.node
         let stepper = SKAction.repeatForever(.sequence([
             .wait(forDuration: entity.moveInterval),
@@ -332,9 +320,6 @@ final class BossController {
         }
 
         boss.node.startWalking()
-        // Eyes + body face the move delta. Horizontal moves flip the
-        // body; vertical moves keep horizontal facing. Name tag is
-        // outside bodyContainer so it never mirrors.
         let dx = move.to.x - move.from.x
         let dy = move.to.y - move.from.y
         let look: MoveDirection? = {

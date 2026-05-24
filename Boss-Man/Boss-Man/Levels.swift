@@ -1,8 +1,6 @@
 import Foundation
 
 struct Levels {
-    // Plain "Level N" keys — the per-level emoji is composed at display time
-    // from levelTravelers[(N-1) % 12].emoji (editor + HUD).
     static let levelNames: [String] = (1...24).map { "Level \($0)" }
 }
 
@@ -14,13 +12,7 @@ struct LevelTraveler {
     let emoji: String
     let sound: TravelerSound
     let points: Int
-    /// Optional bundle image (PNG) rendered in place of the text emoji.
-    /// When set, TravelerSpawner draws an SKSpriteNode of this asset
-    /// (still subject to the horizontal-flip on movement direction).
     let image: String?
-    /// True when the source art faces RIGHT by default. TravelerSpawner
-    /// inverts its xScale flip accordingly so the sprite always faces
-    /// the direction of travel.
     let facesRight: Bool
 
     init(emoji: String, sound: TravelerSound, points: Int, image: String? = nil, facesRight: Bool = false) {

@@ -225,8 +225,6 @@ final class LeaderboardPanel: SKNode {
     private func row(rank: Int, name: String, score: Int, y: CGFloat, left: CGFloat, right: CGFloat, color: NSColor) -> SKNode {
         let row = SKNode()
 
-        // Right-align "N." so the period column lines up. Name sits
-        // just 4pt to the right of the period — no big gap.
         let rankColumnRight = left + 22
         let rankLabel = SKLabelNode(fontNamed: titleFontName)
         rankLabel.text = Strings.Leaderboard.rankLabel(rank)

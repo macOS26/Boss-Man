@@ -89,8 +89,6 @@ final class TravelerSpawner {
     }
 
     private func loadBundleImage(named name: String) -> NSImage? {
-        // Try both raster (.png) and vector (.svg) extensions so a
-        // traveler entry can point at either kind of asset.
         for ext in [Strings.Resource.redStaplerExtension,
                     Strings.Resource.travelerStaplerExtension] {
             if let url = Bundle.main.url(forResource: name, withExtension: ext),
@@ -117,11 +115,6 @@ final class TravelerSpawner {
         wrapper.physicsBody?.contactTestBitMask = PhysicsCategory.worker
         wrapper.physicsBody?.collisionBitMask = 0
 
-        // If the level traveler provides an image, render it as a real
-        // sprite (PNG asset, scaled to roughly match the 36pt emoji
-        // glyph). Otherwise fall back to the text emoji. Either way
-        // the node uses Strings.NodeName.travelerEmoji so stepNode's
-        // left/right xScale flip still finds it.
         let visual: SKNode
         if let imageName = traveler.image,
            let nsImage = NSImage(named: imageName) ?? loadBundleImage(named: imageName) {
@@ -136,8 +129,6 @@ final class TravelerSpawner {
             label.fontSize = 36
             label.verticalAlignmentMode = .center
             label.horizontalAlignmentMode = .center
-            // The scissors glyph points up-left by default; rotate -90°
-            // so the blades lie horizontally.
             if traveler.emoji == "✂️" {
                 label.zRotation = -.pi / 2
             }
@@ -191,9 +182,6 @@ final class TravelerSpawner {
         }
         let dx = next.x - grid.x
         if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {
-            // Default art faces LEFT, so dx>0 (rightward) flips. For
-            // assets that already face RIGHT (LevelTraveler.facesRight),
-            // invert: dx>0 keeps natural orientation, dx<0 flips.
             let facesRight = activeTraveler?.facesRight ?? false
             if facesRight {
                 emoji.xScale = dx < 0 ? -1 : 1

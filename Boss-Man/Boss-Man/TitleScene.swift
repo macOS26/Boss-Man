@@ -86,8 +86,6 @@ final class TitleScene: SKScene {
                                       withExtension: Strings.Resource.redStaplerExtension),
            let image = NSImage(contentsOf: url) {
             let source = image.size
-            // Fit inside maxSize while preserving aspect so the new PNG
-            // doesn't get squashed.
             let scale = min(maxSize.width / source.width,
                             maxSize.height / source.height)
             let fitted = CGSize(width: source.width  * scale,

@@ -2,9 +2,6 @@ import AppKit
 import SpriteKit
 
 final class PixelPerson: SKNode {
-    // All body parts live inside this container so face(left:) can mirror
-    // the entire body without flipping the name tag that callers attach
-    // directly to PixelPerson (the tag stays a sibling of bodyContainer).
     private let bodyContainer = SKNode()
 
     private let torso: SKShapeNode
@@ -72,9 +69,6 @@ final class PixelPerson: SKNode {
         rightShoe.position = CGPoint(x: 1, y: -5)
         rightLeg.addChild(rightShoe)
 
-        // When the body color is translucent (e.g. DOM at 0.75 alpha),
-        // paint a solid white backing behind the torso + arms so the
-        // floor doesn't show through. Cheap no-op for opaque bodies.
         let needsBacking = bodyColor.alphaComponent < 1.0
         if needsBacking {
             let torsoBack = SKShapeNode(rectOf: CGSize(width: 18, height: 16), cornerRadius: 2)
@@ -211,16 +205,10 @@ final class PixelPerson: SKNode {
     }
 
     func face(left: Bool) {
-        // Flip ONLY the body — name tag (added by callers as a direct
-        // child of this PixelPerson) sits beside bodyContainer and stays
-        // upright/readable.
         bodyContainer.xScale = left ? -1 : 1
     }
 
     // MARK: - Eye tracking
-    /// Shifts both eyes 1px in the look direction (relative to the body's
-    /// own coordinate space, so horizontal looks automatically follow
-    /// face(left:)). Pass `nil` to recenter.
     func setLookDirection(_ dir: MoveDirection?) {
         guard let leftEye, let rightEye else { return }
         let offset: CGPoint

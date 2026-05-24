@@ -347,7 +347,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         if !state.practiceMode {
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
 
-            // Check if this score qualifies for the local leaderboard
             let defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
             if LocalHighScores.qualifies(name: defaultName, score: state.score) {
                 showUsernameDialog(defaultName: defaultName)
@@ -413,8 +412,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         guard let view else { return }
         hud.hideGameOver()
         sound.stopBackgroundMusic()
-        // ESC during a playtest launched from the level editor returns
-        // to the editor (on the same floor), not the title screen.
         if state.practiceMode {
             let editor = LevelEditorScene(size: size)
             editor.scaleMode = .aspectFit

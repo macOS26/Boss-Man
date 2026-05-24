@@ -25,10 +25,9 @@ struct LocalHighScores {
         }
         var all = load()
 
-        // Only keep each player's highest score
         if let existing = all.firstIndex(where: { $0.name == name }) {
             guard score > all[existing].score else {
-                return nil // Not a new high score — don't record
+                return nil
             }
             all.remove(at: existing)
         }
@@ -46,7 +45,6 @@ struct LocalHighScores {
         return rank
     }
 
-    /// Returns true if the given score would be a new entry or beat an existing one
     static func qualifies(name: String, score: Int) -> Bool {
         guard score > 0 else { return false }
         let all = load()
