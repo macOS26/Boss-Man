@@ -242,7 +242,7 @@ class LevelEditorScene: SKScene {
         levelLabel = SKLabelNode(text: Strings.empty)
         levelLabel.fontName = Strings.Font.menloBold
         levelLabel.fontSize = 11
-        levelLabel.fontColor = NSColor.cyan
+        levelLabel.fontColor = .systemBlue
         levelLabel.position = CGPoint(x: cx, y: frame.height - 46)
         levelLabel.zPosition = 101
         levelLabel.numberOfLines = 2
@@ -251,7 +251,7 @@ class LevelEditorScene: SKScene {
         levelSubLabel = SKLabelNode(text: Strings.empty)
         levelSubLabel.fontName = Strings.Font.menloBold
         levelSubLabel.fontSize = 11
-        levelSubLabel.fontColor = NSColor.cyan
+        levelSubLabel.fontColor = .systemBlue
         levelSubLabel.position = CGPoint(x: cx, y: frame.height - 60)
         levelSubLabel.zPosition = 101
         levelSubLabel.horizontalAlignmentMode = .center
