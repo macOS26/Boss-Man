@@ -28,8 +28,8 @@ final class HUD {
 
         let panel = SKShapeNode(rect: CGRect(x: 0, y: size.height - panelHeight, width: size.width, height: panelHeight))
         panel.fillColor = NSColor(calibratedRed: 0.03, green: 0.04, blue: 0.05, alpha: 0.92)
-        panel.strokeColor = .systemOrange
-        panel.lineWidth = 2
+        panel.strokeColor = .clear
+        panel.lineWidth = 0
         panel.zPosition = 20
         scene.addChild(panel)
 
