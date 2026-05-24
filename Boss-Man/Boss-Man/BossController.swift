@@ -37,7 +37,7 @@ final class BossController {
 
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] = [
         (Strings.Boss.boss,     .systemRed,    .black,        .darkGray, CGPoint(x: 34, y: 15), .directChase,                                                          1.00),
-        (Strings.Boss.lumbergh, NSColor.systemPink.withAlphaComponent(0.75), .systemPurple, .darkGray, CGPoint(x: 1,  y: 1),  .ambushAhead(tiles: 4),                    0.85),
+        (Strings.Boss.lumbergh, NSColor.systemPink.withAlphaComponent(0.75), NSColor.systemPurple.blended(withFraction: 0.10, of: .black) ?? .systemPurple, .darkGray, CGPoint(x: 1,  y: 1),  .ambushAhead(tiles: 4),                    0.85),
         (Strings.Boss.waddams,  .systemTeal,   .systemBlue,   .darkGray, CGPoint(x: 34, y: 1),  .flanker(pivotTiles: 2),                                               0.78),
         (Strings.Boss.bolton,   .systemOrange, .systemRed,    .darkGray, CGPoint(x: 1,  y: 15), .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70)
     ]
