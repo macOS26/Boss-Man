@@ -39,7 +39,7 @@ final class BossController {
         (Strings.Boss.boss,     .systemRed,    .black,        .darkGray, CGPoint(x: 34, y: 15), .directChase,                                                          1.00),
         (Strings.Boss.lumbergh, NSColor.systemPink.withAlphaComponent(0.75), NSColor.systemPurple.blended(withFraction: 0.40, of: .black) ?? .systemPurple, .darkGray, CGPoint(x: 1,  y: 1),  .ambushAhead(tiles: 4),                    0.85),
         (Strings.Boss.waddams,  .systemTeal,   NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue,   .darkGray, CGPoint(x: 34, y: 1),  .flanker(pivotTiles: 2),                                               0.78),
-        (Strings.Boss.bolton,   .systemOrange, .systemRed,    .darkGray, CGPoint(x: 1,  y: 15), .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70)
+        (Strings.Boss.bolton,   .systemOrange, NSColor.systemRed.blended(withFraction: 0.10, of: .black) ?? .systemRed,    .darkGray, CGPoint(x: 1,  y: 15), .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70)
     ]
 
     private let moveInterval: TimeInterval = 0.36

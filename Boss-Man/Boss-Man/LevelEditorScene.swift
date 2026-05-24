@@ -456,7 +456,8 @@ class LevelEditorScene: SKScene {
                     tie: NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue, size: size)
         case Strings.Tile.boss4Char:
             addBoss(to: container, name: Strings.Boss.bolton,
-                    body: .systemOrange, tie: .systemRed,    size: size)
+                    body: .systemOrange,
+                    tie: NSColor.systemRed.blended(withFraction: 0.10, of: .black) ?? .systemRed, size: size)
         default:
             break
         }
