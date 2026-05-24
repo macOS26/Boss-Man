@@ -261,6 +261,29 @@ final class BossController {
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: active)
+        if !active { applyFleeThawTransition() }
+    }
+
+    private func applyFleeThawTransition() {
+        sound.playTeleport()
+        let blink = SKAction.sequence([
+            .fadeAlpha(to: 0.3, duration: 0.3),
+            .fadeAlpha(to: 1.0, duration: 0.3)
+        ])
+        for i in entities.indices {
+            entities[i].isImmobilized = true
+            let node = entities[i].node
+            node.removeAction(forKey: Strings.ActionKey.fleeThaw)
+            node.run(.sequence([
+                .repeat(blink, count: 5),
+                .run { [weak self, weak node] in
+                    guard let self, let node,
+                          let idx = self.entities.firstIndex(where: { $0.node === node }) else { return }
+                    self.entities[idx].isImmobilized = false
+                    node.alpha = 1
+                }
+            ]), withKey: Strings.ActionKey.fleeThaw)
+        }
     }
 
     func isInFleeMode(boss node: PixelPerson) -> Bool {

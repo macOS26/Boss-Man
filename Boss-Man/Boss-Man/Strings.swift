@@ -115,6 +115,7 @@ enum Strings {
         static let spawnFade        = "spawnFade"
         static let spawnUnfreeze    = "spawnUnfreeze"
         static let spawnThrob       = "spawnThrob"
+        static let fleeThaw         = "fleeThaw"
         static let clear            = "clear"
     }
 
