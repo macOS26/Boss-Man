@@ -900,6 +900,7 @@ class LevelEditorScene: SKScene {
             return
         case 51 where event.modifierFlags.contains(.command):
             // ⌘⌫ — destructive, so route through the same confirm dialog as the CLEAR button.
+            flashButton(named: Strings.EditorButton.clear)
             confirmClearLevel()
             return
         default: break
@@ -917,21 +918,29 @@ class LevelEditorScene: SKScene {
             case Strings.Key.digit8: selectedTile = .brownBox
             case Strings.Key.digit0: selectedTile = .empty
             case Strings.KeyEquivalent.save where event.modifierFlags.contains(.command):
+                flashButton(named: Strings.EditorButton.save)
                 saveCurrentLevel()
             case Strings.KeyEquivalent.play where event.modifierFlags.contains(.command):
                 // ⌘P launches a playtest on whatever level we're viewing.
+                flashButton(named: Strings.EditorButton.play)
                 playCurrentLevel()
             case Strings.KeyEquivalent.reveal where event.modifierFlags.contains(.command):
+                flashButton(named: Strings.EditorButton.reveal)
                 LevelStore.shared.revealInFinder()
             case Strings.KeyEquivalent.copy where event.modifierFlags.contains(.command):
+                flashButton(named: Strings.EditorButton.copy)
                 copyLevel()
             case Strings.KeyEquivalent.paste where event.modifierFlags.contains(.command):
+                flashButton(named: Strings.EditorButton.paste)
                 pasteLevel()
             case Strings.KeyEquivalent.undo where event.modifierFlags.contains([.command, .shift]):
+                flashButton(named: Strings.EditorButton.redo)
                 redo()
             case Strings.KeyEquivalent.undo where event.modifierFlags.contains(.command):
+                flashButton(named: Strings.EditorButton.undo)
                 undo()
             case Strings.KeyEquivalent.undoShift where event.modifierFlags.contains(.command):
+                flashButton(named: Strings.EditorButton.redo)
                 redo()
             default: break
             }
