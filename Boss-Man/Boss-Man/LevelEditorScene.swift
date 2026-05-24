@@ -449,10 +449,11 @@ class LevelEditorScene: SKScene {
         case Strings.Tile.boss2Char:
             addBoss(to: container, name: Strings.Boss.lumbergh,
                     body: NSColor.systemPink.withAlphaComponent(0.75),
-                    tie: NSColor.systemPurple.blended(withFraction: 0.10, of: .black) ?? .systemPurple, size: size)
+                    tie: NSColor.systemPurple.blended(withFraction: 0.20, of: .black) ?? .systemPurple, size: size)
         case Strings.Tile.boss3Char:
             addBoss(to: container, name: Strings.Boss.waddams,
-                    body: .systemTeal,   tie: .systemBlue,   size: size)
+                    body: .systemTeal,
+                    tie: NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue, size: size)
         case Strings.Tile.boss4Char:
             addBoss(to: container, name: Strings.Boss.bolton,
                     body: .systemOrange, tie: .systemRed,    size: size)
