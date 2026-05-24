@@ -456,7 +456,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         )
         hud.updateLives(state.lives)
         let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1
-        let emojis = (0..<cyclePosition).map { levelTravelers[$0].emoji }
-        hud.updateLevelEmojis(emojis)
+        hud.updateLevelEmojis(Array(levelTravelers.prefix(cyclePosition)))
     }
 }

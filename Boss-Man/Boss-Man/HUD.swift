@@ -9,7 +9,11 @@ final class HUD {
     private let tpsLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let livesLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
-    private let levelEmojisLabel = SKLabelNode()
+    // Container holds a row of glyph nodes (emoji labels OR PNG sprites),
+    // laid out right-to-left from the container origin. Replaces the old
+    // SKLabelNode so PNG-backed travelers (e.g. the level-6 stapler) can
+    // render in the trail.
+    private let levelEmojisContainer = SKNode()
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
@@ -84,12 +88,9 @@ final class HUD {
         messageLabel.fontColor = .systemYellow
         scene.addChild(messageLabel)
 
-        levelEmojisLabel.fontSize = 22
-        levelEmojisLabel.horizontalAlignmentMode = .right
-        levelEmojisLabel.verticalAlignmentMode = .center
-        levelEmojisLabel.position = CGPoint(x: size.width - 16, y: size.height - 30)
-        levelEmojisLabel.zPosition = 21
-        scene.addChild(levelEmojisLabel)
+        levelEmojisContainer.position = CGPoint(x: size.width - 16, y: size.height - 30)
+        levelEmojisContainer.zPosition = 21
+        scene.addChild(levelEmojisContainer)
     }
 
     private static let emojiByName: [String: String] = [
@@ -122,11 +123,21 @@ final class HUD {
         }
     }
 
-    func updateLevelEmojis(_ emojis: [String]) {
-        let text = emojis.joined(separator: Strings.HUD.emojiTrailSeparator)
-        if text != lastLevelEmojisText {
-            levelEmojisLabel.text = text
-            lastLevelEmojisText = text
+    func updateLevelEmojis(_ travelers: [LevelTraveler]) {
+        // Cache key — recompute layout only when the trail set changes.
+        let key = travelers.map { $0.image ?? $0.emoji }.joined(separator: ",")
+        if key == lastLevelEmojisText { return }
+        lastLevelEmojisText = key
+
+        levelEmojisContainer.removeAllChildren()
+        let pointSize: CGFloat = 22
+        let spacing:   CGFloat = 26
+        // Right-anchored: rightmost glyph sits at x=0, others fan left.
+        let count = travelers.count
+        for (i, t) in travelers.enumerated() {
+            let glyph = TravelerGlyph.makeNode(for: t, pointSize: pointSize)
+            glyph.position = CGPoint(x: CGFloat(i - (count - 1)) * spacing, y: 0)
+            levelEmojisContainer.addChild(glyph)
         }
     }
 

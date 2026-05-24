@@ -165,6 +165,10 @@ class LevelEditorScene: SKScene {
     /// just-flashed button out of the scene. We stash the name here so
     /// buildUI() can re-flash the freshly-rebuilt button.
     private var pendingFlashName: String?
+    /// Glyph node sitting to the right of levelLabel. Rebuilt each level
+    /// change so PNG-backed travelers (e.g. level 6 stapler) can render
+    /// as a sprite instead of the ✂️ emoji.
+    private var levelHeadingGlyph: SKNode?
     private let maxUndoDepth = 50
     var saveButton: SKShapeNode!
     var saveButtonLabel: SKLabelNode?
@@ -651,11 +655,22 @@ class LevelEditorScene: SKScene {
     func updateLevelLabel() {
         let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
-        // Compose "Level N <emoji>" — the emoji lives on the traveler list,
-        // not in the level name (keys in levels.json are plain "Level N").
-        let emoji = levelTravelers[currentLevelIndex % levelTravelers.count].emoji
-        levelLabel?.text = "\(names[currentLevelIndex])\(Strings.HUD.emojiTrailSeparator)\(emoji)"
+        // Label holds "Level N"; the per-level glyph (emoji OR stapler PNG)
+        // is a sibling node positioned right of the label's text frame.
+        let baseName = names[currentLevelIndex]
+        levelLabel?.text = baseName
         levelSubLabel?.text = Strings.Editor.levelCounter(currentLevelIndex + 1, of: names.count)
+
+        levelHeadingGlyph?.removeFromParent()
+        guard let lbl = levelLabel else { return }
+        let traveler = levelTravelers[currentLevelIndex % levelTravelers.count]
+        let glyph = TravelerGlyph.makeNode(for: traveler, pointSize: 18)
+        // calculateAccumulatedFrame is post-text-set so width reflects the new label.
+        let lblFrame = lbl.calculateAccumulatedFrame()
+        glyph.position = CGPoint(x: lblFrame.maxX + 12, y: lbl.position.y)
+        glyph.zPosition = lbl.zPosition
+        uiContainer.addChild(glyph)
+        levelHeadingGlyph = glyph
     }
     
     func updatePaletteHighlight() {
