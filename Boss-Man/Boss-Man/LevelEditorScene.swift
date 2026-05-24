@@ -635,7 +635,10 @@ class LevelEditorScene: SKScene {
     func updateLevelLabel() {
         let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
-        levelLabel?.text = names[currentLevelIndex].replacingOccurrences(of: Strings.Editor.nameDashSeparator, with: Strings.HUD.emojiTrailSeparator)
+        // Compose "Level N <emoji>" — the emoji lives on the traveler list,
+        // not in the level name (keys in levels.json are plain "Level N").
+        let emoji = levelTravelers[currentLevelIndex % levelTravelers.count].emoji
+        levelLabel?.text = "\(names[currentLevelIndex])\(Strings.HUD.emojiTrailSeparator)\(emoji)"
         levelSubLabel?.text = Strings.Editor.levelCounter(currentLevelIndex + 1, of: names.count)
     }
     
