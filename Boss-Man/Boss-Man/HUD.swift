@@ -130,8 +130,10 @@ final class HUD {
         let count = travelers.count
         for (i, t) in travelers.enumerated() {
             let glyph = TravelerGlyph.makeNode(for: t, pointSize: pointSize)
-            let yOffset: CGFloat = t.image != nil ? -3 : 0
-            glyph.position = CGPoint(x: CGFloat(i - (count - 1)) * spacing, y: yOffset)
+            let xOffset: CGFloat = t.image != nil ? -1.5 : 0
+            let yOffset: CGFloat = t.image != nil ? -2   : 0
+            glyph.position = CGPoint(x: CGFloat(i - (count - 1)) * spacing + xOffset, y: yOffset)
+            if t.image != nil { glyph.xScale = -1 }
             levelEmojisContainer.addChild(glyph)
         }
     }
