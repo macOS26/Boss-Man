@@ -181,6 +181,22 @@ class LevelEditorScene: SKScene {
         buildUI()
         loadCurrentLevel()
         scheduleAutosave()
+        // Flush unsaved changes on app quit.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppWillTerminate),
+            name: NSApplication.willTerminateNotification,
+            object: nil
+        )
+    }
+
+    override func willMove(from view: SKView) {
+        NotificationCenter.default.removeObserver(self, name: NSApplication.willTerminateNotification, object: nil)
+        super.willMove(from: view)
+    }
+
+    @objc private func handleAppWillTerminate() {
+        autosaveIfDirty()
     }
 
     private func scheduleAutosave() {
@@ -854,7 +870,9 @@ class LevelEditorScene: SKScene {
     
     // MARK: - Play
     func playCurrentLevel() {
-        saveCurrentLevel()
+        // Only save if mapRows differs from disk — skips the SAVED toast
+        // when the user just wants to re-test an unmodified level.
+        autosaveIfDirty()
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit
         game.practiceMode = true
