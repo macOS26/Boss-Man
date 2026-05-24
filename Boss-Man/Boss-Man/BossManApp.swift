@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMainMenu()
-        let sceneSize = CGSize(width: 1184, height: 648 - 4)
+        let sceneSize = CGSize(width: 1184, height: 644)
         let skView = SKView(frame: CGRect(origin: .zero, size: sceneSize))
         skView.ignoresSiblingOrder = true
         skView.preferredFramesPerSecond = 60
