@@ -567,15 +567,25 @@ class LevelEditorScene: SKScene {
         undoStack.removeAll()
         redoStack.removeAll()
 
+        // Editor is locked to 37 cols × 17 rows. Pad shorter rows with
+        // floor; truncate longer ones so the grid math always matches.
+        let targetCols = 37
+        let targetRows = 17
         if let rows = LevelStore.shared.loadLevel(name: name) {
-            mapRows = rows
-            gridRows = rows.count
-            gridCols = rows.first?.count ?? 0
+            mapRows = rows.map { row -> String in
+                if row.count == targetCols { return row }
+                if row.count <  targetCols { return row + String(repeating: Strings.Tile.floor, count: targetCols - row.count) }
+                return String(row.prefix(targetCols))
+            }
+            while mapRows.count < targetRows {
+                mapRows.append(String(repeating: Strings.Tile.floor, count: targetCols))
+            }
+            if mapRows.count > targetRows { mapRows = Array(mapRows.prefix(targetRows)) }
         } else {
-            gridRows = 17
-            gridCols = 37
-            mapRows = Array(repeating: String(repeating: Strings.Tile.floor, count: gridCols), count: gridRows)
+            mapRows = Array(repeating: String(repeating: Strings.Tile.floor, count: targetCols), count: targetRows)
         }
+        gridRows = targetRows
+        gridCols = targetCols
         
         rebuildGrid()
         updateLevelLabel()
