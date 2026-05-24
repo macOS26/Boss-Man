@@ -5,7 +5,7 @@ final class RoundState {
     static let highScoreKey = Strings.DefaultsKey.highScore
 
     var level = 1
-    var lives = HUD.maxLives
+    var lives = HUD.startingLives
     var score = 0
     var dotCount = 0
     var collectedDots = 0
@@ -28,7 +28,7 @@ final class RoundState {
 
     func resetForNewGame() {
         level = 1
-        lives = HUD.maxLives
+        lives = HUD.startingLives
         score = 0
         tpsReportsDelivered = 0
         collectedDots = 0

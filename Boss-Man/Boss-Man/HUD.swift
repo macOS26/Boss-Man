@@ -3,6 +3,7 @@ import SpriteKit
 
 @MainActor
 final class HUD {
+    static let startingLives = 3
     static let maxLives = 5
 
     private let statusLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
