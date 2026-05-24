@@ -2,7 +2,7 @@ import AppKit
 import SpriteKit
 
 final class GameScene: SKScene, PointerInputControllerDelegate, WorkerControllerDelegate, BossControllerDelegate {
-    private let tileSize: CGFloat = 30
+    private let tileSize: CGFloat = 32
     private let workerSpawn = CGPoint(x: 18, y: 7)
     private let goldDiscDuration: TimeInterval = 20
 

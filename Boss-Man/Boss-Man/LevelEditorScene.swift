@@ -122,7 +122,7 @@ final class LevelStore {
 // MARK: - Level Editor Scene
 class LevelEditorScene: SKScene {
     
-    var tileSize: CGFloat = 30
+    var tileSize: CGFloat = 32
     var gridRows = 0
     var gridCols = 0
     var mapRows: [String] = []
