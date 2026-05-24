@@ -90,7 +90,7 @@ A traveler enters the maze every ~30 seconds from the right tunnel and wanders t
 | 3     | ☕️ Coffee                              | 400    |
 | 4     | 🥤 Soda Cup                            | 800    |
 | 5     | 🍎 Apple                               | 1,000  |
-| 6     | ✂️ **Shiny Red Stapler** (PNG sprite — `shinyredstapler-emoji.png`) | 2,000  |
+| 6     | <img src="Boss-Man/Resources/shinyredstapler-emoji.png" width="32" alt="Shiny Red Stapler"/> **Shiny Red Stapler** (PNG sprite) | 2,000  |
 | 7     | 🍉 Watermelon                          | 3,000  |
 | 8     | 🧇 Waffle                              | 4,000  |
 | 9     | 🍦 Ice Cream                           | 5,000  |
@@ -115,11 +115,14 @@ Press the **LEVEL EDITOR** button from the title screen to design your own floor
 
 ## Visual Assets
 
-- `Resources/red-stapler.png` — title-screen hero stapler.
-- `Resources/shinyredstapler-emoji.png` — in-game level-6 traveler sprite (the actual stapler PETE chases).
-- `Resources/AppIcon.icon` — application icon.
+<table>
+  <tr>
+    <td align="center"><img src="Boss-Man/Resources/red-stapler.png" width="160" alt="Red Stapler"/><br/><sub><code>Boss-Man/Resources/red-stapler.png</code><br/>Title-screen hero stapler.</sub></td>
+    <td align="center"><img src="Boss-Man/Resources/shinyredstapler-emoji.png" width="120" alt="Shiny Red Stapler"/><br/><sub><code>Boss-Man/Resources/shinyredstapler-emoji.png</code><br/>Level-6 traveler sprite.</sub></td>
+  </tr>
+</table>
 
-PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelPerson.swift` (no sprite sheets).
+PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelPerson.swift` — no sprite sheets, no boss PNGs. The app icon lives in `Boss-Man/Resources/AppIcon.icon`.
 
 ## Made with Agent!
 
