@@ -22,11 +22,12 @@ struct EditorTile: Equatable {
     static let boss2    = EditorTile(character: Strings.Tile.boss2Char,      displayName: Strings.Boss.lumbergh)
     static let boss3    = EditorTile(character: Strings.Tile.boss3Char,      displayName: Strings.Boss.waddams)
     static let boss4    = EditorTile(character: Strings.Tile.boss4Char,      displayName: Strings.Boss.bolton)
+    static let waterGun = EditorTile(character: Strings.Tile.waterGunChar,   displayName: Strings.Editor.Tile.waterGun)
 
     static let all: [EditorTile] = [
         .empty, .dot, .wall, .hideout,
         .printer, .fax, .copy, .collator, .brownBox,
-        .goldDisc, .worker, .boss1, .boss2, .boss3, .boss4
+        .goldDisc, .worker, .boss1, .boss2, .boss3, .boss4, .waterGun
     ]
 }
 
@@ -267,7 +268,7 @@ class LevelEditorScene: SKScene {
         
         paletteNodes = []
         let palStartY = frame.height - 89
-        let palSpacing: CGFloat = 21
+        let palSpacing: CGFloat = 18
         
         for (i, tile) in EditorTile.all.enumerated() {
             let y = palStartY - 24 - CGFloat(i) * palSpacing
@@ -464,7 +465,7 @@ class LevelEditorScene: SKScene {
             addLetter(to: container, text: Strings.Tile.hideout, color: .systemPurple, size: size * 0.85)
         case Strings.Tile.printerChar, Strings.Tile.faxChar,
              Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar,
-             Strings.Tile.brownBoxChar:
+             Strings.Tile.brownBoxChar, Strings.Tile.waterGunChar:
             addEmoji(to: container, text: MazeBuilder.emoji(forSymbol: String(char)), size: size)
         case Strings.Tile.goldDiscChar:
             addGoldDisc(to: container, size: size)

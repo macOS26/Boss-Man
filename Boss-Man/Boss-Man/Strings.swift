@@ -20,6 +20,7 @@ enum Strings {
         static let boss2      = "2"
         static let boss3      = "3"
         static let boss4      = "4"
+        static let waterGun   = "G"
 
         static let floorChar      = Character(floor)
         static let dotChar        = Character(dot)
@@ -36,6 +37,7 @@ enum Strings {
         static let boss2Char      = Character(boss2)
         static let boss3Char      = Character(boss3)
         static let boss4Char      = Character(boss4)
+        static let waterGunChar   = Character(waterGun)
     }
 
     // MARK: - macOS standard menu item titles
@@ -149,6 +151,7 @@ enum Strings {
         static let checked    = "✅"
         static let unchecked  = "❌"
         static let sunglasses = "🕶️"
+        static let waterGun   = "🔫"
     }
 
     // MARK: - Level Editor copy / labels
@@ -188,6 +191,7 @@ enum Strings {
             static let wall     = "Wall"
             static let hideout  = "Hideout"
             static let goldDisc = "Gold Disc"
+            static let waterGun = "Water Gun"
         }
     }
 
@@ -365,7 +369,7 @@ enum Strings {
         }
 
         static let gameOver         = "GAME OVER"
-        static let promptNewGame    = "PRESS SPACE TO START A NEW GAME"
+        static let promptNewGame    = "PRESS P TO START A NEW GAME"
         static let promptTitle      = "PRESS ESC FOR TITLE SCREEN"
     }
 
@@ -373,7 +377,7 @@ enum Strings {
     enum Message {
         static let intro              = "Collect office dots and finish the TPS report!"
         static let practiceMode       = "PRACTICE MODE — score not saved"
-        static let paused             = "Paused — press SPACE to resume"
+        static let paused             = "Paused — press P to resume"
         static let needTPSReport      = "Turn in at least 1 TPS report to complete the level!"
         static let brownBoxHint       = "Brown boxes collect finished TPS reports."
         static let tpsReportReady     = "TPS report complete! Deliver it to a brown box."
@@ -411,7 +415,7 @@ enum Strings {
     // MARK: - Title scene
     enum Title {
         static let gameTitle      = "BOSS-MAN"
-        static let pressSpace     = "SPACE to Play · E for Editor"
+        static let pressSpace     = "P to Play · E for Editor"
         static func highScore(_ value: Int) -> String { "HIGH SCORE \(value)" }
     }
 

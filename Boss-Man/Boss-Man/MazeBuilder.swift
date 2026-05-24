@@ -276,6 +276,7 @@ final class MazeBuilder {
         case Strings.Tile.coverSheet: return Strings.Emoji.coverSheet
         case Strings.Tile.bookBinder: return Strings.Emoji.bookBinder
         case Strings.Tile.brownBox:   return Strings.Emoji.brownBox
+        case Strings.Tile.waterGun:   return Strings.Emoji.waterGun
         default: return symbol
         }
     }

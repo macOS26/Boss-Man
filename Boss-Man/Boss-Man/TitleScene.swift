@@ -65,7 +65,7 @@ final class TitleScene: SKScene {
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 49:
+        case 35:
             let game = GameScene(size: size)
             game.scaleMode = .aspectFit
             view?.presentScene(game, transition: .fade(withDuration: 0.5))

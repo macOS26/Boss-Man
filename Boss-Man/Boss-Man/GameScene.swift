@@ -83,14 +83,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     override func keyDown(with event: NSEvent) {
         if isGameOver {
             switch event.keyCode {
-            case 49: restartGame()
+            case 35: restartGame()
             case 53: returnToTitleScene()
             default: break
             }
             return
         }
         switch event.keyCode {
-        case 49:
+        case 35:
             togglePause()
             return
         case 53:
