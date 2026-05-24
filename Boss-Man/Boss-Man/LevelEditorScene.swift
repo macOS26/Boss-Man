@@ -664,10 +664,13 @@ class LevelEditorScene: SKScene {
         levelHeadingGlyph?.removeFromParent()
         guard let lbl = levelLabel else { return }
         let traveler = levelTravelers[currentLevelIndex % levelTravelers.count]
-        let glyph = TravelerGlyph.makeNode(for: traveler, pointSize: 18)
-        // calculateAccumulatedFrame is post-text-set so width reflects the new label.
+        // Match label's visual height so the sprite isn't bigger than the text.
+        let glyph = TravelerGlyph.makeNode(for: traveler, pointSize: lbl.fontSize)
+        // calculateAccumulatedFrame reflects the new text width AND the
+        // visual midline — using midY avoids the baseline drift that made
+        // the sprite float above the cap line.
         let lblFrame = lbl.calculateAccumulatedFrame()
-        glyph.position = CGPoint(x: lblFrame.maxX + 12, y: lbl.position.y)
+        glyph.position = CGPoint(x: lblFrame.maxX + 6, y: lblFrame.midY)
         glyph.zPosition = lbl.zPosition
         uiContainer.addChild(glyph)
         levelHeadingGlyph = glyph

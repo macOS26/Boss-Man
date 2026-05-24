@@ -130,7 +130,7 @@ final class HUD {
         lastLevelEmojisText = key
 
         levelEmojisContainer.removeAllChildren()
-        let pointSize: CGFloat = 22
+        let pointSize: CGFloat = 18
         let spacing:   CGFloat = 26
         // Right-anchored: rightmost glyph sits at x=0, others fan left.
         let count = travelers.count
