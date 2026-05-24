@@ -9,10 +9,12 @@ final class MazeBuilder {
     var cubicleColor: NSColor = .systemBlue
     var debugSkipDots: Bool = false
     private(set) var placedGoldDiscs: Int = 0
+    private(set) var placedWaterGuns: Int = 0
 
     private(set) var workerSpawnFromMap: CGPoint?
     private(set) var bossSpawnsFromMap: [(blueprintIndex: Int, position: CGPoint)] = []
     private(set) var goldDiscPositionsFromMap: [CGPoint] = []
+    private(set) var waterGunPositionsFromMap: [CGPoint] = []
 
     private var pelletTexture: SKTexture!
     private var dotTilemap: SKTileMapNode?
@@ -35,6 +37,7 @@ final class MazeBuilder {
         workerSpawnFromMap = nil
         bossSpawnsFromMap = []
         goldDiscPositionsFromMap = []
+        waterGunPositionsFromMap = []
 
         let background = makeBackground()
         scene.addChild(background)
@@ -63,6 +66,7 @@ final class MazeBuilder {
                     }
                     switch char {
                     case Strings.Tile.goldDiscChar: goldDiscPositionsFromMap.append(grid)
+                    case Strings.Tile.waterGunChar:  waterGunPositionsFromMap.append(grid)
                     case Strings.Tile.workerChar:   workerSpawnFromMap = grid
                     case Strings.Tile.boss1Char:    bossSpawnsFromMap.append((0, grid))
                     case Strings.Tile.boss2Char:    bossSpawnsFromMap.append((1, grid))
@@ -84,6 +88,13 @@ final class MazeBuilder {
             addGoldDisc(at: map.point(for: grid), in: scene)
             placedGoldDiscs += 1
         }
+
+        placedWaterGuns = 0
+        for grid in waterGunPositionsFromMap where map.isWalkable(grid) {
+            addWaterGun(at: map.point(for: grid), in: scene)
+            placedWaterGuns += 1
+        }
+
         return dotCount
     }
 
@@ -249,6 +260,26 @@ final class MazeBuilder {
             .scale(to: 1.0, duration: 0.35)
         ])))
         scene.addChild(disc)
+    }
+
+    private func addWaterGun(at position: CGPoint, in scene: SKScene) {
+        let gun = SKNode()
+        gun.position = position
+        gun.zPosition = 6
+        let label = SKLabelNode(text: Strings.Emoji.waterGun)
+        label.fontSize = map.tileSize * 0.55
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        gun.addChild(label)
+        gun.physicsBody = SKPhysicsBody(circleOfRadius: 11)
+        gun.physicsBody?.isDynamic = false
+        gun.physicsBody?.categoryBitMask = PhysicsCategory.waterGun
+        gun.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+        gun.run(.repeatForever(.sequence([
+            .scale(to: 1.25, duration: 0.35),
+            .scale(to: 1.0, duration: 0.35)
+        ])))
+        scene.addChild(gun)
     }
 
     private func addMachine(name: String, symbol: String, at position: CGPoint, in scene: SKScene) {

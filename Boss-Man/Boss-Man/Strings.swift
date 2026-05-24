@@ -118,6 +118,8 @@ enum Strings {
         static let spawnUnfreeze    = "spawnUnfreeze"
         static let spawnThrob       = "spawnThrob"
         static let fleeThaw         = "fleeThaw"
+        static let waterGunExpiry   = "waterGunExpiry"
+        static let waterDropletMove = "waterDropletMove"
         static let clear            = "clear"
     }
 
@@ -326,6 +328,9 @@ enum Strings {
         static let collator      = "collator"
         static let captureBossPrefix = "captureBoss-"
         static let travelerPrefix = "trav."
+        static let waterGunPickup = "waterGunPickup"
+        static let waterGunShoot  = "waterGunShoot"
+        static let waterGunSplash = "waterGunSplash"
         static func dotKey(stage: Int, highToggle: Bool, mib: Bool) -> String {
             "dot-\(stage)-\(highToggle ? "hi" : "lo")\(mib ? "-mib" : "")"
         }
@@ -384,6 +389,10 @@ enum Strings {
         static let newGame            = "New game! Collect dots and TPS reports."
         static let goldDiscActivated  = "Gold disc! Capture the bosses for 20 seconds."
         static let goldDiscEnded      = "Gold disc mode ended."
+        static let waterGunActivated  = "Water gun! Shoot bosses for 20 seconds."
+        static let waterGunEnded      = "Water gun empty."
+        static let waterGunExpired    = "Water gun time expired."
+        static let bossSplashed       = "SPLASH!"
 
         static func bossCaughtYou(_ livesLeft: Int) -> String {
             "A boss caught you! \(livesLeft) workers left."

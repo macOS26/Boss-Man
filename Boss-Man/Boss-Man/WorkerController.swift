@@ -47,7 +47,7 @@ final class WorkerController {
         node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
         node.physicsBody?.allowsRotation = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.worker
-        node.physicsBody?.contactTestBitMask = PhysicsCategory.dot | PhysicsCategory.boss | PhysicsCategory.machine | PhysicsCategory.tpsBox | PhysicsCategory.goldDisc | PhysicsCategory.fish
+        node.physicsBody?.contactTestBitMask = PhysicsCategory.dot | PhysicsCategory.boss | PhysicsCategory.machine | PhysicsCategory.tpsBox | PhysicsCategory.goldDisc | PhysicsCategory.fish | PhysicsCategory.waterGun
         node.physicsBody?.collisionBitMask = PhysicsCategory.wall
         node.zPosition = 10
     }

@@ -33,6 +33,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let inputController = PointerInputController()
     private let contactRouter = ContactRouter()
     private let goldDisc = GoldDiscTimer()
+    private let waterGun = WaterGunTimer()
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
@@ -100,6 +101,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             break
         }
         guard !isPaused else { return }
+        if event.keyCode == 49 {
+            fireWaterGun()
+            return
+        }
         guard let direction = MoveDirection(keyCode: event.keyCode), !event.isARepeat else { return }
         workerController.queueDirection(direction)
     }
@@ -215,6 +220,21 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         }
         contactRouter.onTpsBoxTouchedWorker = { [weak self] in self?.collectTPSReport() }
         contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
+        contactRouter.onWaterGunTouchedWorker = { [weak self] node in
+            node?.removeFromParent()
+            guard let self else { return }
+            self.sound.playWaterGunPickup()
+            self.startWaterGunMode()
+        }
+        contactRouter.onDropletTouchedBoss = { [weak self] dropletBody, bossBody in
+            dropletBody.node?.removeFromParent()
+            guard let self else { return }
+            if let bossNode = bossBody.node as? PixelPerson {
+                self.bossController.splash(boss: bossNode)
+                self.sound.playWaterGunSplash()
+                self.hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
+            }
+        }
     }
 
     private let reportItemPoints = [10, 25, 50, 100]
@@ -388,8 +408,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         bossController.clear()
         travelerSpawner.reset()
         goldDisc.deactivate()
+        waterGun.deactivate()
         sound.stopGoldDiscBass()
         removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
+        removeAction(forKey: Strings.ActionKey.waterGunExpiry)
         removeAllActions()
         removeAllChildren()
         buildLevel()
@@ -445,6 +467,40 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         sound.stopGoldDiscBass()
         removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
         hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
+    }
+
+    // MARK: - Water gun
+    private func startWaterGunMode() {
+        waterGun.activate()
+        removeAction(forKey: Strings.ActionKey.waterGunExpiry)
+        run(.sequence([
+            .wait(forDuration: 20),
+            .run { [weak self] in self?.endWaterGunMode(expired: true) }
+        ]), withKey: Strings.ActionKey.waterGunExpiry)
+        hud.showMessage(Strings.Message.waterGunActivated, duration: 3)
+    }
+
+    private func endWaterGunMode(expired: Bool) {
+        guard waterGun.isActive else { return }
+        waterGun.deactivate()
+        removeAction(forKey: Strings.ActionKey.waterGunExpiry)
+        for child in children where child.name == "waterDroplet" {
+            child.removeFromParent()
+        }
+        hud.showMessage(expired ? Strings.Message.waterGunExpired : Strings.Message.waterGunEnded, duration: 2)
+    }
+
+    private func fireWaterGun() {
+        guard waterGun.isActive else { return }
+        guard let direction = workerController.direction else { return }
+        guard waterGun.consumePellet() else { return }
+        let workerPos = workerController.node.position
+        let droplet = WaterDroplet.fire(from: workerPos, direction: direction, tileSize: tileSize)
+        addChild(droplet)
+        sound.playWaterGunShoot()
+        if waterGun.pelletsRemaining == 0 {
+            endWaterGunMode(expired: false)
+        }
     }
 
     // MARK: - HUD

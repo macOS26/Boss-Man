@@ -179,6 +179,18 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         play(buffer: cached(Strings.SoundCache.goldDisc) { self.sweep(from: 220, to: 660, duration: 0.45, volume: 0.35) })
     }
 
+    func playWaterGunPickup() {
+        play(buffer: cached(Strings.SoundCache.waterGunPickup) { self.sweep(from: 440, to: 1320, duration: 0.3, volume: 0.3) })
+    }
+
+    func playWaterGunShoot() {
+        play(buffer: cached(Strings.SoundCache.waterGunShoot) { self.sweep(from: 880, to: 440, duration: 0.08, volume: 0.25) })
+    }
+
+    func playWaterGunSplash() {
+        play(buffer: cached(Strings.SoundCache.waterGunSplash) { self.sweep(from: 660, to: 220, duration: 0.3, volume: 0.35) })
+    }
+
     func playFootstep() {
         play(buffer: cached(Strings.SoundCache.footstep) { self.tone(frequency: 140, duration: 0.025, volume: 0.07, decay: 60) })
     }

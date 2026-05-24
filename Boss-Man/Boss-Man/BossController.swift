@@ -459,4 +459,36 @@ final class BossController {
         refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)
     }
+
+    func splash(boss node: PixelPerson) {
+        guard let index = entities.firstIndex(where: { $0.node === node }) else { return }
+        let boss = entities[index]
+        boss.ai.teleport(to: boss.spawn)
+        boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
+        boss.node.stopWalking()
+        boss.node.physicsBody?.categoryBitMask = 0
+        let homePoint = gridMap.point(for: boss.spawn)
+        let bossNode = boss.node
+
+        bossNode.setBodyColor(boss.baseColor)
+        bossNode.setTieColor(boss.tieColor)
+        bossNode.setTieOutline(color: nil)
+        bossNode.setEyeColor(.black)
+        entities[index].isInFleeMode = false
+
+        bossNode.run(.sequence([
+            .group([
+                .scale(to: 1.6, duration: 0.25),
+                .fadeOut(withDuration: 0.25)
+            ]),
+            .run { [weak bossNode] in bossNode?.position = homePoint },
+            .group([
+                .scale(to: 1.0, duration: 0.2),
+                .fadeIn(withDuration: 0.2)
+            ]),
+            .run { [weak bossNode] in
+                bossNode?.physicsBody?.categoryBitMask = PhysicsCategory.boss
+            }
+        ]))
+    }
 }

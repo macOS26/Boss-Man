@@ -6,6 +6,8 @@ final class ContactRouter: NSObject, SKPhysicsContactDelegate {
 
     var onBossTouchedWorker: ((SKNode?) -> Void)?
     var onGoldDiscTouched: ((SKNode?) -> Void)?
+    var onWaterGunTouchedWorker: ((SKNode?) -> Void)?
+    var onDropletTouchedBoss: ((SKPhysicsBody, SKPhysicsBody) -> Void)?
     var onMachineTouchedWorker: ((SKPhysicsBody, String) -> Void)?
     var onTpsBoxTouchedWorker: (() -> Void)?
     var onFishTouchedWorker: ((SKNode?) -> Void)?
@@ -20,6 +22,17 @@ final class ContactRouter: NSObject, SKPhysicsContactDelegate {
         }
         if let pellet = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.goldDisc }) {
             onGoldDiscTouched?(pellet.node)
+        }
+        if let waterGunNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterGun }), hasWorker {
+            onWaterGunTouchedWorker?(waterGunNode.node)
+        }
+        if let dropletBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet }),
+           let bossBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss }) {
+            onDropletTouchedBoss?(dropletBody, bossBody)
+        }
+        if let dropletBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet }),
+           bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.wall }) {
+            dropletBody.node?.removeFromParent()
         }
         if let machineBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.machine }),
            let name = machineBody.node?.name {

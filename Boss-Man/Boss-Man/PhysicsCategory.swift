@@ -9,4 +9,6 @@ struct PhysicsCategory {
     static let tpsBox: UInt32 = 1 << 5
     static let goldDisc: UInt32 = 1 << 6
     static let fish: UInt32 = 1 << 7
+    static let waterGun: UInt32 = 1 << 8
+    static let waterDroplet: UInt32 = 1 << 9
 }
