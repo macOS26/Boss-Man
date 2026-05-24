@@ -128,6 +128,20 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		EAAA3BE42FBB7DEF00D451DE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EA14DCAF2FC16F42002E8617 /* AppIcon.icon in Resources */,
+				EA14DCB02FC16F42002E8617 /* Assets.xcassets in Resources */,
+				EA14DCB52FC221DA002E8617 /* red-stapler.png in Resources */,
+				EA14DCC12FC22B34002E8617 /* shinyredstapler-emoji.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXShellScriptBuildPhase section */
 		EA9988002FCC000000000001 /* Strip xattrs */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -149,20 +163,6 @@
 			shellScript = "# Strip com.apple.quarantine (and other) extended attributes from\n# every file in the built app bundle. Apple rejects TestFlight\n# uploads where any payload file carries quarantine xattrs (error\n# 91109). Asset PNGs dragged in from Downloads/Safari are the\n# usual offender.\nxattr -cr \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\" || true\n";
 		};
 /* End PBXShellScriptBuildPhase section */
-
-/* Begin PBXResourcesBuildPhase section */
-		EAAA3BE42FBB7DEF00D451DE /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				EA14DCAF2FC16F42002E8617 /* AppIcon.icon in Resources */,
-				EA14DCB02FC16F42002E8617 /* Assets.xcassets in Resources */,
-				EA14DCB52FC221DA002E8617 /* red-stapler.png in Resources */,
-				EA14DCC12FC22B34002E8617 /* shinyredstapler-emoji.png in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		EAAA3BE22FBB7DEF00D451DE /* Sources */ = {
@@ -303,7 +303,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Boss-Man/Boss-Man.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 469UCUB275;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -341,7 +341,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 469UCUB275;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
