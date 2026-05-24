@@ -103,7 +103,7 @@ final class LevelStore {
 // MARK: - Level Editor Scene
 class LevelEditorScene: SKScene {
     
-    var tileSize: CGFloat = 32
+    var tileSize: CGFloat = 30
     var gridRows = 0
     var gridCols = 0
     var mapRows: [String] = []
@@ -573,7 +573,7 @@ class LevelEditorScene: SKScene {
             gridCols = rows.first?.count ?? 0
         } else {
             gridRows = 17
-            gridCols = 36
+            gridCols = 37
             mapRows = Array(repeating: String(repeating: Strings.Tile.floor, count: gridCols), count: gridRows)
         }
         
