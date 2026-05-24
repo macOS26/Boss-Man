@@ -128,6 +128,8 @@ PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelP
 
 - This arcade-style video game concept was created using **Agent**
 - An autonomous agentic AI, for macOS 26.4.1 — https://github.com/macos26/agent
-- Fine tuning using Claude Code, and Agent!
-- Software is reployed using Agent!
+- Fine tuning using Claude Code, and Agent! I use use the right tool for the job.
+- Software is deployed using Agent! including release notes and DMGs.
 - Music, Graphics, Art, Sound Effects and Game Design by Todd Bruss
+- (c) Todd Bruss, InkPen.IO, All Rights Reserved.
+- Binaries are property of Todd Bruss, Source code is MIT.
