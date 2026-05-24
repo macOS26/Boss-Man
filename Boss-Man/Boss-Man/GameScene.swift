@@ -59,6 +59,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         pathfinder = Pathfinder(map: gridMap)
         mazeBuilder = MazeBuilder(map: gridMap, goldDiscPositions: goldDiscPositions, machineNames: machineNames)
+        #if DEBUG
+        mazeBuilder.debugSkipDots = true
+        #endif
         hud = HUD(requiredItems: requiredItems)
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound)
