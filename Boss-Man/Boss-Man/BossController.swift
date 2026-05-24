@@ -43,6 +43,9 @@ final class BossController {
     private let moveDuration: TimeInterval = 0.22
     private let detectionRange: CGFloat = 10
 
+    static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
+    static let fleeTieColor:  NSColor = .systemYellow
+
     weak var delegate: BossControllerDelegate?
     private weak var scene: SKScene?
     private let gridMap: GridMap
@@ -169,6 +172,7 @@ final class BossController {
         entity.ai.teleport(to: entity.spawn)
         node.position = gridMap.point(for: entity.spawn)
         node.setBodyColor(entity.baseColor)
+        node.setTieColor(entity.tieColor)
         node.setTieOutline(color: nil)
         entities[index].captureCount = 0
         entities[index].isInFleeMode = false
@@ -249,7 +253,8 @@ final class BossController {
         for i in entities.indices {
             entities[i].captureCount = 0
             entities[i].isInFleeMode = active
-            entities[i].node.setBodyColor(active ? .systemBlue : entities[i].baseColor)
+            entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
+            entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
             entities[i].node.setTieOutline(color: active ? .systemYellow : nil)
         }
         refreshTags(goldDiscActive: active)
@@ -420,7 +425,8 @@ final class BossController {
                     bossNode?.physicsBody?.categoryBitMask = PhysicsCategory.boss
                 }
             ]))
-            boss.node.setBodyColor(powerActive ? .systemBlue : boss.baseColor)
+            boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
+            boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
             boss.node.setTieOutline(color: powerActive ? .systemYellow : nil)
         }
         refreshTags(goldDiscActive: powerActive)
