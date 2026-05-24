@@ -24,7 +24,7 @@ final class HUD {
 
     func install(in scene: SKScene) {
         let size = scene.size
-        let panelHeight: CGFloat = 154
+        let panelHeight: CGFloat = 129
 
         let panel = SKShapeNode(rect: CGRect(x: 0, y: size.height - panelHeight, width: size.width, height: panelHeight))
         panel.fillColor = NSColor(calibratedRed: 0.03, green: 0.04, blue: 0.05, alpha: 0.92)

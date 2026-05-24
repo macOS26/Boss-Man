@@ -15,7 +15,7 @@ final class GridMap {
 
     func point(for grid: CGPoint) -> CGPoint {
         CGPoint(x: grid.x * tileSize + tileSize / 2 - 1,
-                y: grid.y * tileSize + tileSize / 2 - 50)
+                y: grid.y * tileSize + tileSize / 2 - 25)
     }
 
     func tile(at grid: CGPoint) -> Character? {

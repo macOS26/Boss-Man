@@ -141,7 +141,7 @@ final class MazeBuilder {
                                 rows: rows,
                                 tileSize: CGSize(width: tile, height: tile))
         map.anchorPoint = .zero
-        map.position = CGPoint(x: -1, y: -50)
+        map.position = CGPoint(x: -1, y: -25)
         map.zPosition = 5
         return map
     }
@@ -190,7 +190,7 @@ final class MazeBuilder {
         let texture = SKTexture(image: image)
         let sprite = SKSpriteNode(texture: texture)
         sprite.anchorPoint = .zero
-        sprite.position = CGPoint(x: -1, y: -50)
+        sprite.position = CGPoint(x: -1, y: -25)
         sprite.zPosition = 0
         return sprite
     }
