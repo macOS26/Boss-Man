@@ -141,7 +141,7 @@ final class MazeBuilder {
                                 rows: rows,
                                 tileSize: CGSize(width: tile, height: tile))
         map.anchorPoint = .zero
-        map.position = CGPoint(x: -1, y: 0)
+        map.position = CGPoint(x: 0, y: 0)
         map.zPosition = 5
         return map
     }
