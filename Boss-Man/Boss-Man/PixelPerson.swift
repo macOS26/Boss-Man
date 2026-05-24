@@ -220,7 +220,10 @@ final class PixelPerson: SKNode {
         }
         leftEye.position  = CGPoint(x: Self.leftEyeBase.x  + offset.x, y: Self.leftEyeBase.y  + offset.y)
         rightEye.position = CGPoint(x: Self.rightEyeBase.x + offset.x, y: Self.rightEyeBase.y + offset.y)
+        tie.position = CGPoint(x: Self.tieBase.x + offset.x, y: Self.tieBase.y + offset.y)
     }
+
+    private static let tieBase = CGPoint(x: 0, y: -2)
 
     func startWalking() {
         if walkingPaused {
