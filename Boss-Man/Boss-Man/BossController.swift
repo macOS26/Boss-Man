@@ -45,6 +45,7 @@ final class BossController {
 
     static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
     static let fleeTieColor:  NSColor = .systemYellow
+    static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.30, of: .black) ?? .systemBlue
 
     weak var delegate: BossControllerDelegate?
     private weak var scene: SKScene?
@@ -174,6 +175,7 @@ final class BossController {
         node.setBodyColor(entity.baseColor)
         node.setTieColor(entity.tieColor)
         node.setTieOutline(color: nil)
+        node.setEyeColor(.black)
         entities[index].captureCount = 0
         entities[index].isInFleeMode = false
         entities[index].mustExitDoorway = false
@@ -256,6 +258,7 @@ final class BossController {
             entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
             entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
             entities[i].node.setTieOutline(color: active ? .systemYellow : nil)
+            entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: active)
     }
@@ -428,6 +431,7 @@ final class BossController {
             boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
             boss.node.setTieOutline(color: powerActive ? .systemYellow : nil)
+            boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)

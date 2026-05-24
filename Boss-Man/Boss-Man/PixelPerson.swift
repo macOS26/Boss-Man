@@ -225,6 +225,11 @@ final class PixelPerson: SKNode {
 
     private static let tieBase = CGPoint(x: 0, y: -2)
 
+    func setEyeColor(_ color: NSColor) {
+        leftEye?.fillColor = color
+        rightEye?.fillColor = color
+    }
+
     func startWalking() {
         if walkingPaused {
             walkingPaused = false
