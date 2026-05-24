@@ -190,7 +190,7 @@ final class MazeBuilder {
         let texture = SKTexture(image: image)
         let sprite = SKSpriteNode(texture: texture)
         sprite.anchorPoint = .zero
-        sprite.position = CGPoint(x: -1, y: 0)
+        sprite.position = CGPoint(x: 0, y: 0)
         sprite.zPosition = 0
         return sprite
     }
