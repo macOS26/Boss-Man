@@ -60,6 +60,10 @@ final class HUD {
         scene.addChild(livesLabel)
 
         lifeIcons.removeAll()
+        lastLivesCount = -1
+        lastStatusText = nil
+        lastTpsText = nil
+        lastLevelEmojisText = nil
         let iconStartX: CGFloat = 90
         let iconSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
