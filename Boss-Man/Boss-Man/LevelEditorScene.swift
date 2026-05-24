@@ -65,17 +65,36 @@ final class LevelStore {
         _ = url.path.withCString { removexattr($0, Strings.Resource.quarantineAttribute, 0) }
     }
 
+    // Playfield is locked to 37×17 (tile = 30pt). Normalize on load so
+    // older 36-col custom saves and any oversized bundled rows render
+    // identically — pad with floor on the right, truncate excess.
+    static let mapCols = 37
+    static let mapRows = 17
+
+    private static func normalize(_ rows: [String]) -> [String] {
+        var out = rows.map { row -> String in
+            if row.count == mapCols { return row }
+            if row.count <  mapCols { return row + String(repeating: Strings.Tile.floor, count: mapCols - row.count) }
+            return String(row.prefix(mapCols))
+        }
+        while out.count < mapRows {
+            out.append(String(repeating: Strings.Tile.floor, count: mapCols))
+        }
+        if out.count > mapRows { out = Array(out.prefix(mapRows)) }
+        return out
+    }
+
     func loadLevel(name: String) -> [String]? {
-        if let custom = loadCustomLevels()[name] { return custom }
+        if let custom = loadCustomLevels()[name] { return Self.normalize(custom) }
         guard let idx = Levels.levelNames.firstIndex(of: name) else { return nil }
-        return officeMaps[idx]
+        return Self.normalize(officeMaps[idx])
     }
 
     func loadLevel(index: Int) -> [String] {
         guard index >= 0 && index < Levels.levelNames.count else {
-            return officeMaps[0]
+            return Self.normalize(officeMaps[0])
         }
-        return loadLevel(name: Levels.levelNames[index]) ?? officeMaps[index]
+        return loadLevel(name: Levels.levelNames[index]) ?? Self.normalize(officeMaps[index])
     }
 
     func saveLevel(name: String, rows: [String]) {
