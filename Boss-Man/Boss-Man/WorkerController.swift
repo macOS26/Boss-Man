@@ -86,10 +86,8 @@ final class WorkerController {
     func applySpawnShield() {
         node.removeAction(forKey: Strings.ActionKey.spawnShield)
         node.removeAction(forKey: Strings.ActionKey.spawnShieldBlink)
-        let orange = NSColor.systemOrange
-        let teal = NSColor.systemBlue
-        node.setBodyColor(orange)
-        node.setTieColor(.systemBlue)
+        node.setBodyColor(.systemBlue)
+        node.setTieColor(.systemOrange)
         node.alpha = 1
         node.physicsBody?.categoryBitMask = 0
         isShielded = true
@@ -103,23 +101,12 @@ final class WorkerController {
             .run { [weak self] in self?.node.alpha = 1 }
         ]), withKey: Strings.ActionKey.spawnShieldBlink)
 
-        let fadeDuration: TimeInterval = 1.5
-        let waitBeforeFade: TimeInterval = 1.5
-
-        let fade = SKAction.customAction(withDuration: fadeDuration) { [weak self] _, elapsed in
-            guard let self else { return }
-            let t = CGFloat(elapsed) / CGFloat(fadeDuration)
-            self.node.setBodyColor(WorkerController.lerpColor(from: orange, to: teal, progress: t))
-            self.node.setTieColor(WorkerController.lerpColor(from: .systemBlue, to: .systemOrange, progress: t))
-        }
+        let waitBeforeUnshield: TimeInterval = 3.0
 
         node.run(.sequence([
-            .wait(forDuration: waitBeforeFade),
-            fade,
+            .wait(forDuration: waitBeforeUnshield),
             .run { [weak self] in
                 guard let self else { return }
-                self.node.setBodyColor(teal)
-                self.node.setTieColor(.systemOrange)
                 self.node.physicsBody?.categoryBitMask = PhysicsCategory.worker
                 self.isShielded = false
             }
