@@ -45,7 +45,7 @@ final class BossController {
 
     static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
     static let fleeTieColor:  NSColor = .systemYellow
-    static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.30, of: .black) ?? .systemBlue
+    static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
 
     weak var delegate: BossControllerDelegate?
     private weak var scene: SKScene?
