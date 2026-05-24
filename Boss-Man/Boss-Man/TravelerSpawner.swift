@@ -6,12 +6,12 @@ final class TravelerSpawner {
     private weak var scene: SKScene?
     private let gridMap: GridMap
     private let sound: SoundManager
-    private let spawnGrid = CGPoint(x: 35, y: 8)
+    private let spawnGrid = CGPoint(x: 36, y: 8)
     private let exitGrid = CGPoint(x: 0, y: 8)
     private let moveInterval: TimeInterval = 0.22
 
     private var node: SKNode?
-    private var grid = CGPoint(x: 35, y: 8)
+    private var grid = CGPoint(x: 36, y: 8)
     private var previousGrid: CGPoint?
     private var activeTraveler: LevelTraveler?
 

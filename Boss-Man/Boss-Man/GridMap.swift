@@ -3,14 +3,50 @@ import CoreGraphics
 final class GridMap {
     let tileSize: CGFloat
     private(set) var rows: [String]
+    // Stored as ordered pairs (a,b) → on lookup we check both sides.
+    // Using a small array (typically ≤ 4 pairs) avoids the macOS-15-only
+    // CGPoint:Hashable conformance.
+    private var tunnelPairs: [(CGPoint, CGPoint)] = []
 
     init(tileSize: CGFloat, rows: [String] = []) {
         self.tileSize = tileSize
         self.rows = rows
+        rebuildTunnels()
     }
 
     func setRows(_ rows: [String]) {
         self.rows = rows
+        rebuildTunnels()
+    }
+
+    /// Auto-detect tunnels from gaps in the perimeter:
+    ///   - any column with a space (floor) in BOTH the top and bottom row pairs (col, topY) ↔ (col, 0)
+    ///   - any row with a space in BOTH the leftmost and rightmost columns pairs (0, y) ↔ (lastCol, y)
+    /// Levels control tunnel placement just by painting floor in the wall ring.
+    private func rebuildTunnels() {
+        tunnelPairs.removeAll()
+        guard let firstRow = rows.first, !firstRow.isEmpty, rows.count >= 2 else { return }
+        let rowCount = rows.count
+        let colCount = firstRow.count
+        let topY = rowCount - 1
+        let lastCol = colCount - 1
+        let floor = Strings.Tile.floorChar
+
+        // Top/bottom border (vertical tunnels).
+        let topChars = Array(rows[0])
+        let bottomChars = Array(rows[rowCount - 1])
+        for col in 0..<colCount where col < topChars.count && col < bottomChars.count {
+            if topChars[col] == floor && bottomChars[col] == floor {
+                tunnelPairs.append((CGPoint(x: col, y: topY), CGPoint(x: col, y: 0)))
+            }
+        }
+        // Left/right border (horizontal tunnels).
+        for rowIndex in 0..<rowCount {
+            let chars = Array(rows[rowIndex])
+            guard chars.count >= colCount, chars.first == floor, chars[lastCol] == floor else { continue }
+            let gridY = rowCount - 1 - rowIndex
+            tunnelPairs.append((CGPoint(x: 0, y: gridY), CGPoint(x: lastCol, y: gridY)))
+        }
     }
 
     func point(for grid: CGPoint) -> CGPoint {
@@ -32,11 +68,10 @@ final class GridMap {
     }
 
     func tunnelPartner(of grid: CGPoint) -> CGPoint? {
-        let x = Int(grid.x), y = Int(grid.y)
-        if y == 8 && x == 0 { return CGPoint(x: 35, y: 8) }
-        if y == 8 && x == 35 { return CGPoint(x: 0, y: 8) }
-        if x == 18 && y == 0 { return CGPoint(x: 18, y: 16) }
-        if x == 18 && y == 16 { return CGPoint(x: 18, y: 0) }
+        for (a, b) in tunnelPairs {
+            if a == grid { return b }
+            if b == grid { return a }
+        }
         return nil
     }
 
