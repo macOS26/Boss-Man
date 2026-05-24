@@ -150,7 +150,10 @@ final class MazeBuilder {
         let cols = map.rows.first?.count ?? 30
         let rows = map.rows.count
         let tile = map.tileSize
-        let size = CGSize(width: CGFloat(cols) * tile, height: CGFloat(rows) * tile)
+        // +1 on width: the maze visual is shifted 1px left elsewhere,
+        // so the background grows 1px to the right to keep its right
+        // edge aligned with the scene.
+        let size = CGSize(width: CGFloat(cols) * tile + 1, height: CGFloat(rows) * tile)
         let color = cubicleColor
         let image = renderImage(size: size) {
             for (rowIndex, row) in self.map.rows.reversed().enumerated() {
