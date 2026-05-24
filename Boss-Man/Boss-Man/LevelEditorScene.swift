@@ -156,6 +156,9 @@ class LevelEditorScene: SKScene {
     private var undoStack: [[String]] = []
     private var redoStack: [[String]] = []
     private var clipboard: [String]? = nil
+    /// Snapshot hash of mapRows as it was when the level loaded (or last
+    /// saved). Compared on navigation to decide whether to autosave.
+    private var lastSavedHash: Int = 0
     private var buttonBaseColors: [String: NSColor] = [:]
     private var buttonNodes: [String: SKShapeNode] = [:]
     /// PREV/NEXT trigger loadCurrentLevel() → buildUI() which tears the
@@ -611,6 +614,22 @@ class LevelEditorScene: SKScene {
         // Rebuild the side palette so the Wall swatch reflects this
         // floor's cubicle color (and any other per-level visuals).
         buildUI()
+        lastSavedHash = mapHash()
+    }
+
+    /// Stable hash of the current map. Joining with "\n" ensures row
+    /// boundaries are preserved (so "ab"+"cd" ≠ "abc"+"d").
+    private func mapHash() -> Int {
+        mapRows.joined(separator: "\n").hashValue
+    }
+
+    /// PREV/NEXT/ESC entry points call this first. If mapRows differs
+    /// from what's on disk, perform a silent save and update the hash.
+    private func autosaveIfDirty() {
+        if mapHash() != lastSavedHash {
+            saveCurrentLevel()
+            lastSavedHash = mapHash()
+        }
     }
     
     func updateLevelLabel() {
@@ -769,12 +788,14 @@ class LevelEditorScene: SKScene {
             if name.hasPrefix("btn_") { flashButton(named: name) }
             switch name {
             case Strings.EditorButton.prev:
+                autosaveIfDirty()
                 let count = Levels.levelNames.count
                 currentLevelIndex = (currentLevelIndex - 1 + count) % count
                 pendingFlashName = Strings.EditorButton.prev
                 loadCurrentLevel()
                 return
             case Strings.EditorButton.next:
+                autosaveIfDirty()
                 currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
                 pendingFlashName = Strings.EditorButton.next
                 loadCurrentLevel()
@@ -804,6 +825,7 @@ class LevelEditorScene: SKScene {
                 playCurrentLevel()
                 return
             case Strings.EditorButton.back:
+                autosaveIfDirty()
                 let title = TitleScene(size: size)
                 title.scaleMode = .aspectFit
                 view?.presentScene(title, transition: .fade(withDuration: 0.3))
@@ -842,7 +864,8 @@ class LevelEditorScene: SKScene {
         let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
         LevelStore.shared.saveLevel(name: names[currentLevelIndex], rows: mapRows)
-        
+        lastSavedHash = mapHash()
+
         saveButton?.fillColor = NSColor.green
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.saveButton?.fillColor = NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0)
@@ -858,16 +881,19 @@ class LevelEditorScene: SKScene {
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
         case 53:
+            autosaveIfDirty()
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
             view?.presentScene(title, transition: .fade(withDuration: 0.3))
         case 123:
+            autosaveIfDirty()
             let count = Levels.levelNames.count
             currentLevelIndex = (currentLevelIndex - 1 + count) % count
             pendingFlashName = Strings.EditorButton.prev
             loadCurrentLevel()
             return
         case 124:
+            autosaveIfDirty()
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
