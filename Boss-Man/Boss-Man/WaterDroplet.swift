@@ -11,8 +11,8 @@ enum WaterDroplet {
         node.zPosition = 12
 
         let circle = SKShapeNode(circleOfRadius: radius)
-        circle.fillColor = NSColor.systemBlue
-        circle.strokeColor = NSColor.systemBlue.withAlphaComponent(0.7)
+        circle.fillColor = NSColor.systemTeal.withAlphaComponent(0.7)
+        circle.strokeColor = .systemBlue
         circle.lineWidth = 1
         node.addChild(circle)
         node.alpha = 0.8
