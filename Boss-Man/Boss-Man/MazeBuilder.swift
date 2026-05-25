@@ -300,15 +300,20 @@ final class MazeBuilder {
         halo.strokeColor = .clear
         node.addChild(halo)
         let core = SKShapeNode(circleOfRadius: radius)
-        core.fillColor = .systemCyan
-        core.strokeColor = NSColor(calibratedRed: 0.0, green: 0.6, blue: 0.8, alpha: 1)
+        core.fillColor = NSColor.systemCyan.withAlphaComponent(0.85)
+        core.strokeColor = .systemBlue
         core.lineWidth = 1.5
         node.addChild(core)
+        let specular = SKShapeNode(circleOfRadius: radius * 0.3)
+        specular.fillColor = NSColor(calibratedWhite: 1, alpha: 0.75)
+        specular.strokeColor = .clear
+        specular.position = CGPoint(x: -radius * 0.28, y: radius * 0.28)
+        node.addChild(specular)
         node.physicsBody = SKPhysicsBody(circleOfRadius: 11)
         node.physicsBody?.isDynamic = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.waterPellet
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker
-        node.alpha = 0.75
+        node.alpha = 1.0
         node.run(.repeatForever(.sequence([
             .scale(to: 1.3, duration: 0.4),
             .scale(to: 1.0, duration: 0.4)

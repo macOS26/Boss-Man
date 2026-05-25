@@ -11,11 +11,18 @@ enum WaterDroplet {
         node.zPosition = 12
 
         let circle = SKShapeNode(circleOfRadius: radius)
-        circle.fillColor = NSColor.systemTeal.withAlphaComponent(0.7)
+        circle.fillColor = NSColor.systemCyan.withAlphaComponent(0.85)
         circle.strokeColor = .systemBlue
         circle.lineWidth = 1
         node.addChild(circle)
-        node.alpha = 0.8
+
+        let specular = SKShapeNode(circleOfRadius: radius * 0.35)
+        specular.fillColor = NSColor(calibratedWhite: 1, alpha: 0.75)
+        specular.strokeColor = .clear
+        specular.position = CGPoint(x: -radius * 0.3, y: radius * 0.3)
+        node.addChild(specular)
+
+        node.alpha = 1.0
 
         let body = SKPhysicsBody(circleOfRadius: radius)
         body.isDynamic = true
