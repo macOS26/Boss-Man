@@ -222,18 +222,26 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         contactRouter.onTpsBoxTouchedWorker = { [weak self] in self?.collectTPSReport() }
         contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
         contactRouter.onWaterGunTouchedWorker = { [weak self] node in
+            let pos = node?.position ?? .zero
             node?.removeFromParent()
             guard let self else { return }
             self.sound.playWaterGunPickup()
+            self.state.bumpScore(by: 75)
+            ScorePopup.show(75, at: pos, in: self)
             self.startWaterGunMode()
+            self.refreshHUD()
         }
         contactRouter.onDropletTouchedBoss = { [weak self] dropletBody, bossBody in
             dropletBody.node?.removeFromParent()
             guard let self else { return }
             if let bossNode = bossBody.node as? PixelPerson {
+                let pos = bossNode.position
                 self.bossController.splash(boss: bossNode)
                 self.sound.playWaterGunSplash()
+                self.state.bumpScore(by: 50)
+                ScorePopup.show(50, at: pos, in: self)
                 self.hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
+                self.refreshHUD()
             }
         }
     }
