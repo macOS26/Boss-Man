@@ -10,6 +10,8 @@ final class PixelPerson: SKNode {
     private let leftLeg: SKShapeNode
     private let rightLeg: SKShapeNode
     private let tie: SKShapeNode
+    private let leftShoe: SKShapeNode
+    private let rightShoe: SKShapeNode
     private let walkExaggeration: CGFloat
 
     // MARK: - Eye tracking
@@ -40,6 +42,8 @@ final class PixelPerson: SKNode {
         tie = SKShapeNode(rectOf: CGSize(width: 4, height: 12))
         leftArm = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
         rightArm = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
+        leftShoe = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
+        rightShoe = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
         super.init()
         addChild(bodyContainer)
 
@@ -55,14 +59,12 @@ final class PixelPerson: SKNode {
         rightLeg.zPosition = 1
         bodyContainer.addChild(rightLeg)
 
-        let leftShoe = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
         leftShoe.fillColor = shoeColor
         leftShoe.strokeColor = shoeOutlineColor
         leftShoe.lineWidth = 1
         leftShoe.position = CGPoint(x: 1, y: -5)
         leftLeg.addChild(leftShoe)
 
-        let rightShoe = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
         rightShoe.fillColor = shoeColor
         rightShoe.strokeColor = shoeOutlineColor
         rightShoe.lineWidth = 1
@@ -202,6 +204,11 @@ final class PixelPerson: SKNode {
             tie.strokeColor = .clear
             tie.lineWidth = 0
         }
+    }
+
+    func setShoeOutlineColor(_ color: NSColor) {
+        leftShoe.strokeColor = color
+        rightShoe.strokeColor = color
     }
 
     func face(left: Bool) {

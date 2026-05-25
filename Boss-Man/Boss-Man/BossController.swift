@@ -46,6 +46,7 @@ final class BossController {
     static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
     static let fleeTieColor:  NSColor = .systemYellow
     static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
+    static let fleeGoldColor: NSColor = NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
 
     weak var delegate: BossControllerDelegate?
     private weak var scene: SKScene?
@@ -175,6 +176,7 @@ final class BossController {
         node.setBodyColor(entity.baseColor)
         node.setTieColor(entity.tieColor)
         node.setTieOutline(color: nil)
+        node.setShoeOutlineColor(.white)
         node.setEyeColor(.black)
         entities[index].captureCount = 0
         entities[index].isInFleeMode = false
@@ -257,7 +259,8 @@ final class BossController {
             entities[i].isInFleeMode = active
             entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
             entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
-            entities[i].node.setTieOutline(color: active ? NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1) : nil)
+            entities[i].node.setTieOutline(color: active ? Self.fleeGoldColor : nil)
+            entities[i].node.setShoeOutlineColor(active ? Self.fleeGoldColor : .white)
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: active)
@@ -454,7 +457,8 @@ final class BossController {
             ]))
             boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
-            boss.node.setTieOutline(color: powerActive ? NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1) : nil)
+            boss.node.setTieOutline(color: powerActive ? Self.fleeGoldColor : nil)
+            boss.node.setShoeOutlineColor(powerActive ? Self.fleeGoldColor : .white)
             boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: powerActive)
