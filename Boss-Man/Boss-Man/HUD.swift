@@ -23,6 +23,7 @@ final class HUD {
     private var lastLivesCount: Int = -1
     private var lastWaterGunPellets: Int = -1
     private var lastWaterGunActive: Bool = false
+    private var lastWaterGunBlueMode: Bool = false
 
     init(requiredItems: [String]) {
         self.requiredItems = requiredItems
@@ -71,6 +72,7 @@ final class HUD {
         lastLevelEmojisText = nil
         lastWaterGunPellets = -1
         lastWaterGunActive = false
+        lastWaterGunBlueMode = false
         waterGunIconLabel.isHidden = true
         waterGunAmmoLabel.isHidden = true
         waterGunCropNode.isHidden = true
@@ -198,10 +200,11 @@ final class HUD {
         }
     }
 
-    func updateWaterGun(active: Bool, pellets: Int) {
-        if active == lastWaterGunActive && pellets == lastWaterGunPellets { return }
+    func updateWaterGun(active: Bool, pellets: Int, blueMode: Bool = false) {
+        if active == lastWaterGunActive && pellets == lastWaterGunPellets && blueMode == lastWaterGunBlueMode { return }
         lastWaterGunActive = active
         lastWaterGunPellets = pellets
+        lastWaterGunBlueMode = blueMode
         let neverPickedUp = !active && pellets < 0
         waterGunIconLabel.isHidden = neverPickedUp
         waterGunAmmoLabel.isHidden = neverPickedUp
@@ -210,9 +213,15 @@ final class HUD {
         let ammoText = (0..<8).map { $0 < pellets ? "●" : "○" }.joined(separator: " ")
         waterGunAmmoLabel.text = ammoText
         let empty = !active || pellets == 0
-        waterGunAmmoLabel.fontColor = empty ? .systemRed : .systemBlue
-        waterGunIconLabel.alpha = empty ? 0.5 : 1.0
-        waterGunCropNode.isHidden = !empty
+        if blueMode {
+            waterGunAmmoLabel.fontColor = NSColor.systemBlue.withAlphaComponent(0.5)
+            waterGunIconLabel.alpha = 0.25
+            waterGunCropNode.isHidden = true
+        } else {
+            waterGunAmmoLabel.fontColor = empty ? .systemRed : .systemBlue
+            waterGunIconLabel.alpha = empty ? 0.5 : 1.0
+            waterGunCropNode.isHidden = !empty
+        }
     }
 
     func showMessage(_ text: String, duration: TimeInterval) {

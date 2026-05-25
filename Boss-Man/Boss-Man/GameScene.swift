@@ -481,6 +481,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             .run { [weak self] in self?.endGoldDiscMode() }
         ]), withKey: Strings.ActionKey.goldDiscExpiry)
         hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
+        refreshHUD()
     }
 
     private func endGoldDiscMode() {
@@ -489,6 +490,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         sound.stopGoldDiscBass()
         removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
         hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
+        refreshHUD()
     }
 
     // MARK: - Water gun
@@ -511,6 +513,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     private func fireWaterGun() {
         guard waterGun.isActive else { return }
+        if goldDisc.isActive {
+            hud.showMessage(Strings.Message.waterGunBlueMode, duration: 2)
+            return
+        }
         guard let direction = workerController.direction else { return }
         guard waterGun.consumePellet() else { return }
         let workerPos = workerController.node.position
@@ -558,7 +564,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             reports: state.tpsReportsDelivered, items: state.reportItems
         )
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1, blueMode: goldDisc.isActive)
         let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1
         hud.updateLevelEmojis(Array(levelTravelers.prefix(cyclePosition)))
     }

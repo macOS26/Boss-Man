@@ -393,9 +393,10 @@ enum Strings {
         static let newGame            = "New game! Collect dots and TPS reports."
         static let goldDiscActivated  = "Gold disc! Capture the bosses for 20 seconds."
         static let goldDiscEnded      = "Gold disc mode ended."
-        static let waterGunActivated  = "Water gun! Shoot bosses for 20 seconds."
+        static let waterGunActivated  = "Water gun! Shoot the bosses."
         static let waterGunEnded      = "Water gun empty."
         static let waterGunExpired    = "Water gun time expired."
+        static let waterGunBlueMode   = "Water pistol unavailable in blue boss mode."
         static let bossSplashed       = "SPLASH!"
 
         static func bossCaughtYou(_ livesLeft: Int) -> String {
