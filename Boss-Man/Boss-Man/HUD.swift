@@ -182,12 +182,13 @@ final class HUD {
         if active == lastWaterGunActive && pellets == lastWaterGunPellets { return }
         lastWaterGunActive = active
         lastWaterGunPellets = pellets
-        waterGunIconLabel.isHidden = !active
-        waterGunAmmoLabel.isHidden = !active
-        guard active else { return }
+        let neverPickedUp = !active && pellets < 0
+        waterGunIconLabel.isHidden = neverPickedUp
+        waterGunAmmoLabel.isHidden = neverPickedUp
+        guard !neverPickedUp else { return }
         let ammoText = (0..<8).map { $0 < pellets ? "●" : "○" }.joined(separator: " ")
         waterGunAmmoLabel.text = ammoText
-        let color: NSColor = pellets > 0 ? .systemBlue : .systemRed
+        let color: NSColor = (active && pellets > 0) ? .systemBlue : .systemRed
         waterGunIconLabel.fontColor = color
         waterGunAmmoLabel.fontColor = color
     }
