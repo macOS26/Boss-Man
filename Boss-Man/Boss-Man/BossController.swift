@@ -105,11 +105,22 @@ final class BossController {
 
     private func isMIBLevel(_ level: Int) -> Bool { level % 12 == 0 }
 
-    private func createAndFreeze(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), blueprintIndex: Int) {
+    private func createAndFreeze(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), blueprintIndex: Int, goldDiscActive: Bool = false) {
         buildEntity(from: blueprint, blueprintIndex: blueprintIndex)
         let index = entities.count - 1
+        if goldDiscActive {
+            entities[index].isInFleeMode = true
+            let node = entities[index].node
+            node.setBodyColor(Self.fleeBodyColor)
+            node.setTieColor(Self.fleeTieColor)
+            node.setTieOutline(color: Self.bossShoeGoldColor)
+            node.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
+            node.setShoeOutlineColor(Self.bossShoeGoldColor)
+            node.setEyeColor(Self.fleeEyeColor)
+        }
         scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
+        if goldDiscActive { refreshTags(goldDiscActive: true) }
     }
 
     private func buildEntity(from blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), blueprintIndex: Int) {
@@ -470,6 +481,7 @@ final class BossController {
 
         let blueprintIndex = boss.blueprintIndex
         let spawn = boss.spawn
+        let goldDiscActive = delegate?.isGoldDiscMode ?? false
         let timer = SKNode()
         scene?.addChild(timer)
         timer.run(.sequence([
@@ -479,7 +491,7 @@ final class BossController {
                 guard let self, blueprintIndex >= 0, blueprintIndex < Self.blueprints.count else { return }
                 var blueprint = Self.blueprints[blueprintIndex]
                 blueprint.spawn = spawn
-                self.createAndFreeze(from: self.themed(blueprint, level: self.currentLevel), blueprintIndex: blueprintIndex)
+                self.createAndFreeze(from: self.themed(blueprint, level: self.currentLevel), blueprintIndex: blueprintIndex, goldDiscActive: goldDiscActive)
             }
         ]))
     }
