@@ -88,9 +88,9 @@ final class HUD {
         }
 
         messageLabel.fontSize = 19
-        messageLabel.horizontalAlignmentMode = .center
+        messageLabel.horizontalAlignmentMode = .right
         messageLabel.verticalAlignmentMode = .center
-        messageLabel.position = CGPoint(x: size.width / 2, y: size.height - 52)
+        messageLabel.position = CGPoint(x: size.width - 16, y: size.height - 52)
         messageLabel.zPosition = 21
         messageLabel.fontColor = .systemYellow
         scene.addChild(messageLabel)
