@@ -249,6 +249,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
                 self.sound.playWaterGunSplash()
                 self.state.bumpScore(by: 50)
                 ScorePopup.show(50, at: pos, in: self)
+                self.spawnWaterSplash(at: pos)
                 self.hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
                 self.refreshHUD()
             }
@@ -516,6 +517,32 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
         if waterGun.pelletsRemaining == 0 {
             endWaterGunMode()
+        }
+    }
+
+    private func spawnWaterSplash(at center: CGPoint) {
+        let count = 10
+        for i in 0..<count {
+            let angle = CGFloat(i) / CGFloat(count) * .pi * 2
+            let radius = CGFloat.random(in: 22...48)
+            let drop = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6))
+            drop.fillColor = Bool.random() ? .systemCyan : .systemBlue
+            drop.strokeColor = .clear
+            drop.position = center
+            drop.zPosition = 15
+            addChild(drop)
+            let dx = cos(angle) * radius
+            let dy = sin(angle) * radius
+            drop.run(.sequence([
+                .group([
+                    .moveBy(x: dx, y: dy, duration: 0.35),
+                    .sequence([
+                        .scale(to: 1.4, duration: 0.1),
+                        .group([.scale(to: 0.1, duration: 0.25), .fadeOut(withDuration: 0.25)])
+                    ])
+                ]),
+                .removeFromParent()
+            ]))
         }
     }
 
