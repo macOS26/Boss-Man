@@ -349,19 +349,29 @@ enum Strings {
         static let brownBox   = "TPS Delivery Box"
 
         static let required: [String] = [printer, fax, coverSheet, bookBinder]
+
+        static let displayNames: [String: String] = [
+            printer:    "Printer",
+            fax:        "Fax",
+            coverSheet: "Cover Sheet",
+            bookBinder: "Book Binder"
+        ]
     }
 
     // MARK: - Worker (PETE) names
     enum Worker {
         static let pete = "PETE"
+        static let hero = "HERO"
+
     }
 
     // MARK: - Boss display names
     enum Boss {
-        static let boss     = "BILL"
-        static let lumbergh = "DOM"
-        static let waddams  = "BOB"
-        static let bolton   = "STAN"
+        static let bill = "BILL"
+        static let dom  = "DOM"
+        static let bob  = "BOB"
+        static let stan = "STAN"
+        static let boss = "BOSS"
     }
 
     // MARK: - HUD persistent labels
@@ -417,6 +427,11 @@ enum Strings {
 
         static func reportItemCollected(name: String, points: Int) -> String {
             "Collected \(name) page for TPS report +\(points)"
+        }
+
+        static func tpsMissingItems(_ items: [String]) -> String {
+            let names = items.map { Machine.displayNames[$0] ?? $0 }
+            return "The TPS report is missing \(names.joined(separator: ", "))."
         }
 
         static func tpsTurnedIn(points: Int, gainedLife: Bool) -> String {

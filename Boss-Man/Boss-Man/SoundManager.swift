@@ -28,12 +28,12 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         let americanMale = usable.filter { $0.language == Strings.Speech.usEnglish && $0.gender == .male }
         let englishMale  = usable.filter { $0.language.hasPrefix(Strings.Speech.englishPrefix) && $0.gender == .male }
 
-        if let v = americanMale.first(where: { $0.quality == .premium && SoundManager.looksLumberghLike($0) }) { return v }
+        if let v = americanMale.first(where: { $0.quality == .premium && SoundManager.looksdomLike($0) }) { return v }
         if let v = americanMale.first(where: { $0.quality == .premium }) { return v }
-        if let v = americanMale.first(where: { $0.quality == .enhanced && SoundManager.looksLumberghLike($0) }) { return v }
+        if let v = americanMale.first(where: { $0.quality == .enhanced && SoundManager.looksdomLike($0) }) { return v }
         if let v = americanMale.first(where: { $0.quality == .enhanced }) { return v }
 
-        if let v = americanMale.first(where: { SoundManager.looksLumberghLike($0) }) { return v }
+        if let v = americanMale.first(where: { SoundManager.looksdomLike($0) }) { return v }
         if let v = americanMale.first { return v }
 
         if let v = englishMale.first(where: { $0.quality == .premium }) { return v }
@@ -43,7 +43,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         return AVSpeechSynthesisVoice(language: Strings.Speech.usEnglish)
     }
 
-    private static func looksLumberghLike(_ v: AVSpeechSynthesisVoice) -> Bool {
+    private static func looksdomLike(_ v: AVSpeechSynthesisVoice) -> Bool {
         let id = v.identifier.lowercased()
         let name = v.name.lowercased()
         let preferred = Strings.Speech.preferredMaleVoiceNames
@@ -218,6 +218,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     func playTpsDeliver() {
         play(buffer: cached(Strings.SoundCache.tpsDeliver) { self.sequence(notes: [660, 880, 1320], perNote: 0.12, volume: 0.35) })
         speak(tpsLines.randomElement() ?? Strings.Speech.tpsFallback, priority: false)
+    }
+
+    func playTpsMissingItems(_ items: [String]) {
+        let names = items.map { Strings.Machine.displayNames[$0] ?? $0 }
+        speak("The TPS report is missing \(names.joined(separator: ", ")).", priority: true)
     }
 
     func playGameOver() {

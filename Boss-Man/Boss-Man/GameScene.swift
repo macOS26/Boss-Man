@@ -338,7 +338,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     private func collectTPSReport() {
         guard state.reportItems.count == requiredItems.count else {
-            hud.showMessage(Strings.Message.brownBoxHint, duration: 2)
+            let missing = requiredItems.filter { !state.reportItems.contains($0) }
+            hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 3)
+            sound.playTpsMissingItems(missing)
             return
         }
         state.tpsReportsDelivered += 1
