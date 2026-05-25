@@ -13,7 +13,7 @@ final class HUD {
     private let levelEmojisContainer = SKNode()
     private let waterGunIconLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let waterGunAmmoLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
-    private let waterGunEmptyOverlay = SKShapeNode(rectOf: CGSize(width: 26, height: 22), cornerRadius: 4)
+    private let waterGunEmptyOverlay = SKSpriteNode(color: NSColor.systemRed.withAlphaComponent(0.55), size: .zero)
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
@@ -103,13 +103,6 @@ final class HUD {
         levelEmojisContainer.zPosition = 21
         scene.addChild(levelEmojisContainer)
 
-        waterGunEmptyOverlay.fillColor = NSColor.systemRed.withAlphaComponent(0.45)
-        waterGunEmptyOverlay.strokeColor = .clear
-        waterGunEmptyOverlay.position = CGPoint(x: size.width - 29, y: size.height - 52)
-        waterGunEmptyOverlay.zPosition = 20
-        waterGunEmptyOverlay.isHidden = true
-        scene.addChild(waterGunEmptyOverlay)
-
         waterGunIconLabel.fontSize = 16
         waterGunIconLabel.horizontalAlignmentMode = .right
         waterGunIconLabel.verticalAlignmentMode = .center
@@ -119,6 +112,15 @@ final class HUD {
         waterGunIconLabel.text = Strings.Emoji.waterGun
         waterGunIconLabel.isHidden = true
         scene.addChild(waterGunIconLabel)
+
+        let lf = waterGunIconLabel.frame
+        let pad: CGFloat = 3
+        waterGunEmptyOverlay.size = CGSize(width: max(lf.width, 16) + pad * 2,
+                                           height: max(lf.height, 14) + pad * 2)
+        waterGunEmptyOverlay.position = CGPoint(x: lf.midX, y: lf.midY)
+        waterGunEmptyOverlay.zPosition = 20
+        waterGunEmptyOverlay.isHidden = true
+        scene.addChild(waterGunEmptyOverlay)
 
         waterGunAmmoLabel.fontSize = 16
         waterGunAmmoLabel.horizontalAlignmentMode = .right
@@ -200,6 +202,7 @@ final class HUD {
         waterGunAmmoLabel.text = ammoText
         let empty = !active || pellets == 0
         waterGunAmmoLabel.fontColor = empty ? .systemRed : .systemBlue
+        waterGunIconLabel.alpha = empty ? 0.5 : 1.0
         waterGunEmptyOverlay.isHidden = !empty
     }
 
