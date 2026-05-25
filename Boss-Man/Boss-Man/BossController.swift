@@ -463,36 +463,24 @@ final class BossController {
     func splash(boss node: PixelPerson) {
         guard let index = entities.firstIndex(where: { $0.node === node }) else { return }
         let boss = entities[index]
-        boss.ai.teleport(to: boss.spawn)
-        boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
-        boss.node.stopWalking()
-        boss.node.physicsBody?.categoryBitMask = 0
-        let homePoint = gridMap.point(for: boss.spawn)
-        let bossNode = boss.node
-
-        bossNode.setBodyColor(boss.baseColor)
-        bossNode.setTieColor(boss.tieColor)
-        bossNode.setTieOutline(color: nil)
-        bossNode.setEyeColor(.black)
         entities[index].isInFleeMode = false
-        entities[index].isImmobilized = true
 
-        bossNode.removeAllActions()
-        bossNode.position = homePoint
-        bossNode.setScale(1.0)
-        bossNode.alpha = 0
+        boss.node.removeAllActions()
+        boss.node.removeFromParent()
+        entities.remove(at: index)
 
-        bossNode.run(.sequence([
+        let blueprintIndex = boss.blueprintIndex
+        let spawn = boss.spawn
+        let timer = SKNode()
+        scene?.addChild(timer)
+        timer.run(.sequence([
             .wait(forDuration: 5.0),
-            .group([
-                .scale(to: 1.0, duration: 0.3),
-                .fadeIn(withDuration: 0.3)
-            ]),
-            .run { [weak self] in
-                guard let self else { return }
-                self.entities[index].isImmobilized = false
-                bossNode.physicsBody?.categoryBitMask = PhysicsCategory.boss
-                self.scheduleStepper(for: self.entities[index])
+            .run { [weak self, weak timer] in
+                timer?.removeFromParent()
+                guard let self, blueprintIndex >= 0, blueprintIndex < Self.blueprints.count else { return }
+                var blueprint = Self.blueprints[blueprintIndex]
+                blueprint.spawn = spawn
+                self.createAndFreeze(from: self.themed(blueprint, level: self.currentLevel), blueprintIndex: blueprintIndex)
             }
         ]))
     }
