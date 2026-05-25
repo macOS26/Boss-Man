@@ -133,7 +133,7 @@ final class BossController {
         node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
         node.physicsBody?.allowsRotation = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
-        node.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+        node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
         node.physicsBody?.collisionBitMask = PhysicsCategory.wall
         node.zPosition = 11
         scene.addChild(node)
@@ -204,21 +204,16 @@ final class BossController {
         let node = entities[index].node
         node.alpha = 0
         node.setScale(1.0)
-        node.physicsBody?.categoryBitMask = 0
 
         sound.playTeleport()
         node.run(.fadeIn(withDuration: 1.5), withKey: Strings.ActionKey.spawnFade)
 
         node.run(.sequence([
             .wait(forDuration: 2.0),
-            .run { [weak self] in
-                guard let self, index < self.entities.count else { return }
-                self.entities[index].isImmobilized = false
-            },
-            .wait(forDuration: 1.0),
-            .run { [weak self] in
-                guard let self, index < self.entities.count else { return }
-                self.entities[index].node.physicsBody?.categoryBitMask = PhysicsCategory.boss
+            .run { [weak self, weak node] in
+                guard let self, let node,
+                      let idx = self.entities.firstIndex(where: { $0.node === node }) else { return }
+                self.entities[idx].isImmobilized = false
             }
         ]), withKey: Strings.ActionKey.spawnUnfreeze)
 
@@ -430,7 +425,6 @@ final class BossController {
         boss.ai.teleport(to: boss.spawn)
         boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
         boss.node.stopWalking()
-        boss.node.physicsBody?.categoryBitMask = 0
         let homePoint = gridMap.point(for: boss.spawn)
         let bossNode = boss.node
 
@@ -452,10 +446,7 @@ final class BossController {
                 .group([
                     .scale(to: 1.0, duration: 0.2),
                     .fadeIn(withDuration: 0.2)
-                ]),
-                .run { [weak bossNode] in
-                    bossNode?.physicsBody?.categoryBitMask = PhysicsCategory.boss
-                }
+                ])
             ]))
             boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)

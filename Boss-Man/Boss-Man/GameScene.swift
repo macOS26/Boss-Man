@@ -201,7 +201,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
                 self.bossController.capture(boss: bossNode)
             } else if !self.workerController.isShielded {
                 bossNode.alpha = 0
-                bossNode.physicsBody?.categoryBitMask = 0
                 bossNode.removeAllActions()
                 self.bossController.relocateAfterCatch(boss: bossNode)
                 self.bossCaughtWorker()
@@ -366,6 +365,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func bossCaughtWorker() {
         sound.playCaughtByBoss()
         state.lives -= 1
+        if goldDisc.isActive { endGoldDiscMode() }
 
         if state.currentReportScore > 0 {
             let lost = state.currentReportScore
