@@ -591,7 +591,7 @@ class LevelEditorScene: SKScene {
             bodyColor: body,
             tieColor: tie,
             hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
-            shoeOutlineColor: .white,
+            shoeOutlineColor: NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1),
             pantsColor: .darkGray,
             wearsSunglasses: false,
             headYOffset: -1

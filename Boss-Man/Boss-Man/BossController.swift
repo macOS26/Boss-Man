@@ -262,7 +262,7 @@ final class BossController {
             entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
             entities[i].node.setTieOutline(color: active ? Self.bossShoeGoldColor : nil)
             entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
-            entities[i].node.setShoeOutlineColor(active ? Self.bossShoeGoldColor : .white)
+            entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: active)
@@ -461,7 +461,7 @@ final class BossController {
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
             boss.node.setTieOutline(color: powerActive ? Self.bossShoeGoldColor : nil)
             boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
-            boss.node.setShoeOutlineColor(powerActive ? Self.bossShoeGoldColor : .white)
+            boss.node.setShoeOutlineColor(Self.bossShoeGoldColor)
             boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: powerActive)
