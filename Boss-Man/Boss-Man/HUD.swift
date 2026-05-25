@@ -11,6 +11,7 @@ final class HUD {
     private let livesLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let levelEmojisContainer = SKNode()
+    private let waterGunLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
@@ -18,6 +19,8 @@ final class HUD {
     private var lastTpsText: String?
     private var lastLevelEmojisText: String?
     private var lastLivesCount: Int = -1
+    private var lastWaterGunPellets: Int = -1
+    private var lastWaterGunActive: Bool = false
 
     init(requiredItems: [String]) {
         self.requiredItems = requiredItems
@@ -64,6 +67,8 @@ final class HUD {
         lastStatusText = nil
         lastTpsText = nil
         lastLevelEmojisText = nil
+        lastWaterGunPellets = -1
+        lastWaterGunActive = false
         let iconStartX: CGFloat = 90
         let iconSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
@@ -88,6 +93,15 @@ final class HUD {
         messageLabel.zPosition = 21
         messageLabel.fontColor = .systemYellow
         scene.addChild(messageLabel)
+
+        waterGunLabel.fontSize = 16
+        waterGunLabel.horizontalAlignmentMode = .left
+        waterGunLabel.verticalAlignmentMode = .center
+        waterGunLabel.position = CGPoint(x: 16, y: size.height - 70)
+        waterGunLabel.zPosition = 21
+        waterGunLabel.fontColor = .systemBlue
+        waterGunLabel.isHidden = true
+        scene.addChild(waterGunLabel)
 
         levelEmojisContainer.position = CGPoint(x: size.width - 28, y: size.height - 30)
         levelEmojisContainer.zPosition = 21
@@ -149,6 +163,17 @@ final class HUD {
         for (i, icon) in lifeIcons.enumerated() {
             icon.isHidden = i >= count
         }
+    }
+
+    func updateWaterGun(active: Bool, pellets: Int) {
+        if active == lastWaterGunActive && pellets == lastWaterGunPellets { return }
+        lastWaterGunActive = active
+        lastWaterGunPellets = pellets
+        waterGunLabel.isHidden = !active
+        guard active else { return }
+        let pelletsText = (0..<8).map { $0 < pellets ? "●" : "○" }.joined(separator: "")
+        waterGunLabel.text = "\(Strings.Emoji.waterGun)\(pelletsText)"
+        waterGunLabel.fontColor = pellets > 0 ? .systemBlue : .systemRed
     }
 
     func showMessage(_ text: String, duration: TimeInterval) {

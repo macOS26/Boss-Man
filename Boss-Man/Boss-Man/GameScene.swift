@@ -477,6 +477,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             .wait(forDuration: 20),
             .run { [weak self] in self?.endWaterGunMode(expired: true) }
         ]), withKey: Strings.ActionKey.waterGunExpiry)
+        hud.updateWaterGun(active: true, pellets: waterGun.pelletsRemaining)
         hud.showMessage(Strings.Message.waterGunActivated, duration: 3)
     }
 
@@ -487,6 +488,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         for child in children where child.name == "waterDroplet" {
             child.removeFromParent()
         }
+        hud.updateWaterGun(active: false, pellets: 0)
         hud.showMessage(expired ? Strings.Message.waterGunExpired : Strings.Message.waterGunEnded, duration: 2)
     }
 
@@ -498,6 +500,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         let droplet = WaterDroplet.fire(from: workerPos, direction: direction, tileSize: tileSize)
         addChild(droplet)
         sound.playWaterGunShoot()
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining)
         if waterGun.pelletsRemaining == 0 {
             endWaterGunMode(expired: false)
         }
@@ -511,6 +514,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             reports: state.tpsReportsDelivered, items: state.reportItems
         )
         hud.updateLives(state.lives)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining)
         let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1
         hud.updateLevelEmojis(Array(levelTravelers.prefix(cyclePosition)))
     }
