@@ -373,13 +373,14 @@ final class BossController {
 
             boss.node.run(.sequence([
                 SKAction.move(to: gridMap.point(for: move.to), duration: stepDuration),
-                .run { [weak self] in
-                    guard let self else { return }
+                .run { [weak self, weak bossNode = boss.node] in
+                    guard let self, let bossNode,
+                          let i = self.entities.firstIndex(where: { $0.node === bossNode }) else { return }
                     if let partner = self.gridMap.tunnelPartner(of: move.to),
                        self.gridMap.isWalkable(partner) {
-                        self.entities[index].node.position = self.gridMap.point(for: partner)
-                        self.entities[index].ai.teleport(to: partner)
-                        self.entities[index].mustExitDoorway = true
+                        self.entities[i].node.position = self.gridMap.point(for: partner)
+                        self.entities[i].ai.teleport(to: partner)
+                        self.entities[i].mustExitDoorway = true
                     }
                 }
             ]), withKey: Strings.ActionKey.bossMove)
