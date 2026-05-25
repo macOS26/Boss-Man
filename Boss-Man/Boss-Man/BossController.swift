@@ -481,7 +481,6 @@ final class BossController {
 
         let blueprintIndex = boss.blueprintIndex
         let spawn = boss.spawn
-        let goldDiscActive = delegate?.isGoldDiscMode ?? false
         let timer = SKNode()
         scene?.addChild(timer)
         timer.run(.sequence([
@@ -491,7 +490,8 @@ final class BossController {
                 guard let self, blueprintIndex >= 0, blueprintIndex < Self.blueprints.count else { return }
                 var blueprint = Self.blueprints[blueprintIndex]
                 blueprint.spawn = spawn
-                self.createAndFreeze(from: self.themed(blueprint, level: self.currentLevel), blueprintIndex: blueprintIndex, goldDiscActive: goldDiscActive)
+                let goldActive = self.delegate?.isGoldDiscMode ?? false
+                self.createAndFreeze(from: self.themed(blueprint, level: self.currentLevel), blueprintIndex: blueprintIndex, goldDiscActive: goldActive)
             }
         ]))
     }
