@@ -17,7 +17,7 @@ struct EditorTile: Equatable {
     static let collator = EditorTile(character: Strings.Tile.bookBinderChar, displayName: Strings.Machine.bookBinder)
     static let brownBox = EditorTile(character: Strings.Tile.brownBoxChar,   displayName: Strings.Machine.brownBox)
     static let goldDisc = EditorTile(character: Strings.Tile.goldDiscChar,   displayName: Strings.Editor.Tile.goldDisc)
-    static let worker   = EditorTile(character: Strings.Tile.workerChar,     displayName: Strings.Worker.pete)
+    static let worker   = EditorTile(character: Strings.Tile.workerChar,     displayName: "Worker " + Strings.Worker.pete)
     static let boss1    = EditorTile(character: Strings.Tile.boss1Char,      displayName: Strings.Boss.boss)
     static let boss2    = EditorTile(character: Strings.Tile.boss2Char,      displayName: Strings.Boss.lumbergh)
     static let boss3    = EditorTile(character: Strings.Tile.boss3Char,      displayName: Strings.Boss.waddams)
