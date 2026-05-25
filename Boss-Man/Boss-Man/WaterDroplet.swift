@@ -46,6 +46,7 @@ enum WaterDroplet {
         let move = SKAction.move(to: target, duration: duration)
         let remove = SKAction.removeFromParent()
         node.run(.sequence([move, remove]), withKey: Strings.ActionKey.waterDropletMove)
+        node.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 0.4)))
 
         return node
     }
