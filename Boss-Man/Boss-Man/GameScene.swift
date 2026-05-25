@@ -430,7 +430,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         waterGunPickedUp = false
         sound.stopGoldDiscBass()
         removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
-        removeAction(forKey: Strings.ActionKey.waterGunExpiry)
         removeAllActions()
         removeAllChildren()
         buildLevel()
@@ -492,24 +491,18 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func startWaterGunMode() {
         waterGunPickedUp = true
         waterGun.activate()
-        removeAction(forKey: Strings.ActionKey.waterGunExpiry)
-        run(.sequence([
-            .wait(forDuration: 20),
-            .run { [weak self] in self?.endWaterGunMode(expired: true) }
-        ]), withKey: Strings.ActionKey.waterGunExpiry)
         hud.updateWaterGun(active: true, pellets: waterGun.pelletsRemaining)
         hud.showMessage(Strings.Message.waterGunActivated, duration: 3)
     }
 
-    private func endWaterGunMode(expired: Bool) {
+    private func endWaterGunMode() {
         guard waterGun.isActive else { return }
         waterGun.deactivate()
-        removeAction(forKey: Strings.ActionKey.waterGunExpiry)
         for child in children where child.name == "waterDroplet" {
             child.removeFromParent()
         }
         hud.updateWaterGun(active: false, pellets: 0)
-        hud.showMessage(expired ? Strings.Message.waterGunExpired : Strings.Message.waterGunEnded, duration: 2)
+        hud.showMessage(Strings.Message.waterGunEnded, duration: 2)
     }
 
     private func fireWaterGun() {
@@ -522,7 +515,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         sound.playWaterGunShoot()
         hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
         if waterGun.pelletsRemaining == 0 {
-            endWaterGunMode(expired: false)
+            endWaterGunMode()
         }
     }
 
