@@ -56,7 +56,8 @@ final class MazeBuilder {
                 if char == Strings.Tile.wallChar {
                     wallCenters.append(position)
                 } else {
-                    if (char == Strings.Tile.dotChar || char == Strings.Tile.hideoutChar) && !debugSkipDots {
+                    let isBossSpawn = char == Strings.Tile.boss1Char || char == Strings.Tile.boss2Char || char == Strings.Tile.boss3Char || char == Strings.Tile.boss4Char
+                    if (char == Strings.Tile.dotChar || char == Strings.Tile.hideoutChar || isBossSpawn) && !debugSkipDots {
                         dotPresence[rowIndex][columnIndex] = true
                         dotMap.setTileGroup(dotGroup, forColumn: columnIndex, row: rowIndex)
                         dotCount += 1
