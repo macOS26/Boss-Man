@@ -1,7 +1,7 @@
 import Foundation
 
 @MainActor
-final class WaterGunTimer {
+final class WaterGunState {
     private(set) var isActive = false
     private(set) var pelletsRemaining: Int = 0
     private let maxPellets = 8
@@ -26,5 +26,10 @@ final class WaterGunTimer {
     func addPellets(_ count: Int) {
         guard isActive else { return }
         pelletsRemaining = min(maxPellets, pelletsRemaining + count)
+    }
+
+    func reloadPellets(_ count: Int) {
+        pelletsRemaining = min(maxPellets, pelletsRemaining + count)
+        if pelletsRemaining > 0 { isActive = true }
     }
 }

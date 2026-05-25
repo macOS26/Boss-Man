@@ -15,6 +15,7 @@ enum WaterDroplet {
         circle.strokeColor = NSColor.systemBlue.withAlphaComponent(0.7)
         circle.lineWidth = 1
         node.addChild(circle)
+        node.alpha = 0.8
 
         let body = SKPhysicsBody(circleOfRadius: radius)
         body.isDynamic = true

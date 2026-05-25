@@ -308,6 +308,7 @@ final class MazeBuilder {
         node.physicsBody?.isDynamic = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.waterPellet
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+        node.alpha = 0.75
         node.run(.repeatForever(.sequence([
             .scale(to: 1.3, duration: 0.4),
             .scale(to: 1.0, duration: 0.4)

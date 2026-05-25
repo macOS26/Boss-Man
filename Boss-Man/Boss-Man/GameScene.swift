@@ -33,7 +33,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let inputController = PointerInputController()
     private let contactRouter = ContactRouter()
     private let goldDisc = GoldDiscTimer()
-    private let waterGun = WaterGunTimer()
+    private let waterGun = WaterGunState()
     private var waterGunPickedUp = false
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
@@ -225,9 +225,12 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             let pos = node?.position ?? .zero
             node?.removeFromParent()
             guard let self else { return }
-            self.state.bumpScore(by: 25)
-            ScorePopup.show(25, at: pos, in: self)
-            self.waterGun.addPellets(8)
+            self.state.bumpScore(by: 50)
+            ScorePopup.show(50, at: pos, in: self)
+            if self.waterGunPickedUp {
+                self.waterGun.reloadPellets(8)
+                self.sound.playWaterGunPickup()
+            }
             self.refreshHUD()
         }
         contactRouter.onWaterGunTouchedWorker = { [weak self] node in
@@ -530,6 +533,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             drop.strokeColor = .clear
             drop.position = center
             drop.zPosition = 15
+            drop.alpha = 0.85
             addChild(drop)
             let dx = cos(angle) * radius
             let dy = sin(angle) * radius
