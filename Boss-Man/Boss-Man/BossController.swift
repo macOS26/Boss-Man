@@ -46,7 +46,7 @@ final class BossController {
     static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
     static let fleeTieColor:  NSColor = .systemYellow
     static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
-    static let bossShoeGoldColor: NSColor = NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
+    static var bossShoeGoldColor: NSColor { SpriteFactory.bossShoeGoldColor }
 
     weak var delegate: BossControllerDelegate?
     private weak var scene: SKScene?
@@ -123,14 +123,10 @@ final class BossController {
         )
         ai.teleport(to: blueprint.spawn)
 
-        let node = PixelPerson(
+        let node = SpriteFactory.bossPerson(
             bodyColor: blueprint.color,
             tieColor: blueprint.tie,
-            hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
-            shoeOutlineColor: Self.bossShoeGoldColor,
-            pantsColor: blueprint.pants,
-            wearsSunglasses: isMIBLevel(currentLevel),
-            headYOffset: -1
+            wearsSunglasses: isMIBLevel(currentLevel)
         )
         node.name = blueprint.name
         node.position = gridMap.point(for: blueprint.spawn)

@@ -545,39 +545,15 @@ class LevelEditorScene: SKScene {
     }
 
     private func addGoldDisc(to container: SKNode, size: CGFloat) {
-        let radius = size * 0.28
-        let glow = SKShapeNode(circleOfRadius: radius * 1.35)
-        glow.fillColor = NSColor.systemYellow.withAlphaComponent(0.30)
-        glow.strokeColor = .clear
-        container.addChild(glow)
-        let core = SKShapeNode(circleOfRadius: radius)
-        core.fillColor = .systemYellow
-        core.strokeColor = NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
-        core.lineWidth = 1
-        container.addChild(core)
+        container.addChild(SpriteFactory.goldDiscVisual(radius: size * 0.28))
     }
 
     private func addWaterPellet(to container: SKNode, size: CGFloat) {
-        let radius = size * 0.32
-        let glow = SKShapeNode(circleOfRadius: radius * 1.35)
-        glow.fillColor = NSColor.systemCyan.withAlphaComponent(0.25)
-        glow.strokeColor = .clear
-        container.addChild(glow)
-        let core = SKShapeNode(circleOfRadius: radius)
-        core.fillColor = .systemCyan
-        core.strokeColor = NSColor(calibratedRed: 0.0, green: 0.6, blue: 0.8, alpha: 1)
-        core.lineWidth = 1
-        container.addChild(core)
+        container.addChild(SpriteFactory.waterPelletVisual(radius: size * 0.32))
     }
 
     private func addPete(to container: SKNode, size: CGFloat) {
-        let person = PixelPerson(
-            bodyColor: .systemBlue,
-            tieColor: .systemOrange,
-            hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
-            shoeOutlineColor: .white,
-            pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1)
-        )
+        let person = SpriteFactory.petePerson()
         person.setScale(size / 38)
         container.addChild(person)
     }
@@ -587,15 +563,7 @@ class LevelEditorScene: SKScene {
                          body: NSColor,
                          tie: NSColor,
                          size: CGFloat) {
-        let person = PixelPerson(
-            bodyColor: body,
-            tieColor: tie,
-            hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
-            shoeOutlineColor: NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1),
-            pantsColor: .darkGray,
-            wearsSunglasses: false,
-            headYOffset: -1
-        )
+        let person = SpriteFactory.bossPerson(bodyColor: body, tieColor: tie)
         person.setScale(size / 38)
         container.addChild(person)
     }
