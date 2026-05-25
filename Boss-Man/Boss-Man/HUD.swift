@@ -12,6 +12,7 @@ final class HUD {
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let levelEmojisContainer = SKNode()
     private let waterGunIconLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let waterGunAmmoLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
@@ -70,6 +71,7 @@ final class HUD {
         lastWaterGunPellets = -1
         lastWaterGunActive = false
         waterGunIconLabel.isHidden = true
+        waterGunAmmoLabel.isHidden = true
         let iconStartX: CGFloat = 90
         let iconSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
@@ -109,6 +111,14 @@ final class HUD {
         waterGunIconLabel.isHidden = true
         scene.addChild(waterGunIconLabel)
 
+        waterGunAmmoLabel.fontSize = 16
+        waterGunAmmoLabel.horizontalAlignmentMode = .right
+        waterGunAmmoLabel.verticalAlignmentMode = .center
+        waterGunAmmoLabel.position = CGPoint(x: size.width - 16, y: size.height - 84)
+        waterGunAmmoLabel.zPosition = 21
+        waterGunAmmoLabel.fontColor = .systemBlue
+        waterGunAmmoLabel.isHidden = true
+        scene.addChild(waterGunAmmoLabel)
     }
 
     private static let emojiByName: [String: String] = [
@@ -173,8 +183,13 @@ final class HUD {
         lastWaterGunActive = active
         lastWaterGunPellets = pellets
         waterGunIconLabel.isHidden = !active
+        waterGunAmmoLabel.isHidden = !active
         guard active else { return }
-        waterGunIconLabel.fontColor = pellets > 0 ? .systemBlue : .systemRed
+        let ammoText = (0..<8).map { $0 < pellets ? "●" : "○" }.joined(separator: " ")
+        waterGunAmmoLabel.text = ammoText
+        let color: NSColor = pellets > 0 ? .systemBlue : .systemRed
+        waterGunIconLabel.fontColor = color
+        waterGunAmmoLabel.fontColor = color
     }
 
     func showMessage(_ text: String, duration: TimeInterval) {
