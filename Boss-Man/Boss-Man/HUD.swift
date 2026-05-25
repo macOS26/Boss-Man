@@ -13,7 +13,7 @@ final class HUD {
     private let levelEmojisContainer = SKNode()
     private let waterGunIconLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let waterGunAmmoLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
-    private let waterGunEmptyOverlay = SKSpriteNode(color: NSColor.systemRed.withAlphaComponent(0.55), size: .zero)
+    private let waterGunCropNode = SKCropNode()
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
@@ -73,7 +73,7 @@ final class HUD {
         lastWaterGunActive = false
         waterGunIconLabel.isHidden = true
         waterGunAmmoLabel.isHidden = true
-        waterGunEmptyOverlay.isHidden = true
+        waterGunCropNode.isHidden = true
         let iconStartX: CGFloat = 90
         let iconSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
@@ -103,24 +103,33 @@ final class HUD {
         levelEmojisContainer.zPosition = 21
         scene.addChild(levelEmojisContainer)
 
+        let iconPos = CGPoint(x: size.width - 16, y: size.height - 52)
         waterGunIconLabel.fontSize = 16
         waterGunIconLabel.horizontalAlignmentMode = .right
         waterGunIconLabel.verticalAlignmentMode = .center
-        waterGunIconLabel.position = CGPoint(x: size.width - 16, y: size.height - 52)
+        waterGunIconLabel.position = iconPos
         waterGunIconLabel.zPosition = 21
         waterGunIconLabel.fontColor = .systemBlue
         waterGunIconLabel.text = Strings.Emoji.waterGun
         waterGunIconLabel.isHidden = true
         scene.addChild(waterGunIconLabel)
 
+        let maskLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        maskLabel.fontSize = 16
+        maskLabel.horizontalAlignmentMode = .right
+        maskLabel.verticalAlignmentMode = .center
+        maskLabel.text = Strings.Emoji.waterGun
+        waterGunCropNode.maskNode = maskLabel
+
         let lf = waterGunIconLabel.frame
-        let pad: CGFloat = 3
-        waterGunEmptyOverlay.size = CGSize(width: max(lf.width, 16) + pad * 2,
-                                           height: max(lf.height, 14) + pad * 2)
-        waterGunEmptyOverlay.position = CGPoint(x: lf.midX, y: lf.midY)
-        waterGunEmptyOverlay.zPosition = 20
-        waterGunEmptyOverlay.isHidden = true
-        scene.addChild(waterGunEmptyOverlay)
+        let redFill = SKSpriteNode(color: NSColor.systemRed.withAlphaComponent(0.25),
+                                   size: CGSize(width: max(lf.width, 16) + 8, height: max(lf.height, 14) + 8))
+        redFill.position = CGPoint(x: lf.midX - iconPos.x, y: lf.midY - iconPos.y)
+        waterGunCropNode.addChild(redFill)
+        waterGunCropNode.position = iconPos
+        waterGunCropNode.zPosition = 22
+        waterGunCropNode.isHidden = true
+        scene.addChild(waterGunCropNode)
 
         waterGunAmmoLabel.fontSize = 16
         waterGunAmmoLabel.horizontalAlignmentMode = .right
@@ -196,14 +205,14 @@ final class HUD {
         let neverPickedUp = !active && pellets < 0
         waterGunIconLabel.isHidden = neverPickedUp
         waterGunAmmoLabel.isHidden = neverPickedUp
-        waterGunEmptyOverlay.isHidden = neverPickedUp
+        waterGunCropNode.isHidden = neverPickedUp
         guard !neverPickedUp else { return }
         let ammoText = (0..<8).map { $0 < pellets ? "●" : "○" }.joined(separator: " ")
         waterGunAmmoLabel.text = ammoText
         let empty = !active || pellets == 0
         waterGunAmmoLabel.fontColor = empty ? .systemRed : .systemBlue
         waterGunIconLabel.alpha = empty ? 0.5 : 1.0
-        waterGunEmptyOverlay.isHidden = !empty
+        waterGunCropNode.isHidden = !empty
     }
 
     func showMessage(_ text: String, duration: TimeInterval) {
