@@ -42,9 +42,11 @@ final class MazeBuilder {
         waterPelletPositionsFromMap = []
 
         let background = makeBackground()
+        background.position.y = map.yOffset
         scene.addChild(background)
 
         let dotMap = makeDotTilemap(columns: cols, rows: rowCount)
+        dotMap.position.y = map.yOffset
         scene.addChild(dotMap)
         dotTilemap = dotMap
         let dotGroup = dotMap.tileSet.tileGroups.first!

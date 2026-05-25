@@ -2,6 +2,7 @@ import CoreGraphics
 
 final class GridMap {
     let tileSize: CGFloat
+    var yOffset: CGFloat = 0
     private(set) var rows: [String]
     private var tunnelPairs: [(CGPoint, CGPoint)] = []
 
@@ -42,7 +43,7 @@ final class GridMap {
 
     func point(for grid: CGPoint) -> CGPoint {
         CGPoint(x: grid.x * tileSize + tileSize / 2,
-                y: grid.y * tileSize + tileSize / 2)
+                y: grid.y * tileSize + tileSize / 2 + yOffset)
     }
 
     func tile(at grid: CGPoint) -> Character? {

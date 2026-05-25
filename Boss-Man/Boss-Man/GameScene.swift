@@ -59,6 +59,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         physicsWorld.contactDelegate = contactRouter
 
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
+        gridMap.yOffset = -3
         pathfinder = Pathfinder(map: gridMap)
         mazeBuilder = MazeBuilder(map: gridMap, goldDiscPositions: goldDiscPositions, machineNames: machineNames)
         #if DEBUG
@@ -339,7 +340,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func collectTPSReport() {
         guard state.reportItems.count == requiredItems.count else {
             let missing = requiredItems.filter { !state.reportItems.contains($0) }
-            hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 3)
+            hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
             sound.playTpsMissingItems(missing)
             return
         }

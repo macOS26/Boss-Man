@@ -40,7 +40,7 @@ final class HUD {
         panel.zPosition = 20
         scene.addChild(panel)
 
-        statusLabel.fontSize = 16
+        statusLabel.fontSize = 19
         statusLabel.horizontalAlignmentMode = .left
         statusLabel.verticalAlignmentMode = .center
         statusLabel.position = CGPoint(x: 16, y: size.height - 22)
@@ -48,7 +48,7 @@ final class HUD {
         statusLabel.fontColor = .white
         scene.addChild(statusLabel)
 
-        tpsLabel.fontSize = 16
+        tpsLabel.fontSize = 19
         tpsLabel.horizontalAlignmentMode = .left
         tpsLabel.verticalAlignmentMode = .center
         tpsLabel.position = CGPoint(x: 16, y: size.height - 52)
@@ -56,7 +56,7 @@ final class HUD {
         tpsLabel.fontColor = .white
         scene.addChild(tpsLabel)
 
-        livesLabel.fontSize = 16
+        livesLabel.fontSize = 19
         livesLabel.horizontalAlignmentMode = .left
         livesLabel.verticalAlignmentMode = .center
         livesLabel.position = CGPoint(x: 16, y: size.height - 84)
@@ -87,7 +87,7 @@ final class HUD {
             lifeIcons.append(icon)
         }
 
-        messageLabel.fontSize = 16
+        messageLabel.fontSize = 19
         messageLabel.horizontalAlignmentMode = .center
         messageLabel.verticalAlignmentMode = .center
         messageLabel.position = CGPoint(x: size.width / 2, y: size.height - 52)
@@ -100,7 +100,7 @@ final class HUD {
         scene.addChild(levelEmojisContainer)
 
         let iconPos = CGPoint(x: size.width - 14, y: size.height - 84)
-        waterGunIconLabel.fontSize = 16
+        waterGunIconLabel.fontSize = 19
         waterGunIconLabel.horizontalAlignmentMode = .right
         waterGunIconLabel.verticalAlignmentMode = .center
         waterGunIconLabel.position = iconPos
@@ -111,7 +111,7 @@ final class HUD {
         scene.addChild(waterGunIconLabel)
 
         let maskLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        maskLabel.fontSize = 16
+        maskLabel.fontSize = 19
         maskLabel.horizontalAlignmentMode = .right
         maskLabel.verticalAlignmentMode = .center
         maskLabel.text = Strings.Emoji.waterGun
@@ -127,7 +127,7 @@ final class HUD {
         waterGunCropNode.isHidden = true
         scene.addChild(waterGunCropNode)
 
-        waterGunAmmoLabel.fontSize = 16
+        waterGunAmmoLabel.fontSize = 19
         waterGunAmmoLabel.horizontalAlignmentMode = .right
         waterGunAmmoLabel.verticalAlignmentMode = .center
         waterGunAmmoLabel.position = CGPoint(x: lf.minX - 6, y: size.height - 84)
