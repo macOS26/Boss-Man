@@ -17,11 +17,11 @@ struct EditorTile: Equatable {
     static let collator = EditorTile(character: Strings.Tile.bookBinderChar, displayName: Strings.Machine.bookBinder)
     static let brownBox = EditorTile(character: Strings.Tile.brownBoxChar,   displayName: Strings.Machine.brownBox)
     static let goldDisc = EditorTile(character: Strings.Tile.goldDiscChar,   displayName: Strings.Editor.Tile.goldDisc)
-    static let worker   = EditorTile(character: Strings.Tile.workerChar,     displayName: "Worker " + Strings.Worker.pete)
-    static let boss1    = EditorTile(character: Strings.Tile.boss1Char,      displayName: Strings.Boss.boss)
-    static let boss2    = EditorTile(character: Strings.Tile.boss2Char,      displayName: Strings.Boss.lumbergh)
-    static let boss3    = EditorTile(character: Strings.Tile.boss3Char,      displayName: Strings.Boss.waddams)
-    static let boss4    = EditorTile(character: Strings.Tile.boss4Char,      displayName: Strings.Boss.bolton)
+    static let worker   = EditorTile(character: Strings.Tile.workerChar,     displayName: "Hero " + Strings.Worker.pete.capitalized)
+    static let boss1    = EditorTile(character: Strings.Tile.boss1Char,      displayName: "Boss " + Strings.Boss.bill.capitalized)
+    static let boss2    = EditorTile(character: Strings.Tile.boss2Char,      displayName: "Boss " + Strings.Boss.dom.capitalized)
+    static let boss3    = EditorTile(character: Strings.Tile.boss3Char,      displayName: "Boss " + Strings.Boss.bob.capitalized)
+    static let boss4    = EditorTile(character: Strings.Tile.boss4Char,      displayName: "Boss " + Strings.Boss.stan.capitalized)
     static let waterGun    = EditorTile(character: Strings.Tile.waterGunChar,    displayName: Strings.Editor.Tile.waterGun)
     static let waterPellet = EditorTile(character: Strings.Tile.waterPelletChar, displayName: Strings.Editor.Tile.waterPellet)
 
@@ -462,7 +462,6 @@ class LevelEditorScene: SKScene {
         case Strings.Tile.dotChar:
             addDot(to: container, size: size)
         case Strings.Tile.hideoutChar:
-            addDot(to: container, size: size)
             addLetter(to: container, text: Strings.Tile.hideout, color: .systemPurple, size: size * 0.85)
         case Strings.Tile.waterPelletChar:
             addWaterPellet(to: container, size: size)
@@ -475,18 +474,18 @@ class LevelEditorScene: SKScene {
         case Strings.Tile.workerChar:
             addPete(to: container, size: size)
         case Strings.Tile.boss1Char:
-            addBoss(to: container, name: Strings.Boss.boss,
+            addBoss(to: container, name: Strings.Boss.bill,
                     body: .systemRed,    tie: .black,        size: size)
         case Strings.Tile.boss2Char:
-            addBoss(to: container, name: Strings.Boss.lumbergh,
+            addBoss(to: container, name: Strings.Boss.dom,
                     body: NSColor.systemPink.withAlphaComponent(0.75),
                     tie: NSColor.systemPurple.blended(withFraction: 0.40, of: .black) ?? .systemPurple, size: size)
         case Strings.Tile.boss3Char:
-            addBoss(to: container, name: Strings.Boss.waddams,
+            addBoss(to: container, name: Strings.Boss.bob,
                     body: .systemTeal,
                     tie: NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue, size: size)
         case Strings.Tile.boss4Char:
-            addBoss(to: container, name: Strings.Boss.bolton,
+            addBoss(to: container, name: Strings.Boss.stan,
                     body: .systemOrange,
                     tie: NSColor.systemRed.blended(withFraction: 0.10, of: .black) ?? .systemRed, size: size)
         default:
