@@ -34,6 +34,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let contactRouter = ContactRouter()
     private let goldDisc = GoldDiscTimer()
     private let waterGun = WaterGunTimer()
+    private var waterGunPickedUp = false
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
@@ -409,6 +410,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         travelerSpawner.reset()
         goldDisc.deactivate()
         waterGun.deactivate()
+        waterGunPickedUp = false
         sound.stopGoldDiscBass()
         removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
         removeAction(forKey: Strings.ActionKey.waterGunExpiry)
@@ -471,6 +473,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     // MARK: - Water gun
     private func startWaterGunMode() {
+        waterGunPickedUp = true
         waterGun.activate()
         removeAction(forKey: Strings.ActionKey.waterGunExpiry)
         run(.sequence([
@@ -500,7 +503,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         let droplet = WaterDroplet.fire(from: workerPos, direction: direction, tileSize: tileSize)
         addChild(droplet)
         sound.playWaterGunShoot()
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
         if waterGun.pelletsRemaining == 0 {
             endWaterGunMode(expired: false)
         }
@@ -514,7 +517,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             reports: state.tpsReportsDelivered, items: state.reportItems
         )
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
         let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1
         hud.updateLevelEmojis(Array(levelTravelers.prefix(cyclePosition)))
     }
