@@ -11,6 +11,7 @@ final class ContactRouter: NSObject, SKPhysicsContactDelegate {
     var onMachineTouchedWorker: ((SKPhysicsBody, String) -> Void)?
     var onTpsBoxTouchedWorker: (() -> Void)?
     var onFishTouchedWorker: ((SKNode?) -> Void)?
+    var onWaterPelletTouchedWorker: ((SKNode?) -> Void)?
 
     func didBegin(_ contact: SKPhysicsContact) {
         guard !shouldIgnoreContact() else { return }
@@ -43,6 +44,9 @@ final class ContactRouter: NSObject, SKPhysicsContactDelegate {
         }
         if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }), hasWorker {
             onFishTouchedWorker?(fishBody.node)
+        }
+        if let pelletBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterPellet }), hasWorker {
+            onWaterPelletTouchedWorker?(pelletBody.node)
         }
     }
 }

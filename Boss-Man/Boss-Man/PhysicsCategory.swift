@@ -11,4 +11,5 @@ struct PhysicsCategory {
     static let fish: UInt32 = 1 << 7
     static let waterGun: UInt32 = 1 << 8
     static let waterDroplet: UInt32 = 1 << 9
+    static let waterPellet:  UInt32 = 1 << 10
 }

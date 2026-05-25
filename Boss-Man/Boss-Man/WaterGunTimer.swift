@@ -22,4 +22,9 @@ final class WaterGunTimer {
         if pelletsRemaining == 0 { deactivate() }
         return true
     }
+
+    func addPellets(_ count: Int) {
+        guard isActive else { return }
+        pelletsRemaining = min(maxPellets, pelletsRemaining + count)
+    }
 }

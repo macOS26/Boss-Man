@@ -22,12 +22,13 @@ struct EditorTile: Equatable {
     static let boss2    = EditorTile(character: Strings.Tile.boss2Char,      displayName: Strings.Boss.lumbergh)
     static let boss3    = EditorTile(character: Strings.Tile.boss3Char,      displayName: Strings.Boss.waddams)
     static let boss4    = EditorTile(character: Strings.Tile.boss4Char,      displayName: Strings.Boss.bolton)
-    static let waterGun = EditorTile(character: Strings.Tile.waterGunChar,   displayName: Strings.Editor.Tile.waterGun)
+    static let waterGun    = EditorTile(character: Strings.Tile.waterGunChar,    displayName: Strings.Editor.Tile.waterGun)
+    static let waterPellet = EditorTile(character: Strings.Tile.waterPelletChar, displayName: Strings.Editor.Tile.waterPellet)
 
     static let all: [EditorTile] = [
         .empty, .dot, .wall, .hideout,
         .printer, .fax, .copy, .collator, .brownBox,
-        .goldDisc, .worker, .boss1, .boss2, .boss3, .boss4, .waterGun
+        .goldDisc, .worker, .boss1, .boss2, .boss3, .boss4, .waterGun, .waterPellet
     ]
 }
 
@@ -268,7 +269,7 @@ class LevelEditorScene: SKScene {
         
         paletteNodes = []
         let palStartY = frame.height - 89
-        let palSpacing: CGFloat = 18
+        let palSpacing: CGFloat = 17
         
         for (i, tile) in EditorTile.all.enumerated() {
             let y = palStartY - 24 - CGFloat(i) * palSpacing
@@ -463,6 +464,8 @@ class LevelEditorScene: SKScene {
         case Strings.Tile.hideoutChar:
             addDot(to: container, size: size)
             addLetter(to: container, text: Strings.Tile.hideout, color: .systemPurple, size: size * 0.85)
+        case Strings.Tile.waterPelletChar:
+            addWaterPellet(to: container, size: size)
         case Strings.Tile.printerChar, Strings.Tile.faxChar,
              Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar,
              Strings.Tile.brownBoxChar, Strings.Tile.waterGunChar:
@@ -550,6 +553,19 @@ class LevelEditorScene: SKScene {
         let core = SKShapeNode(circleOfRadius: radius)
         core.fillColor = .systemYellow
         core.strokeColor = NSColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
+        core.lineWidth = 1
+        container.addChild(core)
+    }
+
+    private func addWaterPellet(to container: SKNode, size: CGFloat) {
+        let radius = size * 0.32
+        let glow = SKShapeNode(circleOfRadius: radius * 1.35)
+        glow.fillColor = NSColor.systemCyan.withAlphaComponent(0.25)
+        glow.strokeColor = .clear
+        container.addChild(glow)
+        let core = SKShapeNode(circleOfRadius: radius)
+        core.fillColor = .systemCyan
+        core.strokeColor = NSColor(calibratedRed: 0.0, green: 0.6, blue: 0.8, alpha: 1)
         core.lineWidth = 1
         container.addChild(core)
     }

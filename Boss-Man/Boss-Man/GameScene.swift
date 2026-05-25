@@ -221,6 +221,15 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         }
         contactRouter.onTpsBoxTouchedWorker = { [weak self] in self?.collectTPSReport() }
         contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
+        contactRouter.onWaterPelletTouchedWorker = { [weak self] node in
+            let pos = node?.position ?? .zero
+            node?.removeFromParent()
+            guard let self else { return }
+            self.state.bumpScore(by: 25)
+            ScorePopup.show(25, at: pos, in: self)
+            self.waterGun.addPellets(8)
+            self.refreshHUD()
+        }
         contactRouter.onWaterGunTouchedWorker = { [weak self] node in
             let pos = node?.position ?? .zero
             node?.removeFromParent()

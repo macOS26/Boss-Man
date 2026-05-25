@@ -20,24 +20,26 @@ enum Strings {
         static let boss2      = "2"
         static let boss3      = "3"
         static let boss4      = "4"
-        static let waterGun   = "G"
+        static let waterGun    = "G"
+        static let waterPellet = "A"
 
-        static let floorChar      = Character(floor)
-        static let dotChar        = Character(dot)
-        static let wallChar       = Character(wall)
-        static let hideoutChar    = Character(hideout)
-        static let printerChar    = Character(printer)
-        static let faxChar        = Character(fax)
-        static let coverSheetChar = Character(coverSheet)
-        static let bookBinderChar = Character(bookBinder)
-        static let brownBoxChar   = Character(brownBox)
-        static let goldDiscChar   = Character(goldDisc)
-        static let workerChar     = Character(worker)
-        static let boss1Char      = Character(boss1)
-        static let boss2Char      = Character(boss2)
-        static let boss3Char      = Character(boss3)
-        static let boss4Char      = Character(boss4)
-        static let waterGunChar   = Character(waterGun)
+        static let floorChar         = Character(floor)
+        static let dotChar           = Character(dot)
+        static let wallChar          = Character(wall)
+        static let hideoutChar       = Character(hideout)
+        static let printerChar       = Character(printer)
+        static let faxChar           = Character(fax)
+        static let coverSheetChar    = Character(coverSheet)
+        static let bookBinderChar    = Character(bookBinder)
+        static let brownBoxChar      = Character(brownBox)
+        static let goldDiscChar      = Character(goldDisc)
+        static let workerChar        = Character(worker)
+        static let boss1Char         = Character(boss1)
+        static let boss2Char         = Character(boss2)
+        static let boss3Char         = Character(boss3)
+        static let boss4Char         = Character(boss4)
+        static let waterGunChar      = Character(waterGun)
+        static let waterPelletChar   = Character(waterPellet)
     }
 
     // MARK: - macOS standard menu item titles
@@ -128,6 +130,7 @@ enum Strings {
         static let signInLink     = "leaderboard.signin_link"
         static let palettePrefix  = "pal_"
         static let travelerEmoji  = "traveler.emoji"
+        static let waterPellet    = "waterPellet"
     }
 
     // MARK: - Bundle resources (filename + extension passed to Bundle.url)
@@ -188,12 +191,13 @@ enum Strings {
         static let tileWallInitial = "Tile: Wall"
         static let nameDashSeparator = " - "
         enum Tile {
-            static let floor    = "Floor"
-            static let dot      = "Dot"
-            static let wall     = "Wall"
-            static let hideout  = "Hideout"
-            static let goldDisc = "Gold Disc"
-            static let waterGun = "Water Gun"
+            static let floor       = "Floor"
+            static let dot         = "Dot"
+            static let wall        = "Wall"
+            static let hideout     = "Hideout"
+            static let goldDisc    = "Gold Disc"
+            static let waterGun    = "Water Gun"
+            static let waterPellet = "Water Pellets"
         }
     }
 

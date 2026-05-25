@@ -15,6 +15,7 @@ final class MazeBuilder {
     private(set) var bossSpawnsFromMap: [(blueprintIndex: Int, position: CGPoint)] = []
     private(set) var goldDiscPositionsFromMap: [CGPoint] = []
     private(set) var waterGunPositionsFromMap: [CGPoint] = []
+    private(set) var waterPelletPositionsFromMap: [CGPoint] = []
 
     private var pelletTexture: SKTexture!
     private var dotTilemap: SKTileMapNode?
@@ -38,6 +39,7 @@ final class MazeBuilder {
         bossSpawnsFromMap = []
         goldDiscPositionsFromMap = []
         waterGunPositionsFromMap = []
+        waterPelletPositionsFromMap = []
 
         let background = makeBackground()
         scene.addChild(background)
@@ -65,9 +67,10 @@ final class MazeBuilder {
                         addBrownBox(at: position, in: scene)
                     }
                     switch char {
-                    case Strings.Tile.goldDiscChar: goldDiscPositionsFromMap.append(grid)
-                    case Strings.Tile.waterGunChar:  waterGunPositionsFromMap.append(grid)
-                    case Strings.Tile.workerChar:   workerSpawnFromMap = grid
+                    case Strings.Tile.goldDiscChar:    goldDiscPositionsFromMap.append(grid)
+                    case Strings.Tile.waterGunChar:    waterGunPositionsFromMap.append(grid)
+                    case Strings.Tile.waterPelletChar: waterPelletPositionsFromMap.append(grid)
+                    case Strings.Tile.workerChar:      workerSpawnFromMap = grid
                     case Strings.Tile.boss1Char:    bossSpawnsFromMap.append((0, grid))
                     case Strings.Tile.boss2Char:    bossSpawnsFromMap.append((1, grid))
                     case Strings.Tile.boss3Char:    bossSpawnsFromMap.append((2, grid))
@@ -93,6 +96,10 @@ final class MazeBuilder {
         for grid in waterGunPositionsFromMap where map.isWalkable(grid) {
             addWaterGun(at: map.point(for: grid), in: scene)
             placedWaterGuns += 1
+        }
+
+        for grid in waterPelletPositionsFromMap where map.isWalkable(grid) {
+            addWaterPelletSprite(at: map.point(for: grid), in: scene)
         }
 
         return dotCount
@@ -280,6 +287,32 @@ final class MazeBuilder {
             .scale(to: 1.0, duration: 0.35)
         ])))
         scene.addChild(gun)
+    }
+
+    private func addWaterPelletSprite(at position: CGPoint, in scene: SKScene) {
+        let node = SKNode()
+        node.name = Strings.NodeName.waterPellet
+        node.position = position
+        node.zPosition = 6
+        let radius = map.tileSize * 0.32
+        let halo = SKShapeNode(circleOfRadius: radius * 1.35)
+        halo.fillColor = NSColor.systemCyan.withAlphaComponent(0.25)
+        halo.strokeColor = .clear
+        node.addChild(halo)
+        let core = SKShapeNode(circleOfRadius: radius)
+        core.fillColor = .systemCyan
+        core.strokeColor = NSColor(calibratedRed: 0.0, green: 0.6, blue: 0.8, alpha: 1)
+        core.lineWidth = 1.5
+        node.addChild(core)
+        node.physicsBody = SKPhysicsBody(circleOfRadius: 11)
+        node.physicsBody?.isDynamic = false
+        node.physicsBody?.categoryBitMask = PhysicsCategory.waterPellet
+        node.physicsBody?.contactTestBitMask = PhysicsCategory.worker
+        node.run(.repeatForever(.sequence([
+            .scale(to: 1.3, duration: 0.4),
+            .scale(to: 1.0, duration: 0.4)
+        ])))
+        scene.addChild(node)
     }
 
     private func addMachine(name: String, symbol: String, at position: CGPoint, in scene: SKScene) {
