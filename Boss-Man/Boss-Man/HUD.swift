@@ -79,13 +79,7 @@ final class HUD {
         let iconStartX: CGFloat = 90
         let iconSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
-            let icon = PixelPerson(
-                bodyColor: .systemBlue,
-                tieColor: .systemOrange,
-                hairColor: NSColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
-                shoeOutlineColor: .white,
-                pantsColor: NSColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1)
-            )
+            let icon = SpriteFactory.petePerson()
             icon.setScale(0.45)
             icon.position = CGPoint(x: iconStartX + CGFloat(i) * iconSpacing, y: size.height - 84)
             icon.zPosition = 21
