@@ -257,7 +257,7 @@ final class BossController {
             entities[i].isInFleeMode = active
             entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
             entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
-            entities[i].node.setTieOutline(color: active ? .yellow : nil)
+            entities[i].node.setTieOutline(color: active ? NSColor(calibratedRed: 1.0, green: 0.78, blue: 0.0, alpha: 1) : nil)
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: active)
@@ -453,7 +453,7 @@ final class BossController {
             ]))
             boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
-            boss.node.setTieOutline(color: powerActive ? .yellow : nil)
+            boss.node.setTieOutline(color: powerActive ? NSColor(calibratedRed: 1.0, green: 0.78, blue: 0.0, alpha: 1) : nil)
             boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
         }
         refreshTags(goldDiscActive: powerActive)

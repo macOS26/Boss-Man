@@ -105,7 +105,7 @@ final class HUD {
         levelEmojisContainer.zPosition = 21
         scene.addChild(levelEmojisContainer)
 
-        let iconPos = CGPoint(x: size.width - 16, y: size.height - 52)
+        let iconPos = CGPoint(x: size.width - 14, y: size.height - 84)
         waterGunIconLabel.fontSize = 16
         waterGunIconLabel.horizontalAlignmentMode = .right
         waterGunIconLabel.verticalAlignmentMode = .center
@@ -136,7 +136,7 @@ final class HUD {
         waterGunAmmoLabel.fontSize = 16
         waterGunAmmoLabel.horizontalAlignmentMode = .right
         waterGunAmmoLabel.verticalAlignmentMode = .center
-        waterGunAmmoLabel.position = CGPoint(x: size.width - 16, y: size.height - 84)
+        waterGunAmmoLabel.position = CGPoint(x: lf.minX - 6, y: size.height - 84)
         waterGunAmmoLabel.zPosition = 21
         waterGunAmmoLabel.fontColor = .systemBlue
         waterGunAmmoLabel.isHidden = true
