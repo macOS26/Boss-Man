@@ -127,7 +127,7 @@ final class BossController {
             bodyColor: blueprint.color,
             tieColor: blueprint.tie,
             hairColor: NSColor(calibratedRed: 0.55, green: 0.45, blue: 0.35, alpha: 1),
-            shoeOutlineColor: .white,
+            shoeOutlineColor: Self.fleeGoldColor,
             pantsColor: blueprint.pants,
             wearsSunglasses: isMIBLevel(currentLevel),
             headYOffset: -1
@@ -177,7 +177,7 @@ final class BossController {
         node.setTieColor(entity.tieColor)
         node.setTieOutline(color: nil)
         node.setShirtOutlineColor(.white)
-        node.setShoeOutlineColor(.white)
+        node.setShoeOutlineColor(Self.fleeGoldColor)
         node.setEyeColor(.black)
         entities[index].captureCount = 0
         entities[index].isInFleeMode = false
@@ -261,7 +261,7 @@ final class BossController {
             entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
             entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
             entities[i].node.setTieOutline(color: active ? Self.fleeGoldColor : nil)
-            entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.5) : .white)
+            entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             entities[i].node.setShoeOutlineColor(active ? Self.fleeGoldColor : .white)
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
         }
@@ -460,7 +460,7 @@ final class BossController {
             boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
             boss.node.setTieOutline(color: powerActive ? Self.fleeGoldColor : nil)
-            boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.5) : .white)
+            boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             boss.node.setShoeOutlineColor(powerActive ? Self.fleeGoldColor : .white)
             boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
         }
