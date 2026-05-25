@@ -11,7 +11,8 @@ final class HUD {
     private let livesLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let levelEmojisContainer = SKNode()
-    private let waterGunLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let waterGunIconLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let waterGunAmmoLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let requiredItems: [String]
     private var lifeIcons: [PixelPerson] = []
     private var gameOverOverlay: SKNode?
@@ -69,6 +70,8 @@ final class HUD {
         lastLevelEmojisText = nil
         lastWaterGunPellets = -1
         lastWaterGunActive = false
+        waterGunIconLabel.isHidden = true
+        waterGunAmmoLabel.isHidden = true
         let iconStartX: CGFloat = 90
         let iconSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
@@ -87,25 +90,35 @@ final class HUD {
         }
 
         messageLabel.fontSize = 16
-        messageLabel.horizontalAlignmentMode = .right
+        messageLabel.horizontalAlignmentMode = .center
         messageLabel.verticalAlignmentMode = .center
-        messageLabel.position = CGPoint(x: size.width - 16, y: size.height - 84)
+        messageLabel.position = CGPoint(x: size.width / 2, y: size.height - 52)
         messageLabel.zPosition = 21
         messageLabel.fontColor = .systemYellow
         scene.addChild(messageLabel)
 
-        waterGunLabel.fontSize = 16
-        waterGunLabel.horizontalAlignmentMode = .left
-        waterGunLabel.verticalAlignmentMode = .center
-        waterGunLabel.position = CGPoint(x: 16, y: size.height - 70)
-        waterGunLabel.zPosition = 21
-        waterGunLabel.fontColor = .systemBlue
-        waterGunLabel.isHidden = true
-        scene.addChild(waterGunLabel)
-
-        levelEmojisContainer.position = CGPoint(x: size.width - 28, y: size.height - 30)
+        levelEmojisContainer.position = CGPoint(x: size.width - 20, y: size.height - 22)
         levelEmojisContainer.zPosition = 21
         scene.addChild(levelEmojisContainer)
+
+        waterGunIconLabel.fontSize = 16
+        waterGunIconLabel.horizontalAlignmentMode = .right
+        waterGunIconLabel.verticalAlignmentMode = .center
+        waterGunIconLabel.position = CGPoint(x: size.width - 16, y: size.height - 52)
+        waterGunIconLabel.zPosition = 21
+        waterGunIconLabel.fontColor = .systemBlue
+        waterGunIconLabel.text = Strings.Emoji.waterGun
+        waterGunIconLabel.isHidden = true
+        scene.addChild(waterGunIconLabel)
+
+        waterGunAmmoLabel.fontSize = 16
+        waterGunAmmoLabel.horizontalAlignmentMode = .right
+        waterGunAmmoLabel.verticalAlignmentMode = .center
+        waterGunAmmoLabel.position = CGPoint(x: size.width - 16, y: size.height - 84)
+        waterGunAmmoLabel.zPosition = 21
+        waterGunAmmoLabel.fontColor = .systemBlue
+        waterGunAmmoLabel.isHidden = true
+        scene.addChild(waterGunAmmoLabel)
     }
 
     private static let emojiByName: [String: String] = [
@@ -169,11 +182,14 @@ final class HUD {
         if active == lastWaterGunActive && pellets == lastWaterGunPellets { return }
         lastWaterGunActive = active
         lastWaterGunPellets = pellets
-        waterGunLabel.isHidden = !active
+        waterGunIconLabel.isHidden = !active
+        waterGunAmmoLabel.isHidden = !active
         guard active else { return }
-        let pelletsText = (0..<8).map { $0 < pellets ? "●" : "○" }.joined(separator: "")
-        waterGunLabel.text = "\(Strings.Emoji.waterGun)\(pelletsText)"
-        waterGunLabel.fontColor = pellets > 0 ? .systemBlue : .systemRed
+        let ammoText = (0..<8).map { $0 < pellets ? "●" : "○" }.joined(separator: " ")
+        waterGunAmmoLabel.text = ammoText
+        let color: NSColor = pellets > 0 ? .systemBlue : .systemRed
+        waterGunIconLabel.fontColor = color
+        waterGunAmmoLabel.fontColor = color
     }
 
     func showMessage(_ text: String, duration: TimeInterval) {

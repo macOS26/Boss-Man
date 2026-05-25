@@ -89,7 +89,6 @@ final class WorkerController {
         node.setBodyColor(.systemBlue)
         node.setTieColor(.systemOrange)
         node.alpha = 1
-        node.physicsBody?.categoryBitMask = 0
         isShielded = true
 
         let blinkCycle = SKAction.sequence([
@@ -105,11 +104,7 @@ final class WorkerController {
 
         node.run(.sequence([
             .wait(forDuration: waitBeforeUnshield),
-            .run { [weak self] in
-                guard let self else { return }
-                self.node.physicsBody?.categoryBitMask = PhysicsCategory.worker
-                self.isShielded = false
-            }
+            .run { [weak self] in self?.isShielded = false }
         ]), withKey: Strings.ActionKey.spawnShield)
     }
 
