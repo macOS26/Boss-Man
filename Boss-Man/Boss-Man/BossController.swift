@@ -475,19 +475,24 @@ final class BossController {
         bossNode.setTieOutline(color: nil)
         bossNode.setEyeColor(.black)
         entities[index].isInFleeMode = false
+        entities[index].isImmobilized = true
+
+        bossNode.removeAllActions()
+        bossNode.position = homePoint
+        bossNode.setScale(1.0)
+        bossNode.alpha = 0
 
         bossNode.run(.sequence([
+            .wait(forDuration: 5.0),
             .group([
-                .scale(to: 1.6, duration: 0.25),
-                .fadeOut(withDuration: 0.25)
+                .scale(to: 1.0, duration: 0.3),
+                .fadeIn(withDuration: 0.3)
             ]),
-            .run { [weak bossNode] in bossNode?.position = homePoint },
-            .group([
-                .scale(to: 1.0, duration: 0.2),
-                .fadeIn(withDuration: 0.2)
-            ]),
-            .run { [weak bossNode] in
-                bossNode?.physicsBody?.categoryBitMask = PhysicsCategory.boss
+            .run { [weak self] in
+                guard let self else { return }
+                self.entities[index].isImmobilized = false
+                bossNode.physicsBody?.categoryBitMask = PhysicsCategory.boss
+                self.scheduleStepper(for: self.entities[index])
             }
         ]))
     }
