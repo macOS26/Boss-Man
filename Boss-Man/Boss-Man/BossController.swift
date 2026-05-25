@@ -176,6 +176,7 @@ final class BossController {
         node.setBodyColor(entity.baseColor)
         node.setTieColor(entity.tieColor)
         node.setTieOutline(color: nil)
+        node.setShirtOutlineColor(.white)
         node.setShoeOutlineColor(.white)
         node.setEyeColor(.black)
         entities[index].captureCount = 0
@@ -260,6 +261,7 @@ final class BossController {
             entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
             entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
             entities[i].node.setTieOutline(color: active ? Self.fleeGoldColor : nil)
+            entities[i].node.setShirtOutlineColor(active ? Self.fleeGoldColor : .white)
             entities[i].node.setShoeOutlineColor(active ? Self.fleeGoldColor : .white)
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
         }
@@ -458,6 +460,7 @@ final class BossController {
             boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
             boss.node.setTieOutline(color: powerActive ? Self.fleeGoldColor : nil)
+            boss.node.setShirtOutlineColor(powerActive ? Self.fleeGoldColor : .white)
             boss.node.setShoeOutlineColor(powerActive ? Self.fleeGoldColor : .white)
             boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
         }

@@ -191,6 +191,12 @@ final class PixelPerson: SKNode {
         rightArm.fillColor = color
     }
 
+    func setShirtOutlineColor(_ color: NSColor) {
+        torso.strokeColor = color
+        leftArm.strokeColor = color
+        rightArm.strokeColor = color
+    }
+
     func setTieColor(_ color: NSColor) {
         tie.fillColor = color
     }
