@@ -59,7 +59,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         physicsWorld.contactDelegate = contactRouter
 
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
-        gridMap.yOffset = -3
+        gridMap.yOffset = 0
         pathfinder = Pathfinder(map: gridMap)
         mazeBuilder = MazeBuilder(map: gridMap, goldDiscPositions: goldDiscPositions, machineNames: machineNames)
         #if DEBUG
@@ -279,9 +279,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         if state.reportItems.count == requiredItems.count {
             hud.showMessage(Strings.Message.tpsReportReady, duration: 6)
         } else {
-            hud.showMessage(Strings.Message.reportItemCollected(name: name,
-                                                                points: reportItemPoints[itemIndex]),
-                            duration: 2)
+            hud.showMessage(Strings.Message.reportItemCollected(name: name, points: reportItemPoints[itemIndex]), duration: 2)
         }
     }
 
@@ -298,8 +296,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         workerController.delegate = self
         addChild(workerController.node)
         workerController.applySpawnShield()
-        bossController.spawn(forLevel: state.level,
-                             spawnOverrides: mazeBuilder.bossSpawnsFromMap)
+        bossController.spawn(forLevel: state.level, spawnOverrides: mazeBuilder.bossSpawnsFromMap)
         refreshHUD()
         let scheduledLevel = state.level
         travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
@@ -330,9 +327,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.bumpScore(by: caught.traveler.points)
         sound.playFishOrTreat()
         refreshHUD()
-        hud.showMessage(Strings.Message.travelerCaught(emoji: caught.emoji,
-                                                       points: caught.traveler.points),
-                        duration: 2)
+        hud.showMessage(Strings.Message.travelerCaught(emoji: caught.emoji, points: caught.traveler.points), duration: 2)
         ScorePopup.show(caught.traveler.points, at: caught.position, in: self)
     }
 
