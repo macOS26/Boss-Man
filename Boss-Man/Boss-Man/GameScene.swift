@@ -1,4 +1,5 @@
 import AppKit
+import GameKit
 import SpriteKit
 
 final class GameScene: SKScene, PointerInputControllerDelegate, WorkerControllerDelegate, BossControllerDelegate {
@@ -391,7 +392,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
 
             let defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
-            if LocalHighScores.qualifies(name: defaultName, score: state.score) {
+            if GKLocalPlayer.local.isAuthenticated {
+                LocalHighScores.record(name: defaultName, score: state.score)
+            } else if LocalHighScores.qualifies(name: defaultName, score: state.score) {
                 showUsernameDialog(defaultName: defaultName)
             } else {
                 LocalHighScores.record(name: defaultName, score: state.score)
