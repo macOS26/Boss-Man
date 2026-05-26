@@ -16,3 +16,11 @@ Package.resolved
 *.dmg
 *.zip
 *.app
+build/
+.cache/
+.DS_Store
+*.o
+*.dylib
+# runtime state
+highscore.txt
+leaderboard.txt
