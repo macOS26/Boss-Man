@@ -124,6 +124,59 @@ Press the **LEVEL EDITOR** button from the title screen to design your own floor
 
 PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelPerson.swift` — no sprite sheets, no boss PNGs. The app icon lives in `Boss-Man/Resources/AppIcon.icon`.
 
+## Building from Source
+
+This repo holds two implementations of the game:
+
+- **`Boss-Man/`** — the original macOS app, Swift + SpriteKit (this is what the DMG ships).
+- **`boss-man-box2d-sfml/`** — a C++ port using **Box2D** for physics and **SFML** for rendering/audio.
+
+### macOS prerequisites
+
+- **Xcode** (Mac App Store) — needed for the Swift/SpriteKit version and provides the Apple toolchain.
+- **Xcode Command Line Tools** — `xcode-select --install` (gives you `clang`, `git`, and the macOS SDK frameworks).
+- **CMake** — `brew install cmake` (only needed for the C++/SFML version).
+
+You do **not** need to install SFML, Box2D, or nlohmann/json by hand — the CMake build downloads and builds them automatically. The Marker Felt fonts and the stapler image are already bundled in the repo, so there's nothing else to extract.
+
+> No Homebrew? Get it at https://brew.sh, or download CMake manually from https://cmake.org/download and add it to your `PATH`.
+
+### Build the Swift / SpriteKit version (`Boss-Man/`)
+
+Open it in Xcode and press **Run** (⌘R):
+
+```sh
+open Boss-Man/Boss-Man.xcodeproj
+```
+
+Or from the command line:
+
+```sh
+xcodebuild -project Boss-Man/Boss-Man.xcodeproj -scheme Boss-Man -configuration Release build
+```
+
+Requires macOS 14.6 or later.
+
+### Build the C++ / Box2D + SFML version (`boss-man-box2d-sfml/`)
+
+```sh
+cd boss-man-box2d-sfml
+cmake -B build
+cmake --build build
+```
+
+The first `cmake -B build` downloads SFML 2.6, Box2D 2.4.1, and nlohmann/json via CMake FetchContent (needs an internet connection) and applies a small SFML patch so the window renders at native Retina resolution. Then run it from the project directory (so it finds `assets/`):
+
+```sh
+./build/boss-man-pc
+```
+
+Press **P** to play, **F** to toggle fullscreen, **ESC** for the title screen.
+
+### Windows & Linux
+
+Build notes for Windows and Linux are **coming soon**. The C++ version is written to be portable — SFML and Box2D are cross-platform, and the macOS-only pieces (CoreText emoji rasterization, native fullscreen) fall back to no-ops elsewhere — so it should build with CMake on those platforms with minor adjustments.
+
 ## Made with Agent!
 
 - This arcade-style video game concept was created using **Agent**
