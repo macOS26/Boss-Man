@@ -402,7 +402,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         sound.playGameOver()
         workerController.resetMotion()
         bossController.stopAll()
-        hud.showGameOver(in: self, showLocalLeaderboardOption: !state.practiceMode)
+        hud.showGameOver(in: self)
     }
 
     private func showUsernameDialog(defaultName: String) {

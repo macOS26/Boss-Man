@@ -31,7 +31,7 @@ final class HUD {
 
     func install(in scene: SKScene) {
         let size = scene.size
-        let panelHeight: CGFloat = 120
+        let panelHeight: CGFloat = 100
 
         let panel = SKShapeNode(rect: CGRect(x: 0, y: size.height - panelHeight, width: size.width, height: panelHeight))
         panel.fillColor = NSColor(calibratedRed: 0.03, green: 0.04, blue: 0.05, alpha: 0.92)
@@ -227,7 +227,7 @@ final class HUD {
         ]), withKey: Strings.ActionKey.clear)
     }
 
-    func showGameOver(in scene: SKScene, showLocalLeaderboardOption: Bool = true) {
+    func showGameOver(in scene: SKScene) {
         hideGameOver()
         let size = scene.size
         let overlay = SKNode()
@@ -239,8 +239,7 @@ final class HUD {
         dim.zPosition = 100
         overlay.addChild(dim)
 
-        let frameHeight: CGFloat = showLocalLeaderboardOption ? 220 : 190
-        let frame = SKShapeNode(rect: CGRect(x: size.width / 2 - 260, y: size.height / 2 - frameHeight / 2, width: 520, height: frameHeight), cornerRadius: 6)
+        let frame = SKShapeNode(rect: CGRect(x: size.width / 2 - 260, y: size.height / 2 - 110, width: 520, height: 220), cornerRadius: 6)
         frame.fillColor = NSColor(calibratedRed: 0.05, green: 0.05, blue: 0.07, alpha: 1)
         frame.strokeColor = .systemOrange
         frame.lineWidth = 3
@@ -267,15 +266,13 @@ final class HUD {
         ])))
         overlay.addChild(prompt)
 
-        if showLocalLeaderboardOption {
-            let exit = SKLabelNode(fontNamed: Strings.Font.menloBold)
-            exit.text = Strings.HUD.promptTitle
-            exit.fontSize = 14
-            exit.fontColor = NSColor(calibratedWhite: 0.75, alpha: 1)
-            exit.position = CGPoint(x: size.width / 2, y: size.height / 2 - 72)
-            exit.zPosition = 102
-            overlay.addChild(exit)
-        }
+        let exit = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        exit.text = Strings.HUD.promptTitle
+        exit.fontSize = 14
+        exit.fontColor = NSColor(calibratedWhite: 0.75, alpha: 1)
+        exit.position = CGPoint(x: size.width / 2, y: size.height / 2 - 72)
+        exit.zPosition = 102
+        overlay.addChild(exit)
 
         scene.addChild(overlay)
         gameOverOverlay = overlay
