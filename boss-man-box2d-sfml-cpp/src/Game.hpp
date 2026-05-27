@@ -36,6 +36,7 @@ private:
     void render();
     void toggleFullscreen();
     void applyLetterboxView();
+    void applyFramePacing(); // vsync on Win/Linux; refresh-matched cap on macOS
     void buildLevel();
     void resetSceneAndBuild();
     void startNextLevel();

@@ -31,6 +31,14 @@ float windowBackingScale(void* handle) {
     return (float)[NSScreen mainScreen].backingScaleFactor;
 }
 
+int displayRefreshHz(void* handle) {
+    NSWindow* w = nsWindowFrom(handle);
+    NSScreen* s = (w && w.screen) ? w.screen : [NSScreen mainScreen];
+    NSInteger fps = 0;
+    if (@available(macOS 12.0, *)) fps = s.maximumFramesPerSecond;
+    return fps > 0 ? (int)fps : 60;
+}
+
 bool macConfirmDialog(const char* title, const char* body,
                       const char* destructiveButton, const char* cancelButton) {
     NSAlert* alert = [[NSAlert alloc] init];

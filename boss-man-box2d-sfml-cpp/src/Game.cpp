@@ -13,7 +13,7 @@ Game::Game()
              sf::Style::Titlebar | sf::Style::Close,
              sf::ContextSettings(0, 0, 8)),  // antialiasing for soft shape edges
       gridMap(TILE_SIZE) {
-    window.setFramerateLimit(120);
+    applyFramePacing();
     window.setKeyRepeatEnabled(false);
     applyLetterboxView();
 #ifndef __APPLE__
@@ -51,7 +51,7 @@ void Game::toggleFullscreen() {
         window.create(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BOSS-MAN PC",
                       sf::Style::Titlebar | sf::Style::Close, settings);
     }
-    window.setFramerateLimit(120);
+    applyFramePacing();
     window.setKeyRepeatEnabled(false);
     applyLetterboxView();
 #endif
@@ -78,6 +78,18 @@ void Game::applyLetterboxView() {
     sf::View view(sf::FloatRect(0, 0, (float)WINDOW_WIDTH, (float)WINDOW_HEIGHT));
     view.setViewport(vp);
     window.setView(view);
+}
+
+void Game::applyFramePacing() {
+#ifdef __APPLE__
+    // SFML's vsync doesn't survive the macOS native-fullscreen transition, so we
+    // pace via the frame limiter at the display's actual refresh — 120 on a
+    // ProMotion/120Hz panel, 60 otherwise. Never forces 120 on a 60Hz screen.
+    window.setFramerateLimit((unsigned)displayRefreshHz(window.getSystemHandle()));
+#else
+    // vsync matches the monitor's refresh and is reliable on Windows/Linux.
+    window.setVerticalSyncEnabled(true);
+#endif
 }
 
 void Game::run() {
@@ -186,6 +198,7 @@ void Game::processInput() {
         }
         if (event.type == sf::Event::Resized) {
             applyLetterboxView(); // follow native-fullscreen / size changes
+            applyFramePacing();   // re-match refresh (e.g. moved to another monitor)
             continue;
         }
         // The editor handles its own raw mouse/keyboard (palette, painting,

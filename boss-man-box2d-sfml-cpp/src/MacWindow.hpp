@@ -7,6 +7,7 @@ namespace bm {
 void enableNativeFullscreen(void* handle); // makes the green button toggle fullscreen
 void toggleNativeFullscreen(void* handle); // same as clicking it / ⌃⌘F
 float windowBackingScale(void* handle);    // Retina backing scale (2.0 on HiDPI, else 1.0)
+int displayRefreshHz(void* handle);        // screen's max refresh (120 on ProMotion, else 60)
 
 // Runs a modal NSAlert (warning style) with a destructive + cancel button.
 // Returns true when the destructive (first) button is chosen. Used by the level
