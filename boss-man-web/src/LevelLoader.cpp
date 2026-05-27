@@ -1,8 +1,6 @@
 #include "LevelLoader.hpp"
 #include "Assets.hpp"
 #include <nlohmann/json.hpp>
-#include <fstream>
-#include <sstream>
 #include <iostream>
 
 namespace bm {
@@ -30,14 +28,7 @@ std::unordered_map<std::string, std::vector<std::string>> parseLevels(const std:
 } // namespace
 
 std::unordered_map<std::string, std::vector<std::string>> LevelLoader::loadFromFile(const std::string& path) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open levels file: " << path << std::endl;
-        return {};
-    }
-    std::stringstream ss;
-    ss << file.rdbuf();
-    return parseLevels(ss.str());
+    return parseLevels(loadText(path));
 }
 
 std::unordered_map<std::string, std::vector<std::string>> LevelLoader::loadFromAsset() {

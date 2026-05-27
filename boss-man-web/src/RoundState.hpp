@@ -1,8 +1,7 @@
 #pragma once
 #include <string>
 #include <unordered_set>
-#include <fstream>
-#include "AppPaths.hpp"
+#include "WebStore.hpp"
 
 namespace bm {
 
@@ -22,13 +21,12 @@ public:
     bool practiceMode = false;
 
     void loadHighScore() {
-        std::ifstream f(appSupportPath("highscore.txt"));
-        if (f.is_open()) f >> highScore;
+        std::string s = storeGet("highscore.txt");
+        if (!s.empty()) highScore = std::atoi(s.c_str());
     }
 
     void saveHighScore() {
-        std::ofstream f(appSupportPath("highscore.txt"));
-        if (f.is_open()) f << highScore;
+        storeSet("highscore.txt", std::to_string(highScore));
     }
 
     void bumpScore(int points) {

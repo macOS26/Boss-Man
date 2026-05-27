@@ -24,11 +24,12 @@ public:
     }
 
     void create(VideoMode mode, const String& title,
-                Uint32 = Style::Default, const ContextSettings& = ContextSettings()) {
+                Uint32 style = Style::Default, const ContextSettings& = ContextSettings()) {
         m_target = 0;
         m_open = true;
         m_size = {mode.width, mode.height};
         setTitle(title);
+        if (style & Style::Fullscreen) win_request_fullscreen();
     }
 
     bool isOpen() const { return m_open; }

@@ -1,9 +1,9 @@
 #include "LevelStore.hpp"
 #include "Constants.hpp"
-#include "MacWindow.hpp"
 #include "AppPaths.hpp"
+#include "WebStore.hpp"
 #include <nlohmann/json.hpp>
-#include <fstream>
+#include <sstream>
 #include <algorithm>
 
 namespace bm {
@@ -33,11 +33,10 @@ std::vector<std::string> LevelStore::normalize(const std::vector<std::string>& r
 
 std::unordered_map<std::string, std::vector<std::string>> LevelStore::loadCustomLevels() const {
     std::unordered_map<std::string, std::vector<std::string>> result;
-    std::ifstream f(fileURL());
-    if (!f.is_open()) return result;
+    std::string blob = storeGet(fileURL());
+    if (blob.empty()) return result;
     try {
-        nlohmann::json j;
-        f >> j;
+        nlohmann::json j = nlohmann::json::parse(blob);
         for (auto& [key, val] : j.items()) {
             if (!val.is_array()) continue;
             std::vector<std::string> rows;
@@ -61,8 +60,7 @@ void LevelStore::saveCustomLevels(
     for (auto& [k, v] : levels) keys.push_back(k);
     std::sort(keys.begin(), keys.end());
     for (auto& k : keys) j[k] = levels.at(k);
-    std::ofstream f(fileURL(), std::ios::trunc);
-    if (f.is_open()) f << j.dump(2);
+    storeSet(fileURL(), j.dump(2));
 }
 
 std::vector<std::string> LevelStore::loadLevel(const std::string& name) const {
@@ -96,15 +94,7 @@ void LevelStore::resetLevel(const std::string& name) {
 }
 
 void LevelStore::revealInFinder() const {
-    std::string path = fileURL();
-    std::ifstream probe(path);
-    if (!probe.good()) {
-        std::ofstream f(path, std::ios::trunc);
-        if (f.is_open()) f << "{}";
-    }
-#ifdef __APPLE__
-    macRevealInFinder(path.c_str());
-#endif
+    if (storeGet(fileURL()).empty()) storeSet(fileURL(), "{}");
 }
 
 } // namespace bm

@@ -1,10 +1,9 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <fstream>
 #include <sstream>
 #include <algorithm>
-#include "AppPaths.hpp"
+#include "WebStore.hpp"
 
 namespace bm {
 
@@ -20,9 +19,9 @@ public:
     static constexpr int MAX_ENTRIES = 10;
 
     void load(const std::string& path = "") {
-        path_ = path.empty() ? appSupportPath("leaderboard.txt") : path;
+        path_ = path.empty() ? "leaderboard.txt" : path;
         entries_.clear();
-        std::ifstream f(path_);
+        std::istringstream f(storeGet(path_));
         std::string line;
         while (std::getline(f, line)) {
             std::istringstream ss(line);
@@ -41,8 +40,9 @@ public:
         if (score <= 0) return;
         entries_.push_back({name, score});
         sortTrim();
-        std::ofstream f(path_.empty() ? appSupportPath("leaderboard.txt") : path_);
+        std::ostringstream f;
         for (auto& e : entries_) f << e.score << "\t" << e.name << "\n";
+        storeSet(path_.empty() ? "leaderboard.txt" : path_, f.str());
     }
 
     const std::vector<LeaderboardEntry>& entries() const { return entries_; }

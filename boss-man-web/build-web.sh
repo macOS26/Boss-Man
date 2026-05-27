@@ -43,6 +43,9 @@ fi
 # build uses EmojiTextureStub.cpp instead.
 GAME_SRCS=$(find "$ROOT/src" -name '*.cpp')
 
+# Our sf:: layer's out-of-line statics (Time::Zero, Color constants, ...).
+IMPL_SRCS="$ROOT/platform/web/sfml_web_impl.cpp"
+
 # All Box2D translation units.
 BOX2D_SRCS=$(find "$BOX2D_SRC/src" -name '*.cpp')
 
@@ -87,6 +90,7 @@ echo "compiling $(echo "$GAME_SRCS" | wc -l | tr -d ' ') game + $(echo "$BOX2D_S
   "${CXXFLAGS[@]}" \
   "${INCLUDES[@]}" \
   $GAME_SRCS \
+  $IMPL_SRCS \
   $BOX2D_SRCS \
   "${LDFLAGS[@]}" \
   -o "$OUT/boss.wasm"
