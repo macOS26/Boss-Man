@@ -1,23 +1,15 @@
 #include "LevelStore.hpp"
 #include "Constants.hpp"
 #include "MacWindow.hpp"
+#include "AppPaths.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
-#include <cstdlib>
 #include <algorithm>
-#include <sys/stat.h>
 
 namespace bm {
 
 std::string LevelStore::fileURL() {
-    const char* home = std::getenv("HOME");
-    std::string base = home ? std::string(home) : std::string(".");
-    // Matches Strings.App.bundleName = "Boss-Man".
-    std::string dir = base + "/Library/Application Support/Boss-Man";
-    ::mkdir((base + "/Library").c_str(), 0755);
-    ::mkdir((base + "/Library/Application Support").c_str(), 0755);
-    ::mkdir(dir.c_str(), 0755);
-    return dir + "/levels.json";
+    return appSupportPath("levels.json"); // ~/Library/Application Support/Boss-Man
 }
 
 std::vector<std::string> LevelStore::normalize(const std::vector<std::string>& rows) {

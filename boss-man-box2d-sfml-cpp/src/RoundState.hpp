@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_set>
 #include <fstream>
+#include "AppPaths.hpp"
 
 namespace bm {
 
@@ -21,12 +22,12 @@ public:
     bool practiceMode = false;
 
     void loadHighScore() {
-        std::ifstream f("highscore.txt");
+        std::ifstream f(appSupportPath("highscore.txt"));
         if (f.is_open()) f >> highScore;
     }
 
     void saveHighScore() {
-        std::ofstream f("highscore.txt");
+        std::ofstream f(appSupportPath("highscore.txt"));
         if (f.is_open()) f << highScore;
     }
 

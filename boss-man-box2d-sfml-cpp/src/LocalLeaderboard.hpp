@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include "AppPaths.hpp"
 
 namespace bm {
 
@@ -18,10 +19,10 @@ class LocalLeaderboard {
 public:
     static constexpr int MAX_ENTRIES = 10;
 
-    void load(const std::string& path = "leaderboard.txt") {
-        path_ = path;
+    void load(const std::string& path = "") {
+        path_ = path.empty() ? appSupportPath("leaderboard.txt") : path;
         entries_.clear();
-        std::ifstream f(path);
+        std::ifstream f(path_);
         std::string line;
         while (std::getline(f, line)) {
             std::istringstream ss(line);
@@ -40,7 +41,7 @@ public:
         if (score <= 0) return;
         entries_.push_back({name, score});
         sortTrim();
-        std::ofstream f(path_.empty() ? "leaderboard.txt" : path_);
+        std::ofstream f(path_.empty() ? appSupportPath("leaderboard.txt") : path_);
         for (auto& e : entries_) f << e.score << "\t" << e.name << "\n";
     }
 
