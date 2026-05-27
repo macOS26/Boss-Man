@@ -130,6 +130,20 @@ if(APPLE)
         "-framework AppKit" "-framework Foundation" "-framework CoreGraphics")
 endif()
 
+if(WIN32)
+    # GUI app (no console window). sfml-main provides WinMain, which calls main().
+    set_target_properties(boss-man-pc PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_link_libraries(boss-man-pc PRIVATE sfml-main)
+    if(MSVC)
+        # Embed a Per-Monitor-V2 DPI-aware manifest so Windows renders at native
+        # resolution instead of bitmap-upscaling the window (which blurs text on
+        # high-DPI displays — the same problem Retina had on macOS).
+        target_link_options(boss-man-pc PRIVATE
+            "/MANIFEST:EMBED"
+            "/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/dpi.manifest")
+    endif()
+endif()
+
 target_include_directories(boss-man-pc PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/assets

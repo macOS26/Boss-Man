@@ -64,6 +64,12 @@ void Game::applyLetterboxView() {
     sf::Vector2u ws = window.getSize();
 #ifdef __APPLE__
     uiScale() = windowBackingScale(window.getSystemHandle());
+#else
+    // Windows/Linux: getSize() is physical pixels (DPI-aware), so the logical->
+    // pixel scale is the letterbox fit. Rasterize text at that density for crisp
+    // glyphs at any window size, including fullscreen.
+    if (ws.x > 0 && ws.y > 0)
+        uiScale() = std::min((float)ws.x / WINDOW_WIDTH, (float)ws.y / WINDOW_HEIGHT);
 #endif
     float winAspect = (float)ws.x / (float)ws.y;
     float gameAspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
