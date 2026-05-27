@@ -13,7 +13,7 @@ Game::Game()
              sf::Style::Titlebar | sf::Style::Close,
              sf::ContextSettings(0, 0, 8)),  // antialiasing for soft shape edges
       gridMap(TILE_SIZE) {
-    window.setVerticalSyncEnabled(true);
+    window.setFramerateLimit(120);
     window.setKeyRepeatEnabled(false);
     applyLetterboxView();
 #ifdef __APPLE__
@@ -43,7 +43,7 @@ void Game::toggleFullscreen() {
         window.create(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BOSS-MAN PC",
                       sf::Style::Titlebar | sf::Style::Close, settings);
     }
-    window.setVerticalSyncEnabled(true);
+    window.setFramerateLimit(120);
     window.setKeyRepeatEnabled(false);
     applyLetterboxView();
 #endif
