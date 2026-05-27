@@ -113,15 +113,6 @@ Press the **LEVEL EDITOR** button from the title screen to design your own floor
 - Autosaves every 60 s, on PREV/NEXT/ESC/PLAY, and on app quit (dirty-check via map hash).
 - Duplicate boss types are allowed (e.g. two BOBs) and you can place more than 4 bosses per level.
 
-## Visual Assets
-
-<table>
-  <tr>
-    <td align="center"><img src="Boss-Man/Resources/red-stapler.png" width="160" alt="Red Stapler"/><br/><sub><code>Boss-Man/Resources/red-stapler.png</code><br/>Title-screen hero stapler.</sub></td>
-    <td align="center"><img src="Boss-Man/Resources/shinyredstapler-emoji.png" width="120" alt="Shiny Red Stapler"/><br/><sub><code>Boss-Man/Resources/shinyredstapler-emoji.png</code><br/>Level-6 traveler sprite.</sub></td>
-  </tr>
-</table>
-
 PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelPerson.swift` — no sprite sheets, no boss PNGs. The app icon lives in `Boss-Man/Resources/AppIcon.icon`.
 
 ## Building from Source
