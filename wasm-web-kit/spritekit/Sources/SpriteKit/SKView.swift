@@ -20,7 +20,7 @@ public final class SKView {
         elapsed += dt
         s.stepActions(dt)
         s.update(elapsed)
-        s.physicsWorld.step(dt)
+        s.physicsWorld.step(dt, scene: s)
         s.didSimulatePhysics()
         s.didFinishUpdate()
         render(s)

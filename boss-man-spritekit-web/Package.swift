@@ -15,6 +15,7 @@ let package = Package(
                     "-Xlinker", "--export=frame",
                     "-Xlinker", "--export-if-defined=_initialize",
                     "-Xlinker", "--allow-undefined",
+                    "-Xlinker", "/Users/toddbruss/Documents/GitHub/BossMan/boss-man-spritekit-web/native/libcbox2d.a",
                 ])
             ]
         )
