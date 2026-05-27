@@ -1,0 +1,48 @@
+name: Build Web (WASM)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'boss-man-wasm/**'
+      - 'boss-man-box2d-sfml-cpp/src/**'
+      - 'boss-man-box2d-sfml-cpp/assets/**'
+      - '.github/workflows/build-web.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: boss-man-wasm
+
+jobs:
+  build:
+    name: Emscripten / WebAssembly
+    runs-on: ubuntu-latest
+    # Scaffold build: VRSFML API integration is still being worked (see
+    # boss-man-wasm/README.md), so don't fail the whole pipeline while iterating.
+    # Remove once the web build is green.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Configure
+        run: emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Stage site
+        run: |
+          mkdir -p dist
+          cp build/index.html build/index.js build/index.wasm dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boss-man-web
+          path: boss-man-wasm/dist
+          if-no-files-found: error

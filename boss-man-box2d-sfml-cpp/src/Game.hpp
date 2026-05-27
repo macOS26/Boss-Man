@@ -34,6 +34,8 @@ private:
     void processInput();
     void update(float dt);
     void render();
+    void tick(); // one frame: input + fixed-step update + render (shared by the
+                 // native while-loop and the Emscripten main-loop callback)
     void toggleFullscreen();
     void applyLetterboxView();
     void applyFramePacing(); // vsync on Win/Linux; refresh-matched cap on macOS
@@ -85,6 +87,7 @@ private:
     std::vector<std::string> officeMaps;
 
     sf::Clock clock;
+    sf::Time timeSinceLastUpdate = sf::Time::Zero; // fixed-timestep accumulator
     const sf::Time TIME_PER_UPDATE = sf::seconds(1.0f / 120.0f);
 };
 
