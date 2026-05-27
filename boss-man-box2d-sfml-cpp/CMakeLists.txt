@@ -121,6 +121,9 @@ target_include_directories(boss-man-pc PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/assets
 )
 
+# MSVC's <cmath> hides M_PI and friends unless this is defined.
+target_compile_definitions(boss-man-pc PRIVATE _USE_MATH_DEFINES)
+
 target_link_libraries(boss-man-pc PRIVATE
     sfml-graphics
     sfml-window

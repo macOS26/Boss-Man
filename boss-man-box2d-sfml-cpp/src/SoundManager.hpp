@@ -5,6 +5,7 @@
 #include <string>
 #include <cmath>
 #include <random>
+#include <functional>
 
 namespace bm {
 
