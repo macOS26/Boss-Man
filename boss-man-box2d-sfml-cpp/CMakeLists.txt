@@ -93,9 +93,25 @@ else()
     list(APPEND SOURCES src/EmojiTextureStub.cpp)
 endif()
 
+# macOS app icon — bundled into boss-man-pc.app/Contents/Resources so Finder and
+# the Dock show it (CFBundleIconFile = AppIcon).
+if(APPLE)
+    set(MACOSX_APP_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/macos/AppIcon.icns)
+    set_source_files_properties(${MACOSX_APP_ICON} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources")
+    list(APPEND SOURCES ${MACOSX_APP_ICON})
+endif()
+
 add_executable(boss-man-pc ${SOURCES})
 
 if(APPLE)
+    set_target_properties(boss-man-pc PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "Boss-Man"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.starplayrx.boss-man"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_ICON_FILE "AppIcon")
     target_link_libraries(boss-man-pc PRIVATE
         "-framework AppKit" "-framework Foundation" "-framework CoreGraphics")
 endif()
