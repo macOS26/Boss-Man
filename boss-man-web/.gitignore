@@ -4,3 +4,4 @@
 *.a
 build*/
 .toolchain/
+web/manifest.json

@@ -1,10 +1,14 @@
 #include "LevelStore.hpp"
 #include "Constants.hpp"
-#include "MacWindow.hpp"
 #include "AppPaths.hpp"
 #include <nlohmann/json.hpp>
-#include <fstream>
 #include <algorithm>
+#if defined(BOSS_MAN_WEB)
+#include "WebStore.hpp"
+#else
+#include "MacWindow.hpp"
+#include <fstream>
+#endif
 
 namespace bm {
 
@@ -33,20 +37,22 @@ std::vector<std::string> LevelStore::normalize(const std::vector<std::string>& r
 
 std::unordered_map<std::string, std::vector<std::string>> LevelStore::loadCustomLevels() const {
     std::unordered_map<std::string, std::vector<std::string>> result;
+#if defined(BOSS_MAN_WEB)
+    std::string blob = storeGet(fileURL());
+    if (blob.empty()) return result;
+    nlohmann::json j = nlohmann::json::parse(blob, nullptr, false);
+#else
     std::ifstream f(fileURL());
     if (!f.is_open()) return result;
-    try {
-        nlohmann::json j;
-        f >> j;
-        for (auto& [key, val] : j.items()) {
-            if (!val.is_array()) continue;
-            std::vector<std::string> rows;
-            for (auto& row : val)
-                if (row.is_string()) rows.push_back(row.get<std::string>());
-            result[key] = rows;
-        }
-    } catch (const std::exception&) {
-        // Corrupt file: behave as if there are no custom levels.
+    nlohmann::json j = nlohmann::json::parse(f, nullptr, false);
+#endif
+    if (j.is_discarded() || !j.is_object()) return result;
+    for (auto& [key, val] : j.items()) {
+        if (!val.is_array()) continue;
+        std::vector<std::string> rows;
+        for (auto& row : val)
+            if (row.is_string()) rows.push_back(row.get<std::string>());
+        result[key] = rows;
     }
     return result;
 }
@@ -61,8 +67,12 @@ void LevelStore::saveCustomLevels(
     for (auto& [k, v] : levels) keys.push_back(k);
     std::sort(keys.begin(), keys.end());
     for (auto& k : keys) j[k] = levels.at(k);
+#if defined(BOSS_MAN_WEB)
+    storeSet(fileURL(), j.dump(2));
+#else
     std::ofstream f(fileURL(), std::ios::trunc);
     if (f.is_open()) f << j.dump(2);
+#endif
 }
 
 std::vector<std::string> LevelStore::loadLevel(const std::string& name) const {
@@ -96,6 +106,9 @@ void LevelStore::resetLevel(const std::string& name) {
 }
 
 void LevelStore::revealInFinder() const {
+#if defined(BOSS_MAN_WEB)
+    if (storeGet(fileURL()).empty()) storeSet(fileURL(), "{}");
+#else
     std::string path = fileURL();
     std::ifstream probe(path);
     if (!probe.good()) {
@@ -104,6 +117,7 @@ void LevelStore::revealInFinder() const {
     }
 #ifdef __APPLE__
     macRevealInFinder(path.c_str());
+#endif
 #endif
 }
 

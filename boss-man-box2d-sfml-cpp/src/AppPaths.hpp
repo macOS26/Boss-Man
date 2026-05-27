@@ -1,5 +1,17 @@
 #pragma once
 #include <string>
+
+#if defined(BOSS_MAN_WEB)
+
+namespace bm {
+// Web build: there is no writable filesystem. Save data lives in localStorage
+// (see WebStore.hpp); the "path" is just the storage key (the former filename).
+inline std::string userDataDir() { return ""; }
+inline std::string appSupportPath(const std::string& filename) { return filename; }
+} // namespace bm
+
+#else
+
 #include <cstdlib>
 #include <filesystem>
 
@@ -38,3 +50,5 @@ inline std::string appSupportPath(const std::string& filename) {
 }
 
 } // namespace bm
+
+#endif

@@ -99,17 +99,18 @@ void Game::applyFramePacing() {
 }
 
 void Game::run() {
-    sf::Time timeSinceLastUpdate = sf::Time::Zero;
-    while (window.isOpen()) {
-        sf::Time dt = clock.restart();
-        timeSinceLastUpdate += dt;
-        while (timeSinceLastUpdate >= TIME_PER_UPDATE) {
-            processInput();
-            update(TIME_PER_UPDATE.asSeconds());
-            timeSinceLastUpdate -= TIME_PER_UPDATE;
-        }
-        render();
+    while (window.isOpen()) tick();
+}
+
+void Game::tick() {
+    sf::Time dt = clock.restart();
+    timeSinceLastUpdate += dt;
+    while (timeSinceLastUpdate >= TIME_PER_UPDATE) {
+        processInput();
+        update(TIME_PER_UPDATE.asSeconds());
+        timeSinceLastUpdate -= TIME_PER_UPDATE;
     }
+    render();
 }
 
 std::vector<std::string> Game::currentLevelRows() {

@@ -41,10 +41,13 @@ fi
 # Game sources. EmojiTexture.mm / MacWindow.mm are Objective-C++ (native-only)
 # and were never copied into src/, so the glob naturally excludes them; the web
 # build uses EmojiTextureStub.cpp instead.
-GAME_SRCS=$(find "$ROOT/src" -name '*.cpp')
+# Single source of truth: the native game tree (web bits behind BOSS_MAN_WEB).
+# *.cpp naturally excludes EmojiTexture.mm / MacWindow.mm (Objective-C, native).
+GAME_SRCS=$(find "$NATIVE/src" -name '*.cpp')
 
-# Our sf:: layer's out-of-line statics (Time::Zero, Color constants, ...).
-IMPL_SRCS="$ROOT/platform/web/sfml_web_impl.cpp"
+# Web-only translation units: our sf:: layer's out-of-line statics + the web
+# implementation of the macOS window helpers.
+IMPL_SRCS="$ROOT/platform/web/sfml_web_impl.cpp $ROOT/platform/web/MacWindow_web.cpp"
 
 # All Box2D translation units.
 BOX2D_SRCS=$(find "$BOX2D_SRC/src" -name '*.cpp')
@@ -62,8 +65,8 @@ BOX2D_SRCS=$(find "$BOX2D_SRC/src" -name '*.cpp')
 EXC="-fno-exceptions -DJSON_NOEXCEPTION"
 
 INCLUDES=(
-  -I "$ROOT/platform/web"            # <SFML/...> -> platform/web/SFML/...
-  -I "$ROOT/src"
+  -I "$ROOT/platform/web"            # <SFML/...> -> platform/web/SFML/...; abi.h; WebStore.hpp
+  -I "$NATIVE/src"
   -I "$BOX2D_SRC/include"
   -I "$BOX2D_SRC/src"
   -I "$JSON_INC"
@@ -87,6 +90,30 @@ LDFLAGS=(
   -Wl,--export=frame
   -Wl,--export=memory
 )
+
+# Regenerate web/manifest.json from the native assets tree so the preloader is
+# never out of sync (fetch can't enumerate directories). SFX are synthesized at
+# runtime (loadFromSamples), so only fonts/images/voice/text are listed.
+python3 - "$NATIVE/assets" "$OUT/manifest.json" <<'PY'
+import os, sys, json
+A, out = sys.argv[1], sys.argv[2]
+def walk(sub, exts):
+    d = os.path.join(A, sub); res = []
+    if os.path.isdir(d):
+        for root, _, files in os.walk(d):
+            for f in files:
+                if f.lower().endswith(exts):
+                    res.append(os.path.relpath(os.path.join(root, f), A).replace(os.sep, '/'))
+    return sorted(res)
+m = {
+    "fonts":  walk('fonts', ('.ttf', '.otf')),
+    "images": walk('emoji', ('.png',)) + walk('images', ('.png', '.jpg', '.jpeg')),
+    "sounds": walk('voice', ('.wav',)) + walk('sfx', ('.wav',)),
+    "texts":  sorted(f for f in os.listdir(A) if f.endswith('.json')),
+}
+open(out, 'w').write(json.dumps(m))
+print(f"manifest: {len(m['fonts'])} fonts, {len(m['images'])} images, {len(m['sounds'])} sounds, {len(m['texts'])} texts")
+PY
 
 echo "compiling $(echo "$GAME_SRCS" | wc -l | tr -d ' ') game + $(echo "$BOX2D_SRCS" | wc -l | tr -d ' ') box2d sources ..."
 

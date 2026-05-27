@@ -1,8 +1,13 @@
 #pragma once
 #include <string>
 #include <unordered_set>
+#if defined(BOSS_MAN_WEB)
+#include <cstdlib>
+#include "WebStore.hpp"
+#else
 #include <fstream>
 #include "AppPaths.hpp"
+#endif
 
 namespace bm {
 
@@ -22,13 +27,22 @@ public:
     bool practiceMode = false;
 
     void loadHighScore() {
+#if defined(BOSS_MAN_WEB)
+        std::string s = storeGet("highscore.txt");
+        if (!s.empty()) highScore = std::atoi(s.c_str());
+#else
         std::ifstream f(appSupportPath("highscore.txt"));
         if (f.is_open()) f >> highScore;
+#endif
     }
 
     void saveHighScore() {
+#if defined(BOSS_MAN_WEB)
+        storeSet("highscore.txt", std::to_string(highScore));
+#else
         std::ofstream f(appSupportPath("highscore.txt"));
         if (f.is_open()) f << highScore;
+#endif
     }
 
     void bumpScore(int points) {

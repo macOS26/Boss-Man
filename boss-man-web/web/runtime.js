@@ -623,11 +623,10 @@ class Runtime {
     map.set(base, handle);                 // bare name
   }
 
-  // The asset folder layout is fixed and small, so the manifest is built from a
-  // static list (fetch can't enumerate directories). Keep this in sync with
-  // boss-man-web/assets/.
+  // manifest.json lives next to this file (web/) and is regenerated from the
+  // native assets tree by build-web.sh, so it never goes stale.
   async discoverAssets() {
-    const manifest = await fetch(`${ASSET_ROOT}/manifest.json`)
+    const manifest = await fetch('manifest.json')
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     if (manifest) return manifest;

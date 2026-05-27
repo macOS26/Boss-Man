@@ -1,1 +1,0 @@
-// PhysicsWorld is header-only

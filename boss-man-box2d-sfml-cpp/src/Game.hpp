@@ -29,6 +29,7 @@ class Game {
 public:
     Game();
     void run();
+    void tick(); // one frame, driven by the web requestAnimationFrame loop
 
 private:
     void processInput();
@@ -85,6 +86,7 @@ private:
     std::vector<std::string> officeMaps;
 
     sf::Clock clock;
+    sf::Time timeSinceLastUpdate;
     const sf::Time TIME_PER_UPDATE = sf::seconds(1.0f / 120.0f);
 };
 

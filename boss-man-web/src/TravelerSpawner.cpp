@@ -1,1 +1,0 @@
-// TravelerSpawner is header-only
