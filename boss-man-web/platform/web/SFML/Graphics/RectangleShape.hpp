@@ -26,12 +26,10 @@ protected:
     void draw(RenderTarget& target, RenderStates states) const override {
         target.beginDraw(states);
         RenderTarget::applyTransform(getTransform());
-        if (m_thickness > 0.f && m_outline.a > 0) {
-            gfx_fill_rect(-m_thickness, -m_thickness,
-                          m_size.x + 2 * m_thickness, m_size.y + 2 * m_thickness,
-                          m_outline.toInteger());
-        }
-        gfx_fill_rect(0.f, 0.f, m_size.x, m_size.y, m_fill.toInteger());
+        if (m_fill.a > 0)
+            gfx_fill_rect(0.f, 0.f, m_size.x, m_size.y, m_fill.toInteger());
+        if (m_thickness != 0.f && m_outline.a > 0)
+            gfx_stroke_rect(0.f, 0.f, m_size.x, m_size.y, m_thickness, m_outline.toInteger());
         target.endDraw();
     }
 

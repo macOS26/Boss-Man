@@ -14,8 +14,8 @@
     }
     #stage { display: flex; flex-direction: column; align-items: center; gap: 10px; }
     #game {
-      width: min(96vw, calc(96vh * 1184 / 644));
-      aspect-ratio: 1184 / 644;
+      width: min(96vw, calc(96vh * 1184 / 666));
+      aspect-ratio: 1184 / 666;
       background: #000;
       border-radius: 6px;
       box-shadow: 0 10px 40px rgba(0,0,0,.6);
@@ -28,7 +28,7 @@
 </head>
 <body>
   <div id="stage">
-    <canvas id="game" width="1184" height="644" tabindex="0"></canvas>
+    <canvas id="game" width="1184" height="666" tabindex="0"></canvas>
     <div id="hint">arrows move · F fullscreen · serve from boss-man-web/ then open /web/</div>
   </div>
   <script src="runtime.js"></script>

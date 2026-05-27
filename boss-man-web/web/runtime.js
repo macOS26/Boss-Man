@@ -69,7 +69,7 @@ const EVT = {
 };
 
 const LOGICAL_W = 1184;
-const LOGICAL_H = 644;
+const LOGICAL_H = 666;
 
 // Asset roots, relative to web/index.html.
 const ASSET_ROOT = '../assets';

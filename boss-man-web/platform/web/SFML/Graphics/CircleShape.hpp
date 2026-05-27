@@ -24,9 +24,10 @@ protected:
     void draw(RenderTarget& target, RenderStates states) const override {
         target.beginDraw(states);
         RenderTarget::applyTransform(getTransform());
-        if (m_thickness > 0.f && m_outline.a > 0)
-            gfx_fill_circle(m_radius, m_radius, m_radius + m_thickness, m_outline.toInteger());
-        gfx_fill_circle(m_radius, m_radius, m_radius, m_fill.toInteger());
+        if (m_fill.a > 0)
+            gfx_fill_circle(m_radius, m_radius, m_radius, m_fill.toInteger());
+        if (m_thickness != 0.f && m_outline.a > 0)
+            gfx_stroke_circle(m_radius, m_radius, m_radius, m_thickness, m_outline.toInteger());
         target.endDraw();
     }
 
