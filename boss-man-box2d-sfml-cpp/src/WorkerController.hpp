@@ -4,6 +4,7 @@
 #include "MoveDirection.hpp"
 #include "PixelPersonRenderer.hpp"
 #include "TextLabel.hpp"
+#include "Assets.hpp"
 
 namespace bm {
 
@@ -100,9 +101,7 @@ public:
         static sf::Font font;
         static bool fontLoaded = false;
         if (!fontLoaded) {
-            fontLoaded = font.loadFromFile("assets/fonts/JetBrainsMono-Bold.ttf") ||
-                         font.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
-                         font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
+            fontLoaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
         }
         drawNameLabel(target, font, Worker::PETE, 9, sf::Color::White,
                       pixelPos.x, pixelPos.y - 24);

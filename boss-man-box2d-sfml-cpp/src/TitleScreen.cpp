@@ -1,5 +1,6 @@
 #include "TitleScreen.hpp"
 #include "UiScale.hpp"
+#include "Assets.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -47,11 +48,9 @@ float sdRoundRect(float px, float py, float halfW, float halfH, float r) {
 void TitleScreen::ensureLoaded() {
     if (loaded_) return;
     loaded_ = true;
-    if (!fontWide_.loadFromFile("assets/fonts/MarkerFelt-Wide.ttf"))
-        fontWide_.loadFromFile("/System/Library/Fonts/MarkerFelt.ttc");
-    if (!fontThin_.loadFromFile("assets/fonts/MarkerFelt-Thin.ttf"))
-        fontThin_.loadFromFile("/System/Library/Fonts/MarkerFelt.ttc");
-    staplerLoaded_ = stapler_.loadFromFile("assets/images/red-stapler.png");
+    loadFont(fontWide_, "assets/fonts/MarkerFelt-Wide.ttf");
+    loadFont(fontThin_, "assets/fonts/MarkerFelt-Thin.ttf");
+    staplerLoaded_ = loadTexture(stapler_, "assets/images/red-stapler.png");
     if (staplerLoaded_) stapler_.setSmooth(true);
 
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha

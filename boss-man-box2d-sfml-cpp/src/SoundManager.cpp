@@ -1,7 +1,7 @@
 #include "SoundManager.hpp"
 #include "Constants.hpp"
+#include "Assets.hpp"
 #include <algorithm>
-#include <fstream>
 
 namespace bm {
 
@@ -93,7 +93,7 @@ void SoundManager::playVoice(const std::string& key) {
     auto it = voiceCache.find(key);
     if (it == voiceCache.end()) {
         sf::SoundBuffer buf;
-        if (!buf.loadFromFile("assets/voice/" + key + ".wav"))
+        if (!loadSoundBuffer(buf, "assets/voice/" + key + ".wav"))
             return; // clip not generated yet — stay silent rather than error
         it = voiceCache.emplace(key, std::move(buf)).first;
     }
@@ -115,8 +115,7 @@ int SoundManager::voicePoolCount(const std::string& prefix) {
     if (it != voicePoolCounts.end()) return it->second;
     int n = 0;
     while (true) {
-        std::ifstream f("assets/voice/" + prefix + "_" + std::to_string(n + 1) + ".wav");
-        if (!f.good()) break;
+        if (!assetExists("assets/voice/" + prefix + "_" + std::to_string(n + 1) + ".wav")) break;
         ++n;
     }
     voicePoolCounts[prefix] = n;

@@ -1,19 +1,16 @@
 #include "LevelLoader.hpp"
+#include "Assets.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 
 namespace bm {
 
-std::unordered_map<std::string, std::vector<std::string>> LevelLoader::loadFromFile(const std::string& path) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open levels file: " << path << std::endl;
-        return {};
-    }
+namespace {
+std::unordered_map<std::string, std::vector<std::string>> parseLevels(const std::string& text) {
     try {
-        nlohmann::json j;
-        file >> j;
+        nlohmann::json j = nlohmann::json::parse(text);
         std::unordered_map<std::string, std::vector<std::string>> result;
         for (auto& [key, val] : j.items()) {
             if (val.is_array()) {
@@ -30,9 +27,21 @@ std::unordered_map<std::string, std::vector<std::string>> LevelLoader::loadFromF
         return {};
     }
 }
+} // namespace
+
+std::unordered_map<std::string, std::vector<std::string>> LevelLoader::loadFromFile(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open levels file: " << path << std::endl;
+        return {};
+    }
+    std::stringstream ss;
+    ss << file.rdbuf();
+    return parseLevels(ss.str());
+}
 
 std::unordered_map<std::string, std::vector<std::string>> LevelLoader::loadFromAsset() {
-    return loadFromFile("assets/levels.json");
+    return parseLevels(loadText("assets/levels.json"));
 }
 
 } // namespace bm

@@ -1,0 +1,58 @@
+name: Build Windows (C++)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'boss-man-box2d-sfml-cpp/**'
+      - '.github/workflows/build-windows.yml'
+  pull_request:
+    paths:
+      - 'boss-man-box2d-sfml-cpp/**'
+      - '.github/workflows/build-windows.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: boss-man-box2d-sfml-cpp
+
+jobs:
+  build:
+    name: Windows ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          # GitHub-hosted Arm64 Windows runner. NOTE: SFML 2.6 ships its audio
+          # extlibs (OpenAL/FLAC/Vorbis/Ogg) as x86/x64 binaries only, so the
+          # native Arm64 sfml-audio link may fail. Windows-on-Arm runs the x64
+          # build under emulation if this job can't link.
+          - arch: arm64
+            runner: windows-11-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (static, self-contained .exe)
+        run: cmake -S . -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release -j 4
+
+      - name: Bundle artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build/Release/boss-man-pc.exe dist/
+          # All read-only assets are embedded in the binary; only OpenAL stays a DLL.
+          $al = Get-ChildItem -Path build -Recurse -Filter openal32.dll | Select-Object -First 1
+          if ($al) { Copy-Item $al.FullName dist/ }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boss-man-windows-${{ matrix.arch }}
+          path: boss-man-box2d-sfml-cpp/dist
+          if-no-files-found: error

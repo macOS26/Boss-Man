@@ -2,6 +2,7 @@
 #include "PixelPersonRenderer.hpp"
 #include "EmojiText.hpp"
 #include "UiScale.hpp"
+#include "Assets.hpp"
 #include "MacWindow.hpp"
 #include "MoveDirection.hpp"
 #include <algorithm>
@@ -88,15 +89,11 @@ const sf::Font& editorFont(bool bold) {
     static bool boldLoaded = false, regLoaded = false;
     if (bold) {
         if (!boldLoaded)
-            boldLoaded = boldF.loadFromFile("assets/fonts/JetBrainsMono-Bold.ttf") ||
-                         boldF.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
-                         boldF.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
+            boldLoaded = loadFont(boldF, "assets/fonts/JetBrainsMono-Bold.ttf");
         return boldF;
     }
     if (!regLoaded)
-        regLoaded = regF.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
-                    regF.loadFromFile("assets/fonts/JetBrainsMono-Bold.ttf") ||
-                    regF.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
+        regLoaded = loadFont(regF, "assets/fonts/JetBrainsMono-Bold.ttf");
     return regF;
 }
 

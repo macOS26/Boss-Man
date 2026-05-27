@@ -50,6 +50,13 @@ FetchContent_Declare(json
 )
 FetchContent_MakeAvailable(json)
 
+# CMRC — compiles read-only assets into the binary as static data
+FetchContent_Declare(cmrc
+    GIT_REPOSITORY https://github.com/vector-of-bool/cmrc.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(cmrc)
+
 # Source files
 set(SOURCES
     src/main.cpp
@@ -76,6 +83,7 @@ set(SOURCES
     src/TravelerSpawner.cpp
     src/WaterDroplet.cpp
     src/WaterGunState.cpp
+    src/Assets.cpp
 )
 
 # Platform emoji rasterizer: CoreText on macOS, no-op stub elsewhere
@@ -107,5 +115,19 @@ target_link_libraries(boss-man-pc PRIVATE
     nlohmann_json::nlohmann_json
 )
 
-# Copy assets to build directory
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})
+# Embed all read-only assets (art, fonts, sounds, bundled levels) into the binary
+# so it runs fully self-contained with no external assets/ folder.
+file(GLOB_RECURSE EMBEDDED_ASSETS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/*.ttf"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/emoji/*.png"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/images/*.png"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/voice/*.wav"
+)
+cmrc_add_resource_library(bm-assets
+    ALIAS bm::assets
+    NAMESPACE bmassets
+    WHENCE "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${EMBEDDED_ASSETS}
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/levels.json"
+)
+target_link_libraries(boss-man-pc PRIVATE bm::assets)

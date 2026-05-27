@@ -1,6 +1,7 @@
 #include "HUDRenderer.hpp"
 #include "EmojiText.hpp"
 #include "UiScale.hpp"
+#include "Assets.hpp"
 #include <cmath>
 
 namespace bm {
@@ -29,9 +30,7 @@ const sf::Font& hudFont() {
     static sf::Font font;
     static bool loaded = false;
     if (!loaded) {
-        loaded = font.loadFromFile("assets/fonts/JetBrainsMono-Bold.ttf") ||
-                 font.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
-                 font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
+        loaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
     }
     return font;
 }

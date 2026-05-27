@@ -1,5 +1,6 @@
 #include "Game.hpp"
 #include "EmojiText.hpp"
+#include "Assets.hpp"
 #include "MacWindow.hpp"
 #include "UiScale.hpp"
 #include <algorithm>
@@ -451,9 +452,7 @@ void Game::render() {
             static sf::Font font;
             static bool fontLoaded = false;
             if (!fontLoaded) {
-                fontLoaded = font.loadFromFile("assets/fonts/JetBrainsMono-Bold.ttf") ||
-                             font.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
-                             font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
+                fontLoaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
             }
             // systemYellow points label, +24 above the glyph. It is a child of the
             // SpriteKit wrapper, so it scales and fades with the catch animation.

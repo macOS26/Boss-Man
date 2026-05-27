@@ -1,6 +1,7 @@
 #include "BossController.hpp"
 #include "SoundManager.hpp"
 #include "TextLabel.hpp"
+#include "Assets.hpp"
 #include <cstdlib>
 #include <algorithm>
 #include <cmath>
@@ -260,9 +261,7 @@ void BossController::draw(sf::RenderTarget& target) {
     static sf::Font font;
     static bool fontLoaded = false;
     if (!fontLoaded) {
-        fontLoaded = font.loadFromFile("assets/fonts/JetBrainsMono-Bold.ttf") ||
-                     font.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
-                     font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
+        fontLoaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
     }
 
     for (auto& boss : entities) {

@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "UiScale.hpp"
+#include "Assets.hpp"
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -44,9 +45,7 @@ public:
         static sf::Font font;
         static bool fontLoaded = false;
         if (!fontLoaded) {
-            fontLoaded = font.loadFromFile("assets/fonts/JetBrainsMono-Bold.ttf") ||
-                         font.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
-                         font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
+            fontLoaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
         }
         float dpi = uiScale();
         for (auto& p : popups) {

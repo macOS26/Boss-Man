@@ -1,4 +1,5 @@
 #include "EmojiText.hpp"
+#include "Assets.hpp"
 #include <unordered_map>
 #include <memory>
 
@@ -27,7 +28,7 @@ static const sf::Texture* emojiTexture(const std::string& utf8) {
     // 1) Bundled PNG extracted from Apple Color Emoji — cross-platform, no CoreText.
     {
         auto tex = std::make_unique<sf::Texture>();
-        if (tex->loadFromFile("assets/emoji/" + utf8Hex(utf8) + ".png")) {
+        if (loadTexture(*tex, "assets/emoji/" + utf8Hex(utf8) + ".png")) {
             tex->setSmooth(true);
             const sf::Texture* ptr = tex.get();
             cache.emplace(utf8, std::move(tex));
