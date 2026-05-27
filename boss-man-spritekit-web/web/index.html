@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SpriteKit → wasm</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0b0f;color:#ccc;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;gap:10px}
+  #game{width:min(94vw,calc(94vh*1184/666));aspect-ratio:1184/666;background:#000;border-radius:6px;object-fit:contain}
+  #h{font-size:12px;opacity:.6}
+</style></head>
+<body>
+  <canvas id="game" width="1184" height="666"></canvas>
+  <div id="h">SpriteKit compiled to WebAssembly (Swift, no Emscripten) · wasm-web-kit</div>
+  <script>window.WASMWEB={logicalWidth:1184,logicalHeight:666,wasmUrl:'demo.wasm',assetRoot:'.',title:'SpriteKit → wasm'};</script>
+  <script src="runtime.js"></script>
+</body></html>

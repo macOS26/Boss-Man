@@ -39,6 +39,7 @@ WABI void gfx_stroke_rect(float x, float y, float w, float h, float thickness, u
 WABI void gfx_fill_circle(float cx, float cy, float r, uint32_t rgba);
 WABI void gfx_stroke_circle(float cx, float cy, float r, float thickness, uint32_t rgba);
 WABI void gfx_fill_poly(const float* xy, int npts, uint32_t rgba);
+WABI void gfx_stroke_poly(const float* xy, int npts, int closed, float thickness, uint32_t rgba);
 
 // textured quad: src rect (in image px) -> dst rect, modulated by rgba (tint+alpha)
 WABI void gfx_draw_image(int img, float sx, float sy, float sw, float sh,

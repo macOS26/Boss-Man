@@ -1,0 +1,4 @@
+.build/
+*.wasm
+web/manifest.json
+.DS_Store

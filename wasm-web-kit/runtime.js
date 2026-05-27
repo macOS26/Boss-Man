@@ -296,6 +296,21 @@ class Runtime {
         c.closePath();
         c.fill();
       },
+      gfx_stroke_poly: (xyPtr, npts, closed, thickness, rgba) => {
+        if (npts < 2) return;
+        const c = this.ctx2d();
+        const dv = this.dv();
+        c.strokeStyle = this.css(rgba);
+        c.lineWidth = thickness;
+        c.lineJoin = 'round';
+        c.beginPath();
+        c.moveTo(dv.getFloat32(xyPtr, true), dv.getFloat32(xyPtr + 4, true));
+        for (let i = 1; i < npts; i++) {
+          c.lineTo(dv.getFloat32(xyPtr + i * 8, true), dv.getFloat32(xyPtr + i * 8 + 4, true));
+        }
+        if (closed) c.closePath();
+        c.stroke();
+      },
 
       // ---- textured quad ----
       gfx_draw_image: (img, sx, sy, sw, sh, dx, dy, dw, dh, rgba) => {
