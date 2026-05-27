@@ -50,7 +50,11 @@ if(EMSCRIPTEN)
     target_link_options(boss-man-web PRIVATE ${SDL_FLAGS}
         "SHELL:-sSDL2_IMAGE_FORMATS=[png]"
         "-sALLOW_MEMORY_GROWTH=1"
+        "-sSTACK_SIZE=8388608"
+        "$<$<CONFIG:Debug>:-sASSERTIONS=2>"
+        "$<$<CONFIG:Debug>:-g>"
         "SHELL:--preload-file ${FORK_ROOT}/assets@/assets")
+    target_compile_options(boss-man-web PRIVATE "$<$<CONFIG:Debug>:-g>")
     set_target_properties(boss-man-web PROPERTIES OUTPUT_NAME "index" SUFFIX ".html")
 else()
     # ---- DESKTOP: real SFML 2.6 (build + test on this machine) ----

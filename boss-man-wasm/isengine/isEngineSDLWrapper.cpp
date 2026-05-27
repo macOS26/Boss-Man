@@ -604,14 +604,14 @@ bool Text::setSDLText()
     int w(0), h(0);
     if (line > 0)
     {
-        if (TTF_SizeText((m_outlineThickness == 0) ? m_font->getSDLFont() : m_outlineFont->getSDLFont(), finalStr, &w, &h)) {/* allow to show error */}
+        if (TTF_SizeUTF8((m_outlineThickness == 0) ? m_font->getSDLFont() : m_outlineFont->getSDLFont(), finalStr, &w, &h)) {/* allow to show error */}
         w += ((m_characterSize > 30) ? 6 : 0) + m_SDLaddTextRecWSize;
     }
 
     auto createTexture = [this, &line, &w, &h](SDL_Surface *surface, bool normalText)
     {
         surface = NULL;
-        surface = TTF_RenderText_Blended_Wrapped((normalText) ? m_font->getSDLFont() : m_outlineFont->getSDLFont(),
+        surface = TTF_RenderUTF8_Blended_Wrapped((normalText) ? m_font->getSDLFont() : m_outlineFont->getSDLFont(),
                                                       m_SDLtext,
                                                       (normalText) ? getSDLColor(false) : getSDLOutlineColor(),
                                                       ((line == 0) ? 1280 : w));

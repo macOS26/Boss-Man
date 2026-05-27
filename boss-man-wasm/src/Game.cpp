@@ -19,8 +19,9 @@ Game::Game()
     applyFramePacing();
     window.setKeyRepeatEnabled(false);
     applyLetterboxView();
-#ifndef __APPLE__
-    // Window/taskbar icon on Windows and Linux (macOS uses the .app bundle icon).
+#if !defined(__APPLE__) && !defined(IS_ENGINE_HTML_5)
+    // Window/taskbar icon on Windows and Linux (macOS uses the .app bundle icon;
+    // the browser canvas has no window icon).
     {
         sf::Image icon;
         if (loadImage(icon, "resources/icons/AppIcon.png"))
