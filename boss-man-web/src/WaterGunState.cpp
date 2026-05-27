@@ -1,0 +1,1 @@
+// WaterGunState is header-only
