@@ -85,7 +85,6 @@ target_link_options(boss-man-web PRIVATE
     "-sMAX_WEBGL_VERSION=2"
     "-sFULL_ES3=1"
     "-sASYNCIFY"
-    "-sEXIT_RUNTIME=0"
-    # SHELL: keeps the flag and its path together (CMake otherwise reorders/dedupes
-    # link options and the path is lost).
-    "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
+    "-sEXIT_RUNTIME=0")
+# VRSFML supplies --shell-file pointing at <project>/emscripten/shell.html, so the
+# page template lives there (no manual --shell-file flag needed).
