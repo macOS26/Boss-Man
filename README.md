@@ -186,5 +186,5 @@ Build notes for Windows and Linux are **coming soon**. The C++ version is writte
 - Music, Graphics, Art, Sound Effects and Game Design by Todd Bruss
 - (c) Todd Bruss, InkPen.IO, All Rights Reserved.
 - Binaries are property of Todd Bruss, Source code is MIT.
-- Box2D + SMFL + Cpp port also Todd Bruss.
+- Box2D + SMFL + Cpp port also by Todd Bruss.
 - It currently runs on Mac, but will be testing it on Windows and Linux soon.
