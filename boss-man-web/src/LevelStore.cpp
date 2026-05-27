@@ -35,17 +35,14 @@ std::unordered_map<std::string, std::vector<std::string>> LevelStore::loadCustom
     std::unordered_map<std::string, std::vector<std::string>> result;
     std::string blob = storeGet(fileURL());
     if (blob.empty()) return result;
-    try {
-        nlohmann::json j = nlohmann::json::parse(blob);
-        for (auto& [key, val] : j.items()) {
-            if (!val.is_array()) continue;
-            std::vector<std::string> rows;
-            for (auto& row : val)
-                if (row.is_string()) rows.push_back(row.get<std::string>());
-            result[key] = rows;
-        }
-    } catch (const std::exception&) {
-        // Corrupt file: behave as if there are no custom levels.
+    nlohmann::json j = nlohmann::json::parse(blob, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) return result;
+    for (auto& [key, val] : j.items()) {
+        if (!val.is_array()) continue;
+        std::vector<std::string> rows;
+        for (auto& row : val)
+            if (row.is_string()) rows.push_back(row.get<std::string>());
+        result[key] = rows;
     }
     return result;
 }

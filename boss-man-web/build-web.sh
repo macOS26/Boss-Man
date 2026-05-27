@@ -55,7 +55,11 @@ BOX2D_SRCS=$(find "$BOX2D_SRC/src" -name '*.cpp')
 # missing EH personality, switch the EXC flag below to -fwasm-exceptions (which
 # also requires building Box2D + libc++ with the same flag). The plain default
 # is correct for WASI SDK 22+/33.
-EXC=""   # exceptions enabled (no -fno-exceptions)
+# The WASI sysroot's prebuilt libc++ uses legacy EH, so -fwasm-exceptions can't
+# link cleanly and the legacy lowering emits Emscripten-style env imports the
+# browser can't provide. We build exception-free: nlohmann/json is told not to
+# throw (JSON_NOEXCEPTION) and the parse sites use allow_exceptions=false.
+EXC="-fno-exceptions -DJSON_NOEXCEPTION"
 
 INCLUDES=(
   -I "$ROOT/platform/web"            # <SFML/...> -> platform/web/SFML/...
