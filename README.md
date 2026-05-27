@@ -1,4 +1,3 @@
-<img width="2560" height="1440" alt="Office Space" src="https://github.com/user-attachments/assets/a436e797-3fce-479e-8b31-defac2b0a0e9" />
 <img width="2560" height="1440" alt="Ms. Pac-Man Walka Walka" src="https://github.com/user-attachments/assets/6a0bd808-9927-4d79-8b94-014fdb9f6392" />
 
 # Boss-Man
