@@ -49,7 +49,7 @@ public:
 
 private:
     std::vector<LeaderboardEntry> entries_;
-    std::string path_ = "leaderboard.txt";
+    std::string path_; // resolved to appSupportPath("leaderboard.txt") on load/record
 
     void sortTrim() {
         std::stable_sort(entries_.begin(), entries_.end(),
