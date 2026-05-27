@@ -32,6 +32,7 @@ endif()
 if(EMSCRIPTEN)
     # is-Engine SDL2 wrapper implementation (the sf:: API on SDL2).
     list(APPEND FORK_SOURCES ${FORK_ROOT}/isengine/isEngineSDLWrapper.cpp)
+    list(APPEND FORK_SOURCES ${FORK_ROOT}/isengine/isEngineWrapper.cpp)
 endif()
 
 add_executable(boss-man-web ${FORK_SOURCES})

@@ -25,7 +25,7 @@ public:
     // Load a level into the editor (clamped/wrapped to the level list).
     void open(int levelIndex);
 
-    void handleEvent(const sf::Event& event, const sf::RenderWindow& window);
+    void handleEvent(const sf::Event& event, sf::RenderWindow& window);
     void update(float dt);
     void draw(sf::RenderTarget& target);
 
@@ -96,7 +96,7 @@ private:
     void handleClick(sf::Vector2f loc); // palette/button/paint dispatch on mouse-down
     void selectTileChar(char ch);
 
-    sf::Vector2f mapMouse(const sf::RenderWindow& window, int x, int y) const;
+    sf::Vector2f mapMouse(sf::RenderWindow& window, int x, int y) const;
 
     // geometry of palette swatches / buttons (SFML, Y-down)
     sf::FloatRect paletteRectSFML(int i) const;

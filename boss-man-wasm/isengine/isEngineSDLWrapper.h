@@ -159,6 +159,8 @@ public:
         return m_size;
     }
 
+    void setSmooth(bool) {} // SFML-2 compat (no-op; SDL handles texture scaling)
+
     bool loadFromFile(const std::string& filename, bool useWithVertices = false)
     {
         return loadSurface(filename, useWithVertices);
@@ -329,6 +331,8 @@ public:
     virtual float getRotation() const {return m_rotation;}
 
     virtual Rect getGlobalBounds() const {return functionGetGlobalBounds(m_position, m_origin, m_size);}
+    // SFML-2 compat: local bounds (untransformed) = {0,0,size}.
+    virtual Rect getLocalBounds() const {return functionGetGlobalBounds(Vector2f(0.f, 0.f), Vector2f(0.f, 0.f), m_size);}
 
     virtual const Color& getColor() const noexcept {return m_color;}
 
@@ -431,15 +435,15 @@ public:
     short m_SDLaddTextRecWSize = 3;
     Text(): SDLTexture() {m_SDLTextureType = IS_ENGINE_SDL_TEXT;}
 
-    Text(sf::Font& font);
+    Text(const sf::Font& font);
 
-    Text(sf::Font& font, const std::string& text);
+    Text(const sf::Font& font, const std::string& text);
 
-    Text(sf::Font& font, const std::wstring& text);
+    Text(const sf::Font& font, const std::wstring& text);
 
     ~Text();
 
-    void setFont(sf::Font &font);
+    void setFont(const sf::Font &font);
 
     void setString(const std::wstring& text);
 
@@ -534,6 +538,17 @@ public:
 
     View(const Vector2f& center, const Vector2f& size);
 
+    View(const FloatRect& rectangle)
+    {
+        setSize(rectangle.width, rectangle.height);
+        setCenter(rectangle.left + rectangle.width / 2.f,
+                  rectangle.top + rectangle.height / 2.f);
+    }
+
+    void setViewport(const FloatRect& viewport) {m_viewport = viewport;}
+
+    const FloatRect& getViewport() const {return m_viewport;}
+
     void setCenter(float x, float y);
 
     void setCenter(const Vector2f& center)
@@ -555,6 +570,7 @@ public:
 private:
     sf::Vector2f m_size;
     sf::Vector2f m_center;
+    FloatRect m_viewport;
 };
 
 class Shape : public Transformable
@@ -597,6 +613,8 @@ public:
     CircleShape(): Shape() {}
 
     CircleShape(float raduis) : Shape() {setRadius(raduis);}
+
+    CircleShape(float raduis, unsigned int) : Shape() {setRadius(raduis);} // SFML-2 (radius, pointCount)
 
     void setRadius(float raduis) {setSize(raduis, raduis);}
 
@@ -1302,9 +1320,24 @@ public:
         m_windowFrameLimit(1000 / 30)
      {}
 
+    RenderWindow(VideoMode videoMode, const std::string& title,
+                 int style = Style::Default, const ContextSettings& = ContextSettings()):
+        m_title(""),
+        m_windowFrameLimit(1000 / 30)
+    {
+        create(videoMode, title, style);
+    }
+
     ~RenderWindow();
 
     void create(VideoMode videoMode, const std::string& title, int style = Style::Default);
+
+    void create(VideoMode videoMode, const std::string& title, int style, const ContextSettings&)
+    {
+        create(videoMode, title, style);
+    }
+
+    void setKeyRepeatEnabled(bool) {}
 
     void setFramerateLimit(int fps);
 
@@ -1404,9 +1437,9 @@ class Sound : public SoundSource
 public:
     Sound() : SoundSource() {}
 
-    Sound(SoundBuffer& buffer) :
+    Sound(const SoundBuffer& buffer) :
         SoundSource(),
-        m_SDLsoundBuffer(&buffer)
+        m_SDLsoundBuffer(const_cast<SoundBuffer*>(&buffer))
         {}
 
     Status getStatus();
@@ -1434,9 +1467,9 @@ public:
 
     void setVolume(float volume);
 
-    void setBuffer(SoundBuffer &soundBuffer)
+    void setBuffer(const SoundBuffer &soundBuffer)
     {
-        m_SDLsoundBuffer = &soundBuffer;
+        m_SDLsoundBuffer = const_cast<SoundBuffer*>(&soundBuffer);
     }
 
 #if !defined(__ANDROID__)

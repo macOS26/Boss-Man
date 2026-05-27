@@ -108,22 +108,20 @@ int MazeRenderer::build() {
 }
 
 void MazeRenderer::buildBackground() {
-    int cols = map.rows.empty() ? 0 : (int)map.rows[0].size();
+    backgroundShapes.clear();
+
     int rowCount = (int)map.rows.size();
     float tile = map.tileSize;
-
-    if (!backgroundTexture.create(cols * (int)tile, rowCount * (int)tile))
-        return;
-
-    backgroundTexture.clear(sf::Color::Transparent);
+    float yOff = map.yOffset;
 
     for (int rowIndex = 0; rowIndex < rowCount; ++rowIndex) {
         int gridY = rowCount - 1 - rowIndex;
         auto& row = map.rows[rowIndex];
         for (int colIndex = 0; colIndex < (int)row.size(); ++colIndex) {
             float x = colIndex * tile;
-            // SFML Y-down: rowIndex 0 (top of level string) at top of texture
-            float y = rowIndex * tile;
+            // SFML Y-down: rowIndex 0 (top of level string) at top of maze.
+            // yOffset matches the position the background sprite used to draw at.
+            float y = rowIndex * tile + yOff;
             char ch = row[colIndex];
 
             // Floor tile
@@ -134,7 +132,7 @@ void MazeRenderer::buildBackground() {
             sf::RectangleShape floorTile(sf::Vector2f(tile, tile));
             floorTile.setFillColor(floorColor);
             floorTile.setPosition(x, y);
-            backgroundTexture.draw(floorTile);
+            backgroundShapes.push_back(floorTile);
 
             // Grid edge
             sf::RectangleShape edge(sf::Vector2f(tile-1, tile-1));
@@ -142,7 +140,7 @@ void MazeRenderer::buildBackground() {
             edge.setOutlineColor(sf::Color(41,41,41));
             edge.setOutlineThickness(1);
             edge.setPosition(x+0.5f, y+0.5f);
-            backgroundTexture.draw(edge);
+            backgroundShapes.push_back(edge);
 
             // Wall
             if (ch == Tile::wall) {
@@ -153,7 +151,7 @@ void MazeRenderer::buildBackground() {
                     (uint8_t)(cubCol.r*255*0.55), (uint8_t)(cubCol.g*255*0.55),
                     (uint8_t)(cubCol.b*255*0.55), 255));
                 wallFill.setPosition(x+1, y+1);
-                backgroundTexture.draw(wallFill);
+                backgroundShapes.push_back(wallFill);
 
                 // Wall border. SpriteKit centers a 2px stroke on rect.insetBy(2,2),
                 // so the wall's outer edge sits 1px inside the tile and the floor
@@ -167,24 +165,22 @@ void MazeRenderer::buildBackground() {
                     (uint8_t)(cubCol.b*255), 255));
                 wallBorder.setOutlineThickness(2);
                 wallBorder.setPosition(x+3, y+3);
-                backgroundTexture.draw(wallBorder);
+                backgroundShapes.push_back(wallBorder);
 
                 // Gray trim (desk strip) — 6px from top of tile in both SpriteKit and SFML
                 sf::RectangleShape trim(sf::Vector2f(tile-10, 4));
                 trim.setFillColor(sf::Color(128,128,128));
                 trim.setPosition(x+5, y+6);
-                backgroundTexture.draw(trim);
+                backgroundShapes.push_back(trim);
             }
         }
     }
-
-    backgroundTexture.display();
-    backgroundSprite.setTexture(backgroundTexture.getTexture());
-    backgroundSprite.setPosition(0, map.yOffset);
 }
 
 void MazeRenderer::drawBackground(sf::RenderTarget& target) {
-    target.draw(backgroundSprite);
+    for (auto& shape : backgroundShapes) {
+        target.draw(shape);
+    }
 }
 
 void MazeRenderer::drawDots(sf::RenderTarget& target, float dt) {

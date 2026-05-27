@@ -173,6 +173,10 @@ public:
     static const Time Zero;
     bool operator>(const Time& time) const {return asMicroseconds() > time.asMicroseconds();}
     bool operator<(const Time& time) const {return asMicroseconds() < time.asMicroseconds();}
+    bool operator>=(const Time& time) const {return asMicroseconds() >= time.asMicroseconds();}
+    bool operator<=(const Time& time) const {return asMicroseconds() <= time.asMicroseconds();}
+    Time& operator+=(const Time& time) {m_microseconds += time.m_microseconds; return *this;}
+    Time& operator-=(const Time& time) {m_microseconds -= time.m_microseconds; return *this;}
 
 private:
     friend Time seconds(float);
@@ -220,6 +224,16 @@ enum Style
     Close,
     Fullscreen,
     Default
+};
+
+struct ContextSettings
+{
+    ContextSettings(unsigned int depth = 0, unsigned int stencil = 0,
+                    unsigned int antialiasing = 0)
+        : depthBits(depth), stencilBits(stencil), antialiasingLevel(antialiasing) {}
+    unsigned int depthBits;
+    unsigned int stencilBits;
+    unsigned int antialiasingLevel;
 };
 }
 

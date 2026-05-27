@@ -49,23 +49,6 @@ public:
                 if (lastDirection == MoveDirection::Up) lastDirection = MoveDirection::None; break;
             default: break;
             }
-        } else if (event.type == sf::Event::JoystickMoved) {
-            float x = sf::Joystick::getAxisPosition(event.joystickMove.joystickId, sf::Joystick::X);
-            float y = sf::Joystick::getAxisPosition(event.joystickMove.joystickId, sf::Joystick::Y);
-            float deadzone = 25.0f;
-            if (std::abs(x) > std::abs(y)) {
-                if (x > deadzone) lastDirection = MoveDirection::Right;
-                else if (x < -deadzone) lastDirection = MoveDirection::Left;
-            } else {
-                if (y > deadzone) lastDirection = MoveDirection::Down;
-                else if (y < -deadzone) lastDirection = MoveDirection::Up;
-            }
-        } else if (event.type == sf::Event::JoystickButtonPressed) {
-            switch (event.joystickButton.button) {
-            case 0: fireRequested = true; break;   // A/Cross
-            case 1: pRequested = true; break;      // B/Circle
-            case 6: case 7: escapeRequested = true; break; // Back/Start
-            }
         }
     }
 

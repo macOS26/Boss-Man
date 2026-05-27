@@ -5,8 +5,6 @@
 
 namespace bm {
 
-static constexpr int kEmojiBasePx = 64; // CoreText fallback rasterization size
-
 // Lowercase hex of the UTF-8 bytes — matches the filenames produced by
 // scripts/extract_emoji.py (e.g. fish 🐟 -> f09f909f.png).
 static std::string utf8Hex(const std::string& s) {
@@ -25,7 +23,8 @@ static const sf::Texture* emojiTexture(const std::string& utf8) {
     auto it = cache.find(utf8);
     if (it != cache.end()) return it->second.get(); // may be null (tried, unavailable)
 
-    // 1) Bundled PNG extracted from Apple Color Emoji — cross-platform, no CoreText.
+    // Bundled PNG extracted from Apple Color Emoji — cross-platform, no CoreText.
+    // The CoreText fallback (platformRenderEmojiRGBA) is unused on web.
     {
         auto tex = std::make_unique<sf::Texture>();
         if (loadTexture(*tex, "assets/emoji/" + utf8Hex(utf8) + ".png")) {
@@ -36,24 +35,8 @@ static const sf::Texture* emojiTexture(const std::string& utf8) {
         }
     }
 
-    // 2) Fallback: rasterize via the OS text stack (CoreText on macOS).
-    std::vector<unsigned char> rgba;
-    int w = 0, h = 0;
-    if (!platformRenderEmojiRGBA(utf8, kEmojiBasePx, rgba, w, h)) {
-        cache.emplace(utf8, nullptr);
-        return nullptr;
-    }
-    sf::Image img;
-    img.create((unsigned)w, (unsigned)h, rgba.data());
-    auto tex = std::make_unique<sf::Texture>();
-    if (!tex->loadFromImage(img)) {
-        cache.emplace(utf8, nullptr);
-        return nullptr;
-    }
-    tex->setSmooth(true);
-    const sf::Texture* ptr = tex.get();
-    cache.emplace(utf8, std::move(tex));
-    return ptr;
+    cache.emplace(utf8, nullptr);
+    return nullptr;
 }
 
 void drawEmoji(sf::RenderTarget& target, const std::string& utf8, sf::Vector2f pos,
@@ -61,7 +44,7 @@ void drawEmoji(sf::RenderTarget& target, const std::string& utf8, sf::Vector2f p
     const sf::Texture* tex = emojiTexture(utf8);
     if (!tex) return; // no bundled PNG and no platform rasterizer
 
-    sf::Sprite sprite(*tex);
+    sf::Sprite sprite(*const_cast<sf::Texture*>(tex)); // wrapper Sprite ctor takes non-const Texture&
     auto sz = tex->getSize();
     sprite.setOrigin(sz.x / 2.f, sz.y / 2.f);
     float s = targetSize / (float)sz.y; // display the glyph box at targetSize tall

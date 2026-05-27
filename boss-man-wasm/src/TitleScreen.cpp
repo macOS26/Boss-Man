@@ -16,7 +16,7 @@ void drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsi
     float dpi = uiScale();
     sf::Text txt;
     txt.setFont(f);
-    txt.setString(sf::String::fromUtf8(s.begin(), s.end())); // interpret bytes as UTF-8
+    txt.setString(s); // interpret bytes as UTF-8
     txt.setCharacterSize((unsigned)(size * dpi));
     color.a = alpha;
     txt.setFillColor(color);
@@ -33,46 +33,14 @@ void drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsi
 }
 } // namespace
 
-namespace {
-// Signed distance from point (px,py) to a rounded rectangle centered at origin.
-float sdRoundRect(float px, float py, float halfW, float halfH, float r) {
-    float qx = std::abs(px) - (halfW - r);
-    float qy = std::abs(py) - (halfH - r);
-    float outside = std::sqrt(std::max(qx, 0.f) * std::max(qx, 0.f) +
-                              std::max(qy, 0.f) * std::max(qy, 0.f));
-    float inside = std::min(std::max(qx, qy), 0.f);
-    return outside + inside - r;
-}
-} // namespace
-
 void TitleScreen::ensureLoaded() {
     if (loaded_) return;
     loaded_ = true;
     loadFont(fontWide_, "assets/fonts/MarkerFelt-Wide.ttf");
     loadFont(fontThin_, "assets/fonts/MarkerFelt-Thin.ttf");
     loadFont(fontMono_, "assets/fonts/JetBrainsMono-Bold.ttf");
-    staplerLoaded_ = loadTexturePremultiplied(stapler_, "assets/images/red-stapler.png");
+    staplerLoaded_ = loadTexture(stapler_, "assets/images/red-stapler.png");
     if (staplerLoaded_) stapler_.setSmooth(true);
-
-    // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
-    // falloff (a cheap Gaussian-like blur). Panel is 320x400.
-    const float feather = 26.f, baseAlpha = 60.f, radius = 12.f;
-    const float halfW = 160.f, halfH = 200.f;
-    int texW = (int)(halfW * 2 + feather * 2);
-    int texH = (int)(halfH * 2 + feather * 2);
-    sf::Image img;
-    img.create((unsigned)texW, (unsigned)texH, sf::Color(0, 0, 0, 0));
-    float cx = texW / 2.f, cy = texH / 2.f;
-    for (int y = 0; y < texH; ++y) {
-        for (int x = 0; x < texW; ++x) {
-            float sd = sdRoundRect(x + 0.5f - cx, y + 0.5f - cy, halfW, halfH, radius);
-            float tt = std::clamp(sd / feather, 0.f, 1.f);
-            float a = baseAlpha * (1.f - tt * tt * (3.f - 2.f * tt)); // smoothstep falloff
-            if (a > 0.f) img.setPixel((unsigned)x, (unsigned)y, sf::Color(0, 0, 0, (uint8_t)a));
-        }
-    }
-    panelShadow_.loadFromImage(img);
-    panelShadow_.setSmooth(true);
 }
 
 void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
@@ -93,13 +61,12 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     const float panelLeft = panelCX - panelW / 2.f;
     const float panelTop = panelCY - panelH / 2.f;
 
-    // Soft, feathered drop shadow (pre-rendered texture), offset down-right.
+    // Drop shadow behind the panel, offset down-right.
     {
-        sf::Sprite sh(panelShadow_);
-        auto ss = panelShadow_.getSize();
-        sh.setOrigin(ss.x / 2.f, ss.y / 2.f);
-        sh.setPosition(panelCX + 6.f, panelCY + 8.f);
-        target.draw(sh);
+        sf::RectangleShape shadow(sf::Vector2f(panelW, panelH));
+        shadow.setFillColor(sf::Color(0, 0, 0, 60));
+        shadow.setPosition(panelLeft + 6.f, panelTop + 8.f);
+        target.draw(shadow);
     }
 
     // Post-it body
@@ -154,9 +121,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sp.setRotation(3.4f);
         // SpriteKit centers the stapler sprite at height*0.46 (i.e. 0.54 from top).
         sp.setPosition(W / 2.f, H * 0.54f);
-        // Premultiplied blend (texture is premultiplied) — clean edges over the
-        // yellow background instead of a gray fringe from straight-alpha scaling.
-        target.draw(sp, sf::RenderStates(sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha)));
+        target.draw(sp);
     }
 
     // --- Blinking prompt ---

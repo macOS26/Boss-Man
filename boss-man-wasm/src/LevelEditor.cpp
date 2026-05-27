@@ -105,7 +105,7 @@ void drawText(sf::RenderTarget& t, const std::string& s, unsigned size, sf::Colo
     float dpi = uiScale();
     sf::Text txt;
     txt.setFont(editorFont(bold));
-    txt.setString(sf::String::fromUtf8(s.begin(), s.end()));
+    txt.setString(s);
     txt.setCharacterSize((unsigned)(size * dpi));
     color.a = alpha;
     txt.setFillColor(color);
@@ -120,7 +120,7 @@ void drawText(sf::RenderTarget& t, const std::string& s, unsigned size, sf::Colo
 float measureWidth(const std::string& s, unsigned size, bool bold) {
     sf::Text txt;
     txt.setFont(editorFont(bold));
-    txt.setString(sf::String::fromUtf8(s.begin(), s.end()));
+    txt.setString(s);
     txt.setCharacterSize(size);
     return txt.getLocalBounds().width;
 }
@@ -367,37 +367,38 @@ void LevelEditor::handleClick(sf::Vector2f loc) {
 
 // ---- input ----
 
-sf::Vector2f LevelEditor::mapMouse(const sf::RenderWindow& window, int x, int y) const {
-    return window.mapPixelToCoords(sf::Vector2i(x, y));
+sf::Vector2f LevelEditor::mapMouse(sf::RenderWindow& window, int x, int y) const {
+    return window.mapPixelToCoords(sf::Vector2i(x, y), window.getView());
 }
 
-void LevelEditor::handleEvent(const sf::Event& event, const sf::RenderWindow& window) {
+void LevelEditor::handleEvent(const sf::Event& event, sf::RenderWindow& window) {
     switch (event.type) {
     case sf::Event::MouseButtonPressed: {
-        sf::Vector2f loc = mapMouse(window, event.mouseButton.x, event.mouseButton.y);
-        if (event.mouseButton.button == sf::Mouse::Left) {
+        sf::Vector2f loc = mapMouse(window, event.m_event.button.x, event.m_event.button.y);
+        if (event.key.code == sf::Mouse::Left) {
             mouseLeftDown = true;
             pushUndoSnapshot();           // matches SpriteKit mouseDown
             handleClick(loc);
-        } else if (event.mouseButton.button == sf::Mouse::Right) {
+        } else if (event.key.code == sf::Mouse::Right) {
             mouseRightDown = true;
             paintRightClick(loc);
         }
         break;
     }
     case sf::Event::MouseButtonReleased:
-        if (event.mouseButton.button == sf::Mouse::Left)  mouseLeftDown = false;
-        if (event.mouseButton.button == sf::Mouse::Right) mouseRightDown = false;
+        if (event.key.code == sf::Mouse::Left)  mouseLeftDown = false;
+        if (event.key.code == sf::Mouse::Right) mouseRightDown = false;
         break;
-    case sf::Event::MouseMoved: {
-        sf::Vector2f loc = mapMouse(window, event.mouseMove.x, event.mouseMove.y);
+    case SDL_MOUSEMOTION: {
+        sf::Vector2f loc = mapMouse(window, event.m_event.motion.x, event.m_event.motion.y);
         if (mouseLeftDown)       paintAt(loc, selectedTile);
         else if (mouseRightDown) paintRightClick(loc);
         break;
     }
     case sf::Event::KeyPressed: {
-        bool cmd = event.key.system;   // ⌘ on macOS
-        bool shift = event.key.shift;
+        SDL_Keymod mods = SDL_GetModState();
+        bool cmd = (mods & KMOD_GUI) != 0;
+        bool shift = (mods & KMOD_SHIFT) != 0;
         switch (event.key.code) {
         case sf::Keyboard::Left:  flashButton(B_PREV); prevLevel(); return;
         case sf::Keyboard::Right: flashButton(B_NEXT); nextLevel(); return;
@@ -422,15 +423,15 @@ void LevelEditor::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
             }
         } else {
             switch (event.key.code) {
-            case sf::Keyboard::Num1: case sf::Keyboard::Numpad1: selectedTile = Tile::wall; break;
-            case sf::Keyboard::Num2: case sf::Keyboard::Numpad2: selectedTile = Tile::dot; break;
-            case sf::Keyboard::Num3: case sf::Keyboard::Numpad3: selectedTile = Tile::hideout; break;
-            case sf::Keyboard::Num4: case sf::Keyboard::Numpad4: selectedTile = Tile::printer; break;
-            case sf::Keyboard::Num5: case sf::Keyboard::Numpad5: selectedTile = Tile::fax; break;
-            case sf::Keyboard::Num6: case sf::Keyboard::Numpad6: selectedTile = Tile::coverSheet; break;
-            case sf::Keyboard::Num7: case sf::Keyboard::Numpad7: selectedTile = Tile::bookBinder; break;
-            case sf::Keyboard::Num8: case sf::Keyboard::Numpad8: selectedTile = Tile::brownBox; break;
-            case sf::Keyboard::Num0: case sf::Keyboard::Numpad0: selectedTile = Tile::floor; break;
+            case sf::Keyboard::Num1: selectedTile = Tile::wall; break;
+            case sf::Keyboard::Num2: selectedTile = Tile::dot; break;
+            case sf::Keyboard::Num3: selectedTile = Tile::hideout; break;
+            case sf::Keyboard::Num4: selectedTile = Tile::printer; break;
+            case sf::Keyboard::Num5: selectedTile = Tile::fax; break;
+            case sf::Keyboard::Num6: selectedTile = Tile::coverSheet; break;
+            case sf::Keyboard::Num7: selectedTile = Tile::bookBinder; break;
+            case sf::Keyboard::Num8: selectedTile = Tile::brownBox; break;
+            case sf::Keyboard::Num0: selectedTile = Tile::floor; break;
             default: break;
             }
         }
@@ -480,7 +481,7 @@ sf::FloatRect LevelEditor::buttonRectSFML(int i) const {
 
 void LevelEditor::draw(sf::RenderTarget& t) {
     // Scene background: NSColor(white: 0.08).
-    sf::RectangleShape bg({W, H});
+    sf::RectangleShape bg(sf::Vector2f(W, H));
     bg.setFillColor(sf::Color(20, 20, 20));
     t.draw(bg);
     drawGrid(t);
@@ -502,7 +503,7 @@ void LevelEditor::drawGrid(sf::RenderTarget& t) {
             float cy = H - ySk;
 
             // Floor (parity = row + col) with a hairline grid edge drawn inward.
-            sf::RectangleShape floor({tileSize, tileSize});
+            sf::RectangleShape floor(sf::Vector2f(tileSize, tileSize));
             floor.setPosition(cx - tileSize / 2.f, cy - tileSize / 2.f);
             floor.setFillColor(floorColorFor(row + col));
             floor.setOutlineColor(sf::Color(41, 41, 41));
@@ -532,7 +533,7 @@ void LevelEditor::drawTileContent(sf::RenderTarget& t, char ch, float cx, float 
         float inset = size * 0.04f;
         float lw = 1.5f;
         float side = size - inset * 2.f - lw; // shrink so the outline grows back to the inset square
-        sf::RectangleShape body({side, side});
+        sf::RectangleShape body(sf::Vector2f(side, side));
         body.setOrigin(side / 2.f, side / 2.f);
         body.setPosition(cx, cy);
         body.setFillColor(toSf(cub, 0.55f));
@@ -542,7 +543,7 @@ void LevelEditor::drawTileContent(sf::RenderTarget& t, char ch, float cx, float 
 
         float trimH = std::max(2.f, size * 0.12f);
         float trimW = size - size * 0.32f;
-        sf::RectangleShape trim({trimW, trimH});
+        sf::RectangleShape trim(sf::Vector2f(trimW, trimH));
         // SpriteKit rect bottom-left (-size/2+size*0.16, size*0.20); top edge = y + h.
         trim.setPosition(cx - size / 2.f + size * 0.16f, cy - size * 0.20f - trimH);
         trim.setFillColor(sf::Color(142, 142, 147)); // systemGray
@@ -551,7 +552,7 @@ void LevelEditor::drawTileContent(sf::RenderTarget& t, char ch, float cx, float 
     }
     case Tile::dot: {
         float d = std::max(2.f, size * 0.20f);
-        sf::RectangleShape dot({d, d});
+        sf::RectangleShape dot(sf::Vector2f(d, d));
         dot.setOrigin(d / 2.f, d / 2.f);
         dot.setPosition(cx, cy);
         dot.setFillColor(sf::Color(255, 231, 0)); // systemYellow
@@ -628,7 +629,7 @@ void LevelEditor::drawTileContent(sf::RenderTarget& t, char ch, float cx, float 
 
 void LevelEditor::drawPanel(sf::RenderTarget& t) {
     // Panel background.
-    sf::RectangleShape panel({PANEL_WIDTH + 4.f, H});
+    sf::RectangleShape panel(sf::Vector2f(PANEL_WIDTH + 4.f, H));
     panel.setPosition(PANEL_X, 0.f);
     panel.setFillColor(sf::Color(38, 38, 38, 247));
     panel.setOutlineColor(sf::Color(89, 89, 89));
@@ -658,7 +659,7 @@ void LevelEditor::drawPanel(sf::RenderTarget& t) {
     int selectedIdx = -1;
     for (int i = 0; i < (int)tiles.size(); ++i) {
         sf::FloatRect r = paletteRectSFML(i);
-        sf::RectangleShape sw({r.width, r.height});
+        sf::RectangleShape sw(sf::Vector2f(r.width, r.height));
         sw.setPosition(r.left, r.top);
         sw.setFillColor(floorColorFor(0));
         sw.setOutlineColor(sf::Color(102, 102, 102));
@@ -677,7 +678,7 @@ void LevelEditor::drawPanel(sf::RenderTarget& t) {
     // Selected-tile highlight overlay.
     if (selectedIdx >= 0) {
         sf::FloatRect r = paletteRectSFML(selectedIdx);
-        sf::RectangleShape hl({r.width - 4.f, r.height - 4.f});
+        sf::RectangleShape hl(sf::Vector2f(r.width - 4.f, r.height - 4.f));
         hl.setPosition(r.left + 2.f, r.top + 2.f);
         hl.setFillColor(sf::Color(255, 255, 0, 26));
         hl.setOutlineColor(sf::Color(255, 255, 0));
@@ -699,7 +700,7 @@ void LevelEditor::drawPanel(sf::RenderTarget& t) {
                 (uint8_t)(fill.g + (255 - fill.g) * 0.45f),
                 (uint8_t)(fill.b + (255 - fill.b) * 0.45f));
         }
-        sf::RectangleShape btn({r.width, r.height});
+        sf::RectangleShape btn(sf::Vector2f(r.width, r.height));
         btn.setPosition(r.left, r.top);
         btn.setFillColor(fill);
         t.draw(btn);

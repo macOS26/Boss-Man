@@ -14,19 +14,7 @@ bool loadTexture(sf::Texture& tex, const std::string& path) {
 }
 
 bool loadTexturePremultiplied(sf::Texture& tex, const std::string& path) {
-    sf::Image img;
-    if (!img.loadFromFile(path)) return false;
-    sf::Vector2u sz = img.getSize();
-    for (unsigned y = 0; y < sz.y; ++y) {
-        for (unsigned x = 0; x < sz.x; ++x) {
-            sf::Color c = img.getPixel(x, y);
-            c.r = (sf::Uint8)(c.r * c.a / 255);
-            c.g = (sf::Uint8)(c.g * c.a / 255);
-            c.b = (sf::Uint8)(c.b * c.a / 255);
-            img.setPixel(x, y, c);
-        }
-    }
-    return tex.loadFromImage(img);
+    return loadTexture(tex, path);
 }
 
 bool loadFont(sf::Font& font, const std::string& path) {

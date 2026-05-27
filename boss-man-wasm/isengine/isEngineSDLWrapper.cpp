@@ -19,7 +19,7 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "isEngine/system/islibconnect/isEngineSDLWrapper.h"
+#include "isEngineSDLWrapper.h"
 
 #if defined(IS_ENGINE_SDL_2)
 
@@ -364,32 +364,32 @@ const Uint8* Image::getPixelsPtr() const
     return upixels;
 }
 
-Text::Text(sf::Font& font) :
+Text::Text(const sf::Font& font) :
     SDLTexture()
 {
     m_SDLTextureType = IS_ENGINE_SDL_TEXT;
-    m_font = &font;
+    m_font = const_cast<sf::Font*>(&font);
     m_characterSize = m_font->getSize();
     m_style = m_font->m_SDLFontStyle;
     m_outlineFont = m_font;
 }
 
-Text::Text(sf::Font& font, const std::string& text) :
+Text::Text(const sf::Font& font, const std::string& text) :
     SDLTexture()
 {
     m_SDLTextureType = IS_ENGINE_SDL_TEXT;
-    m_font = &font;
+    m_font = const_cast<sf::Font*>(&font);
     m_characterSize = m_font->getSize();
     m_style = m_font->m_SDLFontStyle;
     m_outlineFont = m_font;
     setObjectText(text);
 }
 
-Text::Text(sf::Font& font, const std::wstring& text):
+Text::Text(const sf::Font& font, const std::wstring& text):
     SDLTexture()
 {
     m_SDLTextureType = IS_ENGINE_SDL_TEXT;
-    m_font = &font;
+    m_font = const_cast<sf::Font*>(&font);
     m_characterSize = m_font->getSize();
     m_style = m_font->m_SDLFontStyle;
     m_outlineFont = m_font;
@@ -410,9 +410,9 @@ Text::~Text()
     }
 }
 
-void Text::setFont(sf::Font &font)
+void Text::setFont(const sf::Font &font)
 {
-    m_font = &font;
+    m_font = const_cast<sf::Font*>(&font);
     m_characterSize = m_font->getSize();
     m_style = m_font->m_SDLFontStyle;
     if (m_outlineFont == nullptr) m_outlineFont = m_font;

@@ -34,8 +34,7 @@ public:
     std::vector<Pickup> pickups;
     int placedGoldDiscs = 0;
 
-    sf::RenderTexture backgroundTexture;
-    sf::Sprite backgroundSprite;
+    std::vector<sf::RectangleShape> backgroundShapes; // pre-built maze background, drawn each frame
     sf::Clock animClock; // absolute-time source for pickup throb
     std::vector<sf::RectangleShape> dotShapes;
     std::unordered_map<int, int> dotGridToShapeIndex; // key: rowIndex*1000+col

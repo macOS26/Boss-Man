@@ -4,51 +4,6 @@
 
 namespace bm {
 
-namespace {
-
-// Rounded rectangle shape. SFML has no built-in, so we generate the corner arcs.
-// Origin is the top-left corner (0,0)..(size.x,size.y), matching SFML conventions.
-class RoundedRect : public sf::Shape {
-public:
-    RoundedRect(sf::Vector2f size, float radius, unsigned cornerPts = 6)
-        : m_size(size), m_radius(radius), m_cornerPts(radius > 0.f ? cornerPts : 1) {
-        update();
-    }
-
-    std::size_t getPointCount() const override { return m_cornerPts * 4; }
-
-    sf::Vector2f getPoint(std::size_t index) const override {
-        if (m_radius <= 0.f) {
-            switch (index % 4) {
-            case 0:  return {0.f, 0.f};
-            case 1:  return {m_size.x, 0.f};
-            case 2:  return {m_size.x, m_size.y};
-            default: return {0.f, m_size.y};
-            }
-        }
-        static const float PI = 3.14159265f;
-        unsigned corner = (unsigned)index / m_cornerPts;
-        float deltaAngle = (PI / 2.f) / (float)(m_cornerPts - 1);
-        sf::Vector2f center;
-        switch (corner) {
-        case 0:  center = {m_size.x - m_radius, m_radius}; break;            // top-right
-        case 1:  center = {m_radius, m_radius}; break;                       // top-left
-        case 2:  center = {m_radius, m_size.y - m_radius}; break;            // bottom-left
-        default: center = {m_size.x - m_radius, m_size.y - m_radius}; break; // bottom-right
-        }
-        float angle = deltaAngle * (float)(index % m_cornerPts) + (PI / 2.f) * (float)corner;
-        return {center.x + m_radius * std::cos(angle),
-                center.y - m_radius * std::sin(angle)};
-    }
-
-private:
-    sf::Vector2f m_size;
-    float m_radius;
-    unsigned m_cornerPts;
-};
-
-} // namespace
-
 void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, bool facingLeft,
                                bool walking, MoveDirection lookDir, float walkPhase, float alpha, float scale) const {
     // Lift-up-only walk: legs rise from the rest line (never sink below it) and
@@ -79,14 +34,6 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
     auto shoeOut = toSfColor(config.shoeOutlineColor);
     auto skinFill = toSfColor(SKIN_COLOR);
 
-    // Capture/spawn scale applied uniformly through render states (identity when scale==1).
-    sf::RenderStates states;
-    if (scale != 1.0f) {
-        sf::Transform tf;
-        tf.scale(scale, scale, position.x, position.y);
-        states.transform = tf;
-    }
-
     // Whole-node alpha (spawn fade-in, shield blink, capture fade) multiplies into every part.
     auto fade = [&](sf::Color c) {
         c.a = (uint8_t)(c.a * alpha);
@@ -100,20 +47,20 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
                      sf::Color out = sf::Color::Transparent, float lw = 0.f, float radius = 0.f) {
         float sw = w - lw;
         float sh = h - lw;
-        float rad = (radius > 0.f) ? std::max(0.f, radius - lw * 0.5f) : 0.f;
-        RoundedRect shape({sw, sh}, rad);
+        (void)radius; // wrapper shapes are rectangular; rounded corners aren't representable
+        sf::RectangleShape shape(sf::Vector2f(sw, sh));
         shape.setFillColor(fade(fill));
         shape.setOutlineColor(fade(out));
         shape.setOutlineThickness(lw);
         shape.setPosition(position.x + offX - sw / 2.f, position.y + offY - sh / 2.f);
-        target.draw(shape, states);
+        target.draw(shape);
     };
 
     auto drawC = [&](float offX, float offY, float radius, sf::Color fill) {
         sf::CircleShape c(radius);
         c.setFillColor(fade(fill));
         c.setPosition(position.x + offX - radius, position.y + offY - radius);
-        target.draw(c, states);
+        target.draw(c);
     };
 
     // Drawing order matches original SpriteKit zPositions:
