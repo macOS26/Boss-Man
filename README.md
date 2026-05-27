@@ -174,7 +174,7 @@ Build notes for Windows and Linux are **coming soon**. The C++ version is writte
 - Fine tuning using Claude Code, and Agent! I use use the right tool for the job.
 - Software is deployed using Agent! including release notes and DMGs.
 - Music, Graphics, Art, Sound Effects and Game Design by Todd Bruss
-- (c) Todd Bruss, InkPen.IO, All Rights Reserved.
+- (c) 2026 Todd Bruss, InkPen.IO, All Rights Reserved.
 - Binaries are property of Todd Bruss, Source code is MIT.
 - Box2D + SMFL + Cpp port also by Todd Bruss.
 - It currently runs on Mac, but will be testing it on Windows and Linux soon.
