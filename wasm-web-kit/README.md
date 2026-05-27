@@ -117,7 +117,9 @@ WebAssembly SDK via `swiftly`, no Emscripten):
   C++ with the **Swift toolchain's own clang against the WebAssembly SDK sysroot**
   (not a separate WASI SDK), so there's a single libc++ and the objects link cleanly.
 
-This is the foundation for porting Swift/SpriteKit-style games: the language and
-physics work today; a SpriteKit-on-web port would add a Swift `SKNode`/`SKAction`
-compat layer on this same ABI (the scene-graph + actions are the real work — the
-physics maps onto Box2D as shown).
+This is the foundation for porting Swift/SpriteKit-style games — and the next
+layer up is already built: **[`spritekit/`](spritekit/README.md)** is a Swift
+`SpriteKit` compat module (scene graph, `SKAction`s, `SKShapeNode`/`SKLabelNode`/
+`SKSpriteNode`, input, and `SKPhysicsBody`/contacts on Box2D) on this same ABI.
+See [`../boss-man-spritekit-web`](../boss-man-spritekit-web) for an interactive
+demo (arrow-key player + physics), Swift → wasm, no Emscripten.
