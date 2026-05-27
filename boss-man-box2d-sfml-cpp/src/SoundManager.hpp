@@ -42,8 +42,13 @@ public:
     void stopGoldDiscBass();
     void pauseAudio();
     void resumeAudio();
+    // Ducks SFX/music while a boss voice line plays (SpriteKit setDucked). Call
+    // once per frame; it polls the voice channel and toggles on start/finish.
+    void updateDucking();
 
 private:
+    void applyDuck(bool ducked);
+    bool voiceDucked = false;
     sf::SoundBuffer tone(float freq, float dur, float vol, float decay = 12.0f);
     sf::SoundBuffer sweep(float from, float to, float dur, float vol);
     sf::SoundBuffer sequence(const std::vector<float>& notes, float perNote, float vol);

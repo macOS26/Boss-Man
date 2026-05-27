@@ -5,6 +5,32 @@
 
 namespace bm {
 
+namespace {
+// `say`/afconvert clips aren't normalized, so they play quiet. Peak-normalize each
+// voice buffer up toward full scale (capped) so the boss lines are loud and even.
+void peakNormalize(sf::SoundBuffer& buf, float targetPeak, float maxGain) {
+    const sf::Int16* src = buf.getSamples();
+    std::size_t n = buf.getSampleCount();
+    if (n == 0) return;
+    int peak = 1;
+    for (std::size_t i = 0; i < n; ++i) {
+        int a = std::abs((int)src[i]);
+        if (a > peak) peak = a;
+    }
+    float gain = (targetPeak * 32767.0f) / (float)peak;
+    if (gain > maxGain) gain = maxGain;
+    if (gain <= 1.001f) return; // already loud enough
+    std::vector<sf::Int16> out(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        float v = src[i] * gain;
+        if (v > 32767.0f) v = 32767.0f;
+        else if (v < -32768.0f) v = -32768.0f;
+        out[i] = (sf::Int16)v;
+    }
+    buf.loadFromSamples(out.data(), n, buf.getChannelCount(), buf.getSampleRate());
+}
+} // namespace
+
 SoundManager::SoundManager() {}
 
 sf::SoundBuffer SoundManager::tone(float freq, float dur, float vol, float decay) {
@@ -95,6 +121,7 @@ void SoundManager::playVoice(const std::string& key) {
         sf::SoundBuffer buf;
         if (!loadSoundBuffer(buf, "assets/voice/" + key + ".wav"))
             return; // clip not generated yet — stay silent rather than error
+        peakNormalize(buf, 0.95f, 6.0f);
         it = voiceCache.emplace(key, std::move(buf)).first;
     }
     // Voice gets its own channel so the boss is never cut off by SFX recycling
@@ -106,8 +133,10 @@ void SoundManager::playVoice(const std::string& key) {
         return;
     voiceSound.stop();
     voiceSound.setBuffer(it->second);
+    voiceSound.setVolume(100.f);
     voiceSound.play();
     lastVoiceKey = key;
+    applyDuck(true); // duck SFX/music immediately so the line is never buried
 }
 
 int SoundManager::voicePoolCount(const std::string& prefix) {
@@ -129,16 +158,32 @@ void SoundManager::playVoiceRandom(const std::string& prefix) {
     playVoice(prefix + "_" + std::to_string(dist(rng)));
 }
 
+void SoundManager::applyDuck(bool ducked) {
+    voiceDucked = ducked;
+    float sfx = ducked ? 25.0f : 100.0f; // SpriteKit duckedEffectsVolume 0.25
+    for (auto& s : sounds) s.setVolume(sfx);
+    if (musicEnabled) musicSound.setVolume(ducked ? 18.0f : 100.0f); // 0.18
+    // Bass is intentionally not ducked, matching SpriteKit's setDucked.
+}
+
+void SoundManager::updateDucking() {
+    bool playing = (voiceSound.getStatus() == sf::Sound::Playing);
+    if (playing != voiceDucked) applyDuck(playing);
+}
+
 void SoundManager::playBuffer(const sf::SoundBuffer& buf) {
+    float vol = voiceDucked ? 25.0f : 100.0f;
     // Find a stopped sound or add a new one
     for (auto& s : sounds) {
         if (s.getStatus() != sf::Sound::Playing) {
             s.setBuffer(buf);
+            s.setVolume(vol);
             s.play();
             return;
         }
     }
     sounds.emplace_back(buf);
+    sounds.back().setVolume(vol);
     sounds.back().play();
     if (sounds.size() > 16) sounds.erase(sounds.begin(), sounds.begin() + 8);
 }
