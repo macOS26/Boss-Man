@@ -7,8 +7,9 @@
 
 namespace bm {
 
-// Read-only assets are compiled into the binary (see CMRC in CMakeLists). Paths
-// are the original "assets/..." strings; nothing is read from disk at runtime.
+// Read-only assets are loaded from disk at runtime via SFML's loadFromFile.
+// Paths are the original "assets/..." relative strings; for the web build
+// Emscripten preloads the assets/ folder at the same relative path.
 bool assetExists(const std::string& path);
 bool loadTexture(sf::Texture& tex, const std::string& path);
 // Like loadTexture, but premultiplies RGB by alpha so smooth (bilinear) scaling

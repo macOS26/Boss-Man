@@ -50,24 +50,11 @@ public:
 private:
     void applyDuck(bool ducked);
     bool voiceDucked = false;
-    sf::SoundBuffer tone(float freq, float dur, float vol, float decay = 12.0f);
-    sf::SoundBuffer sweep(float from, float to, float dur, float vol);
-    sf::SoundBuffer sequence(const std::vector<float>& notes, float perNote, float vol);
-    sf::SoundBuffer makeNoise(float dur, int bursts, float vol);
-    // TPS machine sounds — direct ports of the SpriteKit synth* functions.
-    sf::SoundBuffer synthPrinter();   // square-wave chirps + noise/hum whir tail
-    sf::SoundBuffer synthFax();        // vibrato sine segments
-    sf::SoundBuffer synthPageFlip();   // cover sheet: high-pass-filtered crackles
-    sf::SoundBuffer synthCollator();   // book binder: low-pass-filtered noise bursts
-    sf::SoundBuffer synthFiltered(float seconds, int bursts, float vol); // traveler noise textures
-    sf::SoundBuffer buildTeleport();   // dual up/down sweep + shimmer (boss spawn)
-    // Gold-disc (power-pellet) bass beat — harmonic, tanh-saturated bass that
-    // matches the SpriteKit buildGoldDiscBeat / buildMIBGoldDiscBeat exactly.
-    sf::SoundBuffer buildGoldDiscBeat();
-    sf::SoundBuffer buildMIBGoldDiscBeat();
 
     void playBuffer(const sf::SoundBuffer& buf);
-    const sf::SoundBuffer& cached(const std::string& key, std::function<sf::SoundBuffer()> build);
+    // Loads (and caches) assets/sfx/<key>.wav via sf::SoundBuffer::loadFromFile.
+    // Returns nullptr if the file is missing so the caller stays silent.
+    const sf::SoundBuffer* cached(const std::string& key);
 
     std::unordered_map<std::string, sf::SoundBuffer> cache;
     std::unordered_map<std::string, sf::SoundBuffer> voiceCache;   // loaded from assets/voice/*.wav

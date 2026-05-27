@@ -1,30 +1,21 @@
 #include "Assets.hpp"
-#include <cmrc/cmrc.hpp>
-
-CMRC_DECLARE(bmassets);
+#include <fstream>
+#include <sstream>
 
 namespace bm {
 
-static const cmrc::embedded_filesystem& fs() {
-    static cmrc::embedded_filesystem f = cmrc::bmassets::get_filesystem();
-    return f;
-}
-
 bool assetExists(const std::string& path) {
-    return fs().is_file(path);
+    std::ifstream f(path, std::ios::binary);
+    return f.good();
 }
 
 bool loadTexture(sf::Texture& tex, const std::string& path) {
-    if (!fs().is_file(path)) return false;
-    auto file = fs().open(path);
-    return tex.loadFromMemory(file.begin(), file.size());
+    return tex.loadFromFile(path);
 }
 
 bool loadTexturePremultiplied(sf::Texture& tex, const std::string& path) {
-    if (!fs().is_file(path)) return false;
-    auto file = fs().open(path);
     sf::Image img;
-    if (!img.loadFromMemory(file.begin(), file.size())) return false;
+    if (!img.loadFromFile(path)) return false;
     sf::Vector2u sz = img.getSize();
     for (unsigned y = 0; y < sz.y; ++y) {
         for (unsigned x = 0; x < sz.x; ++x) {
@@ -38,30 +29,24 @@ bool loadTexturePremultiplied(sf::Texture& tex, const std::string& path) {
     return tex.loadFromImage(img);
 }
 
-// Embedded data is static (program-lifetime), so the pointer SFML retains for
-// fonts stays valid — unlike a transient heap buffer.
 bool loadFont(sf::Font& font, const std::string& path) {
-    if (!fs().is_file(path)) return false;
-    auto file = fs().open(path);
-    return font.loadFromMemory(file.begin(), file.size());
+    return font.loadFromFile(path);
 }
 
 bool loadImage(sf::Image& img, const std::string& path) {
-    if (!fs().is_file(path)) return false;
-    auto file = fs().open(path);
-    return img.loadFromMemory(file.begin(), file.size());
+    return img.loadFromFile(path);
 }
 
 bool loadSoundBuffer(sf::SoundBuffer& buf, const std::string& path) {
-    if (!fs().is_file(path)) return false;
-    auto file = fs().open(path);
-    return buf.loadFromMemory(file.begin(), file.size());
+    return buf.loadFromFile(path);
 }
 
 std::string loadText(const std::string& path) {
-    if (!fs().is_file(path)) return {};
-    auto file = fs().open(path);
-    return std::string(file.begin(), file.end());
+    std::ifstream f(path, std::ios::binary);
+    if (!f.good()) return {};
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
 }
 
 } // namespace bm
