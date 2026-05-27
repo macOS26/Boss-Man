@@ -696,10 +696,12 @@ class Runtime {
     });
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    const relayout = () => {
+    // Defer to the next frame: fullscreenchange/resize fire before the element
+    // box is reflowed, so getBoundingClientRect would still report the old size.
+    const relayout = () => requestAnimationFrame(() => {
       this.layout();
       this.events.push({ type: EVT.Resized, a: LOGICAL_W, b: LOGICAL_H, c: 0, d: 0 });
-    };
+    });
     addEventListener('resize', relayout);
     document.addEventListener('fullscreenchange', relayout);
     document.addEventListener('webkitfullscreenchange', relayout);
@@ -714,23 +716,31 @@ class Runtime {
   layout() {
     const dpr = window.devicePixelRatio || 1;
     const rect = this.canvas.getBoundingClientRect();
-    const W = Math.max(1, Math.round((rect.width || LOGICAL_W) * dpr));
-    const H = Math.max(1, Math.round((rect.height || LOGICAL_H) * dpr));
+    const availW = (rect.width || LOGICAL_W) * dpr;
+    const availH = (rect.height || LOGICAL_H) * dpr;
+    // Backing store keeps the game's aspect ratio, so logical content always
+    // fills it exactly (never clips). CSS object-fit: contain letterboxes the
+    // display when the element box has a different aspect (e.g. fullscreen).
+    const S = Math.max(1, Math.min(availW / LOGICAL_W, availH / LOGICAL_H));
+    const W = Math.round(LOGICAL_W * S);
+    const H = Math.round(LOGICAL_H * S);
     if (this.canvas.width !== W) this.canvas.width = W;
     if (this.canvas.height !== H) this.canvas.height = H;
-    this.baseScale = Math.min(W / LOGICAL_W, H / LOGICAL_H);
-    this.offX = (W - LOGICAL_W * this.baseScale) / 2;
-    this.offY = (H - LOGICAL_H * this.baseScale) / 2;
+    this.baseScale = S;
+    this.offX = 0;
+    this.offY = 0;
   }
 
-  // Convert a mouse event's client coords to logical game pixels.
+  // Convert a mouse event's client coords to logical game pixels, accounting for
+  // the object-fit: contain letterbox between the element box and the backing.
   toLogical(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const bx = (e.clientX - rect.left) / rect.width * this.canvas.width;
-    const by = (e.clientY - rect.top) / rect.height * this.canvas.height;
+    const scale = Math.min(rect.width / LOGICAL_W, rect.height / LOGICAL_H);
+    const dispX = rect.left + (rect.width - LOGICAL_W * scale) / 2;
+    const dispY = rect.top + (rect.height - LOGICAL_H * scale) / 2;
     return {
-      x: Math.round((bx - this.offX) / this.baseScale),
-      y: Math.round((by - this.offY) / this.baseScale),
+      x: Math.round((e.clientX - dispX) / scale),
+      y: Math.round((e.clientY - dispY) / scale),
     };
   }
 
