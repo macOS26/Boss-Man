@@ -87,3 +87,11 @@ python3 -m http.server 8080   # from a dir that can reach runtime.js
   compat shims, not part of this layer.
 - `CGFloat` is `Double`; `sf::`-style assumptions don't apply here.
 - Coordinate `convert`/rotation edge cases are approximate.
+
+## Gotcha: globals in a reactor module
+
+Top-level `let`/`var` *with initializers* in the executable's `main.swift` are run
+by `main()`, which a **WASI reactor never calls** — so they stay uninitialized and
+trap on access. Put game constants in `static let` (lazily initialized, like
+`SKColor.black`) or build them in a function. A zero-initialized `var x: T? = nil`
+global is fine.

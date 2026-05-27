@@ -1,82 +1,113 @@
 import SpriteKit
 
-// Interactive demo of the wasm-web-kit SpriteKit compat layer: a player moved by
-// the arrow keys (input via the kit), SKActions, and a Box2D physics pile (drop
-// balls with space; contacts fire SKPhysicsContactDelegate). Swift -> wasm, no
-// Emscripten, rendered through runtime.js.
-final class DemoScene: SKScene, SKPhysicsContactDelegate {
-    var player: SKSpriteNode!
-    var lastTime: TimeInterval = 0
-    var contacts = 0
-    let contactLabel = SKLabelNode(text: "contacts: 0")
+// A small Pac-Man-style maze mini-game on the wasm-web-kit SpriteKit compat layer
+// (original demo code, NOT the BOSS-MAN game): a wall grid (static Box2D bodies),
+// an arrow-key player (dynamic body, no gravity, velocity-driven, blocked by
+// walls), and collectible dots (sensor bodies removed on contact). Swift -> wasm,
+// no Emscripten, drawn through runtime.js.
+//
+// NB: constants live as `static let` on the scene (lazily initialized), NOT as
+// top-level `let` in main.swift — top-level initializers run in main(), which a
+// WASI reactor never calls, so they'd be left uninitialized.
+final class MazeScene: SKScene, SKPhysicsContactDelegate {
+    static let WALL: UInt32 = 1, DOT: UInt32 = 2, PLAYER: UInt32 = 4
+    static let MAZE = [
+        "#####################",
+        "#........#.#........#",
+        "#.##.###.#.#.###.##.#",
+        "#.#...............#.#",
+        "#.#.##.#####.##.#.#.#",
+        "#......#. P .#......#",
+        "#.#.##.#####.##.#.#.#",
+        "#.#...............#.#",
+        "#.##.###.#.#.###.##.#",
+        "#........#.#........#",
+        "#####################",
+    ]
+
+    let tile: CGFloat = 48
+    var player: SKShapeNode!
+    var score = 0, total = 0
+    var collected = Set<ObjectIdentifier>()
+    let scoreLabel = SKLabelNode(text: "dots: 0")
 
     override func didMove(to view: SKView) {
-        backgroundColor = SKColor(red: 0.07, green: 0.07, blue: 0.11, alpha: 1)
-
-        let title = SKLabelNode(text: "SpriteKit on WebAssembly")
-        title.fontSize = 42; title.fontColor = .systemYellow
-        title.position = CGPoint(x: size.width / 2, y: size.height - 78); addChild(title)
-
-        let sub = SKLabelNode(text: "arrow keys move the box · space drops a ball · Swift -> wasm, no Emscripten")
-        sub.fontSize = 18; sub.fontColor = .lightGray
-        sub.position = CGPoint(x: size.width / 2, y: size.height - 112); addChild(sub)
-
-        contactLabel.fontSize = 18; contactLabel.fontColor = .systemGreen
-        contactLabel.position = CGPoint(x: size.width / 2, y: size.height - 142); addChild(contactLabel)
-
-        physicsWorld.gravity = CGVector(dx: 0, dy: -700)
+        backgroundColor = SKColor(white: 0.05, alpha: 1)
+        physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
 
-        let floor = SKShapeNode(rectOf: CGSize(width: size.width, height: 28))
-        floor.fillColor = SKColor(white: 0.22, alpha: 1)
-        floor.position = CGPoint(x: size.width / 2, y: 40)
-        let fb = SKPhysicsBody(rectangleOf: CGSize(width: size.width, height: 28))
-        fb.isDynamic = false; fb.categoryBitMask = 1; fb.contactTestBitMask = 2
-        floor.physicsBody = fb; addChild(floor)
+        let title = SKLabelNode(text: "BOSS-MAN-style maze · SpriteKit on WebAssembly")
+        title.fontSize = 30; title.fontColor = .systemYellow
+        title.position = CGPoint(x: size.width / 2, y: size.height - 40); addChild(title)
+        scoreLabel.fontSize = 22; scoreLabel.fontColor = .systemGreen
+        scoreLabel.position = CGPoint(x: size.width / 2, y: size.height - 74); addChild(scoreLabel)
 
-        // player (arrow-controlled, no physics; pulses via SKAction)
-        player = SKSpriteNode(color: SKColor(red: 0.35, green: 0.78, blue: 1, alpha: 1),
-                              size: CGSize(width: 64, height: 64))
-        player.position = CGPoint(x: size.width / 2, y: 110)
-        player.run(.repeatForever(.sequence([.scale(to: 1.12, duration: 0.5), .scale(to: 1.0, duration: 0.5)])))
-        addChild(player)
+        let maze = MazeScene.MAZE
+        let cols = maze[0].count
+        let originX = (size.width - CGFloat(cols) * tile) / 2
+        let mazeTop = size.height - 110
+        func pos(_ c: Int, _ r: Int) -> CGPoint {
+            CGPoint(x: originX + CGFloat(c) * tile + tile / 2, y: mazeTop - CGFloat(r) * tile - tile / 2)
+        }
 
-        for i in 0..<5 { dropBall(x: 260 + CGFloat(i) * 160) }
-    }
-
-    func dropBall(x: CGFloat) {
-        let r = CGFloat(20)
-        let ball = SKShapeNode(circleOfRadius: r)
-        ball.fillColor = SKColor(red: 1, green: 0.82, blue: 0, alpha: 1)
-        ball.strokeColor = .orange; ball.lineWidth = 2
-        ball.position = CGPoint(x: x, y: size.height - 220)
-        let pb = SKPhysicsBody(circleOfRadius: r)
-        pb.categoryBitMask = 2; pb.contactTestBitMask = 1 | 2; pb.restitution = 0.45
-        ball.physicsBody = pb
-        addChild(ball)
+        for (r, line) in maze.enumerated() {
+            for (c, ch) in line.enumerated() {
+                let p = pos(c, r)
+                switch ch {
+                case "#":
+                    let w = SKShapeNode(rectOf: CGSize(width: tile - 3, height: tile - 3), cornerRadius: 5)
+                    w.fillColor = SKColor(red: 0.16, green: 0.36, blue: 0.95, alpha: 1)
+                    w.strokeColor = SKColor(red: 0.3, green: 0.5, blue: 1, alpha: 1); w.lineWidth = 2
+                    w.position = p
+                    let b = SKPhysicsBody(rectangleOf: CGSize(width: tile, height: tile))
+                    b.isDynamic = false; b.categoryBitMask = MazeScene.WALL; b.collisionBitMask = MazeScene.PLAYER
+                    w.physicsBody = b; addChild(w)
+                case ".":
+                    let dot = SKShapeNode(circleOfRadius: 5)
+                    dot.fillColor = SKColor(red: 1, green: 0.85, blue: 0.2, alpha: 1); dot.strokeColor = .clear
+                    dot.position = p
+                    let b = SKPhysicsBody(circleOfRadius: 6)
+                    b.isDynamic = false; b.isSensor = true
+                    b.categoryBitMask = MazeScene.DOT; b.collisionBitMask = MazeScene.PLAYER; b.contactTestBitMask = MazeScene.PLAYER
+                    dot.physicsBody = b; addChild(dot); total += 1
+                case "P":
+                    player = SKShapeNode(circleOfRadius: tile / 2 - 4)
+                    player.fillColor = SKColor(red: 0.2, green: 0.85, blue: 1, alpha: 1)
+                    player.strokeColor = .white; player.lineWidth = 2; player.position = p
+                    let b = SKPhysicsBody(circleOfRadius: tile / 2 - 5)
+                    b.categoryBitMask = MazeScene.PLAYER; b.collisionBitMask = MazeScene.WALL | MazeScene.DOT
+                    b.contactTestBitMask = MazeScene.DOT; b.allowsRotation = false; b.linearDamping = 0
+                    player.physicsBody = b; addChild(player)
+                default: break
+                }
+            }
+        }
+        scoreLabel.text = "dots: 0/\(total)"
     }
 
     override func update(_ currentTime: TimeInterval) {
-        let dt = lastTime == 0 ? 0 : currentTime - lastTime
-        lastTime = currentTime
-        let v: CGFloat = 420 * dt
-        if skKeyIsDown(SKKey.left)  { player.position.x -= v }
-        if skKeyIsDown(SKKey.right) { player.position.x += v }
-        if skKeyIsDown(SKKey.up)    { player.position.y += v }
-        if skKeyIsDown(SKKey.down)  { player.position.y -= v }
-        player.position.x = max(40, min(size.width - 40, player.position.x))
-        player.position.y = max(70, min(size.height - 60, player.position.y))
-    }
-
-    override func keyDown(_ key: Int) {
-        if key == SKKey.space { dropBall(x: player.position.x) }
+        guard let pb = player?.physicsBody else { return }
+        let speed: CGFloat = 220
+        var vx: CGFloat = 0, vy: CGFloat = 0
+        if skKeyIsDown(SKKey.left)  { vx = -speed }
+        if skKeyIsDown(SKKey.right) { vx = speed }
+        if skKeyIsDown(SKKey.up)    { vy = speed }
+        if skKeyIsDown(SKKey.down)  { vy = -speed }
+        pb.velocity = CGVector(dx: vx, dy: vy)
     }
 
     func didBegin(_ contact: SKPhysicsContact) {
-        contacts += 1; contactLabel.text = "contacts: \(contacts)"
+        for b in [contact.bodyA, contact.bodyB] where b.categoryBitMask == MazeScene.DOT {
+            let id = ObjectIdentifier(b)
+            if collected.contains(id) { continue }
+            collected.insert(id)
+            b.node?.removeFromParent()
+            score += 1
+            scoreLabel.text = score >= total ? "all \(total) dots! cleared" : "dots: \(score)/\(total)"
+        }
     }
 }
 
 nonisolated(unsafe) var skView: SKView? = nil
-@_cdecl("boot") func boot() { let v = SKView(); v.presentScene(DemoScene(size: CGSize(width: 1184, height: 666))); skView = v }
+@_cdecl("boot") func boot() { let v = SKView(); v.presentScene(MazeScene(size: CGSize(width: 1184, height: 666))); skView = v }
 @_cdecl("frame") func frame(_ dtMs: Double) { skView?.tick(dtMs) }

@@ -31,8 +31,9 @@ public final class SKPhysicsBody {
     public var friction: CGFloat = 0.2
     public var restitution: CGFloat = 0.2
     public var mass: CGFloat = 1
+    public var isSensor = false
 
-    weak var node: SKNode?
+    public internal(set) weak var node: SKNode?
     var bodyId: Int32 = -1
     var velocityDirty = false
 
@@ -52,11 +53,12 @@ public final class SKPhysicsBody {
         let cat = UInt16(truncatingIfNeeded: categoryBitMask)
         let mask = UInt16(truncatingIfNeeded: collisionBitMask)
         let dyn: Int32 = isDynamic ? 1 : 0
+        let sensor: Int32 = isSensor ? 1 : 0
         switch shape {
-        case let .rect(w, h): bodyId = cb_add_box(x, y, Float(w/2), Float(h/2), dyn, cat, mask)
-        case let .circle(r):  bodyId = cb_add_circle(x, y, Float(r), dyn, cat, mask)
+        case let .rect(w, h): bodyId = cb_add_box(x, y, Float(w/2), Float(h/2), dyn, cat, mask, sensor)
+        case let .circle(r):  bodyId = cb_add_circle(x, y, Float(r), dyn, cat, mask, sensor)
         case let .edgeLoop(rc):
-            bodyId = cb_add_box(Float(rc.midX), Float(rc.midY), Float(rc.width/2), Float(rc.height/2), 0, cat, mask)
+            bodyId = cb_add_box(Float(rc.midX), Float(rc.midY), Float(rc.width/2), Float(rc.height/2), 0, cat, mask, sensor)
         }
         SKPhysicsWorld.registry[bodyId] = self
     }

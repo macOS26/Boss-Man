@@ -38,8 +38,8 @@ WABI int  win_height(void);
 
 /* Box2D shim (defined in libcbox2d.a; see boss-man-spritekit-web/native) */
 void  cb_reset(float gx, float gy);
-int   cb_add_box(float x, float y, float hw, float hh, int dynamic, uint16_t cat, uint16_t mask);
-int   cb_add_circle(float x, float y, float r, int dynamic, uint16_t cat, uint16_t mask);
+int   cb_add_box(float x, float y, float hw, float hh, int dynamic, uint16_t cat, uint16_t mask, int sensor);
+int   cb_add_circle(float x, float y, float r, int dynamic, uint16_t cat, uint16_t mask, int sensor);
 void  cb_set_velocity(int body, float vx, float vy);
 void  cb_set_transform(int body, float x, float y, float angle);
 void  cb_get_position(int body, float* x, float* y);
