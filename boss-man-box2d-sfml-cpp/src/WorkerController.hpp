@@ -86,8 +86,11 @@ public:
     void draw(sf::RenderTarget& target) {
         float alpha = 1.0f;
         if (isShielded) {
-            // Blink effect
-            alpha = 0.5f + 0.5f * std::sin(shieldTimer * 5.0f);
+            float elapsed = SPAWN_SHIELD_DUR - shieldTimer;
+            if (elapsed < 0.6f)
+                alpha = 1.0f - 0.65f * (elapsed / 0.6f);
+            else if (elapsed < 1.2f)
+                alpha = 0.35f + 0.65f * ((elapsed - 0.6f) / 0.6f);
         }
         renderer.draw(target, pixelPos, facingLeft, isMoving, direction, walkPhase, alpha);
 
