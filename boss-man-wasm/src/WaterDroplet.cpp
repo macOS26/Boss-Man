@@ -1,1 +1,0 @@
-// WaterDroplet is header-only

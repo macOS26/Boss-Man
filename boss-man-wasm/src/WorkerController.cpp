@@ -1,1 +1,0 @@
-// WorkerController is header-only

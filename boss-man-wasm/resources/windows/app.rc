@@ -1,3 +1,0 @@
-// Windows executable icon (shown in Explorer / taskbar). The lowest numbered
-// ICON resource is used as the application icon.
-IDI_ICON1 ICON "AppIcon.ico"
