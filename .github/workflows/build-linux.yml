@@ -54,7 +54,7 @@ jobs:
           mkdir -p dist
           # All read-only assets are embedded in the binary; it links system
           # X11/GL/OpenAL shared libs at runtime.
-          cp build/boss-man-pc dist/
+          cp build/Boss-Man-linux dist/
 
       - uses: actions/upload-artifact@v4
         with:

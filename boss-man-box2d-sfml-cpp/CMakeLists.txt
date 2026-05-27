@@ -110,6 +110,16 @@ endif()
 
 add_executable(boss-man-pc ${SOURCES})
 
+# Per-platform output names: Boss-Man-mac (.app), Boss-Man-pc.exe, Boss-Man-linux.
+if(APPLE)
+    set(BM_OUTPUT_NAME "Boss-Man-mac")
+elseif(WIN32)
+    set(BM_OUTPUT_NAME "Boss-Man-pc")
+else()
+    set(BM_OUTPUT_NAME "Boss-Man-linux")
+endif()
+set_target_properties(boss-man-pc PROPERTIES OUTPUT_NAME "${BM_OUTPUT_NAME}")
+
 if(APPLE)
     set_target_properties(boss-man-pc PROPERTIES
         MACOSX_BUNDLE TRUE
