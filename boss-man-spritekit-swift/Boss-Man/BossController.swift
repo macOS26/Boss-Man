@@ -32,11 +32,17 @@ final class BossController {
         let blueprintIndex: Int
     }
 
+    // The `spawn` slot here is a placeholder (.zero) only. A boss's home/spawn
+    // position comes exclusively from the level map ('1'..'4' tiles) via
+    // spawnOverrides — home lives in level data, never in code. The slot is kept
+    // because the override writes the real position into it before each entity is
+    // built. (A hardcoded home here once let a tile-less level spawn Bill at a
+    // fixed corner.)
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] = [
-        (Strings.Boss.bill,     .systemRed,    .black,        .darkGray, CGPoint(x: 34, y: 15), .directChase,                                                          1.00),
-        (Strings.Boss.dom, NSColor.systemPink.withAlphaComponent(0.75), NSColor.systemPurple.blended(withFraction: 0.40, of: .black) ?? .systemPurple, .darkGray, CGPoint(x: 1,  y: 1),  .ambushAhead(tiles: 4),                    0.85),
-        (Strings.Boss.bob,  .systemTeal,   NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue,   .darkGray, CGPoint(x: 34, y: 1),  .flanker(pivotTiles: 2),                                               0.78),
-        (Strings.Boss.stan,   .systemOrange, NSColor.systemRed.blended(withFraction: 0.10, of: .black) ?? .systemRed,    .darkGray, CGPoint(x: 1,  y: 15), .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70)
+        (Strings.Boss.bill,     .systemRed,    .black,        .darkGray, .zero, .directChase,                                                          1.00),
+        (Strings.Boss.dom, NSColor.systemPink.withAlphaComponent(0.75), NSColor.systemPurple.blended(withFraction: 0.40, of: .black) ?? .systemPurple, .darkGray, .zero,  .ambushAhead(tiles: 4),                    0.85),
+        (Strings.Boss.bob,  .systemTeal,   NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue,   .darkGray, .zero,  .flanker(pivotTiles: 2),                                               0.78),
+        (Strings.Boss.stan,   .systemOrange, NSColor.systemRed.blended(withFraction: 0.10, of: .black) ?? .systemRed,    .darkGray, .zero, .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70)
     ]
 
     private let moveInterval: TimeInterval = 0.36
@@ -72,19 +78,16 @@ final class BossController {
         clear()
         currentLevel = level
         currentSpawnOverrides = spawnOverrides
-        if spawnOverrides.isEmpty {
-            let count = min(max(level, 1), Self.blueprints.count)
-            for index in 0..<count {
-                let blueprint = Self.blueprints[index]
-                createAndFreeze(from: themed(blueprint, level: level), blueprintIndex: index)
-            }
-        } else {
-            for (index, position) in spawnOverrides {
-                guard index >= 0, index < Self.blueprints.count else { continue }
-                var blueprint = Self.blueprints[index]
-                blueprint.spawn = position
-                createAndFreeze(from: themed(blueprint, level: level), blueprintIndex: index)
-            }
+        // Boss home positions come exclusively from the level map (the '1'..'4'
+        // tiles parsed into spawnOverrides). There is intentionally no hardcoded
+        // fallback: a boss with no tile in the level simply does not spawn, and
+        // every respawn path reuses the per-entity spawn set here — so home
+        // always lives in the level data, never in code.
+        for (index, position) in spawnOverrides {
+            guard index >= 0, index < Self.blueprints.count else { continue }
+            var blueprint = Self.blueprints[index]
+            blueprint.spawn = position
+            createAndFreeze(from: themed(blueprint, level: level), blueprintIndex: index)
         }
     }
 

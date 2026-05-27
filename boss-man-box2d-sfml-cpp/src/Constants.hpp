@@ -155,22 +155,24 @@ inline constexpr Color FLEE_EYE  = {0.02f, 0.24f, 0.50f, 1.0f};
 inline constexpr Color BOSS_SHOE_GOLD = {0.70f, 0.50f, 0.0f, 1.0f};
 inline constexpr Color BOSS_HAIR     = {0.55f, 0.45f, 0.35f, 1.0f}; // medium brown
 
-// Boss blueprints
+// Boss identity + behavior. The spawn/home position is intentionally NOT stored
+// here: it comes only from the level map ('1'..'4' tiles), so a boss's home lives
+// in level data, never in code. This is deliberate — a hardcoded spawn here once
+// let a level with no boss tile fall back to a fixed corner (Bill at 34,15).
 struct BossBlueprint {
     std::string name;
     Color bodyColor;
     Color tieColor;
     Color pantsColor;
-    GridPos spawn;
     int personality; // 0=directChase, 1=ambush, 2=flanker, 3=timidScatter
     float speed;
 };
 
 inline const BossBlueprint BOSS_BLUEPRINTS[] = {
-    {Boss::BILL, {1.0f,0.27f,0.23f,1.0f}, {0.0f,0.0f,0.0f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, {34,15}, 0, 1.00f},
-    {Boss::DOM,  {1.0f,0.41f,0.71f,0.75f}, {0.35f,0.0f,0.53f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, {1,1},   1, 0.85f},
-    {Boss::BOB,  {0.16f,0.73f,0.78f,1.0f}, {0.0f,0.0f,0.80f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, {34,1},  2, 0.78f},
-    {Boss::STAN, {1.0f,0.55f,0.0f,1.0f},   {0.90f,0.0f,0.0f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, {1,15}, 3, 0.70f}
+    {Boss::BILL, {1.0f,0.27f,0.23f,1.0f}, {0.0f,0.0f,0.0f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, 0, 1.00f},
+    {Boss::DOM,  {1.0f,0.41f,0.71f,0.75f}, {0.35f,0.0f,0.53f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, 1, 0.85f},
+    {Boss::BOB,  {0.16f,0.73f,0.78f,1.0f}, {0.0f,0.0f,0.80f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, 2, 0.78f},
+    {Boss::STAN, {1.0f,0.55f,0.0f,1.0f},   {0.90f,0.0f,0.0f,1.0f}, {0.33f,0.33f,0.33f,1.0f}, 3, 0.70f}
 };
 
 // Messages

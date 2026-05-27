@@ -58,14 +58,13 @@ void BossController::spawn(int level, const GridMap& map, const Pathfinder& pf,
         applySpawnFreeze(entities.size() - 1);
     };
 
-    if (overrides.empty()) {
-        int count = std::min(std::max(level, 1), 4);
-        for (int i = 0; i < count; ++i)
-            createBoss(i, BOSS_BLUEPRINTS[i].spawn);
-    } else {
-        for (auto& [idx, pos] : overrides) {
-            if (idx >= 0 && idx < 4) createBoss(idx, pos);
-        }
+    // Boss home positions come exclusively from the level map (the '1'..'4'
+    // tiles parsed into `overrides`). There is no hardcoded fallback: a boss
+    // with no tile in the level simply does not spawn. Every other path
+    // (respawn, relocate, teleport-to-spawn) reuses the per-boss `spawn` set
+    // here, so the home is always sourced from the level.
+    for (auto& [idx, pos] : overrides) {
+        if (idx >= 0 && idx < 4) createBoss(idx, pos);
     }
 }
 
