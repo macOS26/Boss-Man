@@ -178,7 +178,7 @@ if(UNIX AND NOT APPLE)
     set(CPACK_PACKAGE_NAME "boss-man")
     set(CPACK_PACKAGE_FILE_NAME "Boss-Man")           # -> Boss-Man.deb
     set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Boss-Man arcade game")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The office maze arcade game")
     set(CPACK_PACKAGE_CONTACT "todd@starplayrx.com")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Todd Bruss <todd@starplayrx.com>")
     set(CPACK_DEBIAN_PACKAGE_SECTION "games")

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Boss-Man
-Comment=Boss-Man arcade game
+Comment=The office maze arcade game
 Exec=Boss-Man
 Icon=boss-man
 Terminal=false
