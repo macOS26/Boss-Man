@@ -50,6 +50,7 @@ void TitleScreen::ensureLoaded() {
     loaded_ = true;
     loadFont(fontWide_, "assets/fonts/MarkerFelt-Wide.ttf");
     loadFont(fontThin_, "assets/fonts/MarkerFelt-Thin.ttf");
+    loadFont(fontMono_, "assets/fonts/JetBrainsMono-Bold.ttf");
     staplerLoaded_ = loadTexturePremultiplied(stapler_, "assets/images/red-stapler.png");
     if (staplerLoaded_) stapler_.setSmooth(true);
 
@@ -168,6 +169,9 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         drawText(target, fontThin_, "HIGH SCORE " + std::to_string(highScore), 26, ink,
                  W / 2.f, H * 0.94f, 1);
     }
+
+    // --- Fullscreen hint, bottom-right, HUD mono font ---
+    drawText(target, fontMono_, "F for Fullscreen", 16, ink, W - 20.f, H - 18.f, 2);
 }
 
 } // namespace bm

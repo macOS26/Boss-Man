@@ -20,6 +20,7 @@ private:
     bool staplerLoaded_ = false;
     sf::Font fontWide_;  // Marker Felt Wide (title)
     sf::Font fontThin_;  // Marker Felt Thin (everything else)
+    sf::Font fontMono_;  // JetBrains Mono Bold (HUD font) — fullscreen hint
     sf::Texture stapler_;
     sf::Texture panelShadow_; // soft, feathered drop shadow for the leaderboard panel
     sf::Clock blinkClock_;
