@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Boss-Man
+Comment=The office maze arcade game
+Exec=Boss-Man
+Icon=boss-man
+Terminal=false
+Categories=Game;ArcadeGame;

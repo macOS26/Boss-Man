@@ -1,10 +1,17 @@
 # Boss-Man — WebAssembly build
 
 Browser build of the Box2D + SFML C++ game, compiled to WebAssembly with
-Emscripten. It does **not** copy the game code: `CMakeLists.txt` compiles the
-same sources from `../boss-man-box2d-sfml-cpp/src`, so the native and web builds
-never drift. The only platform differences live behind `#ifdef __EMSCRIPTEN__`
-(the main loop) and in the SFML backend choice (below).
+Emscripten. This folder is a **self-contained fork**: it carries its own copy of
+`src/` and `assets/` so the in-progress VRSFML/web migration can be worked on
+freely **without touching the shipping native project**
+(`../boss-man-box2d-sfml-cpp`). Once the web build works, the two can be
+reconciled. The web-specific differences are the SFML backend (VRSFML) and the
+main loop (`emscripten_set_main_loop`, in this fork's `Game.cpp`).
+
+> ⚠️ Work in progress — does not build yet. VRSFML's API has diverged from the
+> SFML 2.6 the source uses (no umbrella headers, `Optional` factory loaders,
+> `Vec2`/`base::U8`, explicit `GraphicsContext`/`AudioContext`, variant events),
+> so the source in this fork still needs porting to VRSFML's API.
 
 ## Build
 

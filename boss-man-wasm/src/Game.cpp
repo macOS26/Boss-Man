@@ -1,4 +1,7 @@
 #include "Game.hpp"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include "EmojiText.hpp"
 #include "Assets.hpp"
 #include "MacWindow.hpp"
@@ -98,18 +101,25 @@ void Game::applyFramePacing() {
 #endif
 }
 
-void Game::run() {
-    sf::Time timeSinceLastUpdate = sf::Time::Zero;
-    while (window.isOpen()) {
-        sf::Time dt = clock.restart();
-        timeSinceLastUpdate += dt;
-        while (timeSinceLastUpdate >= TIME_PER_UPDATE) {
-            processInput();
-            update(TIME_PER_UPDATE.asSeconds());
-            timeSinceLastUpdate -= TIME_PER_UPDATE;
-        }
-        render();
+void Game::tick() {
+    sf::Time dt = clock.restart();
+    timeSinceLastUpdate += dt;
+    while (timeSinceLastUpdate >= TIME_PER_UPDATE) {
+        processInput();
+        update(TIME_PER_UPDATE.asSeconds());
+        timeSinceLastUpdate -= TIME_PER_UPDATE;
     }
+    render();
+}
+
+void Game::run() {
+#ifdef __EMSCRIPTEN__
+    // Browsers can't block; drive the frame from the event loop.
+    static Game* s_game = this;
+    emscripten_set_main_loop([]() { s_game->tick(); }, 0, 1);
+#else
+    while (window.isOpen()) tick();
+#endif
 }
 
 std::vector<std::string> Game::currentLevelRows() {

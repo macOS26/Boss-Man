@@ -1,12 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 project(boss-man-web VERSION 1.0.0 LANGUAGES CXX)
 
-# WebAssembly build of the Box2D + SFML C++ game. Configure with the Emscripten
-# toolchain (use `emcmake cmake ...`), which sets EMSCRIPTEN and the cross
-# compiler. The game SOURCE is NOT duplicated here — we compile the exact same
-# files as the native project so the two never drift. Only the SFML backend
-# (web-capable fork) and the main loop (emscripten_set_main_loop, guarded by
-# __EMSCRIPTEN__ in Game.cpp) differ.
+# WebAssembly build of the Box2D + SFML C++ game. This folder is a SELF-CONTAINED
+# FORK: it carries its OWN copy of src/ and assets/ so the VRSFML/web migration
+# can be worked on freely without ever touching the shipping native project
+# (../boss-man-box2d-sfml-cpp). Configure with the Emscripten toolchain
+# (`emcmake cmake ...`).
 
 if(NOT EMSCRIPTEN)
     message(FATAL_ERROR "Configure with the Emscripten toolchain: `emcmake cmake -S . -B build`")
@@ -15,7 +14,7 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(NATIVE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../boss-man-box2d-sfml-cpp)
+set(FORK_ROOT ${CMAKE_CURRENT_SOURCE_DIR}) # this fork's own src/ and assets/
 
 include(FetchContent)
 
@@ -49,13 +48,13 @@ FetchContent_Declare(cmrc
 
 FetchContent_MakeAvailable(sfml box2d json cmrc)
 
-# --- Shared game sources (compiled, never copied) ----------------------------
-# All .cpp from the native project. The .mm (macOS) files are excluded by the
-# extension; EmojiTextureStub.cpp provides the no-op emoji rasterizer for web.
-file(GLOB SHARED_SOURCES CONFIGURE_DEPENDS ${NATIVE_DIR}/src/*.cpp)
+# --- Game sources (this fork's own copy) -------------------------------------
+# All .cpp in this fork's src/. The .mm (macOS) files are excluded by extension;
+# EmojiTextureStub.cpp provides the no-op emoji rasterizer for web.
+file(GLOB FORK_SOURCES CONFIGURE_DEPENDS ${FORK_ROOT}/src/*.cpp)
 
-add_executable(boss-man-web ${SHARED_SOURCES})
-target_include_directories(boss-man-web PRIVATE ${NATIVE_DIR}/src ${NATIVE_DIR}/assets)
+add_executable(boss-man-web ${FORK_SOURCES})
+target_include_directories(boss-man-web PRIVATE ${FORK_ROOT}/src ${FORK_ROOT}/assets)
 target_compile_definitions(boss-man-web PRIVATE _USE_MATH_DEFINES)
 
 target_link_libraries(boss-man-web PRIVATE
@@ -64,16 +63,16 @@ target_link_libraries(boss-man-web PRIVATE
 
 # --- Embed assets (fonts, emoji, sounds, levels) into the wasm ---------------
 file(GLOB_RECURSE EMBEDDED_ASSETS CONFIGURE_DEPENDS
-    ${NATIVE_DIR}/assets/fonts/*.ttf
-    ${NATIVE_DIR}/assets/emoji/*.png
-    ${NATIVE_DIR}/assets/images/*.png
-    ${NATIVE_DIR}/assets/voice/*.wav)
+    ${FORK_ROOT}/assets/fonts/*.ttf
+    ${FORK_ROOT}/assets/emoji/*.png
+    ${FORK_ROOT}/assets/images/*.png
+    ${FORK_ROOT}/assets/voice/*.wav)
 cmrc_add_resource_library(bm-assets
     ALIAS bm::assets
     NAMESPACE bmassets
-    WHENCE ${NATIVE_DIR}
+    WHENCE ${FORK_ROOT}
     ${EMBEDDED_ASSETS}
-    ${NATIVE_DIR}/assets/levels.json)
+    ${FORK_ROOT}/assets/levels.json)
 target_link_libraries(boss-man-web PRIVATE bm::assets)
 
 # --- Emscripten output: index.html + .js + .wasm -----------------------------

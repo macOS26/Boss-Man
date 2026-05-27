@@ -34,6 +34,7 @@ private:
     void processInput();
     void update(float dt);
     void render();
+    void tick(); // one frame; driven by emscripten_set_main_loop on web
     void toggleFullscreen();
     void applyLetterboxView();
     void applyFramePacing(); // vsync on Win/Linux; refresh-matched cap on macOS
@@ -85,6 +86,7 @@ private:
     std::vector<std::string> officeMaps;
 
     sf::Clock clock;
+    sf::Time timeSinceLastUpdate = sf::Time::Zero;
     const sf::Time TIME_PER_UPDATE = sf::seconds(1.0f / 120.0f);
 };
 
