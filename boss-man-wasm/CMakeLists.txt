@@ -86,4 +86,6 @@ target_link_options(boss-man-web PRIVATE
     "-sFULL_ES3=1"
     "-sASYNCIFY"
     "-sEXIT_RUNTIME=0"
-    "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
+    # SHELL: keeps the flag and its path together (CMake otherwise reorders/dedupes
+    # link options and the path is lost).
+    "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
