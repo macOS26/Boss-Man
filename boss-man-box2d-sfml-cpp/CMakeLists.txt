@@ -110,13 +110,11 @@ endif()
 
 add_executable(boss-man-pc ${SOURCES})
 
-# Per-platform output names: Boss-Man-mac (.app), Boss-Man-pc.exe, Boss-Man-linux.
+# Per-platform output names: Boss-Man-mac (.app), Boss-Man.exe, Boss-Man (Linux).
 if(APPLE)
     set(BM_OUTPUT_NAME "Boss-Man-mac")
-elseif(WIN32)
-    set(BM_OUTPUT_NAME "Boss-Man-pc")
 else()
-    set(BM_OUTPUT_NAME "Boss-Man-linux")
+    set(BM_OUTPUT_NAME "Boss-Man") # Boss-Man.exe on Windows, Boss-Man on Linux
 endif()
 set_target_properties(boss-man-pc PROPERTIES OUTPUT_NAME "${BM_OUTPUT_NAME}")
 
@@ -167,3 +165,25 @@ cmrc_add_resource_library(bm-assets
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/AppIcon.png"
 )
 target_link_libraries(boss-man-pc PRIVATE bm::assets)
+
+# ---- Linux: install rules + .deb packaging (cpack -G DEB -> Boss-Man.deb) ----
+if(UNIX AND NOT APPLE)
+    install(TARGETS boss-man-pc RUNTIME DESTINATION bin)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resources/linux/boss-man.desktop
+            DESTINATION share/applications)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/AppIcon.png
+            DESTINATION share/icons/hicolor/256x256/apps RENAME boss-man.png)
+
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_PACKAGE_NAME "boss-man")
+    set(CPACK_PACKAGE_FILE_NAME "Boss-Man")           # -> Boss-Man.deb
+    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Boss-Man arcade game")
+    set(CPACK_PACKAGE_CONTACT "todd@starplayrx.com")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Todd Bruss <todd@starplayrx.com>")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "games")
+    # Scan the binary and fill Depends with the system libs it actually needs
+    # (X11/GL/OpenAL/FreeType/...), so `apt install ./Boss-Man.deb` resolves them.
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    include(CPack)
+endif()

@@ -43,18 +43,23 @@ jobs:
             libudev-dev libgl1-mesa-dev \
             libfreetype-dev libopenal-dev libflac-dev libvorbis-dev libogg-dev
 
+      # Static SFML so the binary depends only on system libs (X11/GL/OpenAL/...)
+      # and is distributable — both as a bare binary and inside the .deb.
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
 
       - name: Build
         run: cmake --build build -j"$(nproc)"
 
-      - name: Bundle artifact
+      - name: Package .deb
+        run: cd build && cpack -G DEB
+
+      - name: Bundle artifacts
         run: |
           mkdir -p dist
-          # All read-only assets are embedded in the binary; it links system
-          # X11/GL/OpenAL shared libs at runtime.
-          cp build/Boss-Man-linux dist/
+          # Bare binary (assets embedded) + the one-step installer.
+          cp build/Boss-Man dist/
+          cp build/Boss-Man.deb dist/
 
       - uses: actions/upload-artifact@v4
         with:
