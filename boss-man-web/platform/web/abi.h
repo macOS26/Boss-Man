@@ -56,6 +56,8 @@ WABI int  img_from_rgba(const uint8_t* px, int w, int h); // raw RGBA -> handle
 WABI int  img_width(int img);
 WABI int  img_height(int img);
 WABI int  font_by_name(const char* name, int len);
+// Reads a preloaded text asset (e.g. levels.json) into buf; returns length or -1.
+WABI int  asset_text(const char* name, int nlen, char* buf, int cap);
 WABI int  rt_create(int w, int h);                 // offscreen target -> target handle
 WABI int  rt_image(int rt);                        // image handle backed by the RT
 
