@@ -2,6 +2,7 @@
 #include "Constants.hpp"
 #include "GridMap.hpp"
 #include "Pathfinder.hpp"
+#include "SoundManager.hpp"
 #include <vector>
 #include <cstdlib>
 
@@ -34,6 +35,8 @@ public:
     int travelerIndex = 0;
     bool scheduled = false;
     const Pathfinder* pathfinder = nullptr;
+    SoundManager* sound = nullptr;
+    void setSound(SoundManager* s) { sound = s; }
 
     static constexpr float MOVE_INTERVAL = 0.22f;
     static constexpr float FIRST_VISIT_DELAY = 10.0f;
@@ -127,6 +130,8 @@ private:
         tr.isMoving = false;
         travelers.push_back(tr);
         visitTimer = RESPAWN_DELAY;
+        // Distinct arrival sound per traveler type (index matches TRAVELERS order).
+        if (sound) sound->playTravelerArrive(travelerIndex % TRAVELER_COUNT);
     }
 
     void stepTraveler(Traveler& tr, const GridMap& map) {

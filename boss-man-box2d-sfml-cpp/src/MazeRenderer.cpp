@@ -1,17 +1,6 @@
 #include "MazeRenderer.hpp"
 #include "EmojiText.hpp"
 #include <algorithm>
-#include <random>
-
-namespace {
-// Colored book variants used at random for each book-binder machine (📕📗📘📙).
-const char* BOOK_EMOJIS[] = {
-    "\xf0\x9f\x93\x95", "\xf0\x9f\x93\x97", "\xf0\x9f\x93\x98", "\xf0\x9f\x93\x99"};
-std::string randomBook() {
-    static std::mt19937 rng(std::random_device{}());
-    return BOOK_EMOJIS[rng() % 4];
-}
-} // namespace
 
 namespace bm {
 
@@ -60,8 +49,6 @@ int MazeRenderer::build() {
                 Pickup p;
                 p.grid = grid; p.pixelPos = pos; p.type = ch;
                 p.machineName = MACHINE_NAMES_BY_TILE().at(ch);
-                // Book binder shows a random colored book instead of the 📚 stack.
-                if (ch == Tile::bookBinder) p.emojiOverride = randomBook();
                 p.active = true;
                 pickups.push_back(p);
             } else if (ch == Tile::brownBox) {
@@ -168,14 +155,18 @@ void MazeRenderer::buildBackground() {
                 wallFill.setPosition(x+1, y+1);
                 backgroundTexture.draw(wallFill);
 
-                // Wall border
-                sf::RectangleShape wallBorder(sf::Vector2f(tile-4, tile-4));
+                // Wall border. SpriteKit centers a 2px stroke on rect.insetBy(2,2),
+                // so the wall's outer edge sits 1px inside the tile and the floor
+                // shows through between adjacent walls. SFML grows the outline
+                // outward, so size the rect (tile-6, at offset 3) such that the 2px
+                // outline lands at 1px..3px from the tile edge — never at the edge.
+                sf::RectangleShape wallBorder(sf::Vector2f(tile-6, tile-6));
                 wallBorder.setFillColor(sf::Color::Transparent);
                 wallBorder.setOutlineColor(sf::Color(
                     (uint8_t)(cubCol.r*255), (uint8_t)(cubCol.g*255),
                     (uint8_t)(cubCol.b*255), 255));
                 wallBorder.setOutlineThickness(2);
-                wallBorder.setPosition(x+2, y+2);
+                wallBorder.setPosition(x+3, y+3);
                 backgroundTexture.draw(wallBorder);
 
                 // Gray trim (desk strip) — 6px from top of tile in both SpriteKit and SFML
@@ -281,7 +272,6 @@ void MazeRenderer::drawPickups(sf::RenderTarget& target, float dt) {
             case Tile::brownBox:    emojiUtf8 = emojiBox; emojiSize = 28.0f; break;
             default:               emojiUtf8 = "?"; break;
             }
-            if (!p.emojiOverride.empty()) emojiUtf8 = p.emojiOverride; // random book binder
 
             // Collected machines dim during their cooldown (SpriteKit alpha 0.55).
             uint8_t a = (p.cooldownTimer > 0.0f) ? 140 : 255;

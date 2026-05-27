@@ -23,6 +23,8 @@ struct BossEntity {
     float moveInterval;
     float moveDuration;
     float moveTimer = 0.0f;
+    float stepDuration = 0.0f;       // animation time of the current step (x2 in tunnels)
+    bool arrivedAtDoorway = false;   // just slid onto a tunnel doorway; cross next step
     GridPos grid;
     sf::Vector2f pixelPos;
     bool isImmobilized = true;
@@ -41,8 +43,11 @@ struct BossEntity {
     bool isMoving = false;
     sf::Vector2f startPos, targetPos;
 
-    // Capture animation
+    // Capture animation (two phases, matching SpriteKit):
+    //  isCaptured       — phase 1: scale 1.0->1.6 + fade out where caught (0.25s)
+    //  captureReturning — phase 2: at spawn, scale 1.6->1.0 + fade in (0.2s)
     bool isCaptured = false;
+    bool captureReturning = false;
     float captureAnimTimer = 0.0f;
     float captureScale = 1.0f;
     float captureAlpha = 1.0f;
@@ -53,7 +58,6 @@ public:
     std::vector<BossEntity> entities;
     int captureStreak = 0;
     int currentLevel = 1;
-    std::vector<std::pair<int, GridPos>> currentOverrides; // map spawn positions; reused on respawn
     SoundManager* sound = nullptr;
 
     BossController() = default;
@@ -85,6 +89,11 @@ private:
                  GridPos workerGrid, MoveDirection workerDir, bool isGoldDiscMode, bool isPeteShielded);
     void relocateToSpawn(int index, const GridMap& map);
     void applySpawnFreeze(int index);
+
+    // Boss tiles parsed from the current level, remembered so a mid-level reset
+    // (e.g. after a boss catches the worker) re-spawns from the same level
+    // positions — never from hardcoded coordinates.
+    std::vector<std::pair<int, GridPos>> currentSpawnOverrides_;
 };
 
 } // namespace bm

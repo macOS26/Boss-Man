@@ -28,7 +28,6 @@ public:
         sf::Vector2f pixelPos;
         char type; // 'O', 'G', 'A', 'P', 'F', 'C', 'M', 'D'
         std::string machineName;
-        std::string emojiOverride; // if set, drawn instead of the type's default emoji
         bool active = true;
         float cooldownTimer = 0.0f; // machines: dim + uncollectable while > 0
     };

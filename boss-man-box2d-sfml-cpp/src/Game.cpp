@@ -20,7 +20,9 @@ Game::Game()
     uiScale() = windowBackingScale(window.getSystemHandle()); // crisp text on Retina
 #endif
     bossController.setSound(&sound);
+    travelerSpawner.setSound(&sound);
     levelData = LevelLoader::loadFromAsset();
+    levelStore.setBundled(levelData);
     state.loadHighScore();
     leaderboard.load();
 }
@@ -86,6 +88,10 @@ void Game::run() {
 std::vector<std::string> Game::currentLevelRows() {
     int idx = (state.level - 1) % (int)levelNames().size();
     std::string name = levelNames()[idx];
+    // LevelStore returns custom edited rows (from the level editor) when present,
+    // otherwise the bundled level — so edits show up immediately in play/practice.
+    auto rows = levelStore.loadLevel(name);
+    if (!rows.empty()) return rows;
     if (levelData.count(name)) return levelData[name];
     return {};
 }
@@ -173,6 +179,12 @@ void Game::processInput() {
             applyLetterboxView(); // follow native-fullscreen / size changes
             continue;
         }
+        // The editor handles its own raw mouse/keyboard (palette, painting,
+        // ⌘ shortcuts), so route events straight to it and skip InputController.
+        if (gameState == GameState::Editor) {
+            editor.handleEvent(event, window);
+            continue;
+        }
         input.handleEvent(event);
     }
 
@@ -180,12 +192,34 @@ void Game::processInput() {
     // window mid-event-queue. Works in any game state.
     if (input.fullscreenToggleRequested) toggleFullscreen();
 
+    if (gameState == GameState::Editor) {
+        if (editor.playRequested) {
+            editor.playRequested = false;
+            gameState = GameState::Playing;
+            state.resetForNewGame();
+            state.level = editor.currentLevelIndex + 1;
+            state.practiceMode = true;
+            buildLevel();
+            hud.showMessage(Message::PRACTICE_MODE, 3.0f);
+        } else if (editor.backRequested) {
+            editor.backRequested = false;
+            gameState = GameState::Title;
+        }
+        input.consume();
+        return;
+    }
+
     if (gameState == GameState::Title) {
         if (input.pRequested) {
             gameState = GameState::Playing;
             state.resetForNewGame();
+            state.practiceMode = false;
             buildLevel();
             hud.showMessage(Message::INTRO, 3.0f);
+        }
+        if (input.eRequested) {
+            gameState = GameState::Editor;
+            editor.open(editor.currentLevelIndex);
         }
         if (input.escapeRequested) window.close();
     } else if (gameState == GameState::GameOver) {
@@ -216,6 +250,7 @@ void Game::processInput() {
 }
 
 void Game::update(float dt) {
+    if (gameState == GameState::Editor) { editor.update(dt); return; }
     if (gameState != GameState::Playing) return;
 
     hud.update(dt);
@@ -392,6 +427,8 @@ void Game::render() {
 
     if (gameState == GameState::Title) {
         titleScreen.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT, state.highScore, leaderboard.entries());
+    } else if (gameState == GameState::Editor) {
+        editor.draw(window);
     } else {
         if (mazeRenderer) {
             mazeRenderer->drawBackground(window);
@@ -407,7 +444,8 @@ void Game::render() {
 
             // Emoji glyph rendered via the OS text stack (sf::Text can't do color emoji).
             // Flipped to face travel direction; the points label below is not flipped.
-            drawEmoji(window, tr.emoji, tr.pixelPos, 28.0f * scale, sf::Color(255, 255, 255, a), tr.flipX);
+            // 30.8 = 28 * 1.1 — travelers run 10% larger so they fill the lane.
+            drawEmoji(window, tr.emoji, tr.pixelPos, 30.8f * scale, sf::Color(255, 255, 255, a), tr.flipX);
 
             // Points label above
             static sf::Font font;
@@ -417,14 +455,19 @@ void Game::render() {
                              font.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
                              font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
             }
+            // systemYellow points label, +24 above the glyph. It is a child of the
+            // SpriteKit wrapper, so it scales and fades with the catch animation.
+            // Rasterized at uiScale and counter-scaled so it stays crisp on Retina.
+            float dpi = uiScale();
             sf::Text ptsText;
             ptsText.setFont(font);
             ptsText.setString(std::to_string(tr.points));
-            ptsText.setCharacterSize(11);
+            ptsText.setCharacterSize((unsigned)(11 * scale * dpi));
             ptsText.setFillColor(sf::Color(255, 231, 0, a));
             auto plb = ptsText.getLocalBounds();
             ptsText.setOrigin(plb.left + plb.width/2, plb.top + plb.height/2);
-            ptsText.setPosition(tr.pixelPos.x, tr.pixelPos.y - 24);
+            ptsText.setScale(1.f / dpi, 1.f / dpi);
+            ptsText.setPosition(tr.pixelPos.x, tr.pixelPos.y - 24 * scale);
             window.draw(ptsText);
         }
 
@@ -496,9 +539,13 @@ void Game::bossCaughtWorker() {
     if (state.lives <= 0) {
         gameState = GameState::GameOver;
         hud.isGameOver = true;
-        state.saveHighScore();
-        const char* user = std::getenv("USER");
-        leaderboard.record(user ? user : "PLAYER", state.score);
+        // Practice mode (launched from the editor) never affects the high score
+        // or the leaderboard, matching the SpriteKit GameScene.
+        if (!state.practiceMode) {
+            state.saveHighScore();
+            const char* user = std::getenv("USER");
+            leaderboard.record(user ? user : "PLAYER", state.score);
+        }
         sound.stopBackgroundMusic();
         sound.stopGoldDiscBass();
         sound.playGameOver();
@@ -565,7 +612,24 @@ void Game::handleMachine(const std::string& name, int pickupIndex) {
 
 void Game::collectTPSReport(int pickupIndex) {
     if ((int)state.reportItems.size() < (int)Machine::REQUIRED.size()) {
-        hud.showMessage("TPS report missing items!", 5.0f);
+        // List the missing machines in canonical order (printer, fax, cover sheet,
+        // book binder), matching Strings.Message.tpsMissingItems. The voice key
+        // uses the P/F/C/M codes (scripts/generate_voices.sh); the HUD shows the
+        // display names: "The TPS report is missing Printer, Fax, Cover Sheet."
+        std::string key = "tps_missing_";
+        std::string names;
+        auto addMissing = [&](const std::string& machine, char code) {
+            if (state.reportItems.count(machine)) return;
+            key += code;
+            if (!names.empty()) names += ", ";
+            names += Machine::DISPLAY_NAMES.at(machine);
+        };
+        addMissing(Machine::PRINTER,     'P');
+        addMissing(Machine::FAX,         'F');
+        addMissing(Machine::COVER_SHEET, 'C');
+        addMissing(Machine::BOOK_BINDER, 'M');
+        sound.playVoice(key);
+        hud.showMessage("The TPS report is missing " + names + ".", 5.0f);
         return;
     }
     state.tpsReportsDelivered++;
@@ -627,9 +691,16 @@ void Game::restartGame() {
 
 void Game::returnToTitle() {
     hud.isGameOver = false;
-    gameState = GameState::Title;
     sound.stopBackgroundMusic();
     if (goldDiscActive) endGoldDiscMode();
+    // A practice session (started from the editor) returns to the editor at the
+    // level being tested, like the SpriteKit GameScene.returnToTitleScene().
+    if (state.practiceMode) {
+        gameState = GameState::Editor;
+        editor.open(std::max(0, state.level - 1));
+        return;
+    }
+    gameState = GameState::Title;
 }
 
 } // namespace bm

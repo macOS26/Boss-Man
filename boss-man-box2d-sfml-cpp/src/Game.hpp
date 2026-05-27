@@ -18,10 +18,12 @@
 #include "ContactRouter.hpp"
 #include "TitleScreen.hpp"
 #include "LocalLeaderboard.hpp"
+#include "LevelStore.hpp"
+#include "LevelEditor.hpp"
 
 namespace bm {
 
-enum class GameState { Title, Playing, Paused, GameOver };
+enum class GameState { Title, Playing, Paused, GameOver, Editor };
 
 class Game {
 public:
@@ -68,6 +70,8 @@ private:
     ContactRouter contactRouter;
     TitleScreen titleScreen;
     LocalLeaderboard leaderboard;
+    LevelStore levelStore;
+    LevelEditor editor{levelStore};
     std::unique_ptr<WorkerController> worker;
 
     GameState gameState = GameState::Title;

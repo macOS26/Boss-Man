@@ -21,7 +21,10 @@ void drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsi
     txt.setFillColor(color);
     auto lb = txt.getLocalBounds();
     float ox = (halign == 0) ? lb.left : (halign == 2 ? lb.left + lb.width : lb.left + lb.width / 2.f);
-    txt.setOrigin(ox, lb.top + lb.height / 2.f);
+    // SpriteKit SKLabelNode uses baseline vertical alignment by default: the node's
+    // y is the text baseline and glyphs sit above it. Anchor on the bounding-box
+    // bottom (= baseline for these all-caps labels) so the layout matches exactly.
+    txt.setOrigin(ox, lb.top + lb.height);
     txt.setScale(1.f / dpi, 1.f / dpi);
     txt.setPosition(x, y);
     txt.setRotation(rotationDeg);
@@ -149,7 +152,8 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sp.setOrigin(ts.x / 2.f, ts.y / 2.f);
         sp.setScale(fit, fit);
         sp.setRotation(3.4f);
-        sp.setPosition(W / 2.f, H * 0.54f + 25.f);
+        // SpriteKit centers the stapler sprite at height*0.46 (i.e. 0.54 from top).
+        sp.setPosition(W / 2.f, H * 0.54f);
         target.draw(sp);
     }
 

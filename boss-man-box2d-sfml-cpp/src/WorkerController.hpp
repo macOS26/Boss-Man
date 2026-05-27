@@ -3,6 +3,7 @@
 #include "GridMap.hpp"
 #include "MoveDirection.hpp"
 #include "PixelPersonRenderer.hpp"
+#include "TextLabel.hpp"
 
 namespace bm {
 
@@ -90,7 +91,9 @@ public:
         }
         renderer.draw(target, pixelPos, facingLeft, isMoving, direction, walkPhase, alpha);
 
-        // Name tag (centered like SpriteKit SKLabelNode)
+        // Name tag: SpriteKit SKLabelNode, Menlo-Bold 9, white, baseline 24 above
+        // center. Rendered via the crisp uiScale text path so it isn't blurry on
+        // Retina (it was previously rasterized at raw 9px).
         static sf::Font font;
         static bool fontLoaded = false;
         if (!fontLoaded) {
@@ -98,15 +101,8 @@ public:
                          font.loadFromFile("/System/Library/Fonts/Menlo.ttc") ||
                          font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
         }
-        sf::Text nameTag;
-        nameTag.setFont(font);
-        nameTag.setString(Worker::PETE);
-        nameTag.setCharacterSize(9);
-        nameTag.setFillColor(sf::Color::White);
-        auto lb = nameTag.getLocalBounds();
-        nameTag.setOrigin(lb.left + lb.width/2, lb.top + lb.height/2);
-        nameTag.setPosition(pixelPos.x, pixelPos.y - 24);
-        target.draw(nameTag);
+        drawNameLabel(target, font, Worker::PETE, 9, sf::Color::White,
+                      pixelPos.x, pixelPos.y - 24);
     }
 
     std::function<void(GridPos)> lastTileCallback;

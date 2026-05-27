@@ -31,4 +31,21 @@ float windowBackingScale(void* handle) {
     return (float)[NSScreen mainScreen].backingScaleFactor;
 }
 
+bool macConfirmDialog(const char* title, const char* body,
+                      const char* destructiveButton, const char* cancelButton) {
+    NSAlert* alert = [[NSAlert alloc] init];
+    alert.messageText = title ? [NSString stringWithUTF8String:title] : @"";
+    alert.informativeText = body ? [NSString stringWithUTF8String:body] : @"";
+    alert.alertStyle = NSAlertStyleWarning;
+    [alert addButtonWithTitle:(destructiveButton ? [NSString stringWithUTF8String:destructiveButton] : @"OK")];
+    [alert addButtonWithTitle:(cancelButton ? [NSString stringWithUTF8String:cancelButton] : @"Cancel")];
+    return [alert runModal] == NSAlertFirstButtonReturn;
+}
+
+void macRevealInFinder(const char* path) {
+    if (!path) return;
+    NSURL* url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
+    [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[url]];
+}
+
 } // namespace bm

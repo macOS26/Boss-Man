@@ -1,5 +1,6 @@
 #include "BossController.hpp"
 #include "SoundManager.hpp"
+#include "TextLabel.hpp"
 #include <cstdlib>
 #include <algorithm>
 #include <cmath>
@@ -20,7 +21,7 @@ void BossController::spawn(int level, const GridMap& map, const Pathfinder& pf,
                            const std::vector<std::pair<int, GridPos>>& overrides) {
     clear();
     currentLevel = level;
-    currentOverrides = overrides; // remember map spawns so respawns keep their home
+    currentSpawnOverrides_ = overrides; // remembered for mid-level resets
     bool isMIB = (level % 12 == 0);
 
     auto createBoss = [&](int bpIdx, GridPos spawnPos) {
@@ -75,27 +76,45 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
     for (int i = 0; i < (int)entities.size(); ++i) {
         auto& boss = entities[i];
 
-        // Capture animation (scale up + fade out, then teleport to spawn)
+        // Capture phase 1: scale up + fade out where the boss was caught (0.25s),
+        // then snap to its spawn (still invisible) and start the reappear phase.
         if (boss.isCaptured) {
             boss.captureAnimTimer -= dt;
-            float t = 1.0f - (boss.captureAnimTimer / 0.25f);
-            boss.captureScale = 1.0f + 0.6f * t;
-            boss.captureAlpha = 1.0f - t;
+            float t = std::clamp(1.0f - boss.captureAnimTimer / 0.25f, 0.0f, 1.0f);
+            boss.captureScale = 1.0f + 0.6f * t; // 1.0 -> 1.6
+            boss.captureAlpha = 1.0f - t;        // 1 -> 0
             if (boss.captureAnimTimer <= 0) {
                 boss.isCaptured = false;
-                boss.captureScale = 1.0f;
-                boss.captureAlpha = 1.0f;
-                // Teleport back to spawn
-                bool hasEscaped = boss.captureCount >= 3;
                 boss.ai.teleport(boss.spawn);
                 boss.grid = boss.spawn;
                 boss.pixelPos = map.pointFor(boss.spawn);
-                if (hasEscaped) {
+                if (boss.captureCount >= 3) {
+                    // Escaped — stays gone until gold-disc mode ends, then respawns.
                     boss.isActive = false;
                     boss.respawnTimer = 999.0f;
+                    boss.captureScale = 1.0f;
+                    boss.captureAlpha = 1.0f;
                 } else {
-                    applySpawnFreeze(i);
+                    boss.captureReturning = true;
+                    boss.captureAnimTimer = 0.2f;
                 }
+            }
+            continue;
+        }
+
+        // Capture phase 2: reappear at spawn — scale 1.6 -> 1.0 + fade in (0.2s),
+        // then resume immediately (no spawn freeze, matching SpriteKit).
+        if (boss.captureReturning) {
+            boss.captureAnimTimer -= dt;
+            float t = std::clamp(1.0f - boss.captureAnimTimer / 0.2f, 0.0f, 1.0f);
+            boss.captureScale = 1.6f - 0.6f * t; // 1.6 -> 1.0
+            boss.captureAlpha = t;               // 0 -> 1
+            if (boss.captureAnimTimer <= 0) {
+                boss.captureReturning = false;
+                boss.captureScale = 1.0f;
+                boss.captureAlpha = 1.0f;
+                boss.fadeInAlpha = 1.0f;
+                boss.isImmobilized = false;
             }
             continue;
         }
@@ -132,16 +151,17 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
         // Post-spawn throb pulse
         if (boss.throbTimer > 0.0f) boss.throbTimer -= dt;
 
-        // Movement
+        // Movement. stepOne sets the step's timer/duration itself (longer in
+        // tunnels), so we must NOT overwrite moveTimer here.
         boss.moveTimer -= dt;
         if (boss.moveTimer <= 0) {
             stepOne(i, map, pf, workerGrid, workerDir, isGoldDiscMode, isPeteShielded);
-            boss.moveTimer = boss.moveInterval;
         }
 
-        // Interpolate position
+        // Interpolate over the current step's animation duration. The boss is
+        // idle while moveTimer > stepDuration (the gap between steps), then glides.
         if (boss.isMoving) {
-            float t = 1.0f - (boss.moveTimer / boss.moveDuration);
+            float t = 1.0f - (boss.moveTimer / boss.stepDuration);
             t = std::clamp(t, 0.0f, 1.0f);
             boss.pixelPos = boss.startPos + (boss.targetPos - boss.startPos) * t;
             boss.walkPhase += dt;
@@ -154,22 +174,37 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
                              bool isGoldDiscMode, bool isPeteShielded) {
     auto& boss = entities[index];
 
+    // Just finished sliding onto a tunnel doorway? Cross to the partner door now
+    // (instant), then force an exit on this step so we don't ping-pong back.
+    if (boss.arrivedAtDoorway && !boss.mustExitDoorway) {
+        boss.arrivedAtDoorway = false;
+        GridPos partner = map.tunnelPartner(boss.grid);
+        if (partner.x >= 0 && map.isWalkable(partner)) {
+            boss.ai.teleport(partner);
+            boss.grid = partner;
+            boss.pixelPos = map.pointFor(partner);
+            boss.mustExitDoorway = true;
+        }
+    }
+
     BossAI::Move move;
     if (boss.mustExitDoorway) {
-        // Force exit from tunnel doorway
+        // Force exit from tunnel doorway to a non-doorway neighbor.
         int dx[] = {1,-1,0,0}, dy[] = {0,0,1,-1};
         bool found = false;
         for (int i = 0; i < 4; ++i) {
             GridPos next = {boss.grid.x+dx[i], boss.grid.y+dy[i]};
             if (map.isWalkable(next) && map.tunnelPartner(next).x < 0) {
                 move = {boss.grid, next};
-                boss.grid = next;
+                boss.ai.teleport(next); // keep the AI's grid in sync with the exit,
+                                        // else the next step is planned from the
+                                        // doorway and the boss snaps back in.
                 boss.mustExitDoorway = false;
                 found = true;
                 break;
             }
         }
-        if (!found) return;
+        if (!found) { boss.mustExitDoorway = false; return; }
     } else {
         move = boss.ai.planNextStep(workerGrid, workerDir, firstBossGrid(), isGoldDiscMode);
     }
@@ -184,21 +219,31 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         boss.lookDir = mdy > 0 ? MoveDirection::Up : MoveDirection::Down;
     }
 
-    // Check if this is a tunnel teleport
+    const float idleGap = boss.moveInterval - boss.moveDuration; // pause between steps
+
+    // A partner-edge move (the AI picked the far doorway directly) is an instant
+    // teleport with no glide.
     bool isPartnerEdge = abs(move.to.x - move.from.x) + abs(move.to.y - move.from.y) > 1;
     if (isPartnerEdge) {
         boss.pixelPos = map.pointFor(move.to);
         boss.grid = move.to;
         boss.isMoving = false;
+        boss.arrivedAtDoorway = false;
+        boss.stepDuration = boss.moveDuration;
+        boss.moveTimer = boss.moveInterval;
     } else {
         boss.isMoving = true;
         boss.startPos = map.pointFor(move.from);
         boss.targetPos = map.pointFor(move.to);
         boss.grid = move.to;
-        float stepDur = boss.moveDuration;
+        // Moves that touch a doorway glide at half speed (x2 duration), like SpriteKit.
+        float anim = boss.moveDuration;
         if (map.hasTunnelPartner(move.from) || map.hasTunnelPartner(move.to))
-            stepDur *= 2.0f;
-        boss.moveTimer = stepDur;
+            anim *= 2.0f;
+        boss.stepDuration = anim;
+        boss.moveTimer = anim + idleGap; // total step time = glide + idle pause
+        // If we just slid ONTO a doorway, mark it so the next step crosses over.
+        boss.arrivedAtDoorway = (map.tunnelPartner(move.to).x >= 0);
     }
 
     // Check worker collision
@@ -221,11 +266,11 @@ void BossController::draw(sf::RenderTarget& target) {
     }
 
     for (auto& boss : entities) {
-        if (!boss.isActive && !boss.isCaptured) continue;
+        if (!boss.isActive && !boss.isCaptured && !boss.captureReturning) continue;
         bool facingLeft = boss.facingLeft;
         float alpha = boss.fadeInAlpha;
         if (boss.isImmobilized) alpha = boss.fadeInAlpha;
-        if (boss.isCaptured) alpha = boss.captureAlpha;
+        if (boss.isCaptured || boss.captureReturning) alpha = boss.captureAlpha;
 
         float scale = boss.captureScale;
         if (boss.throbTimer > 0.0f) {
@@ -236,18 +281,15 @@ void BossController::draw(sf::RenderTarget& target) {
         boss.renderer.draw(target, boss.pixelPos, facingLeft, boss.isMoving,
                           boss.lookDir, boss.walkPhase, alpha, scale);
 
-        // Name tag (centered like SpriteKit SKLabelNode)
+        // Name tag: SpriteKit SKLabelNode, Menlo-Bold 9, baseline 24 above center.
+        // White normally; in flee mode it shows the next capture value in yellow.
+        // Rendered via the crisp uiScale text path (was raw 9px before).
         int nextCapturePts = 100 * (captureStreak + 1);
         std::string tagText = (boss.isInFleeMode) ? std::to_string(nextCapturePts) : boss.name;
-        sf::Text nameTag;
-        nameTag.setFont(font);
-        nameTag.setString(tagText);
-        nameTag.setCharacterSize(9);
-        nameTag.setFillColor(boss.isInFleeMode ? PixelPersonRenderer::toSfColor(YELLOW) : sf::Color::White);
-        auto lb = nameTag.getLocalBounds();
-        nameTag.setOrigin(lb.left + lb.width/2, lb.top + lb.height/2);
-        nameTag.setPosition(boss.pixelPos.x, boss.pixelPos.y - 24);
-        target.draw(nameTag);
+        sf::Color tagColor = boss.isInFleeMode ? PixelPersonRenderer::toSfColor(YELLOW)
+                                               : sf::Color::White;
+        drawNameLabel(target, font, tagText, 9, tagColor,
+                      boss.pixelPos.x, boss.pixelPos.y - 24);
     }
 }
 
@@ -272,8 +314,9 @@ void BossController::setGoldDiscActive(bool active) {
 }
 
 void BossController::teleportAllToSpawn(const GridMap& map, const Pathfinder& pf) {
-    auto overrides = currentOverrides; // keep the level's map spawns (don't fall back to blueprints)
-    spawn(currentLevel, map, pf, overrides);
+    // Re-spawn from the level's boss tiles (not empty overrides), so every boss —
+    // including any that had escaped — returns to its level home right away.
+    spawn(currentLevel, map, pf, currentSpawnOverrides_);
 }
 
 void BossController::clear() {
@@ -297,6 +340,7 @@ bool BossController::isImmobilized(int index) const {
 
 void BossController::capture(int index, const GridMap& map) {
     auto& boss = entities[index];
+    if (boss.isCaptured || boss.captureReturning) return; // already animating a capture
     captureStreak++;
     boss.captureCount++;
     boss.isCaptured = true;
@@ -330,6 +374,7 @@ void BossController::relocateToSpawn(int index, const GridMap& map) {
     boss.captureCount = 0;
     boss.isInFleeMode = false;
     boss.mustExitDoorway = false;
+    boss.arrivedAtDoorway = false;
     boss.isMoving = false;
 }
 

@@ -95,12 +95,17 @@ inline const std::unordered_map<char, std::string>& MACHINE_NAMES_BY_TILE() {
     return m;
 }
 
-// Boss names
+// Boss names. These are compile-time string literals (not std::string) on
+// purpose: BOSS_BLUEPRINTS below is an inline global whose dynamic initialization
+// can run before namespace-scope std::string constants are constructed (the same
+// static-init-order trap documented for MACHINE_NAMES_BY_TILE). Copying a
+// const char* literal into BossBlueprint::name has no such ordering dependency,
+// so the boss name tags are never empty.
 namespace Boss {
-    const std::string BILL = "BILL";
-    const std::string DOM  = "DOM";
-    const std::string BOB  = "BOB";
-    const std::string STAN = "STAN";
+    inline constexpr const char* BILL = "BILL";
+    inline constexpr const char* DOM  = "DOM";
+    inline constexpr const char* BOB  = "BOB";
+    inline constexpr const char* STAN = "STAN";
 }
 
 // Worker

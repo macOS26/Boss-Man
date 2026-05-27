@@ -63,6 +63,8 @@ set(SOURCES
     src/PixelPersonRenderer.cpp
     src/EmojiText.cpp
     src/TitleScreen.cpp
+    src/LevelStore.cpp
+    src/LevelEditor.cpp
     src/HUDRenderer.cpp
     src/ScorePopup.cpp
     src/PhysicsWorld.cpp
