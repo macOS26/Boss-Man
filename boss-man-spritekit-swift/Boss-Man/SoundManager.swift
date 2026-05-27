@@ -18,36 +18,41 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let speech = AVSpeechSynthesizer()
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
 
+    // Voice priority. Gender is NOT a filter — female voices are ranked last, not
+    // excluded. We walk Strings.Speech.preferredVoiceNames in order (list order =
+    // priority), preferring en-US over other English variants. The robotic /
+    // novelty voices are still excluded by name.
     private static func pickBossVoice() -> AVSpeechSynthesisVoice? {
-        let all = AVSpeechSynthesisVoice.speechVoices()
         let robotic = Strings.Speech.roboticVoiceNames
-        let usable = all.filter {
+        let usable = AVSpeechSynthesisVoice.speechVoices().filter {
             let n = $0.name.lowercased()
             return !robotic.contains(where: { n.contains($0) })
         }
-        let americanMale = usable.filter { $0.language == Strings.Speech.usEnglish && $0.gender == .male }
-        let englishMale  = usable.filter { $0.language.hasPrefix(Strings.Speech.englishPrefix) && $0.gender == .male }
+        let nonFemale = usable.filter { $0.gender != .female }
+        let female    = usable.filter { $0.gender == .female }
+        func usOnly(_ a: [AVSpeechSynthesisVoice]) -> [AVSpeechSynthesisVoice] { a.filter { $0.language == Strings.Speech.usEnglish } }
+        func anyEn(_ a: [AVSpeechSynthesisVoice])  -> [AVSpeechSynthesisVoice] { a.filter { $0.language.hasPrefix(Strings.Speech.englishPrefix) } }
 
-        if let v = americanMale.first(where: { $0.quality == .premium && SoundManager.looksdomLike($0) }) { return v }
-        if let v = americanMale.first(where: { $0.quality == .premium }) { return v }
-        if let v = americanMale.first(where: { $0.quality == .enhanced && SoundManager.looksdomLike($0) }) { return v }
-        if let v = americanMale.first(where: { $0.quality == .enhanced }) { return v }
-
-        if let v = americanMale.first(where: { SoundManager.looksdomLike($0) }) { return v }
-        if let v = americanMale.first { return v }
-
-        if let v = englishMale.first(where: { $0.quality == .premium }) { return v }
-        if let v = englishMale.first(where: { $0.quality == .enhanced }) { return v }
-        if let v = englishMale.first { return v }
-
-        return AVSpeechSynthesisVoice(language: Strings.Speech.usEnglish)
+        // en-US non-female → any-English non-female → female (US, then any English).
+        return bestVoice(in: usOnly(nonFemale))
+            ?? bestVoice(in: anyEn(nonFemale))
+            ?? bestVoice(in: usOnly(female))
+            ?? bestVoice(in: anyEn(female))
+            ?? AVSpeechSynthesisVoice(language: Strings.Speech.usEnglish)
     }
 
-    private static func looksdomLike(_ v: AVSpeechSynthesisVoice) -> Bool {
-        let id = v.identifier.lowercased()
-        let name = v.name.lowercased()
-        let preferred = Strings.Speech.preferredMaleVoiceNames
-        return preferred.contains(where: { id.contains($0) || name.contains($0) })
+    // Walks the preferred-name list in order; for each name returns the highest-
+    // quality matching voice in the pool, else the best-quality voice in the pool.
+    private static func bestVoice(in pool: [AVSpeechSynthesisVoice]) -> AVSpeechSynthesisVoice? {
+        for name in Strings.Speech.preferredVoiceNames {
+            let m = pool.filter { $0.identifier.lowercased().contains(name) || $0.name.lowercased().contains(name) }
+            if let v = m.first(where: { $0.quality == .premium })
+                    ?? m.first(where: { $0.quality == .enhanced })
+                    ?? m.first { return v }
+        }
+        return pool.first(where: { $0.quality == .premium })
+            ?? pool.first(where: { $0.quality == .enhanced })
+            ?? pool.first
     }
 
     private var bossCaptureLines: [String] { Strings.Speech.bossCaptureLines }
@@ -806,11 +811,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         lastSpeechTime = now
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.70
-        utterance.volume = 0.9
-        utterance.pitchMultiplier = 0.80
-        utterance.preUtteranceDelay = 0.05
-        utterance.postUtteranceDelay = 0.06
         if priority { speech.stopSpeaking(at: .immediate) }
         speech.speak(utterance)
     }

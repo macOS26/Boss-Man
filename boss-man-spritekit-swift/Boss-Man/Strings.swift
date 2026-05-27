@@ -264,12 +264,19 @@ enum Strings {
         static let usEnglish = "en-US"
         static let englishPrefix = "en"
         static let roboticVoiceNames = [
-            "fred", "ralph", "bahh", "bells", "boing", "bubbles",
+            "bahh", "bells", "boing", "bubbles",
             "cellos", "deranged", "good news", "hysterical",
-            "pipe organ", "trinoids", "whisper", "zarvox"
+            "pipe organ", "trinoids", "whisper", "zarvox", "albert", "eddy"
         ]
-        static let preferredMaleVoiceNames = [
-            "reed", "rocco", "tom", "aaron", "alex", "evan", "daniel"
+        // Ordered voice preference (list order = priority). Gender is no longer a
+        // filter — female voices are ranked last by the picker, not excluded.
+        // All male-sounding, non-robotic English voices, US-region first then GB.
+        // (The shared Eloquence names — reed/rocko/eddy/grandpa — exist in both
+        // en-US and en-GB; the picker tries the en-US pool first, so US wins.
+        // Daniel is GB-only, so it naturally falls to the GB tier.)
+        static let preferredVoiceNames = [
+            "rocko", "ralph", "fred", "reed", "grandpa", "junior", // US
+            "daniel"                                      // GB
         ]
         static let caughtFallback   = "Ohh, yeah."
         static let fishFallback     = "Mmm, yeah."
