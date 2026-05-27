@@ -2,3 +2,6 @@
 *.wasm
 *.o
 *.a
+.build/
+example/**/web/manifest.json
+objs/

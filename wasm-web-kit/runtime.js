@@ -192,6 +192,9 @@ class Runtime {
         return 0;
       },
       args_get: () => 0,
+      // No virtual filesystem: opening any path fails with ENOENT(44). The Swift
+      // runtime references path_open but does not actually open files here.
+      path_open: () => 44,
       clock_time_get: (_id, _precision, timePtr) => {
         const ns = BigInt(Math.round(performance.now() * 1e6));
         this.dv().setBigUint64(timePtr, ns, true);

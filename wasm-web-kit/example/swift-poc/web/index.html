@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Swift → wasm POC</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0b0f;color:#ccc;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;gap:10px}
+  #game{width:min(92vw,calc(92vh*1184/666));aspect-ratio:1184/666;background:#000;border-radius:6px;object-fit:contain}
+  #h{font-size:12px;opacity:.6}
+</style></head>
+<body>
+  <canvas id="game" width="1184" height="666"></canvas>
+  <div id="h">Swift compiled to WebAssembly (no Emscripten) · drawn through wasm-web-kit</div>
+  <script>
+    window.WASMWEB = { logicalWidth:1184, logicalHeight:666, wasmUrl:'poc.wasm', assetRoot:'.', title:'Swift → wasm POC' };
+  </script>
+  <script src="runtime.js"></script>
+</body></html>

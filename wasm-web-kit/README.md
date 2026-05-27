@@ -101,3 +101,23 @@ to a WebAudio buffer.
 [`../boss-man-web`](../boss-man-web) builds BOSS-MAN (Box2D + SFML 2.6, ~60 source
 files) to the web through this kit — its `build-web.sh` and `web/index.html` are a
 complete worked example.
+
+## Beyond C/C++: Swift (and other LLVM languages)
+
+The kit is not C/C++-only — anything that compiles to `wasm32-wasip1` can use it.
+`example/swift-poc/` is a **working Swift proof** (built with the swift.org
+WebAssembly SDK via `swiftly`, no Emscripten):
+
+- Swift imports the `env` ABI through a tiny C header (`__attribute__((import_module("env")))`)
+  and exports `boot`/`frame` via `@_cdecl` + `-Xlinker --export=…`, built as a
+  WASI **reactor** (`-Xclang-linker -mexec-model=reactor`). It runs through the
+  unmodified `runtime.js`.
+- It also **links Box2D (C++) into the same module** and steps a physics world
+  from Swift — the box falls under gravity in the browser. The trick: compile the
+  C++ with the **Swift toolchain's own clang against the WebAssembly SDK sysroot**
+  (not a separate WASI SDK), so there's a single libc++ and the objects link cleanly.
+
+This is the foundation for porting Swift/SpriteKit-style games: the language and
+physics work today; a SpriteKit-on-web port would add a Swift `SKNode`/`SKAction`
+compat layer on this same ABI (the scene-graph + actions are the real work — the
+physics maps onto Box2D as shown).
