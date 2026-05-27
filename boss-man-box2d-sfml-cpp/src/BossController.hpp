@@ -23,7 +23,8 @@ struct BossEntity {
     float moveInterval;
     float moveDuration;
     float moveTimer = 0.0f;
-    float stepDuration = 0.0f;       // animation time of the current step (x2 in tunnels)
+    float stepDuration = 0.0f;       // glide time of the current step (x2 in tunnels)
+    float stepTotal = 0.0f;          // glide + idle pause; the full step period
     bool arrivedAtDoorway = false;   // just slid onto a tunnel doorway; cross next step
     GridPos grid;
     sf::Vector2f pixelPos;

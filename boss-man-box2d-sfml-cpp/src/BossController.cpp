@@ -159,13 +159,15 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
             stepOne(i, map, pf, workerGrid, workerDir, isGoldDiscMode, isPeteShielded);
         }
 
-        // Interpolate over the current step's animation duration. The boss is
-        // idle while moveTimer > stepDuration (the gap between steps), then glides.
+        // Glide first, then rest — matching SpriteKit, which runs the SKAction.move
+        // (stepDuration) immediately and only idles for the remainder of the step
+        // period. (Resting first made the boss reach each tile ~idleGap late, which
+        // read as sluggish, stuttery motion.)
         if (boss.isMoving) {
-            float t = 1.0f - (boss.moveTimer / boss.stepDuration);
-            t = std::clamp(t, 0.0f, 1.0f);
+            float elapsed = boss.stepTotal - boss.moveTimer;
+            float t = std::clamp(elapsed / boss.stepDuration, 0.0f, 1.0f);
             boss.pixelPos = boss.startPos + (boss.targetPos - boss.startPos) * t;
-            boss.walkPhase += dt;
+            if (t < 1.0f) boss.walkPhase += dt;
         }
     }
 }
@@ -232,6 +234,7 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         boss.arrivedAtDoorway = false;
         boss.stepDuration = boss.moveDuration;
         boss.moveTimer = boss.moveInterval;
+        boss.stepTotal = boss.moveInterval;
     } else {
         boss.isMoving = true;
         boss.startPos = map.pointFor(move.from);
@@ -242,7 +245,8 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         if (map.hasTunnelPartner(move.from) || map.hasTunnelPartner(move.to))
             anim *= 2.0f;
         boss.stepDuration = anim;
-        boss.moveTimer = anim + idleGap; // total step time = glide + idle pause
+        boss.stepTotal = anim + idleGap; // total step time = glide + idle pause
+        boss.moveTimer = boss.stepTotal;
         // If we just slid ONTO a doorway, mark it so the next step crosses over.
         boss.arrivedAtDoorway = (map.tunnelPartner(move.to).x >= 0);
     }
