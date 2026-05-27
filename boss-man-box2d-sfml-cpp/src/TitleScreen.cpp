@@ -50,7 +50,7 @@ void TitleScreen::ensureLoaded() {
     loaded_ = true;
     loadFont(fontWide_, "assets/fonts/MarkerFelt-Wide.ttf");
     loadFont(fontThin_, "assets/fonts/MarkerFelt-Thin.ttf");
-    staplerLoaded_ = loadTexture(stapler_, "assets/images/red-stapler.png");
+    staplerLoaded_ = loadTexturePremultiplied(stapler_, "assets/images/red-stapler.png");
     if (staplerLoaded_) stapler_.setSmooth(true);
 
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
@@ -153,7 +153,9 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sp.setRotation(3.4f);
         // SpriteKit centers the stapler sprite at height*0.46 (i.e. 0.54 from top).
         sp.setPosition(W / 2.f, H * 0.54f);
-        target.draw(sp);
+        // Premultiplied blend (texture is premultiplied) — clean edges over the
+        // yellow background instead of a gray fringe from straight-alpha scaling.
+        target.draw(sp, sf::RenderStates(sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha)));
     }
 
     // --- Blinking prompt ---

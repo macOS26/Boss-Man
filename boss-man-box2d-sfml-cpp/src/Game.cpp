@@ -16,6 +16,14 @@ Game::Game()
     window.setFramerateLimit(120);
     window.setKeyRepeatEnabled(false);
     applyLetterboxView();
+#ifndef __APPLE__
+    // Window/taskbar icon on Windows and Linux (macOS uses the .app bundle icon).
+    {
+        sf::Image icon;
+        if (loadImage(icon, "resources/icons/AppIcon.png"))
+            window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
+    }
+#endif
 #ifdef __APPLE__
     enableNativeFullscreen(window.getSystemHandle()); // green button does real fullscreen
     uiScale() = windowBackingScale(window.getSystemHandle()); // crisp text on Retina

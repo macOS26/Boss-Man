@@ -102,6 +102,12 @@ if(APPLE)
     list(APPEND SOURCES ${MACOSX_APP_ICON})
 endif()
 
+# Windows executable icon (Explorer/taskbar) via a compiled .rc resource. The
+# .rc references AppIcon.ico in the same directory.
+if(WIN32)
+    list(APPEND SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/app.rc)
+endif()
+
 add_executable(boss-man-pc ${SOURCES})
 
 if(APPLE)
@@ -148,5 +154,6 @@ cmrc_add_resource_library(bm-assets
     WHENCE "${CMAKE_CURRENT_SOURCE_DIR}"
     ${EMBEDDED_ASSETS}
     "${CMAKE_CURRENT_SOURCE_DIR}/assets/levels.json"
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/AppIcon.png"
 )
 target_link_libraries(boss-man-pc PRIVATE bm::assets)
