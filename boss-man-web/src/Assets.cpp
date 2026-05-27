@@ -7,7 +7,9 @@ namespace bm {
 // layer's loadFromFile extracts the asset key, so every loader just forwards the
 // path; runtime.js maps it to the decoded image/font/sound handle.
 
-bool assetExists(const std::string&) { return true; }
+bool assetExists(const std::string& path) {
+    return asset_exists(path.c_str(), (int)path.size()) != 0;
+}
 
 bool loadTexture(sf::Texture& tex, const std::string& path) {
     return tex.loadFromFile(path);

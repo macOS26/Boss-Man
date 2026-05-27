@@ -58,6 +58,8 @@ WABI int  img_height(int img);
 WABI int  font_by_name(const char* name, int len);
 // Reads a preloaded text asset (e.g. levels.json) into buf; returns length or -1.
 WABI int  asset_text(const char* name, int nlen, char* buf, int cap);
+// True if a preloaded asset (image/font/sound/text) is registered under name.
+WABI int  asset_exists(const char* name, int len);
 WABI int  rt_create(int w, int h);                 // offscreen target -> target handle
 WABI int  rt_image(int rt);                        // image handle backed by the RT
 

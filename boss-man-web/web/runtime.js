@@ -109,6 +109,11 @@ class Runtime {
     this.mouseDown = [false, false]; // [left, right]
     this.mouseX = 0;
     this.mouseY = 0;
+
+    // logical->backing-store transform (set by layout())
+    this.baseScale = 1;
+    this.offX = 0;
+    this.offY = 0;
     this.events = [];                // queued {type,a,b,c,d}
 
     // default font handle 0 maps to a monospace stack
@@ -213,13 +218,15 @@ class Runtime {
       },
       gfx_clear: (rgba) => {
         const c = this.ctx2d();
-        c.save();
         c.setTransform(1, 0, 0, 1, 0, 0);
         c.globalAlpha = 1;
         c.globalCompositeOperation = 'source-over';
         c.fillStyle = this.css(rgba);
         c.fillRect(0, 0, c.canvas.width, c.canvas.height);
-        c.restore();
+        // The screen target draws in logical (1184x644) coords scaled up to the
+        // hi-res backing store (crisp at any size, letterboxed). Render textures
+        // are logical-sized, so they stay at identity.
+        if (this.curTarget === 0) c.setTransform(this.baseScale, 0, 0, this.baseScale, this.offX, this.offY);
       },
       gfx_save: () => this.ctx2d().save(),
       gfx_restore: () => this.ctx2d().restore(),
@@ -342,6 +349,13 @@ class Runtime {
         const name = this.cstr(ptr, len);
         return this.lookupFont(name);
       },
+      asset_exists: (ptr, len) => {
+        const name = this.cstr(ptr, len);
+        const base = this.basename(name);
+        const has = (m) => m.has(name) || m.has(base);
+        return (has(this.soundByName) || has(this.imageByName) ||
+                has(this.fontByName) || this.texts.has(name) || this.texts.has(base)) ? 1 : 0;
+      },
       asset_text: (ptr, nlen, bufPtr, cap) => {
         const name = this.cstr(ptr, nlen);
         const s = this.texts.get(name);
@@ -460,8 +474,8 @@ class Runtime {
 
       // ---- window ----
       win_set_title: (ptr, len) => { document.title = this.cstr(ptr, len); },
-      win_width: () => this.canvas.width,
-      win_height: () => this.canvas.height,
+      win_width: () => LOGICAL_W,
+      win_height: () => LOGICAL_H,
       win_request_fullscreen: () => {
         if (this.canvas.requestFullscreen) this.canvas.requestFullscreen().catch(() => {});
       },
@@ -682,22 +696,41 @@ class Runtime {
     });
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    addEventListener('resize', () => {
-      this.events.push({ type: EVT.Resized, a: this.canvas.width, b: this.canvas.height, c: 0, d: 0 });
-    });
+    const relayout = () => {
+      this.layout();
+      this.events.push({ type: EVT.Resized, a: LOGICAL_W, b: LOGICAL_H, c: 0, d: 0 });
+    };
+    addEventListener('resize', relayout);
+    document.addEventListener('fullscreenchange', relayout);
+    document.addEventListener('webkitfullscreenchange', relayout);
     addEventListener('beforeunload', () => {
       this.events.push({ type: EVT.Closed, a: 0, b: 0, c: 0, d: 0 });
     });
   }
 
-  // Convert a mouse event's client coords to canvas-internal logical pixels.
+  // Size the canvas backing store to the displayed pixels (x devicePixelRatio)
+  // so the game, which draws in logical 1184x644, renders crisp at any window or
+  // fullscreen size. baseScale/offX/offY letterbox logical space into the store.
+  layout() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = this.canvas.getBoundingClientRect();
+    const W = Math.max(1, Math.round((rect.width || LOGICAL_W) * dpr));
+    const H = Math.max(1, Math.round((rect.height || LOGICAL_H) * dpr));
+    if (this.canvas.width !== W) this.canvas.width = W;
+    if (this.canvas.height !== H) this.canvas.height = H;
+    this.baseScale = Math.min(W / LOGICAL_W, H / LOGICAL_H);
+    this.offX = (W - LOGICAL_W * this.baseScale) / 2;
+    this.offY = (H - LOGICAL_H * this.baseScale) / 2;
+  }
+
+  // Convert a mouse event's client coords to logical game pixels.
   toLogical(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const sx = this.canvas.width / rect.width;
-    const sy = this.canvas.height / rect.height;
+    const bx = (e.clientX - rect.left) / rect.width * this.canvas.width;
+    const by = (e.clientY - rect.top) / rect.height * this.canvas.height;
     return {
-      x: Math.round((e.clientX - rect.left) * sx),
-      y: Math.round((e.clientY - rect.top) * sy),
+      x: Math.round((bx - this.offX) / this.baseScale),
+      y: Math.round((by - this.offY) / this.baseScale),
     };
   }
 
@@ -711,6 +744,8 @@ class Runtime {
     const { instance } = await WebAssembly.instantiateStreaming(fetch(url), imports);
     this.exports = instance.exports;
     this.wasmMemory = this.exports.memory;
+
+    this.layout();                // hi-res backing store before the first frame
 
     this.exports._initialize();   // libc/libc++ init + global ctors
     this.exports.boot();
