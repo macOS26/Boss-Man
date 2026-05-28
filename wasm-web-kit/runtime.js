@@ -153,10 +153,22 @@ class Runtime {
     this._ttsRobotic = [];
     this._ttsFemale = [];
     this._ttsVoice = null;
+    this._ttsPending = [];
     if (typeof speechSynthesis !== 'undefined') {
-      // Voices populate asynchronously on some browsers; reset cache
-      // whenever the list changes so the next speak() repicks.
-      speechSynthesis.onvoiceschanged = () => { this._ttsVoice = null; };
+      // Kick the voice list — Chrome only populates on first access.
+      speechSynthesis.getVoices();
+      // Voices populate asynchronously on every browser; reset cache and
+      // flush any utterances that were queued while it was still empty.
+      speechSynthesis.onvoiceschanged = () => {
+        this._ttsVoice = null;
+        const v = this._pickTTSVoice();
+        if (!v || !this._ttsPending.length) return;
+        const pending = this._ttsPending; this._ttsPending = [];
+        for (const u of pending) {
+          u.voice = v;
+          try { speechSynthesis.speak(u); } catch (_e) {}
+        }
+      };
     }
 
     // ---- handle tables (1-based; 0 means "not loaded/none") ----
@@ -668,8 +680,16 @@ class Runtime {
         u.pitch  = Math.max(0,   Math.min(pitch  || 1.0, 2));
         u.volume = Math.max(0,   Math.min(volume || 1.0, 1));
         const v = this._pickTTSVoice();
-        if (v) u.voice = v;
-        try { speechSynthesis.speak(u); return 1; } catch (_e) { return 0; }
+        if (v) {
+          u.voice = v;
+          try { speechSynthesis.speak(u); return 1; } catch (_e) { return 0; }
+        }
+        // Voices aren't loaded yet — speaking now would fall through to
+        // the browser default (often Samantha / female), which is why
+        // bossman-web's first "Welcome back" line came out wrong.
+        // Queue the utterance and drain when onvoiceschanged fires.
+        this._ttsPending.push(u);
+        return 1;
       },
       tts_cancel: () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
 

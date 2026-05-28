@@ -30,7 +30,6 @@ final class SoundManager {
 
     // Round-robin indices so we don't repeat the same line back-to-back.
     private var lastIndex: [String: Int] = [:]
-    private nonisolated(unsafe) static var rng: UInt64 = 0xDEADBEEFCAFEBABE
 
     // MARK: - Lifecycle
 
@@ -49,7 +48,7 @@ final class SoundManager {
         //   fred     Apple's robotic-deep voice (last resort).
         //   reed     Eloquence reed voice (occasionally exposed).
         //   "google us english"  Chrome's default US-male variant.
-        let preferred = "alex,rocko,ralph,daniel,david,mark,fred,reed,grandpa,junior,google us english"
+        let preferred = "rocko,alex,ralph,daniel,david,mark,fred,reed,grandpa,junior,google us english"
         let robotic   = "bahh,bells,boing,bubbles,cellos,deranged,good news,hysterical,pipe organ,trinoids,whisper,zarvox,albert,eddy"
         // Common female-voice name fragments across Apple, Microsoft, and
         // Google Web Speech pools. The picker tries male voices first
@@ -188,10 +187,13 @@ final class SoundManager {
     }
 
     private func randIndex(in count: Int) -> Int {
-        // xorshift64 — deterministic-ish for tests, no Foundation dependency.
-        var x = Self.rng
-        x ^= x << 13; x ^= x >> 7; x ^= x << 17
-        Self.rng = x
-        return Int(x % UInt64(max(count, 1)))
+        // Int.random uses SystemRandomNumberGenerator, which on wasi-libc
+        // dispatches to random_get -> crypto.getRandomValues in the kit's
+        // runtime — real entropy, different on every load. The previous
+        // xorshift seed was a constant, so the *first* speak after a fresh
+        // page load always picked the same line (which is why "Welcome
+        // back" played every game start).
+        guard count > 0 else { return 0 }
+        return Int.random(in: 0..<count)
     }
 }
