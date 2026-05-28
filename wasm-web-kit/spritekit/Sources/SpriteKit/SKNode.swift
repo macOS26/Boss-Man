@@ -15,7 +15,20 @@ open class SKNode {
     public private(set) var children: [SKNode] = []
 
     public var userData: [String: Any]? = nil
-    public var physicsBody: SKPhysicsBody? { didSet { physicsBody?.node = self } }
+    public var physicsBody: SKPhysicsBody? {
+        didSet {
+            // Apple SpriteKit removes the old body from the simulation when
+            // physicsBody is reassigned or set to nil. Mirror that: destroy
+            // the previous Box2D body so it stops colliding and stops being
+            // drawn by the showsPhysics overlay (the orphaned-fish bug).
+            if oldValue !== physicsBody, let old = oldValue, old.bodyId >= 0 {
+                cb_remove_body(old.bodyId)
+                SKPhysicsWorld.registry.removeValue(forKey: old.bodyId)
+                old.bodyId = -1
+            }
+            physicsBody?.node = self
+        }
+    }
     public var speed: CGFloat = 1
     public var isPaused = false
     public var constraints: [SKConstraint]? = nil  // applied after stepActions, before render
