@@ -109,6 +109,9 @@ final class GameScene: SKScene {
         }
         return .zero
     }
+    // Pete-spawn falls through to firstWalkableCell which skips hideouts —
+    // we want Pete to start in the open, not in a corner alcove.
+
 
     // Convert a grid cell to a scene-space coordinate (including the maze
     // root's horizontal offset that centres the maze in the scene).

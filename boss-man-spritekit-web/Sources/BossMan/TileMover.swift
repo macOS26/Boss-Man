@@ -58,7 +58,7 @@ final class TileMover {
     func canStep(_ d: MoveDirection) -> Bool {
         guard let map = map else { return false }
         let n = tileAfter(from: grid, in: d)
-        return map.isWalkable(n) && !map.isHideout(n)
+        return map.isWalkable(n)
     }
 
     func advance(_ dt: TimeInterval,
@@ -73,7 +73,7 @@ final class TileMover {
                 guard let d = decide(self) else { dir = nil; return }
                 dir = d
                 let next = tileAfter(from: grid, in: d)
-                guard map.isWalkable(next) && !map.isHideout(next) else { return }
+                guard map.isWalkable(next) else { return }
                 // Tunnel wrap: snap to the far mouth instead of interpolating
                 // across the maze.
                 if abs(Int(next.x - grid.x)) > 1 || abs(Int(next.y - grid.y)) > 1 {

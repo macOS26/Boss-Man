@@ -65,15 +65,14 @@ enum SpriteFactory {
         return node
     }
 
-    // Pac-style pellet: yellow disc with a white stroke. Matches the macOS
-    // pellet texture (an oval inset inside a 24×24 rect with a 2-wide white
-    // stroke) so the maze reads the same across both editions.
-    static func dotVisual(radius: CGFloat) -> SKShapeNode {
-        let n = SKShapeNode(circleOfRadius: radius)
-        n.fillColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1)
-        n.strokeColor = .white
-        n.lineWidth = 2
-        n.isAntialiased = true
+    // The basic field dot: a tiny yellow SQUARE (6×6 in the macOS edition,
+    // baked into the tilemap texture). No stroke, no halo — these are the
+    // pellets Pete sweeps up by walking over them.
+    static func dotVisual(size: CGFloat = 6) -> SKShapeNode {
+        let n = SKShapeNode(rectOf: CGSize(width: size, height: size))
+        n.fillColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1)   // systemYellow
+        n.strokeColor = .clear
+        n.isAntialiased = false
         return n
     }
 
@@ -117,9 +116,11 @@ enum SpriteFactory {
         stroke.isAntialiased = false
         n.addChild(stroke)
 
-        // Trim band, ~4px tall, positioned 6px above the tile centre.
+        // Trim band, ~4px tall, top of the cubicle panel. macOS reference:
+        //   y = rect.minY + tile/2 + 6,  height = 4
+        // which is y in [6, 10] relative to a tile centred at origin.
         let trimWidth = size - 10
-        let trimRect = CGRect(x: -trimWidth / 2, y: 6 - 2,
+        let trimRect = CGRect(x: -trimWidth / 2, y: 6,
                               width: trimWidth, height: 4)
         let trim = SKShapeNode(rect: trimRect)
         trim.fillColor = wallTrimColor

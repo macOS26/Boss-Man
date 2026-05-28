@@ -168,7 +168,7 @@ final class MazeBuilder {
 
 
     private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {
-        let dot = SpriteFactory.dotVisual(radius: map.tileSize * 0.18)
+        let dot = SpriteFactory.dotVisual()
         dot.position = position
         dot.zPosition = 1
         scene.addChild(dot)
