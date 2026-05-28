@@ -458,10 +458,21 @@ final class GameScene: SKScene {
         }
         hud.flash("OUCH!")
         contactCooldown = 1.2
-        // bossman-apple: the catching boss fades to alpha=0 and snaps
-        // straight to its spawn (no freeze pulse). Pete respawns at his
-        // own spawn with a 3s spawn-shield blink.
+        // bossman-apple bossCaughtWorker flow: every boss is sent home
+        // and runs the full applySpawnFreeze sequence (1.5s fade-in +
+        // 2s immobilized + 3 throb pulses). The boss that actually
+        // touched Pete additionally has its alpha snapped to 0 first
+        // via relocateAfterCatch so Pete can't get re-tagged on the
+        // same contact frame.
         catcher?.relocateAfterCatch()
+        for b in bosses { b.respawnAfterPeteCaught() }
+        // Apple also ends a gold-disc window early on a catch and
+        // bails out of any in-progress capture streak.
+        if frightenSecondsLeft > 0 {
+            frightenSecondsLeft = 0
+            for b in bosses { b.setFrightened(false) }
+            captureStreak = 0
+        }
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
         applyPeteSpawnShield()

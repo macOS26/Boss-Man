@@ -126,9 +126,12 @@ final class BossController {
         ]))
     }
 
-    // bossman-apple: relocateAfterCatch(boss:) — boss caught Pete in
-    // normal mode. Sprite goes alpha=0, snaps home, then fades back in
-    // (no spawn-freeze pulse). Pete respawn is handled by GameScene.
+    // bossman-apple: relocateAfterCatch(boss:) — the boss that actually
+    // touched Pete goes alpha=0 and snaps to its home tile so Pete can't
+    // be caught twice on the same contact. The full spawn-freeze + throb
+    // animation that applies to EVERY boss when Pete is caught is run
+    // separately via respawnAfterPeteCaught() below, mirroring apple's
+    // bossCaughtWorker -> teleportAllToSpawn -> createAndFreeze chain.
     //
     // Source: boss-man-spritekit-swift/Boss-Man/BossController.swift:320 +
     //         GameScene.swift:201-204.
@@ -139,7 +142,24 @@ final class BossController {
         sprite.position = homePoint
         resetToSpawn()
         setFrightened(false)
-        sprite.run(.fadeIn(withDuration: 0.8))
+    }
+
+    // bossman-apple: when Pete is caught, GameScene.bossCaughtWorker
+    // calls bossController.teleportAllToSpawn(), which re-runs
+    // createAndFreeze on every entity — and createAndFreeze ends with
+    // applySpawnFreeze, the 1.5s fade-in + 2s immobilized + 3-pulse
+    // throb animation. The boss does NOT chase Pete again until the
+    // throb sequence completes, giving Pete a clean respawn window.
+    //
+    // Source: boss-man-spritekit-swift/Boss-Man/BossController.swift:117-133
+    //         (createAndFreeze) + 261-263 (teleportAllToSpawn) + 224-250
+    //         (applySpawnFreeze).
+    func respawnAfterPeteCaught() {
+        sprite.removeAllActions()
+        sprite.position = mover.centre(of: homeGrid)
+        resetToSpawn()
+        setFrightened(false)
+        applySpawnFreeze()
     }
 
     // bossman-apple: splash(boss:) — water droplet hit. Boss disappears
