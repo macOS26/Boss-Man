@@ -4,12 +4,14 @@ on:
   push:
     paths:
       - 'wasm-web-kit/**'
-      - 'boss-man-spritekit-web/**'
+      - 'Boss-Man-SpriteKit/**'
+      - 'boss-man-spritekit-web-simple/**'
       - '.github/workflows/spritekit.yml'
   pull_request:
     paths:
       - 'wasm-web-kit/**'
-      - 'boss-man-spritekit-web/**'
+      - 'Boss-Man-SpriteKit/**'
+      - 'boss-man-spritekit-web-simple/**'
       - '.github/workflows/spritekit.yml'
   workflow_dispatch: {}
 
@@ -20,50 +22,70 @@ jobs:
     env:
       SWIFT_VERSION: 6.3.2
       WASM_SDK: swift-6.3.2-RELEASE_wasm
+      TOOLCHAIN_ID: org.swift.632202510210a   # swiftorg toolchain identifier
 
     steps:
       - uses: actions/checkout@v4
 
-      # Install swift.org Swift via swiftly (clean managed toolchain).
-      - name: Install swiftly + Swift ${{ env.SWIFT_VERSION }}
+      # Install Swift 6.3.2 directly from swift.org via the official .pkg.
+      # The previous swiftly install URL went dead (returns an HTML 404), so
+      # we go straight to the signed Apple installer. The pkg drops the
+      # toolchain into ~/Library/Developer/Toolchains; TOOLCHAINS picks it
+      # up by bundle identifier.
+      - name: Install Swift ${{ env.SWIFT_VERSION }} toolchain
         run: |
-          curl -L https://swift-server.github.io/swiftly/swiftly-install.sh | bash -s -- -y
-          source $HOME/.swiftly/env.sh || true
-          swiftly install ${SWIFT_VERSION}
-          swiftly use ${SWIFT_VERSION}
+          set -euo pipefail
+          PKG="swift-${SWIFT_VERSION}-RELEASE-osx.pkg"
+          URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/xcode/swift-${SWIFT_VERSION}-RELEASE/${PKG}"
+          curl -fL --retry 3 -o "/tmp/${PKG}" "$URL"
+          installer -pkg "/tmp/${PKG}" -target CurrentUserHomeDirectory
+          ls ~/Library/Developer/Toolchains
+          # Resolve the actual bundle id from the installed Info.plist so we
+          # don't have to hardcode the dotted snapshot suffix.
+          TC_DIR=$(ls -d ~/Library/Developer/Toolchains/swift-${SWIFT_VERSION}-RELEASE*.xctoolchain | head -1)
+          TC_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$TC_DIR/Info.plist")
+          echo "Resolved toolchain id: $TC_ID"
+          echo "TOOLCHAINS=$TC_ID" >> $GITHUB_ENV
 
-      # Install the wasm SDK matching the toolchain. The signed-bundle URL is
-      # the one published with each Swift release.
+      # The wasm SDK artifactbundle is hosted on download.swift.org alongside
+      # every release. swift sdk install fetches and unpacks it; the bundle
+      # name (swift-6.3.2-RELEASE_wasm) is what consumers pass to
+      # --swift-sdk on subsequent builds.
       - name: Install wasm SDK
         run: |
-          source $HOME/.swiftly/env.sh || true
-          swift sdk install \
-            https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz \
-            || true
-          swift sdk list
+          set -euo pipefail
+          xcrun --toolchain "$TOOLCHAINS" swift sdk install \
+            "https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz"
+          xcrun --toolchain "$TOOLCHAINS" swift sdk list
 
       - name: Build SuperBox64 SpriteKit (debug + release)
         working-directory: wasm-web-kit/spritekit
         run: |
-          source $HOME/.swiftly/env.sh || true
-          ./build.sh
-          ./build.sh release
+          set -euo pipefail
+          SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh
+          SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
 
       - name: Build Examples/Hello
         working-directory: wasm-web-kit/spritekit/Examples/Hello
         run: |
-          source $HOME/.swiftly/env.sh || true
-          TOOLCHAINS=org.swift.${SWIFT_VERSION}-release \
-            xcrun --toolchain swift swift build \
-            --swift-sdk ${WASM_SDK} -c release
+          set -euo pipefail
+          TOOLCHAINS="$TOOLCHAINS" \
+            xcrun --toolchain "$TOOLCHAINS" swift build \
+            --swift-sdk "$WASM_SDK" -c release
 
-      - name: Build BossMan SpriteKit demo
-        working-directory: boss-man-spritekit-web
+      - name: Build Boss-Man-SpriteKit (the wasm port)
+        working-directory: Boss-Man-SpriteKit
         run: |
-          source $HOME/.swiftly/env.sh || true
-          TOOLCHAINS=org.swift.${SWIFT_VERSION}-release \
-            xcrun --toolchain swift swift build \
-            --swift-sdk ${WASM_SDK} -c release
+          set -euo pipefail
+          SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
+
+      - name: Build boss-man-spritekit-web-simple (legacy demo)
+        working-directory: boss-man-spritekit-web-simple
+        run: |
+          set -euo pipefail
+          TOOLCHAINS="$TOOLCHAINS" \
+            xcrun --toolchain "$TOOLCHAINS" swift build \
+            --swift-sdk "$WASM_SDK" -c release || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -72,6 +94,8 @@ jobs:
           path: |
             wasm-web-kit/spritekit/.build/wasm32-unknown-wasip1/release/*.wasm
             wasm-web-kit/spritekit/Examples/Hello/.build/wasm32-unknown-wasip1/release/Hello.wasm
-            boss-man-spritekit-web/.build/wasm32-unknown-wasip1/release/Demo.wasm
+            Boss-Man-SpriteKit/.build/wasm32-unknown-wasip1/release/BossMan.wasm
+            Boss-Man-SpriteKit/web/bossman.wasm
+            boss-man-spritekit-web-simple/.build/wasm32-unknown-wasip1/release/Demo.wasm
           if-no-files-found: warn
           retention-days: 30
