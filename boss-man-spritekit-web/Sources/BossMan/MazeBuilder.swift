@@ -32,6 +32,8 @@ final class MazeBuilder {
     // later without re-walking the whole tree.
     private var dotNodes: [CGPoint: SKNode] = [:]
     private var goldNodes: [CGPoint: SKNode] = [:]
+    private var waterPelletNodes: [CGPoint: SKNode] = [:]
+    private var waterGunNodes: [CGPoint: SKNode] = [:]
 
     init(map: GridMap) { self.map = map }
 
@@ -77,6 +79,7 @@ final class MazeBuilder {
                     pellet.position = position
                     pellet.zPosition = 1
                     scene.addChild(pellet)
+                    waterGunNodes[grid] = pellet
 
                 case Strings.Tile.waterPelletChar:
                     waterPelletPositions.append(grid)
@@ -84,6 +87,7 @@ final class MazeBuilder {
                     pellet.position = position
                     pellet.zPosition = 1
                     scene.addChild(pellet)
+                    waterPelletNodes[grid] = pellet
 
                 case Strings.Tile.workerChar:
                     workerSpawn = grid
@@ -119,6 +123,20 @@ final class MazeBuilder {
         guard let node = goldNodes[grid] else { return false }
         node.removeFromParent()
         goldNodes.removeValue(forKey: grid)
+        return true
+    }
+    @discardableResult
+    func collectWaterPellet(at grid: CGPoint) -> Bool {
+        guard let node = waterPelletNodes[grid] else { return false }
+        node.removeFromParent()
+        waterPelletNodes.removeValue(forKey: grid)
+        return true
+    }
+    @discardableResult
+    func collectWaterGun(at grid: CGPoint) -> Bool {
+        guard let node = waterGunNodes[grid] else { return false }
+        node.removeFromParent()
+        waterGunNodes.removeValue(forKey: grid)
         return true
     }
 

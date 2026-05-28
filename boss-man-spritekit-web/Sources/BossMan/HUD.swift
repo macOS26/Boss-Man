@@ -14,6 +14,7 @@ import SpriteKit
 final class HUD {
     private let statusLabel  = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let livesLabel   = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let ammoLabel    = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private weak var scene: SKScene?
 
@@ -39,6 +40,15 @@ final class HUD {
         livesLabel.text = "LIVES 3"
         scene.addChild(livesLabel)
 
+        ammoLabel.fontSize = 19
+        ammoLabel.horizontalAlignmentMode = .left
+        ammoLabel.verticalAlignmentMode = .center
+        ammoLabel.position = CGPoint(x: 16, y: size.height - 84)
+        ammoLabel.zPosition = 21
+        ammoLabel.fontColor = SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1)
+        ammoLabel.text = "AMMO 0"
+        scene.addChild(ammoLabel)
+
         messageLabel.fontSize = 19
         messageLabel.horizontalAlignmentMode = .right
         messageLabel.verticalAlignmentMode = .center
@@ -56,6 +66,9 @@ final class HUD {
     }
     func update(lives: Int) {
         livesLabel.text = "LIVES \(max(0, lives))"
+    }
+    func update(ammo: Int) {
+        ammoLabel.text = "AMMO \(max(0, ammo))"
     }
     func flash(_ text: String, duration: TimeInterval = 1.6) {
         messageLabel.removeAllActions()

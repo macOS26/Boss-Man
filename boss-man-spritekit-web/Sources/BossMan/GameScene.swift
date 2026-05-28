@@ -47,6 +47,13 @@ final class GameScene: SKScene {
     private let frightenDuration: TimeInterval = 6
     private let eatBossPoints = 500
 
+    private var waterAmmo: Int = 0
+    private var waterDroplets: [WaterDroplet] = []
+    private let waterShotsPerPellet = 5
+    private let waterShotsPerGun    = 10
+    private let waterDropletSpeed: CGFloat = 12 * 32     // 12 tiles/s
+    private let waterHitPoints = 100
+
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
         anchorPoint = .zero
@@ -114,11 +121,26 @@ final class GameScene: SKScene {
             view?.presentScene(title, transition: .fade(withDuration: 0.4))
             return
         }
+        if key == 57 {                              // Space — fire water
+            fireWater()
+            return
+        }
         if let dir = MoveDirection(keyCode: key) {
             queued = dir
             if heading == nil { heading = dir }
             pete?.setFacing(dir)
         }
+    }
+
+    private func fireWater() {
+        guard waterAmmo > 0, let h = heading ?? queued else { return }
+        waterAmmo -= 1
+        let drop = WaterDroplet(direction: h, speed: waterDropletSpeed)
+        drop.position = pete.position
+        drop.zPosition = 6
+        addChild(drop)
+        waterDroplets.append(drop)
+        refreshHUD()
     }
 
     // MARK: - Update loop
@@ -155,6 +177,15 @@ final class GameScene: SKScene {
                 for b in bosses { b.setFrightened(true) }
                 hud.flash("FRIGHTEN!", duration: 1.2)
             }
+            if mazeBuilder.collectWaterPellet(at: peteGrid) {
+                waterAmmo += waterShotsPerPellet
+                refreshHUD()
+            }
+            if mazeBuilder.collectWaterGun(at: peteGrid) {
+                waterAmmo += waterShotsPerGun
+                refreshHUD()
+                hud.flash("WATER GUN!", duration: 1.0)
+            }
 
             if let q = queued, canStep(q) {
                 heading = q
@@ -176,6 +207,8 @@ final class GameScene: SKScene {
         }
 
         for boss in bosses { boss.step(dt: TimeInterval(dt), peteGrid: peteGrid) }
+
+        stepWaterDroplets(dt: TimeInterval(dt))
 
         if frightenSecondsLeft > 0 {
             frightenSecondsLeft -= TimeInterval(dt)
@@ -265,6 +298,47 @@ final class GameScene: SKScene {
         refreshHUD()
     }
 
+    private func stepWaterDroplets(dt: TimeInterval) {
+        guard !waterDroplets.isEmpty else { return }
+        var i = waterDroplets.count - 1
+        while i >= 0 {
+            let drop = waterDroplets[i]
+            let expired = drop.step(dt: dt)
+            var consumed = expired
+
+            if !consumed {
+                let g = gridCellAtScenePoint(drop.position)
+                if !gridMap.isWalkable(g) { consumed = true }
+                else {
+                    for b in bosses {
+                        let dx = b.sprite.position.x - drop.position.x
+                        let dy = b.sprite.position.y - drop.position.y
+                        if dx * dx + dy * dy < (tileSize * 0.45) * (tileSize * 0.45) {
+                            score += waterHitPoints
+                            ScorePopup.show(waterHitPoints, at: b.sprite.position, in: self,
+                                            color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
+                            b.returnHome()
+                            refreshHUD()
+                            consumed = true
+                            break
+                        }
+                    }
+                }
+            }
+            if consumed {
+                drop.removeFromParent()
+                waterDroplets.remove(at: i)
+            }
+            i -= 1
+        }
+    }
+    private func gridCellAtScenePoint(_ p: CGPoint) -> CGPoint {
+        let localX = p.x - containerOriginX
+        let col = Int((localX) / tileSize)
+        let row = Int((p.y - gridMap.yOffset) / tileSize)
+        return CGPoint(x: col, y: row)
+    }
+
     private func refreshHUD() {
         if score > highScore {
             highScore = score
@@ -273,5 +347,6 @@ final class GameScene: SKScene {
         hud.update(score: score, highScore: highScore,
                    level: levelIndex + 1, dotsLeft: dotsRemaining)
         hud.update(lives: lives)
+        hud.update(ammo: waterAmmo)
     }
 }
