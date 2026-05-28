@@ -89,19 +89,41 @@ final class MazeBuilder {
 
                 case Strings.Tile.waterGunChar:
                     waterGunPositions.append(grid)
-                    let pellet = SpriteFactory.waterPelletVisual(radius: map.tileSize * 0.30)
-                    pellet.position = position
-                    pellet.zPosition = 1
-                    scene.addChild(pellet)
-                    waterGunNodes[grid] = pellet
+                    let gun = SKLabelNode(text: Strings.Emoji.waterGun)
+                    gun.fontSize = map.tileSize * 0.55
+                    gun.verticalAlignmentMode = .center
+                    gun.horizontalAlignmentMode = .center
+                    gun.position = position
+                    gun.zPosition = 6
+                    gun.run(.repeatForever(.sequence([
+                        .scale(to: 1.25, duration: 0.35),
+                        .scale(to: 1.0,  duration: 0.35),
+                    ])))
+                    scene.addChild(gun)
+                    waterGunNodes[grid] = gun
 
                 case Strings.Tile.waterPelletChar:
                     waterPelletPositions.append(grid)
-                    let pellet = SpriteFactory.waterPelletVisual(radius: map.tileSize * 0.22)
+                    let pellet = SpriteFactory.waterPelletVisual(radius: map.tileSize * 0.32)
                     pellet.position = position
-                    pellet.zPosition = 1
+                    pellet.zPosition = 6
+                    pellet.run(.repeatForever(.sequence([
+                        .scale(to: 1.3, duration: 0.4),
+                        .scale(to: 1.0, duration: 0.4),
+                    ])))
                     scene.addChild(pellet)
                     waterPelletNodes[grid] = pellet
+
+                case Strings.Tile.printerChar:
+                    addMachineEmoji(Strings.Emoji.printer, at: position, in: scene)
+                case Strings.Tile.faxChar:
+                    addMachineEmoji(Strings.Emoji.fax, at: position, in: scene)
+                case Strings.Tile.coverSheetChar:
+                    addMachineEmoji(Strings.Emoji.coverSheet, at: position, in: scene)
+                case Strings.Tile.bookBinderChar:
+                    addMachineEmoji(Strings.Emoji.bookBinder, at: position, in: scene)
+                case Strings.Tile.brownBoxChar:
+                    addBrownBoxEmoji(Strings.Emoji.brownBox, at: position, in: scene)
 
                 case Strings.Tile.workerChar:
                     workerSpawn = grid
@@ -170,6 +192,30 @@ final class MazeBuilder {
         scene.addChild(wall)
     }
 
+
+    // TPS printer / fax / cover-sheet / book-binder — placed as a single
+    // 26pt emoji label, no pulse (matches bossman-apple's machine glyphs).
+    private func addMachineEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) {
+        let label = SKLabelNode(text: emoji)
+        label.fontSize = 26
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        label.position = position
+        label.zPosition = 6
+        scene.addChild(label)
+    }
+
+    // Brown TPS report box. Slightly larger glyph (28pt) and sits one
+    // z-layer below the other machines, matching bossman-apple.
+    private func addBrownBoxEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) {
+        let label = SKLabelNode(text: emoji)
+        label.fontSize = 28
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        label.position = position
+        label.zPosition = 4
+        scene.addChild(label)
+    }
 
     private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {
         let dot = SpriteFactory.dotVisual()
