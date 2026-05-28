@@ -40,9 +40,9 @@ final class Entity {
 final class MazeScene: SKScene {
     static let MAZE = [
         "#####################",
-        "#........#.#........#",
+        "#B.......#.#........#",
         "#.##.###.#.#.###.##.#",
-        "#.#.......B.......#.#",
+        "#.#...............#.#",
         "#.#.##.#####.##.#.#.#",
         "#......#..P..#......#",
         "#.#.##.#####.##.#.#.#",
@@ -221,12 +221,27 @@ final class MazeScene: SKScene {
     func checkCatch() {
         guard let p = player, let b = boss, p.col == b.col, p.row == b.row else { return }
         caught += 1
+        spawnBurst(at: p.node.position)
         p.col = playerSpawn.0; p.row = playerSpawn.1; p.dir = .none; p.moving = false
         p.node.position = center(p.col, p.row)
         b.col = bossSpawn.0; b.row = bossSpawn.1; b.dir = .none; b.moving = false
         b.node.position = center(b.col, b.row)
         queued = .none
         scoreLabel.text = "dots: \(score)/\(total)  caught: \(caught)"
+    }
+
+    func spawnBurst(at p: CGPoint) {
+        let e = SKEmitterNode()
+        e.particleBirthRate = 280; e.numParticlesToEmit = 32
+        e.particleLifetime = 0.65; e.particleLifetimeRange = 0.25
+        e.particleColor = SKColor(red: 1, green: 0.86, blue: 0.18, alpha: 1)
+        e.particleSize = CGSize(width: 7, height: 7)
+        e.particleSpeed = 240; e.particleSpeedRange = 100
+        e.emissionAngle = 0; e.emissionAngleRange = .pi * 2
+        e.particleAlphaSpeed = -1.8; e.particleScaleSpeed = -1.2
+        e.position = p
+        addChild(e)
+        e.run(SKAction.sequence([SKAction.wait(forDuration: 1.0), SKAction.removeFromParent()]))
     }
 
     override func update(_ currentTime: TimeInterval) {

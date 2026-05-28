@@ -70,6 +70,11 @@ open class SKNode {
         while i < runningActions.count {
             if runningActions[i].step(dt, node: self) { runningActions.remove(at: i) } else { i += 1 }
         }
+        tickSelf(TimeInterval(dt))
         for c in children { c.stepActions(dt) }
     }
+
+    // Per-frame update hook for nodes that animate themselves (e.g. SKEmitterNode).
+    // Default is a no-op; overridden by node types that need to advance state.
+    open func tickSelf(_ dt: TimeInterval) {}
 }
