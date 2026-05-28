@@ -29,5 +29,11 @@
       title:         'Boss-Man',
     };
   </script>
+  <!-- bundle.js inlines every asset + bossman.wasm as data: URLs and
+       installs a fetch() shim that redirects asset paths to them, so
+       opening this file directly from file:/// works without a server.
+       Regenerate it whenever assets or the wasm change:
+         python3 scripts/bundle.py                                    -->
+  <script src="bundle.js"></script>
   <script src="runtime.js"></script>
 </body></html>

@@ -42,3 +42,10 @@ else
   echo
   echo "✓ Debug artifact published: web/bossman.wasm"
 fi
+
+# Regenerate the file:/// bundle so opening web/index.html directly works
+# without a local server. Includes bossman.wasm + every manifest asset as
+# inline data: URLs (~25 MiB base64). Skip with NO_BUNDLE=1.
+if [ -z "${NO_BUNDLE:-}" ] && [ -f scripts/bundle.py ]; then
+  python3 scripts/bundle.py || echo "(bundle.js regeneration failed)"
+fi
