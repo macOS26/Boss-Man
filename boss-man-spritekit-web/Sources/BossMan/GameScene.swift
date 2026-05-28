@@ -50,9 +50,17 @@ final class GameScene: SKScene {
     private var bosses: [BossController] = []
     private var contactCooldown: TimeInterval = 0     // brief grace after a hit
     private var peteShielded: Bool = false             // bossman-apple's WorkerController.isShielded
+    // Gold-disc (frighten) window — bossman-apple uses 20s.
     private var frightenSecondsLeft: TimeInterval = 0
-    private let frightenDuration: TimeInterval = 6
-    private let eatBossPoints = 500
+    private let frightenDuration: TimeInterval = 20
+    // Capture streak: bossman-apple awards 100 * streak per consecutive
+    // boss captured during the SAME gold-disc window. Resets when a new
+    // window starts.
+    private var captureStreak = 0
+    // Tracks how many gold discs Pete has collected this level vs how
+    // many exist on the maze; both have to hit equality to clear it.
+    private var goldDiscsRemaining = 0
+    private var goldDiscsTotal = 0
 
     // TPS report tracking, mirroring bossman-apple's RoundState.reportItems
     // + tpsReportsDelivered. Indexes into reportItemPoints award 10/25/50/100
@@ -94,8 +102,13 @@ final class GameScene: SKScene {
         addChild(mazeRoot)
 
         mazeBuilder = MazeBuilder(map: gridMap)
+        // Per-level cubicle color rotation — bossman-apple GameScene:288.
+        mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[
+            levelIndex % SpriteFactory.cubicleColors.count]
         dotsRemaining = mazeBuilder.build(in: mazeRoot)
         dotsTotal = dotsRemaining
+        goldDiscsRemaining = mazeBuilder.goldDiscPositions.count
+        goldDiscsTotal = goldDiscsRemaining
 
         hud.install(in: self)
         highScore = Persistence.int(forKey: Strings.DefaultsKey.highScore)
@@ -213,6 +226,12 @@ final class GameScene: SKScene {
 
     private func fireWater() {
         guard waterAmmo > 0, let h = peteMover.dir ?? queued else { return }
+        // bossman-apple disables the water gun while the gold-disc window
+        // is active — players can't double-dip on power-ups.
+        if frightenSecondsLeft > 0 {
+            hud.flash("NO WATER IN BLUE MODE", duration: 1.5)
+            return
+        }
         waterAmmo -= 1
         let drop = WaterDroplet(direction: h, speed: waterDropletSpeed)
         drop.position = pete.position
@@ -272,14 +291,16 @@ final class GameScene: SKScene {
             contactCooldown -= TimeInterval(dt)
         } else if let b = bossOnPete() {
             if b.isFrightened {
-                score += eatBossPoints
+                // bossman-apple capture streak: each consecutive boss eaten
+                // during the same gold-disc window is worth 100 x streak.
+                captureStreak += 1
+                let points = 100 * captureStreak
+                score += points
                 refreshHUD()
-                ScorePopup.show(eatBossPoints, at: b.sprite.position, in: self,
+                ScorePopup.show(points, at: b.sprite.position, in: self,
                                 color: SKColor(red: 0.3, green: 0.7, blue: 1, alpha: 1))
-                sound.playCaptureBoss()
-                // bossman-apple flow: scale-up + fade-out, snap home,
-                // scale-down + fade-in. No spawn freeze — boss keeps
-                // fleeing while gold-disc window is still open.
+                sound.playCaptureBoss(streak: captureStreak)
+                // Scale-up + fade-out, snap home, scale-down + fade-in.
                 b.capture()
                 contactCooldown = 0.4
             } else if !peteShielded {
@@ -332,16 +353,20 @@ final class GameScene: SKScene {
             dotsRemaining = max(0, dotsRemaining - 1)
             sound.playDotBlip()
             refreshHUD()
-            if dotsRemaining == 0 { advanceLevel() }
+            checkLevelComplete()
         }
         if mazeBuilder.collectGold(at: grid) {
             score += goldPoints
+            goldDiscsRemaining = max(0, goldDiscsRemaining - 1)
+            // bossman-apple resets the capture streak when a NEW gold-disc
+            // window opens, so the first eaten boss is worth 100 again.
+            captureStreak = 0
             refreshHUD()
             ScorePopup.show(goldPoints, at: peteMover.centre(of: grid), in: self)
             frightenSecondsLeft = frightenDuration
             for b in bosses { b.setFrightened(true) }
             sound.playGoldDisc()
-            hud.flash("FRIGHTEN!", duration: 1.2)
+            hud.flash("GOLD DISC!", duration: 1.5)
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
             waterAmmo += waterShotsPerPellet
@@ -383,6 +408,21 @@ final class GameScene: SKScene {
         }
     }
 
+    // bossman-apple's checkLevelComplete: a level only advances when ALL
+    // three conditions hold. Otherwise show a hint so the player knows
+    // they still have a TPS report to deliver.
+    private func checkLevelComplete() {
+        let dotsDone = dotsRemaining == 0
+        let discsDone = goldDiscsRemaining == 0
+        guard dotsDone && discsDone else { return }
+        if tpsReportsDelivered >= 1 {
+            advanceLevel()
+        } else if dotsDone {
+            // Pete swept the floor but no TPS report yet — nudge them.
+            hud.flash("DELIVER A TPS REPORT", duration: 3)
+        }
+    }
+
     // bossman-apple's collectTPSReport — when Pete touches the brown box
     // with all four items collected, turn them in for level*100+100,
     // bump the report counter, clear the set. Missing items just shows a
@@ -400,9 +440,13 @@ final class GameScene: SKScene {
         ScorePopup.show(pts, at: pos, in: self)
         tpsReportsDelivered += 1
         collectedReports.removeAll()
+        mazeBuilder.resetGrayedMachines()    // ready for the next round
         sound.playTpsDeliver()
         hud.flash("TPS DELIVERED +\(pts)", duration: 2.5)
         refreshHUD()
+        // A delivered report can be the last thing keeping the level
+        // from completing if Pete already swept the dots + discs.
+        checkLevelComplete()
     }
 
     private func handlePeteHit(catcher: BossController? = nil) {
@@ -542,8 +586,13 @@ final class GameScene: SKScene {
 
         let rows = Levels.officeMaps[levelIndex]
         gridMap.setRows(rows)
+        mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[
+            levelIndex % SpriteFactory.cubicleColors.count]
         dotsRemaining = mazeBuilder.build(in: mazeRoot)
         dotsTotal = dotsRemaining
+        goldDiscsRemaining = mazeBuilder.goldDiscPositions.count
+        goldDiscsTotal = goldDiscsRemaining
+        tpsReportsDelivered = 0
         // Each level starts a fresh TPS round, matching bossman-apple's
         // RoundState.advanceLevel reset.
         collectedReports.removeAll()

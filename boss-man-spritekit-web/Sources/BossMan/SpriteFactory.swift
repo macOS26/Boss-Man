@@ -35,11 +35,23 @@ enum SpriteFactory {
     // as monochromatic blue from the chest up.
     static let fleeSkinColor = SKColor(red: 0.62, green: 0.78,  blue: 0.96, alpha: 1)
     static let fleeTieColor  = fleeSkinColor
-    // Cubicle palette — `cubicleColor` is .systemBlue in the macOS edition;
-    // the wall fill drops it to 0.55 alpha so the floor checker reads through.
-    static let cubicleColor      = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 1)
-    static let wallFillColor     = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 0.55)
-    static let wallStrokeColor   = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 1)
+    // Cubicle palette — bossman-apple cycles through 12 macOS system
+    // colors by level, painting each floor's walls a different hue. The
+    // RGB values here mirror the equivalent NSColor.system* values.
+    static let cubicleColors: [SKColor] = [
+        SKColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1),   // systemBlue
+        SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1),   // systemTeal
+        SKColor(red: 0.34, green: 0.34, blue: 0.84, alpha: 1),   // systemIndigo
+        SKColor(red: 0.20, green: 0.78, blue: 0.35, alpha: 1),   // systemGreen
+        SKColor(red: 1.00, green: 0.18, blue: 0.33, alpha: 1),   // systemPink
+        SKColor(red: 0.64, green: 0.52, blue: 0.37, alpha: 1),   // systemBrown
+        SKColor(red: 0.69, green: 0.32, blue: 0.87, alpha: 1),   // systemPurple
+        SKColor(red: 1.00, green: 0.27, blue: 0.23, alpha: 1),   // systemRed
+        SKColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1),   // systemOrange
+        SKColor(red: 1.00, green: 0.80, blue: 0.00, alpha: 1),   // systemYellow
+        SKColor(red: 0.32, green: 0.77, blue: 0.93, alpha: 1),   // systemCyan
+        SKColor(red: 0.56, green: 0.56, blue: 0.58, alpha: 1),   // systemGray
+    ]
     static let wallTrimColor     = SKColor(white: 0.55, alpha: 1)
     static let mazeBackground    = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
     // Floor checker: two near-black shades that alternate (rowIndex+columnIndex)
@@ -116,17 +128,18 @@ enum SpriteFactory {
     }
 
     // A single cubicle wall tile — three stacked shapes:
-    //   1. inset 1px fill   (translucent cubicle blue so the floor reads through)
-    //   2. inset 2px stroke (solid cubicle blue, 2px lineWidth — the "panel edge")
-    //   3. horizontal gray trim band high on the tile (the "shelf" the macOS
-    //      edition draws to suggest a cubicle divider).
-    static func wallTile(size: CGFloat) -> SKNode {
+    //   1. inset 1px fill   (translucent cubicle color, floor reads through)
+    //   2. inset 2px stroke (solid cubicle color, 2px lineWidth — panel edge)
+    //   3. horizontal gray trim band high on the tile (the cubicle divider)
+    // bossman-apple rotates the cubicle color per level (cubicleColors[]);
+    // the caller passes whichever palette slot the level lands on.
+    static func wallTile(size: CGFloat, color: SKColor = cubicleColors[0]) -> SKNode {
         let n = SKNode()
 
         let fillRect = CGRect(x: -(size - 2) / 2, y: -(size - 2) / 2,
                               width: size - 2, height: size - 2)
         let fill = SKShapeNode(rect: fillRect)
-        fill.fillColor = wallFillColor
+        fill.fillColor = color.withAlphaComponent(0.55)
         fill.strokeColor = .clear
         fill.isAntialiased = false
         n.addChild(fill)
@@ -135,7 +148,7 @@ enum SpriteFactory {
                                 width: size - 4, height: size - 4)
         let stroke = SKShapeNode(rect: strokeRect)
         stroke.fillColor = .clear
-        stroke.strokeColor = wallStrokeColor
+        stroke.strokeColor = color
         stroke.lineWidth = 2
         stroke.isAntialiased = false
         n.addChild(stroke)

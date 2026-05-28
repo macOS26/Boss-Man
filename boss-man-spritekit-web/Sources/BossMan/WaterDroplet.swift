@@ -13,16 +13,22 @@ final class WaterDroplet: SKNode {
         let (dx, dy) = direction.delta
         self.velocity = CGVector(dx: CGFloat(dx) * speed, dy: CGFloat(dy) * speed)
         super.init()
-        // Visual: pale blue core + softer halo, matches SpriteFactory's
-        // waterPellet vocabulary so the projectile reads as 'water'.
-        let halo = SKShapeNode(circleOfRadius: 7)
-        halo.fillColor = SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 0.3)
-        halo.strokeColor = .clear
-        addChild(halo)
-        let core = SKShapeNode(circleOfRadius: 4)
-        core.fillColor = SKColor(red: 0.45, green: 0.85, blue: 1.0, alpha: 0.95)
-        core.strokeColor = .clear
+        // Visuals ported from bossman-apple's WaterDroplet.fire: cyan core
+        // with a systemBlue stroke + a small white specular highlight in
+        // the upper-left, and a 0.4s full rotation so the droplet sparkles
+        // as it flies.
+        let radius: CGFloat = 5
+        let core = SKShapeNode(circleOfRadius: radius)
+        core.fillColor = SKColor(red: 0.03, green: 0.80, blue: 0.94, alpha: 0.85)
+        core.strokeColor = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 1)
+        core.lineWidth = 1
         addChild(core)
+        let specular = SKShapeNode(circleOfRadius: radius * 0.35)
+        specular.fillColor = SKColor(white: 1, alpha: 0.75)
+        specular.strokeColor = .clear
+        specular.position = CGPoint(x: -radius * 0.3, y: radius * 0.3)
+        addChild(specular)
+        run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 0.4)))
     }
 
     // Advance one frame; return true if the droplet should be despawned

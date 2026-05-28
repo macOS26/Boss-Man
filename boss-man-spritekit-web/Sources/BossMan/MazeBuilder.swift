@@ -21,6 +21,9 @@ import SpriteKit
 // cleared.
 final class MazeBuilder {
     let map: GridMap
+    // Per-level cubicle color, written by GameScene before each build().
+    // bossman-apple stores this as MazeBuilder.cubicleColor: NSColor.
+    var cubicleColor: SKColor = SpriteFactory.cubicleColors[0]
 
     private(set) var workerSpawn: CGPoint?
     private(set) var bossSpawns: [(index: Int, position: CGPoint)] = []
@@ -189,7 +192,7 @@ final class MazeBuilder {
     // MARK: - Helpers
 
     private func addWall(at position: CGPoint, in scene: SKNode) {
-        let wall = SpriteFactory.wallTile(size: map.tileSize)
+        let wall = SpriteFactory.wallTile(size: map.tileSize, color: cubicleColor)
         wall.position = position
         wall.zPosition = 0
         let body = SKPhysicsBody(rectangleOf: CGSize(width: map.tileSize,
@@ -229,18 +232,44 @@ final class MazeBuilder {
         return label
     }
 
-    // Mark a machine collected: fade it to 0.55 alpha (matching bossman-
-    // apple's grayOutMachine) and drop it from the active map so Pete
-    // can't double-collect. Returns the machine name + scene position.
+    // Tracks which machine tiles are currently grayed (in cooldown).
+    // bossman-apple drops the contactTestBitMask while grayed; we just
+    // skip the collectable flag here.
+    private var grayedMachines: Set<CGPoint> = []
+
+    // bossman-apple's grayOutMachine + collectable test rolled into one.
+    // Returns the machine name + position if it's collectable on this
+    // tile right now (not currently grayed). 15s after the call the
+    // machine fades back to alpha 1 and re-enters the collectable pool.
     @discardableResult
-    func collectMachine(at grid: CGPoint) -> (name: String, position: CGPoint)? {
-        guard let m = machineNodes[grid] else { return nil }
-        machineNodes.removeValue(forKey: grid)
-        m.node.run(.fadeAlpha(to: 0.55, duration: 0.2))
+    func collectMachine(at grid: CGPoint, cooldown: TimeInterval = 15) -> (name: String, position: CGPoint)? {
+        guard let m = machineNodes[grid], !grayedMachines.contains(grid) else { return nil }
+        grayedMachines.insert(grid)
+        m.node.alpha = 0.55
+        m.node.removeAction(forKey: Strings.ActionKey.machineCooldown)
+        m.node.run(.sequence([
+            .wait(forDuration: cooldown),
+            .run { [weak self, weak n = m.node] in
+                n?.alpha = 1
+                self?.grayedMachines.remove(grid)
+            }
+        ]), withKey: Strings.ActionKey.machineCooldown)
         return (m.name, m.node.position)
     }
 
-    // Returns true if Pete stepped onto a brown box tile.
+    // Re-enable every grayed machine immediately. bossman-apple calls
+    // resetGrayedMachines after a TPS report is delivered so Pete can
+    // start a fresh round on the same level.
+    func resetGrayedMachines() {
+        for grid in grayedMachines {
+            guard let m = machineNodes[grid] else { continue }
+            m.node.removeAction(forKey: Strings.ActionKey.machineCooldown)
+            m.node.alpha = 1
+        }
+        grayedMachines.removeAll()
+    }
+
+    // Returns the scene position of the brown box at this grid, or nil.
     func touchedBrownBox(at grid: CGPoint) -> CGPoint? {
         guard let n = brownBoxNodes[grid] else { return nil }
         return n.position
