@@ -13,7 +13,7 @@ Grab the latest macOS build, signed, notarized, and ready to play:
 
 ## Official Website
 
-Screenshots, trailers, leaderboards, and more:
+Screenshots, trailers, leaderboards, web and deskop version and more:
 
 [boss-man.us](https://boss-man.us)
 
