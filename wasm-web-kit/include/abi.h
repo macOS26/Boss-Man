@@ -75,6 +75,11 @@ WABI int  rt_image(int rt);                        // image handle backed by the
 // ---- audio (WebAudio) ----
 WABI int  snd_from_samples(const int16_t* samples, int frames, int channels, int rate);
 WABI int  snd_by_name(const char* name, int len);  // preloaded clip -> buffer handle
+// Build a sound buffer directly from a Float32 PCM sample array. Used for
+// procedurally-synthesized music (bossman-apple's SoundManager generates
+// the background loop in real-time; the wasm port does the same and
+// hands the buffer to the runtime through this hook).
+WABI int  snd_create_pcm(const float* samples, int frameCount, int sampleRate);
 WABI int  snd_play(int buffer, float volume, int loop); // -> voice handle
 WABI void snd_stop(int voice);
 WABI void snd_set_volume(int voice, float volume);

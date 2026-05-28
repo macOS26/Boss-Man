@@ -139,7 +139,16 @@ final class GameScene: SKScene {
                                           containerOriginX: containerOriginX)
         scheduleTravelerForCurrentLevel()
         hud.update(travelers: unlockedTravelers())
+        // bossman-apple: startBackgroundMusic(theme:) on level load.
+        // Every 12th level switches to the MIB ("Sunglasses At Night") theme.
+        sound.startMusic(musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
+    }
+
+    // bossman-apple SoundManager: every 12th level uses the alternate
+    // MIB theme. level here is 1-indexed (the displayed level number).
+    private func musicTheme(for level: Int) -> SoundManager.MusicTheme {
+        level % 12 == 0 ? .mib : .normal
     }
 
     private func currentTraveler() -> LevelTraveler {
@@ -492,6 +501,7 @@ final class GameScene: SKScene {
         gameOver = true
         peteMover.dir = nil
         queued = nil
+        sound.stopMusic()
 
         // bossman-apple HUD.showGameOver: translucent dim, orange-bordered
         // central card, big red GAME OVER + pulsing prompt + "PRESS ESC".
@@ -578,6 +588,7 @@ final class GameScene: SKScene {
     private func advanceLevel() {
         levelIndex = (levelIndex + 1) % max(1, Levels.officeMaps.count)
         hud.flash("LEVEL \(levelIndex + 1)!", duration: 1.4)
+        sound.startMusic(musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
 
         for boss in bosses { boss.sprite.removeFromParent() }

@@ -28,6 +28,7 @@ WABI int  img_by_name(const char* name, int len);
 WABI int  img_width(int img);
 WABI int  img_height(int img);
 WABI int  snd_by_name(const char* name, int len);
+WABI int  snd_create_pcm(const float* samples, int frameCount, int sampleRate);
 WABI int  font_by_name(const char* name, int len);   /* 0 = default monospace */
 WABI int  snd_play(int buffer, float volume, int loop);
 WABI void snd_stop(int voice);

@@ -1,5 +1,6 @@
 import SpriteKit
 import KitABI
+import Foundation       // exp / sin via wasi-libc libm
 
 // Wasm SoundManager. Mirrors the public surface of bossman-apple's
 // SoundManager so call sites compile unchanged, but the implementation is
@@ -80,7 +81,7 @@ final class SoundManager {
     func playWaterGunSplash()  { play(named: "waterGunSplash") }
     func playFootstep()        { play(named: "footstep") }
     func playTeleport()        { play(named: "teleport") }
-    func playLevelStart()      { play(named: "levelStart"); speak(.levelStart) }
+    func playLevelStart()      { speak(.levelStart) }
     func playGameOver()        { play(named: "gameOver");   speak(.gameOver) }
     func playCaptureBoss(streak: Int = 0) {
         play(named: "captureBoss")
@@ -124,12 +125,121 @@ final class SoundManager {
         play(named: name)
     }
 
+    // bossman-apple's SoundManager synthesizes the bassline + lead loop
+    // in Swift using AVAudioEngine. We do the exact same synthesis here,
+    // hand the resulting Float32 buffer to the framework via the new
+    // snd_create_pcm ABI, then loop it with snd_play.
+    private var musicBuffers: [MusicTheme: Int32] = [:]
+    private var musicVoice: Int32 = 0
+    private let sampleRate: Int32 = 44100
+    private let normalMusicVolume: Float = 30   // snd_play uses 0..100
+
     func startMusic(_ theme: MusicTheme = .normal) {
-        let name = theme == .mib ? "musicMib" : "musicNormal"
-        play(named: name, loop: true, volume: 0.5)
+        stopMusic()
+        let handle = musicBuffers[theme] ?? {
+            let samples = theme == .mib ? buildSunglassesAtNightLoop()
+                                        : buildBackgroundLoop()
+            let h = uploadPCM(samples)
+            musicBuffers[theme] = h
+            return h
+        }()
+        guard handle > 0 else { return }
+        musicVoice = snd_play(handle, normalMusicVolume, 1)   // loop=1
     }
-    func stopMusic() { /* snd_stop needs the voice handle; recorded music
-                         not yet wired so this is a no-op stub. */ }
+
+    func stopMusic() {
+        if musicVoice > 0 { snd_stop(musicVoice); musicVoice = 0 }
+    }
+
+    private func uploadPCM(_ samples: [Float]) -> Int32 {
+        return samples.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return Int32(0) }
+            return snd_create_pcm(base, Int32(buf.count), sampleRate)
+        }
+    }
+
+    // Verbatim port of bossman-apple's SoundManager.buildBackgroundLoop
+    // (Boss-Man/SoundManager.swift:695-727). 108 BPM, 16-step bass + lead
+    // patterns, exponential decay envelope, ~4.44 seconds per loop.
+    private func buildBackgroundLoop() -> [Float] {
+        let bpm: Double = 108
+        let beat = 60.0 / bpm / 2.0
+        let bass: [Float] = [
+            130.81, 164.81, 130.81, 196.00,
+            174.61, 220.00, 174.61, 261.63,
+            155.56, 196.00, 155.56, 233.08,
+            174.61, 220.00, 130.81, 164.81,
+        ]
+        let lead: [Float] = [
+            0,      523.25, 0,      659.25,
+            0,      698.46, 0,      783.99,
+            0,      622.25, 0,      740.00,
+            0,      698.46, 0,      587.33,
+        ]
+        return synthesize(bass: bass, lead: lead, beat: beat, decay: 6,
+                          bassGain: 0.12, leadGain: 0.06 * 0.7)
+    }
+
+    // Verbatim port of SoundManager.buildSunglassesAtNightLoop (the
+    // "Men in Black" theme used on every 12th level). 100 BPM, 64-step
+    // 16th-note loop, slightly slower decay, ~9.6 seconds.
+    private func buildSunglassesAtNightLoop() -> [Float] {
+        let bpm: Double = 100
+        let sixteenth = 60.0 / bpm / 4.0
+        let C2: Float = 65.41, G2: Float = 98.00, Eb2: Float = 77.78
+        let Ab2: Float = 103.83, F2: Float = 87.31
+        let bass: [Float] = [
+            C2, 0, C2, 0, G2, 0, C2, 0,
+            Eb2, 0, Eb2, 0, G2, 0, Eb2, 0,
+            C2, 0, C2, 0, G2, 0, C2, 0,
+            G2, 0, Eb2, 0, C2, 0, G2, 0,
+            Ab2, 0, Ab2, 0, Eb2, 0, Ab2, 0,
+            F2, 0, F2, 0, C2, 0, F2, 0,
+            Ab2, 0, Ab2, 0, Eb2, 0, G2, 0,
+            G2, 0, G2, 0, C2, 0, G2, 0,
+        ]
+        let G5: Float = 783.99, F5: Float = 698.46, Eb5: Float = 622.25
+        let D5: Float = 587.33, C5: Float = 523.25, Bb4: Float = 466.16
+        let Ab4: Float = 415.30, Ab5: Float = 830.61, C6: Float = 1046.50
+        let lead: [Float] = [
+            0, G5, F5, Eb5, 0, D5, 0, C5,
+            0, G5, F5, Eb5, 0, F5, 0, Eb5,
+            0, G5, F5, Eb5, 0, D5, 0, Bb4,
+            0, C5, 0, Eb5, 0, D5, C5, 0,
+            Ab4, 0, C5, 0, Eb5, 0, Ab5, 0,
+            G5, 0, F5, 0, Eb5, 0, C5, 0,
+            Ab4, 0, C5, Eb5, 0, G5, Ab5, C6,
+            0, Ab5, G5, 0, Eb5, 0, C5, 0,
+        ]
+        return synthesize(bass: bass, lead: lead, beat: sixteenth, decay: 5.5,
+                          bassGain: 0.12, leadGain: 0.06)
+    }
+
+    // Shared synthesis kernel. For each step, synthesize one beat of:
+    //   bass = sin(2π * bassF * t) * env(t) * bassGain
+    //   lead = sin(2π * leadF * t) * env(t) * leadGain   (skipped when freq=0)
+    //   env(t) = exp(-decay * t) * (t < 0.005 ? t/0.005 : 1)   // pluck envelope
+    private func synthesize(bass: [Float], lead: [Float], beat: Double, decay: Float,
+                            bassGain: Float, leadGain: Float) -> [Float] {
+        let perFrames = Int(Double(sampleRate) * beat)
+        let total = perFrames * bass.count
+        var out = [Float](repeating: 0, count: total)
+        for idx in 0..<bass.count {
+            let bF = bass[idx]
+            let lF = lead[idx]
+            let start = idx * perFrames
+            for j in 0..<perFrames {
+                let t = Float(j) / Float(sampleRate)
+                let attack: Float = t < 0.005 ? t / 0.005 : 1
+                let env = exp(-decay * t) * attack
+                var v: Float = 0
+                if bF > 0 { v += sin(2 * .pi * bF * t) * bassGain * env }
+                if lF > 0 { v += sin(2 * .pi * lF * t) * leadGain * env }
+                out[start + j] = v
+            }
+        }
+        return out
+    }
 
     // MARK: - Speech
 

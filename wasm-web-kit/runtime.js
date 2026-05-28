@@ -570,6 +570,21 @@ class Runtime {
         const name = this.cstr(ptr, len);
         return this.lookupSound(name);
       },
+      // Build an AudioBuffer from raw Float32 PCM samples in wasm memory.
+      // Used by bossman-web's SoundManager to play the procedurally-
+      // synthesized background loop from bossman-apple. Returns a handle
+      // compatible with snd_play.
+      snd_create_pcm: (samplesPtr, frameCount, sampleRate) => {
+        const ctx = this.ensureAudio();
+        if (!ctx || frameCount <= 0) return 0;
+        const rate = sampleRate > 0 ? sampleRate : ctx.sampleRate;
+        const buf = ctx.createBuffer(1, frameCount, rate);
+        const dst = buf.getChannelData(0);
+        const src = new Float32Array(this.wasmMemory.buffer, samplesPtr, frameCount);
+        dst.set(src);
+        this.sounds.push(buf);
+        return this.sounds.length - 1;
+      },
       snd_play: (buffer, volume, loop) => {
         const ctx = this.ensureAudio();
         const buf = this.sounds[buffer];
