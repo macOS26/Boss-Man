@@ -8,7 +8,7 @@ public final class SKShapeNode: SKNode {
     public var lineWidth: CGFloat = 1
     public var isAntialiased = true
     public var glowWidth: CGFloat = 0
-    public var path: CGPath?
+    public var path: CGPath? { didSet { kind = .path } }   // reassigning the path re-shapes the node
 
     public override init() { kind = .rect(0, 0, 0, 0); super.init() }
     public init(rectOf size: CGSize) { kind = .rect(-size.width/2, -size.height/2, size.width, size.height); super.init() }
