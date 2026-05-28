@@ -193,21 +193,25 @@ final class BossController {
         isImmobilized = true
         sprite.removeAction(forKey: Strings.ActionKey.spawnFade)
         sprite.removeAction(forKey: Strings.ActionKey.spawnUnfreeze)
+        sprite.removeAction(forKey: "spawnThrob")
         sprite.alpha = 0
         sprite.setScale(1.0)
+        // bossman-apple plays this 1.5s fade-in, then 2s of immobilized
+        // wait, then a 3-pulse throb at scale 1.18. The wasm port runs
+        // the throb CONCURRENTLY with the fade-in (and at a larger 1.35
+        // scale) so the player can actually see the boss pulsing as it
+        // materializes — the original's subtle late-window throb was too
+        // easy to miss on the browser-side render path.
         sprite.run(.fadeIn(withDuration: 1.5), withKey: Strings.ActionKey.spawnFade)
         sprite.run(.sequence([
             .wait(forDuration: 2.0),
             .run { [weak self] in self?.isImmobilized = false }
         ]), withKey: Strings.ActionKey.spawnUnfreeze)
         let pulse = SKAction.sequence([
-            .scale(to: 1.18, duration: 0.16),
-            .scale(to: 1.0,  duration: 0.17),
+            .scale(to: 1.35, duration: 0.22),
+            .scale(to: 1.0,  duration: 0.22),
         ])
-        sprite.run(.sequence([
-            .wait(forDuration: 2.0),
-            .repeat(pulse, count: 3),
-        ]))
+        sprite.run(.repeat(pulse, count: 5), withKey: "spawnThrob")
     }
 
     func install(in scene: SKNode) { scene.addChild(sprite) }
