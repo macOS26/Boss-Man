@@ -480,20 +480,33 @@ public final class SKPhysicsWorld {
         for (_, b) in SKPhysicsWorld.registry where b.velocityDirty {
             cb_set_velocity(b.bodyId, Float(b.velocity.dx), Float(b.velocity.dy)); b.velocityDirty = false
         }
-        // Kinematic sync: non-dynamic bodies whose node has been moved by
-        // game code (tile-stepper, SKAction.move, etc.) need their Box2D
-        // transform pushed before the world steps so contact detection
-        // sees the actual current position. Matches Apple SpriteKit's
-        // SKPhysicsBody behaviour for isDynamic=false bodies, which the
-        // application moves by writing node.position directly.
+        // Kinematic sync: non-dynamic bodies AND dynamic-sensor bodies
+        // (game-driven movement, contact reporting only — no physics
+        // integration) get their Box2D transform pushed FROM the SKNode
+        // each frame so contact detection sees the actual current
+        // position. Without it the body is frozen at spawn while the
+        // sprite animates elsewhere.
+        //
+        // Box2D never reports contacts between two static bodies, so the
+        // common "static traveler vs Pete" pattern requires Pete to be
+        // dynamic — and that means we MUST push his position in here
+        // (otherwise his Box2D body stays at his spawn cell while the
+        // SKNode moves), and we MUST NOT read it back out after the
+        // step (Box2D would otherwise overwrite the TileMover-driven
+        // position). The "dynamic && sensor" combo expresses exactly
+        // that semantic.
         for (id, b) in SKPhysicsWorld.registry {
-            guard !b.isDynamic, let n = b.node else { continue }
+            let kinematic = !b.isDynamic || b.isSensor
+            guard kinematic, let n = b.node else { continue }
             cb_set_transform(id, Float(n.position.x), Float(n.position.y),
                              Float(n.zRotation))
         }
         cb_step(Float(dt))
         for (id, b) in SKPhysicsWorld.registry {
-            guard b.isDynamic, let n = b.node else { continue }
+            // Only true dynamic bodies (NOT sensors) read their position
+            // back from Box2D. Sensors are game-driven and shouldn't have
+            // their position clobbered.
+            guard b.isDynamic, !b.isSensor, let n = b.node else { continue }
             var x: Float = 0, y: Float = 0
             cb_get_position(id, &x, &y)
             n.position = CGPoint(x: CGFloat(x), y: CGFloat(y))

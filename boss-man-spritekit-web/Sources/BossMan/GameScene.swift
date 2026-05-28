@@ -122,11 +122,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         pete = SpriteFactory.petePerson()
         pete.zPosition = 5
         // bossman-apple WorkerController.configureNode: circle r=10, worker
-        // category, contact-test against every interactable. We use it
-        // purely as a contact-sensing body — collisions are off because the
-        // TileMover already enforces wall blocking.
+        // category, contact-test against every interactable. The body must
+        // be DYNAMIC (Box2D never reports contacts between two static
+        // bodies — the traveler/dot/disc bodies are static, so Pete has to
+        // be dynamic for didBegin to fire). Marking it as a sensor keeps
+        // the TileMover in charge of position (Box2D won't integrate
+        // forces or overwrite where Pete is on the grid).
         let peteBody = SKPhysicsBody(circleOfRadius: 10)
-        peteBody.isDynamic = false
+        peteBody.isDynamic = true
+        peteBody.isSensor = true
+        peteBody.allowsRotation = false
         peteBody.categoryBitMask = PhysicsCategory.worker
         peteBody.contactTestBitMask = PhysicsCategory.fish
         peteBody.collisionBitMask = 0
@@ -480,14 +485,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             sound.playTpsMissingItems(missing)
             return
         }
+        // bossman-apple GameScene.collectTPSReport:342 — points scale with
+        // the level (state.level * 100 + 100). At level 1: 200, level 2:
+        // 300, etc.
         let pts = (levelIndex + 1) * 100 + 100
         score += pts
         ScorePopup.show(pts, at: pos, in: self)
         tpsReportsDelivered += 1
         collectedReports.removeAll()
         mazeBuilder.resetGrayedMachines()    // ready for the next round
+        // bossman-apple GameScene.collectTPSReport:350-351 — Pete is hired
+        // an extra worker on delivery, capped at HUD.maxLives.
+        let gainedLife = lives < HUD.maxLives
+        if gainedLife { lives += 1 }
         sound.playTpsDeliver()
-        hud.flash(Strings.Message.tpsTurnedIn(points: pts), duration: 3)
+        hud.flash(Strings.Message.tpsTurnedIn(points: pts, gainedLife: gainedLife),
+                  duration: 3)
         refreshHUD()
         // A delivered report can be the last thing keeping the level
         // from completing if Pete already swept the dots + discs.

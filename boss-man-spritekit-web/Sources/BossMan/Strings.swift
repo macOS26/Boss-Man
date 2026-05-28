@@ -112,8 +112,10 @@ enum Strings {
             let names = items.map { Machine.displayName[$0] ?? $0 }
             return "The TPS report is missing \(names.joined(separator: ", "))."
         }
-        static func tpsTurnedIn(points: Int) -> String {
-            "TPS report turned in! +\(points)"
+        static func tpsTurnedIn(points: Int, gainedLife: Bool) -> String {
+            gainedLife
+                ? "TPS report turned in! +\(points), extra worker hired."
+                : "TPS report turned in! +\(points), workers at max."
         }
     }
 
