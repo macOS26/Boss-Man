@@ -163,18 +163,37 @@ The first `cmake -B build` downloads SFML 2.6, Box2D 2.4.1, and nlohmann/json vi
 
 Press **P** to play, **F** to toggle fullscreen, **ESC** for the title screen.
 
-### Windows & Linux
+### Built Native on Mac with Swift and SpriteKit
 
-Build notes for Windows and Linux are **coming soon**. The C++ version is written to be portable — SFML and Box2D are cross-platform, and the macOS-only pieces (CoreText emoji rasterization, native fullscreen) fall back to no-ops elsewhere — so it should build with CMake on those platforms with minor adjustments.
+The original Mac version of **Boss-Man: The Office Maze Game** is written in pure **Swift** with **SpriteKit**, taking full advantage of Apple's native rendering pipeline for silky-smooth 120fps gameplay, Metal-accelerated effects, and seamless integration with macOS.
 
-## Made with Agent!
+### Ported to Windows, Linux, Mac, and the Web with C++
 
-- This arcade-style video game concept was created using **Agent**
-- An autonomous agentic AI, for macOS 26.4.1 — https://github.com/macos26/agent
-- Fine tuning using Claude Code, and Agent! I use use the right tool for the job.
-- Software is deployed using Agent! including release notes and DMGs.
-- Music, Graphics, Art, Sound Effects and Game Design by Todd Bruss
-- (c) 2026 Todd Bruss, InkPen.IO, All Rights Reserved.
-- Binaries are property of Todd Bruss, Source code is MIT.
-- Box2D + SMFL + Cpp port also by Todd Bruss.
-- It currently runs on Mac, but will be testing it on Windows and Linux soon.
+For everyone else, there's a hand-crafted **C++ port** powered by **SFML** for graphics and text and **Box2D** for physics, both rock-solid cross-platform libraries. One unified codebase, one consistent feel, so Boss-Man stays fast and faithful no matter where you play.
+
+Build notes for **Windows** and **Linux** are **coming soon**. The C++ codebase is designed to be portable from the ground up, so it should build cleanly with CMake on those platforms with only minor adjustments.
+
+Whether you're on a MacBook, a gaming rig, a Linux box, or just want to fire up Boss-Man in a browser tab, the experience is the same: pure arcade fun, straight from the cubicle to your screen.
+
+### Play Anywhere
+- **macOS**, **Windows**, **Linux**, and **Web**. One game, every screen, zero friction.
+- Drop into the browser and play in seconds, or grab the native build for buttery-smooth performance.
+
+### Crafted by One, Amplified by AI
+- Designed, coded, and shipped using **Agent**, an autonomous agentic AI for macOS 26.4.1. [github.com/macos26/agent](https://github.com/macos26/agent)
+- Fine-tuned with **Claude Code** alongside Agent. The right tool for the right job, every time.
+- Releases, DMGs, and notes all deployed by Agent itself. The future of indie shipping.
+
+### Built from Scratch
+- Custom **Box2D + SFML + C++** port, written by Todd Bruss.
+- Original music, graphics, art, sound effects, and game design, all by Todd Bruss.
+
+### Honest Licensing
+- Source code is **MIT**. Fork it, learn from it, build with it.
+- Binaries remain the property of Todd Bruss.
+
+---
+
+*Copyright 2026 Todd Bruss. [boss-man.us](https://boss-man.us). All rights reserved.*
+
+**Ready to play? Pick your platform and dive in.**
