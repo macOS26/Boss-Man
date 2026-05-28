@@ -190,7 +190,22 @@ void cb_remove_joint(int id) {
 }
 
 void cb_set_velocity(int b, float vx, float vy) { if (b >= 0 && b < (int)g_bodies.size()) g_bodies[b]->SetLinearVelocity(b2Vec2(vx, vy)); }
-void cb_set_transform(int b, float x, float y, float angle) { if (b >= 0 && b < (int)g_bodies.size()) g_bodies[b]->SetTransform(b2Vec2(x, y), angle); }
+void cb_set_transform(int b, float x, float y, float angle) {
+    if (b < 0 || b >= (int)g_bodies.size()) return;
+    b2Body* body = g_bodies[b];
+    const b2Vec2& p = body->GetPosition();
+    if (p.x == x && p.y == y && body->GetAngle() == angle) return;
+    body->SetTransform(b2Vec2(x, y), angle);
+    // SetTransform refreshes the broad-phase AABB but does NOT wake the body.
+    // Game-driven bodies (Pete, travelers) move by teleport with zero Box2D
+    // velocity, so without this they sleep after b2_timeToSleep and
+    // b2ContactManager::Collide skips any pair where both bodies are inactive
+    // (a sleeping dynamic body + a static body) -- the contact is never
+    // evaluated and BeginContact never fires. Waking on a real move keeps the
+    // pair live, matching Apple SpriteKit where node-driven bodies always
+    // report contacts.
+    body->SetAwake(true);
+}
 void cb_get_position(int b, float* x, float* y) { if (b >= 0 && b < (int)g_bodies.size()) { auto p = g_bodies[b]->GetPosition(); *x = p.x; *y = p.y; } }
 float cb_get_angle(int b) { return (b >= 0 && b < (int)g_bodies.size()) ? g_bodies[b]->GetAngle() : 0.f; }
 void cb_step(float dt) { if (g_world) g_world->Step(dt, 8, 3); }
