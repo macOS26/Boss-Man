@@ -194,11 +194,6 @@ final class PixelPerson: SKNode {
             head.addChild(r)
             rightEye = r
         }
-
-        // Auto-start the walk loop so every actor animates without each
-        // caller having to remember to enable it. Idempotent — startWalking()
-        // no-ops if the actions are already attached.
-        startWalking()
     }
 
     func setBodyColor(_ color: SKColor) {

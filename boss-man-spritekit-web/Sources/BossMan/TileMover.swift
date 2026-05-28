@@ -70,10 +70,18 @@ final class TileMover {
         while rem > 0 && guardCount < 8 {
             guardCount += 1
             if !moving {
-                guard let d = decide(self) else { dir = nil; return }
+                guard let d = decide(self) else {
+                    dir = nil
+                    (node as? PixelPerson)?.stopWalking()
+                    return
+                }
                 dir = d
                 let next = tileAfter(from: grid, in: d)
-                guard map.isWalkable(next) else { return }
+                guard map.isWalkable(next) else {
+                    (node as? PixelPerson)?.stopWalking()
+                    return
+                }
+                (node as? PixelPerson)?.startWalking()
                 // Tunnel wrap: snap to the far mouth instead of interpolating
                 // across the maze.
                 if abs(Int(next.x - grid.x)) > 1 || abs(Int(next.y - grid.y)) > 1 {
