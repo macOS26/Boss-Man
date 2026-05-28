@@ -77,7 +77,7 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
     auto hairFill = toSfColor(config.hairColor);
     auto shoeFill = toSfColor(SHOE_COLOR);
     auto shoeOut = toSfColor(config.shoeOutlineColor);
-    auto skinFill = toSfColor(SKIN_COLOR);
+    auto skinFill = toSfColor(config.skinColor);
 
     // Capture/spawn scale applied uniformly through render states (identity when scale==1).
     sf::RenderStates states;

@@ -11,6 +11,9 @@ struct PersonConfig {
     Color hairColor = PETE_HAIR;
     Color shoeOutlineColor = WHITE;
     Color pantsColor = PETE_PANTS;
+    // Skin tone (head + hands). Defaults to SKIN_COLOR; frightened bosses
+    // override this to FLEE_SKIN so face/hands read blue.
+    Color skinColor = SKIN_COLOR;
     float walkExaggeration = 0.0f;
     bool wearsSunglasses = false;
     float headYOffset = 0.0f; // positive = lower on screen (SFML Y-down)

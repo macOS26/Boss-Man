@@ -132,6 +132,7 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
                     boss.renderer.config.bodyColor = FLEE_BODY;
                     boss.renderer.config.tieColor = FLEE_TIE;
                     boss.renderer.config.shoeOutlineColor = BOSS_SHOE_GOLD;
+                    boss.renderer.config.skinColor = FLEE_SKIN;
                 }
             }
             continue;
@@ -305,9 +306,11 @@ void BossController::setGoldDiscActive(bool active) {
             boss.renderer.config.bodyColor = FLEE_BODY;
             boss.renderer.config.tieColor = FLEE_TIE;
             boss.renderer.config.shoeOutlineColor = BOSS_SHOE_GOLD;
+            boss.renderer.config.skinColor = FLEE_SKIN;
         } else {
             boss.renderer.config.bodyColor = boss.baseColor;
             boss.renderer.config.tieColor = boss.tieColor;
+            boss.renderer.config.skinColor = SKIN_COLOR;
             // Reactivate bosses that were captured 3x (respawnTimer was 999)
             if (!boss.isActive && boss.respawnTimer > 10.0f) {
                 boss.respawnTimer = 3.0f;
