@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Boss-Man · SpriteKit → WebAssembly</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #0b0b0f; color: #ccc;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; font-family: ui-monospace, Menlo, monospace;
+  }
+  #game {
+    width: min(94vw, calc(94vh * 1184 / 666));
+    aspect-ratio: 1184 / 666;
+    background: #000;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+  #footer { font-size: 12px; opacity: 0.55; }
+</style></head>
+<body>
+  <canvas id="game" width="1184" height="666"></canvas>
+  <div id="footer">Boss-Man · SpriteKit edition on WebAssembly · arrow keys to move · P to play · E for editor</div>
+  <script>
+    window.WASMWEB = {
+      logicalWidth:  1184,
+      logicalHeight: 666,
+      wasmUrl:       'bossman.wasm',
+      assetRoot:     'assets',
+      title:         'Boss-Man',
+    };
+  </script>
+  <script src="runtime.js"></script>
+</body></html>

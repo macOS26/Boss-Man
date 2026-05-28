@@ -14,3 +14,7 @@ double sb64_ceil(double x)           { return ceil(x); }
 double sb64_fmod(double a, double b) { return fmod(a, b); }
 double sb64_pow(double a, double b)  { return pow(a, b); }
 double sb64_hypot(double x, double y){ return hypot(x, y); }
+
+#include <stdlib.h>
+int sb64_rand(void)            { return rand(); }
+void sb64_srand(unsigned int s){ srand(s); }

@@ -3,7 +3,11 @@ import KitABI
 public enum SKTextureFilteringMode { case nearest, linear }
 
 public class SKTexture {
-    let handle: Int32
+    public internal(set) var handle: Int32
+    // True when the runtime has the backing image registered. Games use this
+    // to fall back to a procedural placeholder when an asset hasn't loaded
+    // (or is missing from manifest.json).
+    public var isLoaded: Bool { handle > 0 }
     public var size: CGSize
     public var filteringMode: SKTextureFilteringMode = .linear   // honored later if we add a tex-state ABI
     public var usesMipmaps: Bool = false

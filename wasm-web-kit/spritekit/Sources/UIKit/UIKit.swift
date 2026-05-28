@@ -147,12 +147,13 @@ public final class UIEvent {
 public struct UUID: Hashable {
     private let a: UInt64, b: UInt64
     public init() {
-        // Pull two 64-bit words from the wasm runtime's random_get via libc rand.
-        a = (UInt64(__rand32()) << 32) | UInt64(__rand32())
-        b = (UInt64(__rand32()) << 32) | UInt64(__rand32())
+        // Pull two 64-bit words from libc rand via the KitABI sb64_rand wrapper.
+        // Going through C avoids Swift's witness-arg mangling that triggers
+        // wasm-ld's "function signature mismatch" against libc's plain rand.
+        a = (UInt64(UInt32(bitPattern: sb64_rand())) << 32) | UInt64(UInt32(bitPattern: sb64_rand()))
+        b = (UInt64(UInt32(bitPattern: sb64_rand())) << 32) | UInt64(UInt32(bitPattern: sb64_rand()))
     }
 }
-@_silgen_name("rand") func __rand32() -> Int32
 
 // =============================================================================
 // UIGestureRecognizer family — compile-only.

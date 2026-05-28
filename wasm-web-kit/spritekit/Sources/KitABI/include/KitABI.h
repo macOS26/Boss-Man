@@ -138,6 +138,12 @@ WABI void  gfx_3d_draw_billboard(int srcImg, float camX, float camY, float camZ,
 /* otherwise updates `img` in place and returns the same handle.           */
 WABI int   gfx_upload_pixels(int img, int w, int h, const uint8_t* rgba, int len);
 
+/* localStorage-backed persistence. store_get returns -1 when the key is   */
+/* absent; otherwise returns the value's total byte length (copies up to   */
+/* `cap` bytes into buf).                                                  */
+WABI int   store_get(const char* key, int klen, char* buf, int cap);
+WABI void  store_set(const char* key, int klen, const char* val, int vlen);
+
 /* Asset text reads (e.g. *.json compiled from .sks).                       */
 WABI int   asset_exists(const char* name, int len);
 WABI int   asset_text(const char* name, int len, char* buf, int cap);
@@ -169,6 +175,8 @@ double sb64_ceil(double x);
 double sb64_fmod(double a, double b);
 double sb64_pow(double a, double b);
 double sb64_hypot(double x, double y);
+int    sb64_rand(void);
+void   sb64_srand(unsigned int seed);
 
 /* Box2D shim (defined in Box2DBridge target; see Sources/Box2DBridge/cbox2d.cpp) */
 void  cb_reset(float gx, float gy);

@@ -19,7 +19,7 @@ public class GKRandomSource: GKRandom {
     public init() {}
     public init(seed: UInt64) {}
     public static let sharedRandom = GKRandomSource()
-    public func nextInt() -> Int { Int(__gk_rand()) }
+    public func nextInt() -> Int { Int(sb64_rand()) }
     public func nextInt(upperBound u: Int) -> Int { u <= 0 ? 0 : abs(nextInt()) % u }
     public func nextUniform() -> Float { Float(nextInt(upperBound: 0x10000)) / 65535.0 }
     public func nextBool() -> Bool { (nextInt() & 1) == 1 }
@@ -31,7 +31,6 @@ public class GKRandomSource: GKRandom {
         return a
     }
 }
-@_silgen_name("rand") func __gk_rand() -> Int32
 
 public final class GKMersenneTwisterRandomSource: GKRandomSource {}
 public final class GKLinearCongruentialRandomSource: GKRandomSource {}
@@ -42,10 +41,10 @@ public class GKRandomDistribution: GKRandom {
     public let highestValue: Int
     public init(lowestValue l: Int, highestValue h: Int) { lowestValue = l; highestValue = h }
     public init(randomSource s: GKRandom, lowestValue l: Int, highestValue h: Int) { lowestValue = l; highestValue = h }
-    public func nextInt() -> Int { lowestValue + abs(Int(__gk_rand())) % max(highestValue - lowestValue + 1, 1) }
-    public func nextInt(upperBound u: Int) -> Int { abs(Int(__gk_rand())) % max(u, 1) }
-    public func nextUniform() -> Float { Float(__gk_rand() & 0xFFFF) / 65535 }
-    public func nextBool() -> Bool { (__gk_rand() & 1) == 1 }
+    public func nextInt() -> Int { lowestValue + abs(Int(sb64_rand())) % max(highestValue - lowestValue + 1, 1) }
+    public func nextInt(upperBound u: Int) -> Int { abs(Int(sb64_rand())) % max(u, 1) }
+    public func nextUniform() -> Float { Float(sb64_rand() & 0xFFFF) / 65535 }
+    public func nextBool() -> Bool { (sb64_rand() & 1) == 1 }
     public static func d6() -> GKRandomDistribution { GKRandomDistribution(lowestValue: 1, highestValue: 6) }
     public static func d20() -> GKRandomDistribution { GKRandomDistribution(lowestValue: 1, highestValue: 20) }
 }
