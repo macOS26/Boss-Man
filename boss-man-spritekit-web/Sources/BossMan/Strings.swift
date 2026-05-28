@@ -74,6 +74,62 @@ enum Strings {
         static let startFullscreen        = "BossMan.startFullscreen"
     }
 
+    // MARK: - In-game messages (transient HUD banners). Ported verbatim
+    // from bossman-apple's Strings.Message so the wasm port displays the
+    // same wording on every event.
+    enum Message {
+        static let intro              = "Collect office dots and finish the TPS report!"
+        static let practiceMode       = "PRACTICE MODE — score not saved"
+        static let paused             = "Paused — press P to resume"
+        static let needTPSReport      = "Turn in at least 1 TPS report to complete the level!"
+        static let brownBoxHint       = "Brown boxes collect finished TPS reports."
+        static let tpsReportReady     = "TPS report complete! Deliver it to a brown box."
+        static let newGame            = "New game! Collect dots and TPS reports."
+        static let goldDiscActivated  = "Gold disc! Capture the bosses for 20 seconds."
+        static let goldDiscEnded      = "Gold disc mode ended."
+        static let waterGunActivated  = "Water gun! Shoot the bosses."
+        static let waterGunEnded      = "Water gun empty."
+        static let waterGunExpired    = "Water gun time expired."
+        static let waterGunBlueMode   = "Water pistol unavailable in blue boss mode."
+        static let bossSplashed       = "SPLASH!"
+
+        static func bossCaughtYou(_ livesLeft: Int) -> String {
+            "A boss caught you! \(livesLeft) workers left."
+        }
+        static func levelLoaded(_ level: Int) -> String {
+            "Level \(level)! New office floor loaded."
+        }
+        static func bossCaptured(name: String, points: Int) -> String {
+            "\(name) captured! +\(points)"
+        }
+        static func travelerCaught(emoji: String, points: Int) -> String {
+            "Caught \(emoji)! +\(points)"
+        }
+        static func reportItemCollected(name: String, points: Int) -> String {
+            "Collected \(name) page for TPS report +\(points)"
+        }
+        static func tpsMissingItems(_ items: [String]) -> String {
+            let names = items.map { Machine.displayName[$0] ?? $0 }
+            return "The TPS report is missing \(names.joined(separator: ", "))."
+        }
+        static func tpsTurnedIn(points: Int) -> String {
+            "TPS report turned in! +\(points)"
+        }
+    }
+
+    // MARK: - HUD persistent label prefixes (mirrors Strings.HUD in apple)
+    enum HUDText {
+        static let livesPrefix    = "Lives:"
+        static let tpsPrefix      = "TPS:"
+        static let gameOver       = "GAME OVER"
+        static let promptNewGame  = "PRESS P TO START A NEW GAME"
+        static let promptTitle    = "PRESS ESC FOR TITLE SCREEN"
+        static func statusLine(score: Int, highScore: Int, level: Int,
+                               dots: Int, total: Int, reports: Int) -> String {
+            "Score: \(score)   High: \(highScore)   Level: \(level)   Dots: \(dots)/\(total)   Reports: \(reports)"
+        }
+    }
+
     // MARK: - Voice lines (spoken through tts_speak)
     enum Speech {
         static let bossCaptureLines = ["Aw, geez.", "Hey now.", "Whoaaa.", "Ouch."]
@@ -130,6 +186,8 @@ enum Strings {
         static let coverSheet = "\u{1F4C4}"                    // 📄
         static let bookBinder = "\u{1F4DA}"                    // 📚
         static let brownBox   = "\u{1F4E6}"                    // 📦
+        static let checked    = "\u{2705}"                     // ✅
+        static let unchecked  = "\u{274C}"                     // ❌
     }
 
     // MARK: - SKAction keys (the per-scope "name" passed to run(_:withKey:))

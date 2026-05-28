@@ -108,7 +108,9 @@ final class HUD {
     }
 
     func update(score: Int, highScore: Int, level: Int, dotsLeft: Int, totalDots: Int, reports: Int = 0) {
-        statusLabel.text = "Score: \(score)   High: \(highScore)   Level: \(level)   Dots: \(dotsLeft)/\(totalDots)   Reports: \(reports)"
+        statusLabel.text = Strings.HUDText.statusLine(
+            score: score, highScore: highScore, level: level,
+            dots: dotsLeft, total: totalDots, reports: reports)
     }
 
     func update(lives: Int) {
@@ -130,6 +132,82 @@ final class HUD {
             ammoDots.fontColor = red
             waterGunIcon.alpha = 0.5
         }
+    }
+
+    // bossman-apple's TPS checklist row: "TPS: ✅🖨 ❌📠 ❌📄 ❌📚".
+    // The four glyph slots correspond to printer/fax/coverSheet/binder
+    // in Strings.Machine.required order.
+    func updateTPSChecklist(collected: Set<String>) {
+        let glyphs: [(name: String, emoji: String)] = [
+            (Strings.Machine.printer,    Strings.Emoji.printer),
+            (Strings.Machine.fax,        Strings.Emoji.fax),
+            (Strings.Machine.coverSheet, Strings.Emoji.coverSheet),
+            (Strings.Machine.bookBinder, Strings.Emoji.bookBinder),
+        ]
+        let parts = glyphs.map { item -> String in
+            let check = collected.contains(item.name) ? Strings.Emoji.checked
+                                                      : Strings.Emoji.unchecked
+            return "\(check)\(item.emoji)"
+        }
+        tpsLabel.text = "\(Strings.HUDText.tpsPrefix) " + parts.joined(separator: "  ")
+    }
+
+    // bossman-apple's HUD.showGameOver — translucent dim, orange-bordered
+    // central card, big red GAME OVER + yellow prompt that pulses, and
+    // a small "PRESS ESC FOR TITLE SCREEN" hint below. Returns the overlay
+    // so GameScene can dismiss it after the timer.
+    @discardableResult
+    func showGameOver(in scene: SKScene) -> SKNode {
+        let s = scene.size
+        let overlay = SKNode()
+        overlay.zPosition = 100
+
+        let dim = SKShapeNode(rect: CGRect(origin: .zero, size: s))
+        dim.fillColor = SKColor(white: 0, alpha: 0.78)
+        dim.strokeColor = .clear
+        dim.zPosition = 100
+        overlay.addChild(dim)
+
+        let frame = SKShapeNode(rect: CGRect(x: s.width / 2 - 260,
+                                              y: s.height / 2 - 110,
+                                              width: 520, height: 220),
+                                 cornerRadius: 6)
+        frame.fillColor = SKColor(red: 0.05, green: 0.05, blue: 0.07, alpha: 1)
+        frame.strokeColor = SKColor(red: 1.0, green: 0.58, blue: 0.0, alpha: 1)
+        frame.lineWidth = 3
+        frame.zPosition = 101
+        overlay.addChild(frame)
+
+        let big = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        big.text = Strings.HUDText.gameOver
+        big.fontSize = 56
+        big.fontColor = SKColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1)
+        big.position = CGPoint(x: s.width / 2, y: s.height / 2 + 20)
+        big.zPosition = 102
+        overlay.addChild(big)
+
+        let prompt = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        prompt.text = Strings.HUDText.promptNewGame
+        prompt.fontSize = 18
+        prompt.fontColor = SKColor(red: 1.0, green: 0.91, blue: 0.34, alpha: 1)
+        prompt.position = CGPoint(x: s.width / 2, y: s.height / 2 - 40)
+        prompt.zPosition = 102
+        prompt.run(.repeatForever(.sequence([
+            .fadeAlpha(to: 0.2, duration: 0.6),
+            .fadeAlpha(to: 1.0, duration: 0.6),
+        ])))
+        overlay.addChild(prompt)
+
+        let exit = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        exit.text = Strings.HUDText.promptTitle
+        exit.fontSize = 14
+        exit.fontColor = SKColor(white: 0.75, alpha: 1)
+        exit.position = CGPoint(x: s.width / 2, y: s.height / 2 - 72)
+        exit.zPosition = 102
+        overlay.addChild(exit)
+
+        scene.addChild(overlay)
+        return overlay
     }
 
     // Upcoming-traveler emoji trail in the top-right corner. Identical

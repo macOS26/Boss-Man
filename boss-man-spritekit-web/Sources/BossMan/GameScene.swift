@@ -493,26 +493,16 @@ final class GameScene: SKScene {
         peteMover.dir = nil
         queued = nil
 
-        let overlay = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
-        overlay.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.55)
-        overlay.strokeColor = .clear
-        overlay.zPosition = 50
-        addChild(overlay)
-
-        let big = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
-        big.text = "GAME OVER"
-        big.fontSize = 86
-        big.fontColor = SKColor(red: 1.0, green: 0.85, blue: 0.34, alpha: 1)
-        big.position = CGPoint(x: size.width / 2, y: size.height * 0.72)
-        big.zPosition = 51
-        addChild(big)
+        // bossman-apple HUD.showGameOver: translucent dim, orange-bordered
+        // central card, big red GAME OVER + pulsing prompt + "PRESS ESC".
+        hud.showGameOver(in: self)
 
         let summary = SKLabelNode(fontNamed: Strings.Font.menloBold)
         summary.text = "FINAL SCORE \(score)   HIGH \(highScore)"
         summary.fontSize = 22
         summary.fontColor = .white
-        summary.position = CGPoint(x: size.width / 2, y: size.height * 0.62)
-        summary.zPosition = 51
+        summary.position = CGPoint(x: size.width / 2, y: size.height / 2 - 100)
+        summary.zPosition = 102
         addChild(summary)
 
         if score > 0 {
@@ -715,5 +705,6 @@ final class GameScene: SKScene {
                    totalDots: dotsTotal, reports: tpsReportsDelivered)
         hud.update(lives: lives)
         hud.update(ammo: waterAmmo)
+        hud.updateTPSChecklist(collected: collectedReports)
     }
 }
