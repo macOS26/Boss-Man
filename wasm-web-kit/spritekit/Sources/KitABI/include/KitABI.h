@@ -26,6 +26,22 @@ WABI void gfx_draw_text(int font, const char* utf8, int len, float x, float y,
 WABI int  img_by_name(const char* name, int len);
 WABI int  snd_by_name(const char* name, int len);
 WABI int  snd_play(int buffer, float volume, int loop);
+WABI void snd_stop(int voice);
+WABI void snd_set_volume(int voice, float volume);
+WABI int  snd_status(int voice);
+WABI void snd_pause_all(void);
+WABI void snd_resume_all(void);
+
+/* gamepad / USB arcade joystick (Web Gamepad API, 4 pads) */
+WABI int   gp_connected(int pad);
+WABI int   gp_button(int pad, int button);
+WABI float gp_button_value(int pad, int button);
+WABI float gp_axis(int pad, int axis);
+WABI void  gp_map_to_keys(int enable);
+
+/* text-to-speech (Web Speech API) */
+WABI int   tts_speak(const char* utf8, int len, float rate, float pitch, float volume);
+WABI void  tts_cancel(void);
 
 /* input */
 WABI int  key_pressed(int sfKey);
@@ -35,6 +51,19 @@ WABI int  mouse_button(int b);
 WABI int  evt_poll(int* type, int* a, int* b, int* c, int* d);
 WABI int  win_width(void);
 WABI int  win_height(void);
+
+/* libm wrappers — see shim.c. Swift uses these instead of importing libm
+ * directly because @_silgen_name passes through Swift's witness mangling
+ * and produces a signature mismatch with libc's (Double)->Double. */
+double sb64_sin(double x);
+double sb64_cos(double x);
+double sb64_atan2(double y, double x);
+double sb64_sqrt(double x);
+double sb64_floor(double x);
+double sb64_ceil(double x);
+double sb64_fmod(double a, double b);
+double sb64_pow(double a, double b);
+double sb64_hypot(double x, double y);
 
 /* Box2D shim (defined in libcbox2d.a; see boss-man-spritekit-web/native) */
 void  cb_reset(float gx, float gy);

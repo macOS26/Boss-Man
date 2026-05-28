@@ -9,6 +9,12 @@ public final class SKAction {
         case wait, run(() -> Void), custom((SKNode, CGFloat) -> Void)
         case sequence([SKAction]), group([SKAction]), repeatN(SKAction, Int), repeatForever(SKAction)
         case removeFromParent
+        case setTexture(SKTexture)                          // SKSpriteNode.texture = t (instant)
+        case animate([SKTexture], TimeInterval, Bool, Bool) // textures, timePerFrame, resize, restore
+        case changeVolume(CGFloat)                          // for SKAudioNode
+        case resizeTo(CGFloat, CGFloat)                     // SKSpriteNode.size = (w,h)
+        case resizeBy(CGFloat, CGFloat)
+        case followPath(CGPath, Bool, Bool)                 // asOffset, orientToPath
     }
     let kind: Kind
     var duration: TimeInterval
@@ -36,6 +42,44 @@ public final class SKAction {
     public static func `repeat`(_ a: SKAction, count: Int) -> SKAction { SKAction(.repeatN(a, count), a.duration * Double(count)) }
     public static func repeatForever(_ a: SKAction) -> SKAction { SKAction(.repeatForever(a), .infinity) }
     public static func removeFromParent() -> SKAction { SKAction(.removeFromParent, 0) }
+
+    // SpriteKit sprite-sheet animation. Cycles through textures every timePerFrame
+    // seconds, setting SKSpriteNode.texture. resize matches the sprite size to each
+    // frame's texture size; restore puts the first texture back when the action ends.
+    public static func setTexture(_ t: SKTexture) -> SKAction { SKAction(.setTexture(t), 0) }
+    public static func setTexture(_ t: SKTexture, resize: Bool) -> SKAction { SKAction(.setTexture(t), 0) }
+    public static func animate(with textures: [SKTexture], timePerFrame tpf: TimeInterval,
+                               resize: Bool = false, restore: Bool = false) -> SKAction {
+        SKAction(.animate(textures, tpf, resize, restore), tpf * Double(max(textures.count, 1)))
+    }
+    public static func animate(with textures: [SKTexture], timePerFrame tpf: TimeInterval) -> SKAction {
+        animate(with: textures, timePerFrame: tpf, resize: false, restore: false)
+    }
+
+    // SKAudioNode volume ramp. Block form mirrors AsteroidZ-style call sites.
+    public static func changeVolume(to v: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.changeVolume(v), d) }
+    public static func changeVolume(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.changeVolume(delta), d) }
+
+    // SKSpriteNode size animation.
+    public static func resize(toWidth w: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.resizeTo(w, -1), d) }
+    public static func resize(toHeight h: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.resizeTo(-1, h), d) }
+    public static func resize(toWidth w: CGFloat, height h: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.resizeTo(w, h), d) }
+    public static func resize(byWidth dw: CGFloat, height dh: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.resizeBy(dw, dh), d) }
+
+    // CGPath following — samples the path every step. orientToPath rotates the
+    // node so its +x faces the tangent.
+    public static func follow(_ path: CGPath, asOffset: Bool = true, orientToPath: Bool = true,
+                              duration d: TimeInterval) -> SKAction {
+        SKAction(.followPath(path, asOffset, orientToPath), d)
+    }
+    public static func follow(_ path: CGPath, asOffset: Bool, orientToPath: Bool,
+                              speed: CGFloat) -> SKAction {
+        SKAction(.followPath(path, asOffset, orientToPath), TimeInterval(speed))
+    }
+
+    // AsteroidZ-style off-queue closure run. The web kit is single-threaded, so
+    // queue is ignored and the block runs inline on the next action tick.
+    public static func run(_ block: @escaping () -> Void, queue: Any) -> SKAction { SKAction(.run(block), 0) }
 
     // Animated tint on SKSpriteNode (color + colorBlendFactor).
     public static func colorize(with color: SKColor, colorBlendFactor: CGFloat, duration d: TimeInterval) -> SKAction {
@@ -80,6 +124,9 @@ final class RunningAction {
     var child: RunningAction?
     var groupChildren: [RunningAction] = []
     var repeatRemaining = 0
+    var startSize = CGSize.zero, targetSize = CGSize.zero
+    var startVolume: CGFloat = 1
+    var firstTexture: SKTexture?         // remembered for .animate(restore: true)
 
     init(_ a: SKAction) { action = a }
 
@@ -116,13 +163,37 @@ final class RunningAction {
             return false
         case .run(let b): b(); return true
         case .removeFromParent: node.removeFromParent(); return true
+        case let .setTexture(t):
+            if let s = node as? SKSpriteNode { s.texture = t }
+            return true
+        case let .animate(textures, tpf, _, restore):
+            if !started {
+                started = true
+                if let s = node as? SKSpriteNode { firstTexture = s.texture }
+            }
+            elapsed += dt
+            if !textures.isEmpty, let s = node as? SKSpriteNode {
+                let idx = min(textures.count - 1, Int(elapsed / max(tpf, 0.0001)))
+                s.texture = textures[idx]
+            }
+            let done = elapsed >= action.duration
+            if done, restore, let s = node as? SKSpriteNode, let f = firstTexture { s.texture = f }
+            return done
         default:
             if !started {
                 started = true
                 startPos = node.position; startScale = node.xScale; startAlpha = node.alpha; startRot = node.zRotation
-                if let s = node as? SKSpriteNode { startColor = s.color; startBlend = s.colorBlendFactor }
+                if let s = node as? SKSpriteNode { startColor = s.color; startBlend = s.colorBlendFactor; startSize = s.size }
+                if let a = node as? SKAudioNode { startVolume = CGFloat(a.volume) }
                 if case .moveBy(let dx, let dy) = action.kind { targetPos = CGPoint(x: startPos.x + dx, y: startPos.y + dy) }
                 if case .moveTo(let p) = action.kind { targetPos = p }
+                if case let .resizeTo(w, h) = action.kind {
+                    targetSize = CGSize(width:  w < 0 ? startSize.width  : w,
+                                        height: h < 0 ? startSize.height : h)
+                }
+                if case let .resizeBy(dw, dh) = action.kind {
+                    targetSize = CGSize(width: startSize.width + dw, height: startSize.height + dh)
+                }
             }
             elapsed += dt
             applyLeaf(node, progress())
@@ -149,6 +220,42 @@ final class RunningAction {
                                   blue:  startColor.b + (target.b - startColor.b) * p,
                                   alpha: startColor.a + (target.a - startColor.a) * p)
                 s.colorBlendFactor = startBlend + (factor - startBlend) * p
+            }
+        case let .changeVolume(target):
+            if let a = node as? SKAudioNode {
+                a.volume = Float(startVolume + (target - startVolume) * p)
+            }
+        case .resizeTo, .resizeBy:
+            if let s = node as? SKSpriteNode {
+                s.size = CGSize(width:  startSize.width  + (targetSize.width  - startSize.width)  * p,
+                                height: startSize.height + (targetSize.height - startSize.height) * p)
+            }
+        case let .followPath(path, asOffset, orientToPath):
+            // Sample the resolved subpaths into one flat polyline, then interpolate
+            // by arc length. asOffset = relative to startPos; orientToPath rotates
+            // the node so its +x faces the tangent.
+            let pts = path.flattenedPoints
+            if pts.count >= 2 {
+                let total = path.arcLength
+                let want = total * p
+                var run: CGFloat = 0
+                var cur = pts[0]
+                var nxt = pts[1]
+                for i in 1..<pts.count {
+                    let a = pts[i-1], b = pts[i]
+                    let seg = a.distance(to: b)
+                    if run + seg >= want || i == pts.count - 1 {
+                        let t = seg > 0 ? (want - run) / seg : 0
+                        cur = a; nxt = b
+                        let x = a.x + (b.x - a.x) * t
+                        let y = a.y + (b.y - a.y) * t
+                        node.position = asOffset ? CGPoint(x: startPos.x + x, y: startPos.y + y) : CGPoint(x: x, y: y)
+                        if orientToPath { node.zRotation = atan2c(b.y - a.y, b.x - a.x) }
+                        return
+                    }
+                    run += seg
+                }
+                _ = (cur, nxt)
             }
         case .custom(let b): b(node, elapsed)
         default: break
