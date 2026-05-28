@@ -19,7 +19,7 @@ import SpriteKit
 //     all queued for the next pass.
 //
 // Escape returns to the title screen.
-final class GameScene: SKScene {
+final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
     private var mazeBuilder: MazeBuilder!
@@ -85,6 +85,10 @@ final class GameScene: SKScene {
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
         anchorPoint = .zero
+        // Top-down maze — no gravity. SKPhysicsWorld.contactDelegate gets
+        // didBegin for every (categoryBitMask & contactTestBitMask) pair.
+        physicsWorld.gravity = .zero
+        physicsWorld.contactDelegate = self
 
         let rows = Levels.officeMaps.first ?? []
         gridMap = GridMap(tileSize: tileSize, rows: rows)
@@ -117,6 +121,16 @@ final class GameScene: SKScene {
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         pete = SpriteFactory.petePerson()
         pete.zPosition = 5
+        // bossman-apple WorkerController.configureNode: circle r=10, worker
+        // category, contact-test against every interactable. We use it
+        // purely as a contact-sensing body — collisions are off because the
+        // TileMover already enforces wall blocking.
+        let peteBody = SKPhysicsBody(circleOfRadius: 10)
+        peteBody.isDynamic = false
+        peteBody.categoryBitMask = PhysicsCategory.worker
+        peteBody.contactTestBitMask = PhysicsCategory.fish
+        peteBody.collisionBitMask = 0
+        pete.physicsBody = peteBody
         addChild(pete)
         peteMover = TileMover(node: pete, spawn: spawn, map: gridMap,
                               step: peteStep, containerOriginX: containerOriginX)
@@ -388,13 +402,10 @@ final class GameScene: SKScene {
             refreshHUD()
             hud.flash("WATER GUN!", duration: 1.0)
         }
-        if let catchInfo = travelerSpawner.tryCatch(at: grid) {
-            score += catchInfo.traveler.points
-            ScorePopup.show(catchInfo.traveler.points, at: catchInfo.position, in: self,
-                            color: SKColor(red: 1.0, green: 0.91, blue: 0.34, alpha: 1))
-            sound.playFishOrTreat()
-            refreshHUD()
-        }
+        // Traveler catch is fired by SKPhysicsContactDelegate.didBegin now,
+        // not by tile-arrival — the Box2D contact reports the instant
+        // Pete's worker body overlaps the fish body, regardless of which
+        // tile either one is animating between.
         if let machine = mazeBuilder.collectMachine(at: grid),
            requiredReports.contains(machine.name),
            !collectedReports.contains(machine.name) {
@@ -415,6 +426,31 @@ final class GameScene: SKScene {
         if let boxPos = mazeBuilder.touchedBrownBox(at: grid) {
             collectTPSReport(at: boxPos)
         }
+    }
+
+    // MARK: - SKPhysicsContactDelegate
+    // bossman-apple wires this through ContactRouter; bossman-web routes
+    // the same contacts directly. didBegin fires once per
+    // (categoryBitMask & contactTestBitMask) match.
+    func didBegin(_ contact: SKPhysicsContact) {
+        if gameOver { return }
+        let bodies = [contact.bodyA, contact.bodyB]
+        let hasWorker = bodies.contains { $0.categoryBitMask == PhysicsCategory.worker }
+        if hasWorker, let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
+           let fishNode = fishBody.node {
+            handleTravelerCaught(node: fishNode)
+        }
+    }
+
+    private func handleTravelerCaught(node: SKNode) {
+        guard let active = travelerSpawner.activeNode, active === node,
+              let traveler = travelerSpawner.activeTraveler else { return }
+        let info = travelerSpawner.consumeCatch(fish: node, traveler: traveler)
+        score += info.traveler.points
+        ScorePopup.show(info.traveler.points, at: info.position, in: self,
+                        color: SKColor(red: 1.0, green: 0.91, blue: 0.34, alpha: 1))
+        sound.playFishOrTreat()
+        refreshHUD()
     }
 
     // bossman-apple's checkLevelComplete: a level only advances when ALL

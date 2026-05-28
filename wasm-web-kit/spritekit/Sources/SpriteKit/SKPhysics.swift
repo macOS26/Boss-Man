@@ -480,6 +480,17 @@ public final class SKPhysicsWorld {
         for (_, b) in SKPhysicsWorld.registry where b.velocityDirty {
             cb_set_velocity(b.bodyId, Float(b.velocity.dx), Float(b.velocity.dy)); b.velocityDirty = false
         }
+        // Kinematic sync: non-dynamic bodies whose node has been moved by
+        // game code (tile-stepper, SKAction.move, etc.) need their Box2D
+        // transform pushed before the world steps so contact detection
+        // sees the actual current position. Matches Apple SpriteKit's
+        // SKPhysicsBody behaviour for isDynamic=false bodies, which the
+        // application moves by writing node.position directly.
+        for (id, b) in SKPhysicsWorld.registry {
+            guard !b.isDynamic, let n = b.node else { continue }
+            cb_set_transform(id, Float(n.position.x), Float(n.position.y),
+                             Float(n.zRotation))
+        }
         cb_step(Float(dt))
         for (id, b) in SKPhysicsWorld.registry {
             guard b.isDynamic, let n = b.node else { continue }

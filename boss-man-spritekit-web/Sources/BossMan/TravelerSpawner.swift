@@ -29,6 +29,7 @@ final class TravelerSpawner {
 
     private var pendingTraveler: LevelTraveler?
     private var keepSpawning: (() -> Bool)?
+    // bossman-apple values: 10s before first visit, 30s between visits.
     private let firstVisitDelay: TimeInterval = 10
     private let respawnDelay:    TimeInterval = 30
 
@@ -49,6 +50,7 @@ final class TravelerSpawner {
     }
 
     var hasActive: Bool { node != nil }
+    var activeNode: SKNode? { node }
 
     func reset() {
         node?.removeFromParent()
@@ -82,10 +84,30 @@ final class TravelerSpawner {
         ]), withKey: Strings.ActionKey.travelerVisit1)
     }
 
-    // Pete just stepped onto this tile — if a traveler is here, catch it.
+    // Tile-overlap catch. Called from handlePeteArrival when Pete snaps
+    // to a new tile centre.
     func tryCatch(at peteGrid: CGPoint) -> (traveler: LevelTraveler, position: CGPoint)? {
         guard let fish = node, let traveler = activeTraveler, grid == peteGrid else { return nil }
+        return consumeCatch(fish: fish, traveler: traveler)
+    }
+
+    // Position-overlap catch. Called every frame by GameScene.update so
+    // Pete running THROUGH a moving traveler always registers — the
+    // traveler's `grid` advances at the start of each step, so by the
+    // time Pete's tile snap triggers tryCatch the traveler may already
+    // be heading to the next tile and the grid check misses.
+    func tryCatchByOverlap(petePosition: CGPoint, radius: CGFloat) -> (traveler: LevelTraveler, position: CGPoint)? {
+        guard let fish = node, let traveler = activeTraveler else { return nil }
+        let dx = fish.position.x - petePosition.x
+        let dy = fish.position.y - petePosition.y
+        guard dx * dx + dy * dy < radius * radius else { return nil }
+        return consumeCatch(fish: fish, traveler: traveler)
+    }
+
+    func consumeCatch(fish: SKNode, traveler: LevelTraveler) -> (traveler: LevelTraveler, position: CGPoint) {
         let pos = fish.position
+        fish.removeAllActions()
+        fish.physicsBody = nil
         fish.run(.sequence([
             .group([
                 .scale(to: 1.6, duration: 0.25),
@@ -113,6 +135,17 @@ final class TravelerSpawner {
         previousGrid = nil
         wrapper.position = sceneCoord(forGrid: grid)
         wrapper.zPosition = 9
+        // Box2D-backed contact body, verbatim from bossman-apple's
+        // TravelerSpawner.spawn(_:): static circle (r=10), category=fish,
+        // contact-test against worker. The kinematic sync added to
+        // SKPhysicsWorld.step pushes the wrapper's animated position into
+        // Box2D each frame so the contact fires the instant Pete crosses.
+        let body = SKPhysicsBody(circleOfRadius: 10)
+        body.isDynamic = false
+        body.categoryBitMask = PhysicsCategory.fish
+        body.contactTestBitMask = PhysicsCategory.worker
+        body.collisionBitMask = 0
+        wrapper.physicsBody = body
 
         let visual: SKNode
         if let imageName = traveler.image,
