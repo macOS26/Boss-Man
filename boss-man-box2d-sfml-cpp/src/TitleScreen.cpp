@@ -164,17 +164,15 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     uint8_t a = (uint8_t)((0.625f + 0.375f * std::sin(t * 5.24f)) * 255); // ~1.0<->0.25
     drawText(target, fontThin_, "P to Play \xC2\xB7 E for Editor", 40, ink, W / 2.f, H * 0.85f, 1, 0.f, a);
 
-    // --- Controls hint ---
-    drawText(target, fontThin_, "Cursor keys = move \xC2\xB7 Space = Water Gun", 24, ink,
-             W / 2.f, H * 0.905f, 1);
-
     // --- High score ---
     if (highScore > 0) {
         drawText(target, fontThin_, "HIGH SCORE " + std::to_string(highScore), 26, ink,
-                 W / 2.f, H * 0.955f, 1);
+                 W / 2.f, H * 0.94f, 1);
     }
 
-    // --- Fullscreen hint, bottom-right, HUD mono font ---
+    // --- Controls + fullscreen hints, bottom of screen, HUD mono font ---
+    drawText(target, fontMono_, "Cursor key to Move \xC2\xB7 Space to Fire Water Pistol", 16, ink,
+             W / 2.f, H - 18.f, 1);
     drawText(target, fontMono_, "F for Fullscreen", 16, ink, W - 20.f, H - 18.f, 2);
 }
 
