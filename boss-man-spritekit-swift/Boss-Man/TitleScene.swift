@@ -61,6 +61,29 @@ final class TitleScene: SKScene {
         )
         panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5)
         addChild(panel)
+
+        // Bottom-row hints: controls reminder on the left/center, fullscreen
+        // shortcut on the right. JetBrains Mono Bold at 16pt matches the
+        // SuperBox64 / C++ build's TitleScreen so all three editions agree.
+        let hintFont = NSFont(name: Strings.Font.menloBold, size: 16) != nil
+            ? Strings.Font.menloBold
+            : Strings.Font.helveticaBold
+
+        let controlsHint = SKLabelNode(fontNamed: hintFont)
+        controlsHint.text = "Cursor key to Move \u{00B7} Space to Fire Water Pistol"
+        controlsHint.fontSize = 16
+        controlsHint.fontColor = .black
+        controlsHint.horizontalAlignmentMode = .center
+        controlsHint.position = CGPoint(x: size.width / 2, y: 18)
+        addChild(controlsHint)
+
+        let fullscreenHint = SKLabelNode(fontNamed: hintFont)
+        fullscreenHint.text = "F for Fullscreen"
+        fullscreenHint.fontSize = 16
+        fullscreenHint.fontColor = .black
+        fullscreenHint.horizontalAlignmentMode = .right
+        fullscreenHint.position = CGPoint(x: size.width - 20, y: 18)
+        addChild(fullscreenHint)
     }
 
     override func keyDown(with event: NSEvent) {

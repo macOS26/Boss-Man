@@ -267,14 +267,54 @@ public class SKEffectNode: SKNode {
         if zRotation != 0 { gfx_rotate(Float(zRotation * 180.0 / Double.pi)) }
         if xScale != 1 || yScale != 1 { gfx_scale(Float(xScale), Float(yScale)) }
 
+        // Filter path: render children into an offscreen canvas at their
+        // natural sharpness, then drawImage that bitmap back onto the main
+        // target with ctx.filter applied so the blur/saturate/etc. actually
+        // takes effect. Setting ctx.filter inline on the live target loses
+        // the state across the children's own gfx_save/restore boundaries,
+        // which is why my prior attempt rendered the shadow with hard edges.
         let usingFilter = shouldEnableEffects && filterString != nil
-        if usingFilter, let f = filterString {
-            withUTF8Ptr(f) { gfx_set_filter($0, $1) }
+        if usingFilter, let f = filterString, !children.isEmpty {
+            // Bound the offscreen to the union of children's accumulated
+            // frames, then pad it so the blur halo doesn't get clipped at
+            // the edge. Pad = 16px is enough for a 6px Gaussian blur (the
+            // post-it shadow uses blur(6px) at most).
+            var bounds = CGRect.zero
+            for c in children {
+                let cf = c.calculateAccumulatedFrame()
+                let off = CGRect(x: cf.minX + c.position.x, y: cf.minY + c.position.y,
+                                 width: cf.width, height: cf.height)
+                bounds = (bounds == .zero) ? off : bounds.union(off)
+            }
+            let pad: CGFloat = 16
+            let w = Int(bounds.width  + pad * 2)
+            let h = Int(bounds.height + pad * 2)
+            if w > 0 && h > 0 {
+                let handle = gfx_offscreen_begin(Int32(w), Int32(h))
+                // Translate so children's bounding box minX/minY map to (pad, pad)
+                // inside the offscreen. After commit, we draw the offscreen at
+                // (bounds.minX - pad, bounds.minY - pad) so the pixels land back
+                // on the original world coordinates.
+                gfx_save()
+                gfx_translate(Float(-bounds.minX + pad), Float(-bounds.minY + pad))
+                for c in children.sorted(by: { $0.zPosition < $1.zPosition }) {
+                    c.renderTree(parentAlpha: eff)
+                }
+                gfx_restore()
+                let img = gfx_offscreen_end_to_image(handle)
+                if img > 0 {
+                    withUTF8Ptr(f) { gfx_set_filter($0, $1) }
+                    gfx_draw_image(img, 0, 0, Float(w), Float(h),
+                                   Float(bounds.minX - pad), Float(bounds.minY - pad),
+                                   Float(w), Float(h), 0xFFFFFFFF)
+                    gfx_clear_filter()
+                }
+            }
+        } else {
+            for c in children.sorted(by: { $0.zPosition < $1.zPosition }) {
+                c.renderTree(parentAlpha: eff)
+            }
         }
-        for c in children.sorted(by: { $0.zPosition < $1.zPosition }) {
-            c.renderTree(parentAlpha: eff)
-        }
-        if usingFilter { gfx_clear_filter() }
         gfx_restore()
     }
 }
