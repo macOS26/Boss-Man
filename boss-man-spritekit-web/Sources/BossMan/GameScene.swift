@@ -21,6 +21,7 @@ import SpriteKit
 // Escape returns to the title screen.
 final class GameScene: SKScene {
     private var gridMap: GridMap!
+    private var pathfinder: Pathfinder!
     private var mazeBuilder: MazeBuilder!
     private var pete: PixelPerson!
     private var peteMover: TileMover!
@@ -67,6 +68,7 @@ final class GameScene: SKScene {
 
         let rows = Levels.officeMaps.first ?? []
         gridMap = GridMap(tileSize: tileSize, rows: rows)
+        pathfinder = Pathfinder(map: gridMap)
 
         let mazeHeight = CGFloat(gridMap.rowCount) * tileSize
         let mazeWidth  = CGFloat(gridMap.columnCount) * tileSize
@@ -98,6 +100,7 @@ final class GameScene: SKScene {
             let boss = BossController(blueprintIndex: bossSpawn.index,
                                       spawn: bossSpawn.position,
                                       map: gridMap,
+                                      pathfinder: pathfinder,
                                       tileSize: tileSize,
                                       containerOriginX: containerOriginX)
             boss.install(in: self)
@@ -412,6 +415,7 @@ final class GameScene: SKScene {
             let boss = BossController(blueprintIndex: bossSpawn.index,
                                       spawn: bossSpawn.position,
                                       map: gridMap,
+                                      pathfinder: pathfinder,
                                       tileSize: tileSize,
                                       containerOriginX: containerOriginX)
             boss.install(in: self)

@@ -1,21 +1,10 @@
 import SpriteKit
 
-// Personality + next-step planner for one boss. Ported verbatim from
-// boss-man-spritekit-swift/Boss-Man/BossAI.swift so the four bosses behave
-// the same in bossman-web as they do in bossman-apple:
-//
-//   .directChase                 — Bill, heads straight at Pete.
-//   .ambushAhead(tiles:)         — Dom, targets the tile a few squares
-//                                  ahead of where Pete is walking.
-//   .timidScatter(scatter,thresh) — Stan, chases when close, retreats to
-//                                   a scatter corner when far.
-//   .flanker(pivotTiles:)        — Bob, reflects Bill's position about a
-//                                   point a few tiles ahead of Pete.
-//
-// On every tile-centre arrival, BossController calls planNextStep which
-// picks a target (per personality), asks Pathfinder for the shortest step
-// toward it, and falls back to randomStep when no path exists (Pete is
-// hidden, target is unreachable, etc.) so the boss keeps wandering.
+// Verbatim port of boss-man-spritekit-swift/Boss-Man/BossAI.swift.
+// Owns the boss's grid position and previousGrid (the cell it just left,
+// used to avoid U-turns in the random-wander fallback). The controller
+// asks for the next step at every tile-centre arrival; BossAI advances
+// its own grid and returns the Move so the controller can animate.
 enum BossPersonality {
     case directChase
     case ambushAhead(tiles: Int)
@@ -34,12 +23,14 @@ final class BossAI {
     let personality: BossPersonality
     private(set) var grid: CGPoint
     private var previousGrid: CGPoint?
-    private weak var map: GridMap?
+    private let pathfinder: Pathfinder
+    private let map: GridMap
 
-    init(homeGrid: CGPoint, detectionRange: CGFloat, personality: BossPersonality, map: GridMap) {
+    init(homeGrid: CGPoint, detectionRange: CGFloat, personality: BossPersonality, pathfinder: Pathfinder, map: GridMap) {
         self.homeGrid = homeGrid
         self.detectionRange = detectionRange
         self.personality = personality
+        self.pathfinder = pathfinder
         self.map = map
         self.grid = homeGrid
     }
@@ -50,15 +41,14 @@ final class BossAI {
     }
 
     func planNextStep(workerGrid: CGPoint, workerDirection: MoveDirection?, blinkyGrid: CGPoint? = nil, flee: Bool = false) -> Move? {
-        guard let map = map else { return nil }
         let next: CGPoint?
         if flee {
-            next = stepAwayFrom(workerGrid, on: map)
+            next = stepAwayFrom(workerGrid)
         } else {
             let target = chaseTarget(workerGrid: workerGrid, workerDirection: workerDirection, blinkyGrid: blinkyGrid)
-            next = Pathfinder.nextStep(from: grid, to: target, on: map)
-                ?? Pathfinder.nextStep(from: grid, to: workerGrid, on: map)
-                ?? randomStep(on: map)
+            next = pathfinder.shortestStep(from: grid, to: target)
+                ?? pathfinder.shortestStep(from: grid, to: workerGrid)
+                ?? randomStep()
         }
         guard let next else { return nil }
         let from = grid
@@ -77,7 +67,7 @@ final class BossAI {
             return CGPoint(x: workerGrid.x + CGFloat(delta.dx * tiles),
                            y: workerGrid.y + CGFloat(delta.dy * tiles))
         case .timidScatter(let scatter, let threshold):
-            return manhattan(grid, workerGrid) > threshold ? workerGrid : scatter
+            return Pathfinder.manhattanDistance(grid, workerGrid) > threshold ? workerGrid : scatter
         case .flanker(let pivotTiles):
             guard let dir = workerDirection, let blinky = blinkyGrid else { return workerGrid }
             let delta = dir.delta
@@ -87,31 +77,27 @@ final class BossAI {
         }
     }
 
-    private func stepAwayFrom(_ target: CGPoint, on map: GridMap) -> CGPoint? {
+    private func stepAwayFrom(_ target: CGPoint) -> CGPoint? {
         var options = map.walkableNeighbors(of: grid)
         if let previousGrid, options.count > 1 {
             options.removeAll { $0 == previousGrid }
         }
         return options.max(by: {
-            manhattan($0, target) < manhattan($1, target)
+            Pathfinder.manhattanDistance($0, target) < Pathfinder.manhattanDistance($1, target)
         })
     }
 
-    private func randomStep(on map: GridMap) -> CGPoint? {
+    private func randomStep() -> CGPoint? {
         var options = map.walkableNeighbors(of: grid)
         if let previousGrid, options.count > 1 {
             options.removeAll { $0 == previousGrid }
         }
         return options.randomElement()
     }
-
-    private func manhattan(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
-        abs(a.x - b.x) + abs(a.y - b.y)
-    }
 }
 
 // Per-blueprint config matching bossman-apple's BossController.blueprints.
-// Index 0..3 -> Bill / Dom / Bob / Stan with their personalities + speeds.
+// Indices 0..3 map to Bill / Dom / Bob / Stan with their personality + speed.
 enum BossBlueprint {
     static let table: [(personality: BossPersonality, speed: Double)] = [
         (.directChase,                                                          1.00),  // Bill

@@ -29,15 +29,16 @@ final class BossController {
 
     var grid: CGPoint { mover.grid }
 
-    init(blueprintIndex: Int, spawn: CGPoint, map: GridMap, tileSize: CGFloat,
-         containerOriginX: CGFloat) {
+    init(blueprintIndex: Int, spawn: CGPoint, map: GridMap, pathfinder: Pathfinder,
+         tileSize: CGFloat, containerOriginX: CGFloat) {
         self.blueprintIndex = blueprintIndex
         self.map = map
         self.homeGrid = spawn
         let blueprint = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)]
         self.speed = blueprint.speed
         self.ai = BossAI(homeGrid: spawn, detectionRange: 10,
-                         personality: blueprint.personality, map: map)
+                         personality: blueprint.personality,
+                         pathfinder: pathfinder, map: map)
         self.sprite = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
         self.sprite.zPosition = 4
         _ = tileSize
@@ -76,6 +77,8 @@ final class BossController {
         mover.moving  = false
         mover.moveT   = 0
         sprite.position = mover.centre(of: homeGrid)
+        // Reset AI back to spawn with previousGrid cleared (matches
+        // BossAI.teleport semantics in bossman-apple's relocateToSpawn).
         ai.teleport(to: homeGrid)
         setFrightened(false)
     }
@@ -90,12 +93,12 @@ final class BossController {
         mover.advance(dt,
                       decide: { [weak self] e in
                           guard let self else { return nil }
-                          // Keep BossAI's internal grid in sync with where
-                          // the TileMover thinks we are. They diverge only
-                          // briefly during the mover's per-frame guard loop,
-                          // but planNextStep needs the current cell to seed
-                          // its BFS correctly.
-                          self.ai.teleport(to: e.grid)
+                          // AI owns its grid + previousGrid; do NOT call
+                          // teleport here (it would wipe previousGrid every
+                          // tile and let randomStep U-turn, which is what
+                          // froze the boss when Pete was hiding). AI.grid
+                          // tracks naturally because planNextStep advances
+                          // it to the same `to` cell the mover targets.
                           guard let move = self.ai.planNextStep(
                               workerGrid: peteGrid,
                               workerDirection: peteDirection,
@@ -118,7 +121,6 @@ final class BossController {
                       },
                       onArrive: { [weak self] e in
                           guard let self else { return }
-                          self.ai.teleport(to: e.grid)
                           if let d = e.dir { self.sprite.setFacing(d) }
                       })
     }
