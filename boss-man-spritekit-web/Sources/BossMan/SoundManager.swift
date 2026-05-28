@@ -15,11 +15,18 @@ import KitABI
 final class SoundManager {
     enum MusicTheme { case normal, mib }
 
-    // Speech rate/pitch/volume — same defaults as bossman-apple's
-    // AVSpeechSynthesizer setup before per-line overrides.
-    private let speechRate:   Float = 0.45
-    private let speechPitch:  Float = 0.85
-    private let speechVolume: Float = 0.9
+    // Speech rate / pitch / volume — tuned for the Web Speech API to
+    // emulate Rocko (the deep-male Eloquence voice bossman-apple uses).
+    // Web Speech API ranges: rate 0.1..10, pitch 0..2, volume 0..1.
+    //   rate 0.85   slightly slower than default for Lumbergh-style drawl
+    //   pitch 0.55  well below default so any picked voice reads deep
+    //   volume 0.1  intentionally quiet per Todd's preference
+    // The voice picker tries the real Rocko first (Safari exposes
+    // Apple's Eloquence voices); the pitch/rate keep the impression
+    // close when we fall back to Alex / Daniel / Microsoft David etc.
+    private let speechRate:   Float = 0.85
+    private let speechPitch:  Float = 0.55
+    private let speechVolume: Float = 0.1
 
     // Round-robin indices so we don't repeat the same line back-to-back.
     private var lastIndex: [String: Int] = [:]
@@ -28,12 +35,21 @@ final class SoundManager {
     // MARK: - Lifecycle
 
     init() {
-        // Same priority order bossman-apple's SoundManager.pickBossVoice uses:
-        // "rocko" is the deep-male Eloquence voice; ralph / fred / reed /
-        // grandpa / junior / daniel are the fallbacks. The picker walks them
-        // in order against the browser's voice pool and locks onto the first
-        // match (premium > enhanced > anything within that match).
-        let preferred = "rocko,ralph,fred,reed,grandpa,junior,daniel"
+        // Voice preference ordered DEEP-MALE first across browsers, then
+        // by impersonation of Rocko's depth/timbre. Browsers expose
+        // different voice pools — the picker walks this list in order and
+        // takes the first match it finds in the pool:
+        //   alex     Apple's "Alex" — deep, natural US male; closest to
+        //            Rocko available outside Safari's Eloquence pool.
+        //   rocko    The real Eloquence Rocko voice (Safari on macOS).
+        //   ralph    Apple Eloquence backup, also quite deep.
+        //   daniel   Apple British male — deep, slow.
+        //   david    Microsoft David — deep US male on Edge/Chrome/Windows.
+        //   mark     Microsoft Mark — alternate deep US male.
+        //   fred     Apple's robotic-deep voice (last resort).
+        //   reed     Eloquence reed voice (occasionally exposed).
+        //   "google us english"  Chrome's default US-male variant.
+        let preferred = "alex,rocko,ralph,daniel,david,mark,fred,reed,grandpa,junior,google us english"
         let robotic   = "bahh,bells,boing,bubbles,cellos,deranged,good news,hysterical,pipe organ,trinoids,whisper,zarvox,albert,eddy"
         callCSV(preferred, tts_set_preferred_voices)
         callCSV(robotic,   tts_set_robotic_voices)
