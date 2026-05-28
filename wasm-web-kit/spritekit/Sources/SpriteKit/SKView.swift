@@ -26,6 +26,11 @@ public final class SKView {
     public init() {}
 
     public func presentScene(_ scene: SKScene?) {
+        // Tear down the outgoing scene first (Apple calls willMove(from:) on
+        // it). Without this a scene's teardown never runs — e.g. a per-scene
+        // SoundManager's looping music voice lives in the runtime and outlives
+        // the Swift object, so the next scene's music stacks on top of it.
+        if let old = self.scene, old !== scene { old.willMove(from: self); old.view = nil }
         self.scene = scene
         if let s = scene { s.view = self; s.didMove(to: self) }
     }

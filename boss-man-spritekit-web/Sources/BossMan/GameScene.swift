@@ -82,6 +82,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var pauseOverlay: SKNode? = nil
     private var usernameDialog: UsernameDialog? = nil
 
+    override func willMove(from view: SKView) {
+        // Guaranteed teardown: stop music + speech so this scene's looping
+        // music voice never outlives it and stacks under the next game's
+        // music (the choppy-on-restart bug).
+        sound.stopAllAudio()
+    }
+
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
         anchorPoint = .zero
@@ -612,6 +619,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func togglePause() {
         isUserPaused.toggle()
         if isUserPaused { sound.pauseAudio() } else { sound.resumeAudio() }
+        // bossman-apple sets the scene's isPaused so SpriteKit freezes every
+        // running action. SuperBox64's stepActions scales each subtree by
+        // node.speed, so speed = 0 on the scene halts ALL animations (walk
+        // cycles, boss throb, blinks) at once; 1 resumes them.
+        speed = isUserPaused ? 0 : 1
         if isUserPaused {
             let dim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
             dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.45)
