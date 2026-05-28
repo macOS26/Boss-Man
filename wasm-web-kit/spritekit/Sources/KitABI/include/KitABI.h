@@ -65,13 +65,32 @@ double sb64_fmod(double a, double b);
 double sb64_pow(double a, double b);
 double sb64_hypot(double x, double y);
 
-/* Box2D shim (defined in libcbox2d.a; see boss-man-spritekit-web/native) */
+/* Box2D shim (defined in Box2DBridge target; see Sources/Box2DBridge/cbox2d.cpp) */
 void  cb_reset(float gx, float gy);
 int   cb_add_box(float x, float y, float hw, float hh, int dynamic, uint16_t cat, uint16_t mask, int sensor);
 int   cb_add_circle(float x, float y, float r, int dynamic, uint16_t cat, uint16_t mask, int sensor);
+int   cb_add_polygon(float x, float y, const float* xy, int count, int dynamic, uint16_t cat, uint16_t mask, int sensor);
+int   cb_add_edge(float x1, float y1, float x2, float y2, uint16_t cat, uint16_t mask);
+int   cb_add_chain(const float* xy, int count, int closed, uint16_t cat, uint16_t mask);
 void  cb_set_velocity(int body, float vx, float vy);
+void  cb_set_angular_velocity(int body, float w);
+float cb_get_angular_velocity(int body);
 void  cb_set_transform(int body, float x, float y, float angle);
 void  cb_get_position(int body, float* x, float* y);
 float cb_get_angle(int body);
+void  cb_apply_force(int body, float fx, float fy);
+void  cb_apply_impulse(int body, float ix, float iy);
+void  cb_apply_torque(int body, float t);
+void  cb_apply_angular_impulse(int body, float i);
+int   cb_add_joint_pin(int a, int b, float ax, float ay, int enableLimits,
+                       float lower, float upper, float frictionTorque, float motorSpeed);
+int   cb_add_joint_spring(int a, int b, float ax, float ay, float bx, float by,
+                          float frequency, float damping);
+int   cb_add_joint_sliding(int a, int b, float ax, float ay, float dx, float dy,
+                           int enableLimits, float lower, float upper);
+int   cb_add_joint_limit(int a, int b, float ax, float ay, float bx, float by, float maxLength);
+int   cb_add_joint_fixed(int a, int b, float ax, float ay);
+int   cb_add_joint_distance(int a, int b, float ax, float ay, float bx, float by);
+void  cb_remove_joint(int id);
 void  cb_step(float dt);
 int   cb_poll_contact(int* catA, int* catB, int* bodyA, int* bodyB);

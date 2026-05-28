@@ -49,10 +49,13 @@ public final class SKAttributeValue {
 }
 
 // =============================================================================
-// SKConstraint / SKRange — compile-only, with a per-frame apply hook.
+// SKConstraint / SKRange — per-frame apply hook on SKNode.
 //
-// We honor positionX/positionY/distance to a single point with SKRange clamping.
-// orientTo is recorded but not enforced (Canvas rotation works at render time).
+// positionX/Y/XY clamp axes through SKRange; distance constrains the radius
+// to a reference point or node within a SKRange; orient(to:offset:) computes
+// atan2 from the node to the target and clamps the resulting bearing through
+// the offset SKRange. Node-targeted forms re-evaluate the target's absolute
+// position each frame so moving targets work.
 // =============================================================================
 public final class SKRange {
     public var lowerLimit: CGFloat = -.infinity
@@ -73,6 +76,7 @@ public final class SKConstraint {
     enum Kind {
         case positionX(SKRange), positionY(SKRange), positionXY(SKRange, SKRange)
         case distance(SKRange, CGPoint), orientToPoint(CGPoint, SKRange)
+        case orientToNode(SKRange)            // target captured in referenceNode
         case zRotation(SKRange)
     }
     let kind: Kind
@@ -89,6 +93,9 @@ public final class SKConstraint {
         let c = SKConstraint(.distance(r, node.absolutePosition())); c.referenceNode = node; return c
     }
     public static func orient(to point: CGPoint, offset r: SKRange) -> SKConstraint { SKConstraint(.orientToPoint(point, r)) }
+    public static func orient(to node: SKNode, offset r: SKRange) -> SKConstraint {
+        let c = SKConstraint(.orientToNode(r)); c.referenceNode = node; return c
+    }
     public static func zRotation(_ r: SKRange) -> SKConstraint { SKConstraint(.zRotation(r)) }
 
     func apply(to node: SKNode) {
@@ -107,7 +114,17 @@ public final class SKConstraint {
             let clamped = r.clamp(CGFloat(d))
             let s = clamped / CGFloat(d)
             node.position = CGPoint(x: p.x + dx * s, y: p.y + dy * s)
-        case .orientToPoint: break    // recorded but not enforced (cheap option)
+        case let .orientToPoint(p, r):
+            let dx = p.x - node.position.x, dy = p.y - node.position.y
+            if dx == 0 && dy == 0 { return }
+            node.zRotation = r.clamp(atan2c(dy, dx))
+        case let .orientToNode(r):
+            guard let target = referenceNode else { return }
+            let tp = target.absolutePosition()
+            let np = node.absolutePosition()
+            let dx = tp.x - np.x, dy = tp.y - np.y
+            if dx == 0 && dy == 0 { return }
+            node.zRotation = r.clamp(atan2c(dy, dx))
         }
     }
 }

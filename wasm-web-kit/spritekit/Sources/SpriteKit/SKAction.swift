@@ -22,6 +22,9 @@ public final class SKAction {
     let kind: Kind
     var duration: TimeInterval
     public var timingMode: SKActionTimingMode = .linear
+    // When set, overrides timingMode. Takes elapsed proportion 0..1 and
+    // returns the eased proportion. Apple uses (Float) -> Float here.
+    public var timingFunction: ((Float) -> Float)? = nil
     init(_ k: Kind, _ d: TimeInterval) { kind = k; duration = d }
 
     public static func moveBy(x: CGFloat, y: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.moveBy(x, y), d) }
@@ -269,6 +272,8 @@ final class RunningAction {
     func progress() -> CGFloat {
         guard action.duration > 0 && action.duration.isFinite else { return 1 }
         let t = min(1.0, elapsed / action.duration)
+        // Custom curve wins over the timingMode enum when set.
+        if let fn = action.timingFunction { return CGFloat(fn(Float(t))) }
         switch action.timingMode {
         case .linear: return t
         case .easeIn: return t * t
