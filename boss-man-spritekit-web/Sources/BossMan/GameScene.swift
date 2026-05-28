@@ -41,6 +41,9 @@ final class GameScene: SKScene {
     private let dotPoints = 10
     private let goldPoints = 200
 
+    private var bosses: [BossController] = []
+    private var contactCooldown: TimeInterval = 0     // brief grace after a hit
+
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
         anchorPoint = .zero
@@ -69,6 +72,17 @@ final class GameScene: SKScene {
         pete.position = sceneCoord(forGrid: spawn)
         pete.zPosition = 5
         addChild(pete)
+
+        for (index, bossSpawn) in mazeBuilder.bossSpawns.enumerated() {
+            let boss = BossController(blueprintIndex: bossSpawn.index,
+                                      spawn: bossSpawn.position,
+                                      map: gridMap,
+                                      tileSize: tileSize,
+                                      containerOriginX: containerOriginX)
+            boss.install(in: self)
+            bosses.append(boss)
+            _ = index
+        }
     }
 
     private func firstWalkableCell() -> CGPoint {
@@ -153,6 +167,36 @@ final class GameScene: SKScene {
             pete.position.x += dx * invDist * stepLen
             pete.position.y += dy * invDist * stepLen
         }
+
+        for boss in bosses { boss.step(dt: TimeInterval(dt), peteGrid: peteGrid) }
+
+        if contactCooldown > 0 { contactCooldown -= TimeInterval(dt) }
+        else if let _ = bossOnPete() { handlePeteHit() }
+    }
+
+    private func bossOnPete() -> BossController? {
+        let r = tileSize * 0.55
+        let r2 = r * r
+        for b in bosses {
+            let dx = b.sprite.position.x - pete.position.x
+            let dy = b.sprite.position.y - pete.position.y
+            if dx * dx + dy * dy < r2 { return b }
+        }
+        return nil
+    }
+
+    private func handlePeteHit() {
+        lives = max(0, lives - 1)
+        refreshHUD()
+        hud.flash("OUCH!")
+        contactCooldown = 1.2
+        // Respawn Pete at the worker spawn so a stuck Pete doesn't immediately
+        // retake another hit; bosses keep their position.
+        let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
+        peteGrid = spawn
+        pete.position = sceneCoord(forGrid: spawn)
+        heading = nil
+        queued = nil
     }
 
     private func canStep(_ dir: MoveDirection) -> Bool {
