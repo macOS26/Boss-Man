@@ -46,6 +46,8 @@ WABI void  gp_map_to_keys(int enable);
 /* text-to-speech (Web Speech API) */
 WABI int   tts_speak(const char* utf8, int len, float rate, float pitch, float volume);
 WABI void  tts_cancel(void);
+WABI void  tts_set_preferred_voices(const char* csv, int len);
+WABI void  tts_set_robotic_voices(const char* csv, int len);
 
 /* offscreen canvas (SKView.texture(from:), SKCropNode, SKEffectNode) */
 /* gfx_offscreen_begin: switch all subsequent gfx_* calls to an offscreen */

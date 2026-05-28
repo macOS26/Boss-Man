@@ -27,7 +27,27 @@ final class SoundManager {
 
     // MARK: - Lifecycle
 
-    init() {}
+    init() {
+        // Same priority order bossman-apple's SoundManager.pickBossVoice uses:
+        // "rocko" is the deep-male Eloquence voice; ralph / fred / reed /
+        // grandpa / junior / daniel are the fallbacks. The picker walks them
+        // in order against the browser's voice pool and locks onto the first
+        // match (premium > enhanced > anything within that match).
+        let preferred = "rocko,ralph,fred,reed,grandpa,junior,daniel"
+        let robotic   = "bahh,bells,boing,bubbles,cellos,deranged,good news,hysterical,pipe organ,trinoids,whisper,zarvox,albert,eddy"
+        callCSV(preferred, tts_set_preferred_voices)
+        callCSV(robotic,   tts_set_robotic_voices)
+    }
+
+    private func callCSV(_ s: String, _ f: (UnsafePointer<CChar>?, Int32) -> Void) {
+        let bytes = Array(s.utf8)
+        bytes.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            base.withMemoryRebound(to: CChar.self, capacity: buf.count) { cBase in
+                f(cBase, Int32(buf.count))
+            }
+        }
+    }
 
     // MARK: - Sound effects (snd_play with named buffer)
 

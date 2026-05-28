@@ -146,6 +146,18 @@ class Runtime {
     // ('middle') so emoji glyphs centre on their anchor.
     this._textBaselineMode = 2;
 
+    // TTS voice preference. tts_set_preferred_voices feeds these; the
+    // picker resolves to a real SpeechSynthesisVoice on first tts_speak
+    // and caches the result. Robotic / novelty voices excluded.
+    this._ttsPreferred = [];
+    this._ttsRobotic = [];
+    this._ttsVoice = null;
+    if (typeof speechSynthesis !== 'undefined') {
+      // Voices populate asynchronously on some browsers; reset cache
+      // whenever the list changes so the next speak() repicks.
+      speechSynthesis.onvoiceschanged = () => { this._ttsVoice = null; };
+    }
+
     // ---- handle tables (1-based; 0 means "not loaded/none") ----
     this.images = [null];   // each: { source, width, height }  source = drawable
     this.shaders = [null];  // each: { program, uniformLocs, srcText }
@@ -624,6 +636,24 @@ class Runtime {
       // window.speechSynthesis is the standard surface; available on all major
       // browsers since 2014. AVSpeechSynthesizer.speak() routes here. Rate
       // and pitch are clamped to the Web Speech API's accepted ranges.
+      //
+      // Voice picking: bossman-apple walks a name-preference list ("rocko",
+      // "ralph", "fred", "reed", ...) and prefers premium > enhanced quality.
+      // We mirror that here: tts_set_preferred_voices stashes the list, and
+      // tts_speak resolves the best match the first time voices populate,
+      // then caches it. Robotic / novelty voices (bahh, bells, zarvox, ...)
+      // are filtered out so a default of "first English voice" still skips
+      // them when no preference matches.
+      tts_set_preferred_voices: (utf8Ptr, len) => {
+        const csv = this.cstr(utf8Ptr, len).toLowerCase();
+        this._ttsPreferred = csv.split(',').map(s => s.trim()).filter(Boolean);
+        this._ttsVoice = null;             // force re-pick on next speak
+      },
+      tts_set_robotic_voices: (utf8Ptr, len) => {
+        const csv = this.cstr(utf8Ptr, len).toLowerCase();
+        this._ttsRobotic = csv.split(',').map(s => s.trim()).filter(Boolean);
+        this._ttsVoice = null;
+      },
       tts_speak: (utf8Ptr, len, rate, pitch, volume) => {
         if (typeof speechSynthesis === 'undefined') return 0;
         const text = this.cstr(utf8Ptr, len);
@@ -631,6 +661,8 @@ class Runtime {
         u.rate   = Math.max(0.1, Math.min(rate   || 1.0, 10));
         u.pitch  = Math.max(0,   Math.min(pitch  || 1.0, 2));
         u.volume = Math.max(0,   Math.min(volume || 1.0, 1));
+        const v = this._pickTTSVoice();
+        if (v) u.voice = v;
         try { speechSynthesis.speak(u); return 1; } catch (_e) { return 0; }
       },
       tts_cancel: () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
@@ -1423,6 +1455,54 @@ void main() {
     const base = path.split('/').pop();
     const dot = base.lastIndexOf('.');
     return dot > 0 ? base.slice(0, dot) : base;
+  }
+
+  // Mirrors bossman-apple's SoundManager.pickBossVoice + bestVoice. Walks
+  // the preference list in order; for each name, returns the highest-
+  // quality voice in the en-US pool that matches it (premium > enhanced
+  // > anything). Falls back to any-English non-robotic voice, then any
+  // English voice. Returns null until speechSynthesis has voices loaded.
+  _pickTTSVoice() {
+    if (this._ttsVoice) return this._ttsVoice;
+    if (typeof speechSynthesis === 'undefined') return null;
+    const all = speechSynthesis.getVoices();
+    if (!all || !all.length) return null;
+    const robotic = this._ttsRobotic;
+    const usable = all.filter((v) => {
+      const n = (v.name || '').toLowerCase();
+      return !robotic.some((r) => n.includes(r));
+    });
+    const usOnly = (a) => a.filter((v) => v.lang === 'en-US');
+    const anyEn  = (a) => a.filter((v) => (v.lang || '').startsWith('en'));
+    // Apple's quality flags don't surface via Web Speech, so we proxy:
+    // names containing "premium" or "enhanced" rank higher.
+    const rank = (v) => {
+      const id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
+      if (id.includes('premium')) return 2;
+      if (id.includes('enhanced')) return 1;
+      return 0;
+    };
+    const best = (pool) => {
+      for (const name of this._ttsPreferred) {
+        const matches = pool.filter((v) => {
+          const id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
+          return id.includes(name);
+        });
+        if (matches.length) {
+          matches.sort((a, b) => rank(b) - rank(a));
+          return matches[0];
+        }
+      }
+      if (!pool.length) return null;
+      const sorted = pool.slice().sort((a, b) => rank(b) - rank(a));
+      return sorted[0];
+    };
+    const v =
+      best(usOnly(usable)) ||
+      best(anyEn(usable))  ||
+      best(usable);
+    this._ttsVoice = v || null;
+    return this._ttsVoice;
   }
 
   ensureAudio() {
