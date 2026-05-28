@@ -4,18 +4,17 @@ import SpriteKit
 //
 // What's here:
 //   - Load Level 1 from Levels.officeMaps (JSON loaded via SKSceneLoader's
-//     asset_text bridge); fall back to the empty-room template if the file
+//     asset_text bridge); falls back to the empty-room template if the file
 //     isn't reachable.
-//   - GridMap + MazeBuilder lay walls, dots, gold discs, water pellets,
-//     and record spawn positions for Pete (worker) and the four bosses.
+//   - GridMap + MazeBuilder lay walls, dots, gold discs, water pellets and
+//     record spawn positions for Pete (worker) and the four bosses.
 //   - Pete (PixelPerson) drops at the workerSpawn tile and moves tile-by-tile,
-//     queue-on-press style: pressing a direction at any moment sets the
-//     pending heading, which Pete adopts the next time he reaches a tile
-//     centre and the new direction is walkable.
-//   - Tunnel wrap: when Pete arrives at a tile with a tunnel partner, he
-//     teleports across.
-//   - Dot collection is purely visual right now (score/lives HUD lands in
-//     task #74); the dot disappears the instant Pete's grid coord matches.
+//     queue-on-press style: pressing a direction sets a pending heading; Pete
+//     adopts it the next time he reaches a tile centre and the direction is
+//     walkable.
+//   - Tunnel wrap: arriving at a tile with a tunnel partner teleports across.
+//   - Dot / gold collection is purely visual right now; score / lives HUD
+//     lands in task #74.
 //   - Bosses, boss AI, contact dispatch, water pistol, gold-disc shielding
 //     all queued for the next pass.
 //
@@ -24,13 +23,23 @@ final class GameScene: SKScene {
     private var gridMap: GridMap!
     private var mazeBuilder: MazeBuilder!
     private var pete: PixelPerson!
+    private let mazeRoot = SKNode()
 
     private var peteGrid = CGPoint.zero
     private var heading: MoveDirection? = nil
     private var queued:  MoveDirection? = nil
-    private var moveSpeed: CGFloat = 8.0     // tiles per second
-
+    private var moveSpeed: CGFloat = 8.0    // tiles per second
     private let tileSize: CGFloat = 32
+    private var containerOriginX: CGFloat = 0
+
+    private let hud = HUD()
+    private var score = 0
+    private var highScore = 0
+    private var lives = 3
+    private var levelIndex = 0
+    private var dotsRemaining = 0
+    private let dotPoints = 10
+    private let goldPoints = 200
 
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
@@ -38,26 +47,26 @@ final class GameScene: SKScene {
 
         let rows = Levels.officeMaps.first ?? []
         gridMap = GridMap(tileSize: tileSize, rows: rows)
+
         let mazeHeight = CGFloat(gridMap.rowCount) * tileSize
         let mazeWidth  = CGFloat(gridMap.columnCount) * tileSize
-        // Centre the maze vertically; leave the bottom strip for the HUD.
         gridMap.yOffset = max(40, (size.height - mazeHeight) / 2)
-        let xOffset = max(0, (size.width - mazeWidth) / 2)
+        containerOriginX = max(0, (size.width - mazeWidth) / 2)
 
-        // MazeBuilder paints the cells; wrap it in a container node so the
-        // single xOffset translate centers the whole field horizontally.
-        let mazeContainer = SKNode()
-        mazeContainer.position = CGPoint(x: xOffset, y: 0)
-        addChild(mazeContainer)
+        mazeRoot.position = CGPoint(x: containerOriginX, y: 0)
+        addChild(mazeRoot)
+
         mazeBuilder = MazeBuilder(map: gridMap)
-        mazeBuilder.build(in: mazeContainer)
+        dotsRemaining = mazeBuilder.build(in: mazeRoot)
 
-        // Pete drops at the worker-spawn tile (or the first walkable cell if
-        // the level didn't mark one).
+        hud.install(in: self)
+        highScore = Persistence.int(forKey: Strings.DefaultsKey.highScore)
+        refreshHUD()
+
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         peteGrid = spawn
         pete = SpriteFactory.petePerson()
-        pete.position = mazeContainer.convert(gridMap.point(for: spawn), to: self)
+        pete.position = sceneCoord(forGrid: spawn)
         pete.zPosition = 5
         addChild(pete)
     }
@@ -72,10 +81,17 @@ final class GameScene: SKScene {
         return .zero
     }
 
+    // Convert a grid cell to a scene-space coordinate (including the maze
+    // root's horizontal offset that centres the maze in the scene).
+    private func sceneCoord(forGrid g: CGPoint) -> CGPoint {
+        let local = gridMap.point(for: g)
+        return CGPoint(x: local.x + containerOriginX, y: local.y)
+    }
+
     // MARK: - Input
 
     override func keyDown(_ key: Int) {
-        if key == 36 {
+        if key == 36 {        // Escape
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
             view?.presentScene(title, transition: .fade(withDuration: 0.4))
@@ -92,42 +108,33 @@ final class GameScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         guard let pete else { return }
-        let dt: CGFloat = 1.0 / 60.0   // simple fixed step; SKView drives at 60 fps
-        let step = moveSpeed * tileSize * dt
+        let dt: CGFloat = 1.0 / 60.0
+        let stepLen = moveSpeed * tileSize * dt
 
-        // Aim toward the current tile centre based on heading. If Pete is
-        // exactly on a centre, decide the next tile.
-        let centre = pete.parent === self
-            ? gridMap.point(for: peteGrid).offsetBy(xOffset: -(mazeBuilder.workerSpawn == nil ? 0 : 0), yOffset: 0)
-            : pete.position
-        _ = centre   // currently unused; kept so the layout doc above reads cleanly
-
-        let myCentre = gridMap.point(for: peteGrid)
-        let containerX = (size.width - CGFloat(gridMap.columnCount) * tileSize) / 2
-        let myCentreInScene = CGPoint(x: myCentre.x + max(0, containerX), y: myCentre.y)
-
-        // Distance to my current tile centre — if we're "on" it, evaluate
-        // direction queue and pick the next neighbour.
-        let dx = myCentreInScene.x - pete.position.x
-        let dy = myCentreInScene.y - pete.position.y
-        let dist = (dx*dx + dy*dy).squareRoot()
+        let targetCentre = sceneCoord(forGrid: peteGrid)
+        let dx = targetCentre.x - pete.position.x
+        let dy = targetCentre.y - pete.position.y
+        let dist = (dx * dx + dy * dy).squareRoot()
 
         if dist < 0.5 {
-            // Snap to centre.
-            pete.position = myCentreInScene
+            pete.position = targetCentre
 
-            // Tunnel wrap.
             if let partner = gridMap.tunnelPartner(of: peteGrid) {
                 peteGrid = partner
-                let warp = gridMap.point(for: partner)
-                pete.position = CGPoint(x: warp.x + max(0, containerX), y: warp.y)
+                pete.position = sceneCoord(forGrid: partner)
             }
 
-            // Eat the dot here.
-            mazeBuilder.collectDot(at: peteGrid)
-            mazeBuilder.collectGold(at: peteGrid)
+            if mazeBuilder.collectDot(at: peteGrid) {
+                score += dotPoints
+                dotsRemaining = max(0, dotsRemaining - 1)
+                refreshHUD()
+            }
+            if mazeBuilder.collectGold(at: peteGrid) {
+                score += goldPoints
+                refreshHUD()
+                ScorePopup.show(goldPoints, at: sceneCoord(forGrid: peteGrid), in: self)
+            }
 
-            // Decide next heading.
             if let q = queued, canStep(q) {
                 heading = q
                 pete.setFacing(q)
@@ -135,34 +142,35 @@ final class GameScene: SKScene {
                 heading = nil
             }
 
-            // If we have a heading, advance the grid coord (Pete will then
-            // chase the new centre on subsequent frames).
             if let h = heading {
-                let next = step(in: h)
+                let next = nextGrid(in: h)
                 if gridMap.isWalkable(next) && !gridMap.isHideout(next) {
                     peteGrid = next
                 }
             }
         } else {
-            // Glide toward the centre.
             let invDist = 1.0 / dist
-            pete.position.x += dx * invDist * step
-            pete.position.y += dy * invDist * step
+            pete.position.x += dx * invDist * stepLen
+            pete.position.y += dy * invDist * stepLen
         }
     }
 
     private func canStep(_ dir: MoveDirection) -> Bool {
-        let next = step(in: dir)
-        return gridMap.isWalkable(next) && !gridMap.isHideout(next)
+        let n = nextGrid(in: dir)
+        return gridMap.isWalkable(n) && !gridMap.isHideout(n)
     }
-    private func step(in dir: MoveDirection) -> CGPoint {
+    private func nextGrid(in dir: MoveDirection) -> CGPoint {
         let (dx, dy) = dir.delta
         return CGPoint(x: peteGrid.x + CGFloat(dx), y: peteGrid.y + CGFloat(dy))
     }
-}
 
-private extension CGPoint {
-    func offsetBy(xOffset: CGFloat, yOffset: CGFloat) -> CGPoint {
-        CGPoint(x: x + xOffset, y: y + yOffset)
+    private func refreshHUD() {
+        if score > highScore {
+            highScore = score
+            Persistence.set(highScore, forKey: Strings.DefaultsKey.highScore)
+        }
+        hud.update(score: score, highScore: highScore,
+                   level: levelIndex + 1, dotsLeft: dotsRemaining)
+        hud.update(lives: lives)
     }
 }

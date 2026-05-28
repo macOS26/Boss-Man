@@ -36,7 +36,7 @@ final class MazeBuilder {
     init(map: GridMap) { self.map = map }
 
     @discardableResult
-    func build(in scene: SKScene) -> Int {
+    func build(in scene: SKNode) -> Int {
         // Backdrop — solid dark fill behind the maze.
         let bg = SKShapeNode(rect: CGRect(x: 0, y: 0,
                                           width: CGFloat(map.columnCount) * map.tileSize,
@@ -124,7 +124,7 @@ final class MazeBuilder {
 
     // MARK: - Helpers
 
-    private func addWall(at position: CGPoint, in scene: SKScene) {
+    private func addWall(at position: CGPoint, in scene: SKNode) {
         let wall = SpriteFactory.wallTile(size: map.tileSize)
         wall.position = position
         wall.zPosition = 0
@@ -138,7 +138,7 @@ final class MazeBuilder {
         scene.addChild(wall)
     }
 
-    private func addDot(at position: CGPoint, in scene: SKScene) -> SKNode? {
+    private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {
         let dot = SpriteFactory.dotVisual(radius: map.tileSize * 0.10)
         dot.position = position
         dot.zPosition = 1
