@@ -277,10 +277,13 @@ final class GameScene: SKScene {
                 ScorePopup.show(eatBossPoints, at: b.sprite.position, in: self,
                                 color: SKColor(red: 0.3, green: 0.7, blue: 1, alpha: 1))
                 sound.playCaptureBoss()
-                b.returnHome()
+                // bossman-apple flow: scale-up + fade-out, snap home,
+                // scale-down + fade-in. No spawn freeze — boss keeps
+                // fleeing while gold-disc window is still open.
+                b.capture()
                 contactCooldown = 0.4
             } else if !peteShielded {
-                handlePeteHit()
+                handlePeteHit(catcher: b)
             }
         }
     }
@@ -402,7 +405,7 @@ final class GameScene: SKScene {
         refreshHUD()
     }
 
-    private func handlePeteHit() {
+    private func handlePeteHit(catcher: BossController? = nil) {
         lives = max(0, lives - 1)
         refreshHUD()
         if lives == 0 {
@@ -411,8 +414,10 @@ final class GameScene: SKScene {
         }
         hud.flash("OUCH!")
         contactCooldown = 1.2
-        // Respawn Pete at the worker spawn so a stuck Pete doesn't immediately
-        // retake another hit; bosses keep their position.
+        // bossman-apple: the catching boss fades to alpha=0 and snaps
+        // straight to its spawn (no freeze pulse). Pete respawns at his
+        // own spawn with a 3s spawn-shield blink.
+        catcher?.relocateAfterCatch()
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
         applyPeteSpawnShield()
@@ -583,7 +588,9 @@ final class GameScene: SKScene {
                                             color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
                             spawnWaterSplash(at: b.sprite.position)
                             sound.playWaterGunSplash()
-                            b.returnHome()
+                            // bossman-apple: boss disappears for 5s,
+                            // then spawn-freeze fades it back in.
+                            b.splash()
                             refreshHUD()
                             consumed = true
                             break

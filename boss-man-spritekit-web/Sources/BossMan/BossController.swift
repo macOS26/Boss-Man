@@ -75,17 +75,94 @@ final class BossController {
         }
     }
 
-    func returnHome() {
+    // Internal: reset BossAI + TileMover back to the spawn cell. Sprite
+    // visuals (alpha, scale, position) are managed by each public flow
+    // separately so capture / relocate / splash can drive their own
+    // animations on top of the same underlying state reset.
+    private func resetToSpawn() {
         mover.grid    = homeGrid
         mover.dir     = nil
         mover.moving  = false
         mover.moveT   = 0
-        sprite.position = mover.centre(of: homeGrid)
-        // Reset AI back to spawn with previousGrid cleared (matches
-        // BossAI.teleport semantics in bossman-apple's relocateToSpawn).
         ai.teleport(to: homeGrid)
+    }
+
+    // bossman-apple: capture(at:) — Pete eats a frightened boss. Plays the
+    // signature scale-up + fade-out, snap to home, scale-down + fade-in
+    // animation (~0.45s total), then resumes movement. No spawn freeze
+    // because the boss should keep fleeing while the gold-disc window is
+    // still open.
+    //
+    // Source: boss-man-spritekit-swift/Boss-Man/BossController.swift:440-484
+    func capture() {
+        isImmobilized = true
+        sprite.removeAllActions()
+        let homePoint = mover.centre(of: homeGrid)
+        let returnFlee = isFrightened
+        sprite.run(.sequence([
+            .group([
+                .scale(to: 1.6, duration: 0.25),
+                .fadeOut(withDuration: 0.25),
+            ]),
+            .run { [weak self] in
+                guard let self else { return }
+                self.sprite.position = homePoint
+                self.resetToSpawn()
+            },
+            .group([
+                .scale(to: 1.0, duration: 0.20),
+                .fadeIn(withDuration: 0.20),
+            ]),
+            .run { [weak self] in
+                guard let self else { return }
+                self.isImmobilized = false
+                // Re-apply flee colors if the gold-disc window is still
+                // active so the captured boss keeps reading as frightened.
+                if returnFlee {
+                    self.setFrightened(false)        // clear cached state
+                    self.setFrightened(true)         // and re-apply palette
+                }
+            },
+        ]))
+    }
+
+    // bossman-apple: relocateAfterCatch(boss:) — boss caught Pete in
+    // normal mode. Sprite goes alpha=0, snaps home, then fades back in
+    // (no spawn-freeze pulse). Pete respawn is handled by GameScene.
+    //
+    // Source: boss-man-spritekit-swift/Boss-Man/BossController.swift:320 +
+    //         GameScene.swift:201-204.
+    func relocateAfterCatch() {
+        sprite.removeAllActions()
+        sprite.alpha = 0
+        let homePoint = mover.centre(of: homeGrid)
+        sprite.position = homePoint
+        resetToSpawn()
         setFrightened(false)
-        applySpawnFreeze()
+        sprite.run(.fadeIn(withDuration: 0.8))
+    }
+
+    // bossman-apple: splash(boss:) — water droplet hit. Boss disappears
+    // (alpha 0) and is immobilized for 5 seconds, then respawns via
+    // applySpawnFreeze (fade-in + 2s freeze + throb).
+    //
+    // bossman-apple actually removes the entity entirely and recreates it
+    // through createAndFreeze. bossman-web reuses the same BossController
+    // instance (we already own the sprite and AI) but matches the visible
+    // behaviour: gone for 5s, then full spawn-freeze sequence.
+    //
+    // Source: boss-man-spritekit-swift/Boss-Man/BossController.swift:486-510.
+    func splash() {
+        isImmobilized = true
+        sprite.removeAllActions()
+        sprite.alpha = 0
+        setFrightened(false)
+        resetToSpawn()
+        sprite.position = mover.centre(of: homeGrid)
+        sprite.run(.sequence([
+            .wait(forDuration: 5.0),
+            .run { [weak self] in self?.applySpawnFreeze() }
+        ]))
     }
 
     // bossman-apple's BossController.applySpawnFreeze: fades the sprite in
