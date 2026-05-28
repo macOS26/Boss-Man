@@ -55,6 +55,8 @@ final class GameScene: SKScene {
     private let waterHitPoints = 100
 
     private var gameOver = false
+    private var isUserPaused = false
+    private var pauseOverlay: SKNode? = nil
 
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
@@ -124,6 +126,11 @@ final class GameScene: SKScene {
             view?.presentScene(title, transition: .fade(withDuration: 0.4))
             return
         }
+        if key == 15 {        // P toggles pause
+            togglePause()
+            return
+        }
+        if isUserPaused { return }   // ignore movement / fire while paused
         if key == 57 {                              // Space — fire water
             fireWater()
             return
@@ -150,7 +157,7 @@ final class GameScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         guard let pete else { return }
-        if gameOver { return }
+        if gameOver || isUserPaused { return }
         let dt: CGFloat = 1.0 / 60.0
         let stepLen = moveSpeed * tileSize * dt
 
@@ -297,6 +304,28 @@ final class GameScene: SKScene {
             SKAction.wait(forDuration: 3.0),
             SKAction.run { [weak self] in self?.returnToTitle() },
         ]))
+    }
+
+    private func togglePause() {
+        isUserPaused.toggle()
+        if isUserPaused {
+            let dim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+            dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.45)
+            dim.strokeColor = .clear
+            dim.zPosition = 40
+            let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
+            label.text = "PAUSED"
+            label.fontSize = 72
+            label.fontColor = .white
+            label.position = CGPoint(x: size.width / 2, y: size.height * 0.5)
+            label.zPosition = 41
+            dim.addChild(label)
+            addChild(dim)
+            pauseOverlay = dim
+        } else {
+            pauseOverlay?.removeFromParent()
+            pauseOverlay = nil
+        }
     }
 
     private func returnToTitle() {
