@@ -17,13 +17,14 @@ enum SpriteFactory {
     //   systemYellow                       for the tie
     // We bake the same RGB values directly. Gold tie outline reuses
     // bossShoeGoldColor.
-    static let fleeBodyColor = SKColor(red: 0.0,  green: 0.384, blue: 0.8, alpha: 1)
-    static let fleeTieColor  = SKColor(red: 1.0,  green: 0.8,   blue: 0.0, alpha: 1)
-    static let fleeEyeColor  = SKColor(red: 0.0,  green: 0.24,  blue: 0.5, alpha: 1)
-    // Blue-tinted skin used in frighten mode. The channels are the base
-    // skin's R/G/B swapped (R<->B), so the per-channel sum is identical
-    // and perceived brightness matches the original tone.
+    static let fleeBodyColor = SKColor(red: 0.0,  green: 0.384, blue: 0.8,  alpha: 1)
+    static let fleeEyeColor  = SKColor(red: 0.0,  green: 0.24,  blue: 0.5,  alpha: 1)
+    // Frighten-mode skin AND tie use the same blue tint: R and B swapped
+    // from the base skin (0.96, 0.78, 0.62) so per-channel brightness is
+    // preserved. The tie just inherits the skin color so the figure reads
+    // as monochromatic blue from the chest up.
     static let fleeSkinColor = SKColor(red: 0.62, green: 0.78,  blue: 0.96, alpha: 1)
+    static let fleeTieColor  = fleeSkinColor
     // Cubicle palette — `cubicleColor` is .systemBlue in the macOS edition;
     // the wall fill drops it to 0.55 alpha so the floor checker reads through.
     static let cubicleColor      = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 1)

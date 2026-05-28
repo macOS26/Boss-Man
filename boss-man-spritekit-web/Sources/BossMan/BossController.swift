@@ -47,7 +47,7 @@ final class BossController {
         if on {
             sprite.setBodyColor(SpriteFactory.fleeBodyColor)
             sprite.setTieColor(SpriteFactory.fleeTieColor)
-            sprite.setTieOutline(color: SpriteFactory.bossShoeGoldColor)
+            sprite.setTieOutline(color: nil)
             sprite.setEyeColor(SpriteFactory.fleeEyeColor)
             sprite.setSkinColor(SpriteFactory.fleeSkinColor)
             mover.step = frightenedStep

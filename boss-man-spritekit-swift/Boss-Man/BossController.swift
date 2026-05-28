@@ -50,12 +50,13 @@ final class BossController {
     private let detectionRange: CGFloat = 10
 
     static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
-    static let fleeTieColor:  NSColor = .systemYellow
     static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
-    // Blue-tinted skin used in frighten mode. Channels are the base skin's
-    // (0.96, 0.78, 0.62) with R and B swapped, so brightness is preserved
-    // and the face/hands read as blue at the same value as before.
+    // Frighten-mode skin AND tie use the same blue tint: R and B swapped
+    // from the base skin (0.96, 0.78, 0.62) so per-channel brightness is
+    // preserved. The tie just inherits the skin color so the figure reads
+    // as monochromatic blue from the chest up.
     static let fleeSkinColor: NSColor = NSColor(calibratedRed: 0.62, green: 0.78, blue: 0.96, alpha: 1)
+    static let fleeTieColor:  NSColor = fleeSkinColor
     static let baseSkinColor: NSColor = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
     static var bossShoeGoldColor: NSColor { SpriteFactory.bossShoeGoldColor }
 
@@ -121,7 +122,7 @@ final class BossController {
             let node = entities[index].node
             node.setBodyColor(Self.fleeBodyColor)
             node.setTieColor(Self.fleeTieColor)
-            node.setTieOutline(color: Self.bossShoeGoldColor)
+            node.setTieOutline(color: nil)
             node.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
             node.setShoeOutlineColor(Self.bossShoeGoldColor)
             node.setEyeColor(Self.fleeEyeColor)
@@ -276,7 +277,7 @@ final class BossController {
             entities[i].isInFleeMode = active
             entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
             entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
-            entities[i].node.setTieOutline(color: active ? Self.bossShoeGoldColor : nil)
+            entities[i].node.setTieOutline(color: nil)
             entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
@@ -472,7 +473,7 @@ final class BossController {
             ]))
             boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
-            boss.node.setTieOutline(color: powerActive ? Self.bossShoeGoldColor : nil)
+            boss.node.setTieOutline(color: nil)
             boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             boss.node.setShoeOutlineColor(Self.bossShoeGoldColor)
             boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)

@@ -155,7 +155,8 @@ inline constexpr Color DARK_BG       = {0.06f, 0.06f, 0.07f, 1.0f};
 
 // Boss flee colors
 inline constexpr Color FLEE_BODY = {0.04f*0.8f, 0.48f*0.8f, 1.0f*0.8f, 1.0f};
-inline constexpr Color FLEE_TIE  = {1.0f, 0.91f, 0.34f, 1.0f}; // yellow
+// Frighten-mode tie shares FLEE_SKIN: same blue tint as the face/hands.
+inline constexpr Color FLEE_TIE  = {0.62f, 0.78f, 0.96f, 1.0f};
 inline constexpr Color FLEE_EYE  = {0.02f, 0.24f, 0.50f, 1.0f};
 // Frighten-mode face/hands tint. SKIN_COLOR is {0.96, 0.78, 0.62};
 // FLEE_SKIN swaps R and B so per-channel brightness sums match exactly.
