@@ -108,6 +108,10 @@ public final class SKView {
             gfx_translate(Float(-cam.position.x), Float(-cam.position.y))
         }
         s.renderTree(parentAlpha: 1)
+        // Apple-style showsPhysics overlay: strokes every Box2D body's
+        // outline on top of the scene. Lives inside the same y-up
+        // transform so positions read straight from Box2D coordinates.
+        if s.physicsWorld.showsPhysics { s.physicsWorld.renderDebug() }
         gfx_restore()
     }
 }

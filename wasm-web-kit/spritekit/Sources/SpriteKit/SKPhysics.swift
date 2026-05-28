@@ -319,6 +319,82 @@ public final class SKPhysicsWorld {
     private var started = false
     private var joints: [SKPhysicsJoint] = []
 
+    // Debug visualization. When true, SKView.render strokes the outline
+    // of every registered Box2D body on top of the scene so the player
+    // can see where the physics shapes actually sit relative to the
+    // sprites. Toggle from the consumer via scene.physicsWorld.showsPhysics.
+    public var showsPhysics: Bool = true
+
+    // Walks every body in the registry and strokes its shape on the
+    // active draw target. Called from SKView.render after the scene
+    // tree is drawn, inside the same y-up transform the scene uses,
+    // so positions read straight from the body's Box2D coordinates.
+    func renderDebug() {
+        // Bright green outlines, 1.5 px stroke. Mirrors Apple SpriteKit's
+        // showsPhysics default look.
+        let rgba: UInt32 = 0x00FF00CC
+        let t: Float = 1.5
+        for (id, b) in SKPhysicsWorld.registry {
+            var x: Float = 0, y: Float = 0
+            cb_get_position(id, &x, &y)
+            let angle = cb_get_angle(id)
+            switch b.shape {
+            case let .circle(r):
+                gfx_stroke_circle(x, y, Float(r), t, rgba)
+            case let .rect(w, h):
+                if angle == 0 {
+                    gfx_stroke_rect(x - Float(w/2), y - Float(h/2),
+                                    Float(w), Float(h), t, rgba)
+                } else {
+                    let hw = Float(w/2), hh = Float(h/2)
+                    let c = Float(sb64_cos(Double(angle))), s = Float(sb64_sin(Double(angle)))
+                    let pts: [Float] = [
+                        x + (-hw*c - -hh*s), y + (-hw*s + -hh*c),
+                        x + ( hw*c - -hh*s), y + ( hw*s + -hh*c),
+                        x + ( hw*c -  hh*s), y + ( hw*s +  hh*c),
+                        x + (-hw*c -  hh*s), y + (-hw*s +  hh*c),
+                    ]
+                    pts.withUnsafeBufferPointer { buf in
+                        gfx_stroke_poly(buf.baseAddress, 4, 1, t, rgba)
+                    }
+                }
+            case let .polygon(verts):
+                var flat = [Float](); flat.reserveCapacity(verts.count * 2)
+                let c = Float(sb64_cos(Double(angle))), s = Float(sb64_sin(Double(angle)))
+                for p in verts {
+                    let px = Float(p.x), py = Float(p.y)
+                    flat.append(x + px*c - py*s)
+                    flat.append(y + px*s + py*c)
+                }
+                flat.withUnsafeBufferPointer { buf in
+                    gfx_stroke_poly(buf.baseAddress, Int32(verts.count), 1, t, rgba)
+                }
+            case let .edgeLoop(rc):
+                gfx_stroke_rect(x + Float(rc.minX), y + Float(rc.minY),
+                                Float(rc.width), Float(rc.height), t, rgba)
+            case let .edgeFromTo(a, p2):
+                let pts: [Float] = [
+                    x + Float(a.x), y + Float(a.y),
+                    x + Float(p2.x), y + Float(p2.y),
+                ]
+                pts.withUnsafeBufferPointer { buf in
+                    gfx_stroke_poly(buf.baseAddress, 2, 0, t, rgba)
+                }
+            case let .edgeChain(pts):
+                var flat = [Float]()
+                for p in pts {
+                    flat.append(x + Float(p.x)); flat.append(y + Float(p.y))
+                }
+                flat.withUnsafeBufferPointer { buf in
+                    gfx_stroke_poly(buf.baseAddress, Int32(pts.count), 0, t, rgba)
+                }
+            case let .texture(size):
+                gfx_stroke_rect(x - Float(size.width/2), y - Float(size.height/2),
+                                Float(size.width), Float(size.height), t, rgba)
+            }
+        }
+    }
+
     // Create the joint in Box2D as soon as both bodies are registered. If
     // bodies are still missing, the joint is deferred and tried again from
     // step() (see createPendingJoints).
