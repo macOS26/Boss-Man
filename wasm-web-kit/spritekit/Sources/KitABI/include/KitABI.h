@@ -74,6 +74,10 @@ WABI void  vid_set_visible(int id, int visible);
 WABI void  snd_set_pan(int voice, float pan);   /* -1 = left, +1 = right */
 WABI void  snd_set_rate(int voice, float rate); /* 1.0 = normal speed */
 
+/* Asset text reads (e.g. *.json compiled from .sks).                       */
+WABI int   asset_exists(const char* name, int len);
+WABI int   asset_text(const char* name, int len, char* buf, int cap);
+
 /* Pixel-perfect physics polygon from a texture's alpha channel.            */
 /* Runtime reads canvas getImageData, runs marching squares + RDP simplify, */
 /* writes up to `cap` xy pairs into out_xy. Returns the actual point count. */

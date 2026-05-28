@@ -25,6 +25,8 @@ let package = Package(
         .library(name: "AVFoundation",   targets: ["AVFoundation"]),
         .library(name: "AudioToolbox",   targets: ["AudioToolbox"]),
         .library(name: "Box2DBridge",    targets: ["Box2DBridge"]),
+        .library(name: "Combine",        targets: ["Combine"]),
+        .library(name: "SwiftUI",        targets: ["SwiftUI"]),
     ],
     targets: [
         // Box2D 2.4.1 wrapped in a tiny C ABI (cb_add_box / cb_step / etc.) so
@@ -62,5 +64,8 @@ let package = Package(
         .target(name: "AVFoundation",   dependencies: ["SpriteKit", "KitABI"],
                 swiftSettings: [.swiftLanguageMode(.v5)]),
         .target(name: "AudioToolbox",   swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(name: "Combine",        swiftSettings: [.swiftLanguageMode(.v5)]),
+        .target(name: "SwiftUI",        dependencies: ["Combine", "SpriteKit"],
+                swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )
