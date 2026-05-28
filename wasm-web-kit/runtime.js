@@ -379,7 +379,16 @@ class Runtime {
         const prevAlpha = c.globalAlpha;
         c.globalAlpha = prevAlpha * a;
         try {
-          c.drawImage(rec.source, sx, sy, sw, sh, dx, dy, dw, dh);
+          // sw or sh < 0 is our "use the full source" sentinel — SKSpriteNode
+          // passes -1/-1 when no sub-rect is set, and the 9-arg drawImage
+          // throws on negative source dimensions, so we route to the 5-arg
+          // form (dst-only). Before this fix, the catch below silently ate
+          // the throw and the sprite rendered as nothing.
+          if (sw < 0 || sh < 0) {
+            c.drawImage(rec.source, dx, dy, dw, dh);
+          } else {
+            c.drawImage(rec.source, sx, sy, sw, sh, dx, dy, dw, dh);
+          }
         } catch (_e) { /* zero-size src/dst */ }
         c.globalAlpha = prevAlpha;
       },

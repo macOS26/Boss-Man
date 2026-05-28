@@ -54,6 +54,28 @@ public final class SKShapeNode: SKNode {
     }
     public static func node(withPath p: CGPath) -> SKShapeNode { SKShapeNode(path: p) }
 
+    public override var frame: CGRect {
+        let local: CGRect
+        switch kind {
+        case let .rect(x, y, w, h):
+            local = CGRect(x: x, y: y, width: w, height: h)
+        case let .circle(r):
+            local = CGRect(x: -r, y: -r, width: r * 2, height: r * 2)
+        case .path:
+            guard let pts = path?.flattenedPoints, !pts.isEmpty else {
+                return CGRect(x: position.x, y: position.y, width: 0, height: 0)
+            }
+            var minX = pts[0].x, maxX = pts[0].x, minY = pts[0].y, maxY = pts[0].y
+            for p in pts.dropFirst() {
+                if p.x < minX { minX = p.x } ; if p.x > maxX { maxX = p.x }
+                if p.y < minY { minY = p.y } ; if p.y > maxY { maxY = p.y }
+            }
+            local = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        }
+        return CGRect(x: position.x + local.minX, y: position.y + local.minY,
+                      width: local.width, height: local.height)
+    }
+
     override func draw(alpha: CGFloat) {
         gfx_set_alpha(Float(alpha))
         let hasFill = fillColor.a > 0

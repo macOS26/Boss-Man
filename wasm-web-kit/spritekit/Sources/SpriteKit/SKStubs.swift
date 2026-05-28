@@ -279,22 +279,20 @@ public class SKEffectNode: SKNode {
             // frames, then pad it so the blur halo doesn't get clipped at
             // the edge. Pad = 16px is enough for a 6px Gaussian blur (the
             // post-it shadow uses blur(6px) at most).
+            // Union the children's frames (already in self's coord system
+            // thanks to SKShapeNode/SKSpriteNode.frame overrides) to size
+            // the offscreen. SKNode.frame includes position so we don't add
+            // it again here.
             var bounds = CGRect.zero
-            for c in children {
-                let cf = c.calculateAccumulatedFrame()
-                let off = CGRect(x: cf.minX + c.position.x, y: cf.minY + c.position.y,
-                                 width: cf.width, height: cf.height)
-                bounds = (bounds == .zero) ? off : bounds.union(off)
+            for c in children where !c.isHidden {
+                let cf = c.frame
+                bounds = (bounds == .zero) ? cf : bounds.union(cf)
             }
             let pad: CGFloat = 16
             let w = Int(bounds.width  + pad * 2)
             let h = Int(bounds.height + pad * 2)
             if w > 0 && h > 0 {
                 let handle = gfx_offscreen_begin(Int32(w), Int32(h))
-                // Translate so children's bounding box minX/minY map to (pad, pad)
-                // inside the offscreen. After commit, we draw the offscreen at
-                // (bounds.minX - pad, bounds.minY - pad) so the pixels land back
-                // on the original world coordinates.
                 gfx_save()
                 gfx_translate(Float(-bounds.minX + pad), Float(-bounds.minY + pad))
                 for c in children.sorted(by: { $0.zPosition < $1.zPosition }) {
@@ -304,7 +302,12 @@ public class SKEffectNode: SKNode {
                 let img = gfx_offscreen_end_to_image(handle)
                 if img > 0 {
                     withUTF8Ptr(f) { gfx_set_filter($0, $1) }
-                    gfx_draw_image(img, 0, 0, Float(w), Float(h),
+                    // Source = -1, -1 routes to 5-arg drawImage in the runtime,
+                    // which reads the full source canvas. Crucial because the
+                    // offscreen is dpr-scaled (e.g. 2x backing pixels) and
+                    // passing the logical w/h would crop to the top-left
+                    // quarter at dpr=2.
+                    gfx_draw_image(img, 0, 0, -1, -1,
                                    Float(bounds.minX - pad), Float(bounds.minY - pad),
                                    Float(w), Float(h), 0xFFFFFFFF)
                     gfx_clear_filter()
