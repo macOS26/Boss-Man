@@ -30,8 +30,23 @@ open class SKNode {
         guard let p = parent else { return }
         p.children.removeAll { $0 === self }
         parent = nil
+        teardownPhysics()
     }
-    public func removeAllChildren() { for c in children { c.parent = nil }; children.removeAll() }
+    public func removeAllChildren() { for c in children { c.parent = nil; c.teardownPhysics() }; children.removeAll() }
+
+    // Apple SpriteKit destroys a node's physics body when the node leaves the
+    // scene. SuperBox64 has to do it explicitly: drop the Box2D body and its
+    // registry entry for this node and every descendant, so a removed node's
+    // body stops colliding and stops being drawn by the showsPhysics overlay.
+    // bodyId is reset to -1 so the body is recreated if the node is re-added.
+    func teardownPhysics() {
+        if let b = physicsBody, b.bodyId >= 0 {
+            cb_remove_body(b.bodyId)
+            SKPhysicsWorld.registry.removeValue(forKey: b.bodyId)
+            b.bodyId = -1
+        }
+        for c in children { c.teardownPhysics() }
+    }
     public func childNode(withName name: String) -> SKNode? { children.first { $0.name == name } }
     public func contains(_ node: SKNode) -> Bool { children.contains { $0 === node } }
 

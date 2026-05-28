@@ -189,9 +189,18 @@ void cb_remove_joint(int id) {
     g_world->DestroyJoint(g_joints[id]); g_joints[id] = nullptr;
 }
 
-void cb_set_velocity(int b, float vx, float vy) { if (b >= 0 && b < (int)g_bodies.size()) g_bodies[b]->SetLinearVelocity(b2Vec2(vx, vy)); }
+void cb_set_velocity(int b, float vx, float vy) { if (b >= 0 && b < (int)g_bodies.size() && g_bodies[b]) g_bodies[b]->SetLinearVelocity(b2Vec2(vx, vy)); }
+// Destroy a body when its SKNode leaves the scene. The slot is nulled (not
+// erased) so existing body ids stay valid; every accessor null-guards. Box2D
+// destroys the body's fixtures and contacts, so its debug outline and any
+// pending contact pairs vanish with it.
+void cb_remove_body(int b) {
+    if (b < 0 || b >= (int)g_bodies.size() || !g_bodies[b]) return;
+    g_world->DestroyBody(g_bodies[b]);
+    g_bodies[b] = nullptr;
+}
 void cb_set_transform(int b, float x, float y, float angle) {
-    if (b < 0 || b >= (int)g_bodies.size()) return;
+    if (b < 0 || b >= (int)g_bodies.size() || !g_bodies[b]) return;
     b2Body* body = g_bodies[b];
     const b2Vec2& p = body->GetPosition();
     if (p.x == x && p.y == y && body->GetAngle() == angle) return;

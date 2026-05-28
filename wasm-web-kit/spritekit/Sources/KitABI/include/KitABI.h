@@ -206,6 +206,7 @@ void  cb_set_velocity(int body, float vx, float vy);
 void  cb_set_angular_velocity(int body, float w);
 float cb_get_angular_velocity(int body);
 void  cb_set_transform(int body, float x, float y, float angle);
+void  cb_remove_body(int body);
 void  cb_get_position(int body, float* x, float* y);
 float cb_get_angle(int body);
 void  cb_apply_force(int body, float fx, float fy);
