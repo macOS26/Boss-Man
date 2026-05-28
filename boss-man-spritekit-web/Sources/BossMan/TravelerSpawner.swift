@@ -149,18 +149,14 @@ final class TravelerSpawner {
         scene.addChild(wrapper)
         node = wrapper
         activeTraveler = traveler
-        scheduleStepper(on: wrapper)
         sound.playTravelerArrive(traveler.sound)
+        stepNode()                                  // start moving immediately
     }
 
-    private func scheduleStepper(on traveler: SKNode) {
-        let stepper = SKAction.repeatForever(.sequence([
-            .wait(forDuration: moveInterval),
-            .run { [weak self] in self?.stepNode() },
-        ]))
-        traveler.run(stepper, withKey: Strings.ActionKey.travelerStepper)
-    }
-
+    // Self-chaining: each call picks the next tile, animates a single
+    // move, and re-fires stepNode at completion. No parallel stepper-wait
+    // means no inter-tile gap, which is what was making the wasm port
+    // stutter while the macOS one stayed buttery.
     private func stepNode() {
         guard let fish = node else { return }
         if grid == exitGrid {
@@ -199,6 +195,9 @@ final class TravelerSpawner {
         }
         previousGrid = grid
         grid = next
-        fish.run(.move(to: sceneCoord(forGrid: next), duration: moveInterval))
+        fish.run(.sequence([
+            .move(to: sceneCoord(forGrid: next), duration: moveInterval),
+            .run { [weak self] in self?.stepNode() },
+        ]))
     }
 }

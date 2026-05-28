@@ -187,11 +187,37 @@ final class UsernameDialog: SKNode {
 
     private func refreshInput() {
         inputLabel.text = typed
-        // Position the caret right after the last typed glyph. Use a
-        // rough character-width metric (fontSize * 0.6 monospace) since
-        // we don't yet measure label glyph runs on wasm.
-        let approxAdvance = inputLabel.fontSize * 0.6
-        let caretX = inputLabel.position.x + CGFloat(typed.count) * approxAdvance + 2
-        caretLabel.position = CGPoint(x: caretX, y: inputLabel.position.y)
+        // Real glyph-run measurement via SuperBox64's SKLabelNode.measuredWidth.
+        // The hand-rolled fontSize * 0.6 advance was overshooting Menlo
+        // Bold by enough to leave a visible gap between the last char and
+        // the caret — fixed.
+        let w = inputLabel.measuredWidth()
+        caretLabel.position = CGPoint(x: inputLabel.position.x + w + 2,
+                                      y: inputLabel.position.y)
+    }
+
+    // bossman-apple wires Save/Skip to NSButton click handlers; on wasm we
+    // hit-test the button rects ourselves on a scene mouseDown. Returns
+    // true when the click landed on a button (consumed); false otherwise.
+    @discardableResult
+    func handleMouseDown(at scenePoint: CGPoint) -> Bool {
+        let local = convert(scenePoint, from: scene!)
+        // Save button rect (in panel-local coords): same geometry the
+        // buildUI lays down for the blue rounded button.
+        let saveRect = CGRect(x: -100, y: -panelSize.height / 2 + 18,
+                              width: 200, height: 34)
+        if saveRect.contains(local) {
+            handleConfirm()
+            return true
+        }
+        // Skip label area — a generous 200x24 strip around the text so
+        // any click on or near "Skip (Esc)" counts.
+        let skipRect = CGRect(x: -100, y: -panelSize.height / 2 + 52,
+                              width: 200, height: 24)
+        if skipRect.contains(local) {
+            handleSkip()
+            return true
+        }
+        return false
     }
 }

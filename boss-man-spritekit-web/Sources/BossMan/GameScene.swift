@@ -165,6 +165,15 @@ final class GameScene: SKScene {
 
     // MARK: - Input
 
+    override func mouseDown(at p: CGPoint) {
+        // Route clicks to the username dialog when it's open so the Save /
+        // Skip buttons fire even though the rest of the scene is paused.
+        if let dialog = usernameDialog {
+            dialog.handleMouseDown(at: p)
+            return
+        }
+    }
+
     override func keyDown(_ key: Int) {
         // Username dialog absorbs every key while open. Returning early
         // also prevents Escape from bouncing us back to the title before

@@ -40,6 +40,18 @@ public final class SKLabelNode: SKNode {
         return h
     }
 
+    // Public glyph-run width measurement so consumers can position a
+    // sibling node (caret, divider, etc.) at the end of the text without
+    // duplicating the txt_width call.
+    public func measuredWidth() -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+        let px = Int32(fontSize)
+        let font = resolvedFontHandle()
+        var w: Int32 = 0
+        withUTF8Ptr(text) { p, n in w = txt_width(font, p, n, px, 0) }
+        return CGFloat(w)
+    }
+
     override func draw(alpha: CGFloat) {
         guard !text.isEmpty, let c = fontColor else { return }
         let px = Int32(fontSize)
