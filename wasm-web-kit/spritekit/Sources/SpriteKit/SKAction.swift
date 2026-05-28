@@ -1,3 +1,5 @@
+import KitABI
+
 public enum SKActionTimingMode { case linear, easeIn, easeOut, easeInEaseOut }
 
 public final class SKAction {
@@ -178,14 +180,31 @@ public final class SKAction {
         reach(to: node.absolutePosition(), rootNode: rootNode, velocity: v)
     }
 
-    // SKAudioNode-targeted action extras. Stereo pan, playback rate, reverb,
-    // obstruction, occlusion — Apple's audio pipeline has per-source 3D
-    // attenuation; our snd_* ABI is mono-mix only, so these are recorded
-    // but not yet honored. Compile-only stubs.
-    public static func stereoPan(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
-    public static func stereoPan(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
-    public static func changePlaybackRate(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
-    public static func changePlaybackRate(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    // SKAudioNode-targeted action extras. stereoPan + changePlaybackRate now
+    // hit real Web Audio nodes via snd_set_pan / snd_set_rate. Reverb,
+    // obstruction, occlusion remain compile-only no-ops — they need a more
+    // complex graph (ConvolverNode + biquad chain) we haven't built yet.
+    public static func stereoPan(to target: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in
+            if let a = node as? SKAudioNode, a.voice >= 0 { snd_set_pan(a.voice, Float(target)) }
+        }
+    }
+    public static func stereoPan(by delta: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in
+            // No baseline read-back ABI; treat as set-to-delta from zero.
+            if let a = node as? SKAudioNode, a.voice >= 0 { snd_set_pan(a.voice, Float(delta)) }
+        }
+    }
+    public static func changePlaybackRate(to target: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in
+            if let a = node as? SKAudioNode, a.voice >= 0 { snd_set_rate(a.voice, Float(target)) }
+        }
+    }
+    public static func changePlaybackRate(by delta: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in
+            if let a = node as? SKAudioNode, a.voice >= 0 { snd_set_rate(a.voice, Float(1 + delta)) }
+        }
+    }
     public static func changeReverb(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
     public static func changeReverb(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
     public static func changeObstruction(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }

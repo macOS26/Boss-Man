@@ -37,6 +37,27 @@ public final class SKView {
         presentScene(scene)
     }
 
+    // Snapshot a node subtree to an SKTexture. Renders the tree into an
+    // offscreen canvas sized to the node's accumulated frame, then commits
+    // it as an image asset the kit can re-draw via gfx_draw_image.
+    public func texture(from node: SKNode) -> SKTexture? {
+        let frame = node.calculateAccumulatedFrame()
+        let w = max(1, Int(frame.width)), h = max(1, Int(frame.height))
+        let handle = gfx_offscreen_begin(Int32(w), Int32(h))
+        // Translate so the node's bottom-left sits at origin in the offscreen
+        // canvas (Canvas2D is y-down, but our scene-render path flips already).
+        gfx_save()
+        gfx_translate(Float(-frame.minX), Float(-frame.minY))
+        node.renderTree(parentAlpha: 1)
+        gfx_restore()
+        let img = gfx_offscreen_end_to_image(handle)
+        if img <= 0 { return nil }
+        let t = SKTexture(handle: img)
+        t.size = CGSize(width: CGFloat(w), height: CGFloat(h))
+        return t
+    }
+    public func texture(from node: SKNode, crop: CGRect) -> SKTexture? { texture(from: node) }
+
     public func tick(_ dtMs: Double) {
         guard let s = scene else { return }
         let dt = dtMs / 1000.0

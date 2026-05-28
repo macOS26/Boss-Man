@@ -25,6 +25,39 @@
 //   Numpad0=75 Numpad1=76 ... Numpad8=83
 // (Full enum: https://www.sfml-dev.org/documentation/2.6.1/Keyboard_8hpp.html)
 // ============================================================================
+// Ramer-Douglas-Peucker polyline simplification (used by img_polygon_from_alpha).
+// Drops vertices whose perpendicular distance to the chord is below `epsilon`.
+function rdpSimplify(points, epsilon) {
+  if (points.length < 3) return points.slice();
+  const sqr = (a) => a * a;
+  const distSq = (p, a, b) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    if (dx === 0 && dy === 0) return sqr(p[0] - a[0]) + sqr(p[1] - a[1]);
+    const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx*dx + dy*dy);
+    const tt = Math.max(0, Math.min(1, t));
+    return sqr(p[0] - (a[0] + tt * dx)) + sqr(p[1] - (a[1] + tt * dy));
+  };
+  const eps2 = epsilon * epsilon;
+  const keep = new Uint8Array(points.length);
+  keep[0] = 1; keep[points.length - 1] = 1;
+  const stack = [[0, points.length - 1]];
+  while (stack.length) {
+    const [s, e] = stack.pop();
+    let maxD = 0, maxI = -1;
+    for (let i = s + 1; i < e; i++) {
+      const d = distSq(points[i], points[s], points[e]);
+      if (d > maxD) { maxD = d; maxI = i; }
+    }
+    if (maxD > eps2 && maxI > 0) {
+      keep[maxI] = 1;
+      stack.push([s, maxI], [maxI, e]);
+    }
+  }
+  const out = [];
+  for (let i = 0; i < points.length; i++) if (keep[i]) out.push(points[i]);
+  return out;
+}
+
 const SF_KEY = {
   0: 'KeyA',  2: 'KeyC',  3: 'KeyD',  4: 'KeyE',  5: 'KeyF',
   15: 'KeyP', 17: 'KeyR', 18: 'KeyS', 21: 'KeyV', 22: 'KeyW', 25: 'KeyZ',
@@ -528,6 +561,178 @@ class Runtime {
         try { speechSynthesis.speak(u); return 1; } catch (_e) { return 0; }
       },
       tts_cancel: () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
+
+      // ============================================================
+      // Offscreen canvas pipeline (SKView.texture(from:), SKCropNode,
+      // SKEffectNode). gfx_offscreen_begin pushes a new HTMLCanvasElement
+      // onto this.targets, switches gfx output to it, and returns a handle.
+      // _end_to_image commits the canvas as an image asset (img handle)
+      // that subsequent gfx_draw_image calls can render. _end_discard
+      // just pops the stack.
+      // ============================================================
+      gfx_offscreen_begin: (w, h) => {
+        const dpr = window.devicePixelRatio || 1;
+        const off = document.createElement('canvas');
+        off.width  = Math.max(1, Math.round(w * dpr));
+        off.height = Math.max(1, Math.round(h * dpr));
+        const oc = off.getContext('2d', { alpha: true });
+        oc.scale(dpr, dpr);    // logical pixel space matches main canvas
+        const handle = this.targets.length;
+        this.targets.push({ canvas: off, ctx: oc, logical: { w, h }, savedTarget: this.curTarget });
+        this.curTarget = handle;
+        return handle;
+      },
+      gfx_offscreen_end_to_image: (handle) => {
+        if (handle <= 0 || handle >= this.targets.length) return 0;
+        const t = this.targets[handle];
+        this.curTarget = t.savedTarget != null ? t.savedTarget : 0;
+        // Register the offscreen as a synthetic image asset so gfx_draw_image
+        // can route to it. Match the {source, width, height} shape the rest
+        // of the runtime expects from this.images.
+        const imgId = this.images.length;
+        this.images.push({ source: t.canvas, width: t.canvas.width, height: t.canvas.height });
+        if (handle === this.targets.length - 1) this.targets.pop();
+        else this.targets[handle] = null;
+        return imgId;
+      },
+      gfx_offscreen_end_discard: (handle) => {
+        if (handle <= 0 || handle >= this.targets.length) return;
+        const t = this.targets[handle];
+        this.curTarget = t.savedTarget != null ? t.savedTarget : 0;
+        if (handle === this.targets.length - 1) this.targets.pop();
+        else this.targets[handle] = null;
+      },
+
+      // ============================================================
+      // Canvas2D filter + composite ops (SKEffectNode + SKCropNode).
+      // ============================================================
+      gfx_set_filter: (ptr, len) => { this.ctx2d().filter = this.cstr(ptr, len); },
+      gfx_clear_filter: ()       => { this.ctx2d().filter = 'none'; },
+      gfx_set_composite: (mode)  => {
+        const modes = ['source-over','destination-in','destination-out',
+                       'lighter','multiply','screen','overlay'];
+        this.ctx2d().globalCompositeOperation = modes[mode] || 'source-over';
+      },
+
+      // ============================================================
+      // SKVideoNode: a DOM <video> element overlaid on the canvas.
+      // The element is absolutely positioned in the canvas's bounding box
+      // so it lines up with whatever logical-rect the game passed.
+      // ============================================================
+      vid_load: (ptr, len) => {
+        const name = this.cstr(ptr, len);
+        const v = document.createElement('video');
+        v.src = (this.assetRoot || '') + '/videos/' + name;
+        v.preload = 'auto'; v.playsInline = true; v.muted = false;
+        v.style.position = 'absolute'; v.style.pointerEvents = 'none';
+        v.style.display = 'none';
+        document.body.appendChild(v);
+        if (!this.videos) this.videos = [];
+        const id = this.videos.length; this.videos.push(v); return id;
+      },
+      vid_play:  (id) => { if (this.videos && this.videos[id]) this.videos[id].play().catch(() => {}); },
+      vid_pause: (id) => { if (this.videos && this.videos[id]) this.videos[id].pause(); },
+      vid_stop:  (id) => {
+        const v = this.videos && this.videos[id]; if (!v) return;
+        v.pause(); v.currentTime = 0;
+      },
+      vid_set_rect: (id, x, y, w, h) => {
+        const v = this.videos && this.videos[id]; if (!v) return;
+        const rect = this.canvas.getBoundingClientRect();
+        const scale = Math.min(rect.width / LOGICAL_W, rect.height / LOGICAL_H);
+        v.style.left   = (rect.left + x * scale) + 'px';
+        v.style.top    = (rect.top  + y * scale) + 'px';
+        v.style.width  = (w * scale) + 'px';
+        v.style.height = (h * scale) + 'px';
+        v.style.display = '';
+      },
+      vid_set_visible: (id, visible) => {
+        const v = this.videos && this.videos[id]; if (!v) return;
+        v.style.display = visible ? '' : 'none';
+      },
+
+      // ============================================================
+      // Web Audio per-voice stereo pan + playback rate.
+      // Each voice from snd_play holds {source, gain, pannerNode}; the
+      // panner is created on first snd_set_pan call so we don't allocate
+      // one per voice when no game uses it.
+      // ============================================================
+      snd_set_pan: (voice, pan) => {
+        const v = this.voices.get(voice); if (!v) return;
+        if (!v.panner && this.audioCtx && this.audioCtx.createStereoPanner) {
+          v.panner = this.audioCtx.createStereoPanner();
+          try { v.gain.disconnect(); v.gain.connect(v.panner); v.panner.connect(this.audioCtx.destination); }
+          catch (_e) {}
+        }
+        if (v.panner) v.panner.pan.value = Math.max(-1, Math.min(1, pan));
+      },
+      snd_set_rate: (voice, rate) => {
+        const v = this.voices.get(voice); if (!v) return;
+        if (v.source) try { v.source.playbackRate.value = Math.max(0.0625, Math.min(rate, 16)); } catch (_e) {}
+      },
+
+      // ============================================================
+      // Pixel-perfect physics polygon: read canvas getImageData of the
+      // image, trace its alpha boundary with marching squares, simplify
+      // with Ramer-Douglas-Peucker, write up to `cap` xy pairs into
+      // out_xy. Returns the actual point count written (clamped to cap).
+      // ============================================================
+      img_polygon_from_alpha: (imgId, threshold, outPtr, cap) => {
+        const rec = this.images && this.images[imgId]; if (!rec || !rec.source) return 0;
+        // Build a sampler canvas so we can call getImageData.
+        const w = rec.width  || rec.source.naturalWidth  || rec.source.width;
+        const h = rec.height || rec.source.naturalHeight || rec.source.height;
+        if (!w || !h) return 0;
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d', { willReadFrequently: true });
+        cx.drawImage(rec.source, 0, 0);
+        let data;
+        try { data = cx.getImageData(0, 0, w, h).data; } catch (_e) { return 0; }
+        const a = Math.max(0, Math.min(threshold, 1)) * 255;
+        // Marching-squares boundary trace from the first opaque pixel found.
+        const inside = (x, y) => x >= 0 && y >= 0 && x < w && y < h && data[(y*w + x) * 4 + 3] >= a;
+        // Find a seed on the boundary.
+        let sx = -1, sy = -1;
+        outer: for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (inside(x, y)) { sx = x; sy = y; break outer; }
+          }
+        }
+        if (sx < 0) return 0;
+        // Walk the boundary clockwise using the standard Moore-neighbourhood
+        // contour tracing algorithm.
+        const dirs = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+        let cx0 = sx, cy0 = sy, dir = 0;
+        const pts = [[cx0, cy0]];
+        const MAX_STEPS = 4 * (w + h);
+        for (let step = 0; step < MAX_STEPS; step++) {
+          let found = false;
+          for (let i = 0; i < 8; i++) {
+            const d = (dir + 6 + i) & 7;     // start one step back from previous heading
+            const nx = cx0 + dirs[d][0], ny = cy0 + dirs[d][1];
+            if (inside(nx, ny)) {
+              cx0 = nx; cy0 = ny; dir = d;
+              pts.push([cx0, cy0]);
+              found = true; break;
+            }
+          }
+          if (!found) break;
+          if (cx0 === sx && cy0 === sy && pts.length > 2) break;
+        }
+        // Ramer-Douglas-Peucker simplification to fit in `cap` points.
+        const simplified = rdpSimplify(pts, Math.max(0.5, Math.min(w, h) / 64));
+        const truncated = simplified.length > cap ? simplified.slice(0, cap) : simplified;
+        // Convert pixel coords to centered, y-up (SpriteKit) coordinates.
+        const dv = this.dv();
+        for (let i = 0; i < truncated.length; i++) {
+          const px = truncated[i][0] - w / 2;
+          const py = h / 2 - truncated[i][1];
+          dv.setFloat32(outPtr + i * 8,     px, true);
+          dv.setFloat32(outPtr + i * 8 + 4, py, true);
+        }
+        return truncated.length;
+      },
 
       evt_poll: (typePtr, aPtr, bPtr, cPtr, dPtr) => {
         const e = this.events.shift();

@@ -79,11 +79,54 @@ public final class SKPhysicsBody {
         isDynamic = false
     }
     public init(polygonFrom path: CGPath) { shape = .polygon(path.flattenedPoints) }
-    // Pixel-perfect init: Canvas2D can't alpha-test a texture cheaply, so we
-    // approximate with a rectangle of the requested size. Most games using
-    // this end up wrapping a near-rectangular sprite anyway.
-    public init(texture: SKTexture, size: CGSize) { shape = .texture(size) }
-    public init(texture: SKTexture, alphaThreshold: Float, size: CGSize) { shape = .texture(size) }
+    // Pixel-perfect init: ask the runtime to trace the texture's alpha
+    // boundary (img_polygon_from_alpha runs marching-squares + RDP simplify in
+    // the JS side). If tracing fails or returns fewer than 3 points (e.g. the
+    // texture isn't loaded yet, or its host blocks getImageData), fall back to
+    // a rectangle of the requested size.
+    public init(texture: SKTexture, size: CGSize) {
+        if let poly = SKPhysicsBody.polygonFromAlpha(texture: texture, threshold: 0.0, fit: size) {
+            shape = .polygon(poly)
+        } else {
+            shape = .texture(size)
+        }
+    }
+    public init(texture: SKTexture, alphaThreshold: Float, size: CGSize) {
+        if let poly = SKPhysicsBody.polygonFromAlpha(texture: texture, threshold: alphaThreshold, fit: size) {
+            shape = .polygon(poly)
+        } else {
+            shape = .texture(size)
+        }
+    }
+
+    // Pulls up to 64 polygon points from the texture's alpha channel through
+    // the kit ABI, then scales them to fit `size` (centered on origin). Returns
+    // nil when the trace yields < 3 points (image hasn't loaded, blocked by
+    // CORS getImageData, etc.); the caller falls back to a rect body.
+    private static func polygonFromAlpha(texture: SKTexture, threshold: Float, fit size: CGSize) -> [CGPoint]? {
+        var buf = [Float](repeating: 0, count: 64 * 2)
+        let n = Int(buf.withUnsafeMutableBufferPointer { ptr in
+            img_polygon_from_alpha(texture.handle, threshold, ptr.baseAddress, Int32(64))
+        })
+        if n < 3 { return nil }
+        // The runtime returns centered, y-up coordinates in pixels; rescale to
+        // the requested body size.
+        var minX = Float.infinity, maxX = -Float.infinity, minY = Float.infinity, maxY = -Float.infinity
+        for i in 0..<n {
+            let x = buf[i*2], y = buf[i*2+1]
+            if x < minX { minX = x }; if x > maxX { maxX = x }
+            if y < minY { minY = y }; if y > maxY { maxY = y }
+        }
+        let rangeX = max(maxX - minX, 0.0001), rangeY = max(maxY - minY, 0.0001)
+        let sx = Float(size.width)  / rangeX
+        let sy = Float(size.height) / rangeY
+        var out: [CGPoint] = []
+        out.reserveCapacity(n)
+        for i in 0..<n {
+            out.append(CGPoint(x: CGFloat(buf[i*2] * sx), y: CGFloat(buf[i*2+1] * sy)))
+        }
+        return out
+    }
     public init(bodies: [SKPhysicsBody]) { shape = .rect(0, 0) }   // compound bodies: stub
 
     public func applyImpulse(_ v: CGVector) { velocity = CGVector(dx: velocity.dx + v.dx, dy: velocity.dy + v.dy) }
@@ -372,10 +415,68 @@ public final class SKPhysicsWorld {
         for c in node.children { createBodies(c) }
     }
 
+    // Walk the scene once collecting active field nodes, then for every
+    // dynamic body whose fieldBitMask overlaps the field's categoryBitMask,
+    // sample the force the field would apply at the body's position and call
+    // cb_apply_force. Field models honored: linearGravity, radialGravity,
+    // vortex, drag, spring, magnetic (treated as radialGravity with sign),
+    // noise/turbulence/electric/customField left as no-ops.
+    private func applyFields(_ scene: SKNode, dt: TimeInterval) {
+        var fields: [SKFieldNode] = []
+        collectFields(scene, into: &fields)
+        if fields.isEmpty { return }
+        for (_, body) in SKPhysicsWorld.registry {
+            guard body.isDynamic, let n = body.node else { continue }
+            let p = n.absolutePosition()
+            for f in fields where (f.categoryBitMask & body.fieldBitMask) != 0 {
+                let fp = f.absolutePosition()
+                let dx: CGFloat = p.x - fp.x
+                let dy: CGFloat = p.y - fp.y
+                let dist: CGFloat = (dx*dx + dy*dy).squareRoot()
+                if f.minimumRadius > 0 && dist < CGFloat(f.minimumRadius) { continue }
+                let atten: CGFloat = (f.falloff > 0 && dist > 0)
+                    ? 1 / CGFloat(sb64_pow(Double(dist), Double(f.falloff)))
+                    : 1
+                let strength: CGFloat = CGFloat(f.strength) * atten
+                var fx: CGFloat = 0, fy: CGFloat = 0
+                switch f.fieldType {
+                case .linearGravity:
+                    fx = strength * f.direction.dx
+                    fy = strength * f.direction.dy
+                case .radialGravity:
+                    if dist == 0 { continue }
+                    fx = (-dx / dist) * strength; fy = (-dy / dist) * strength
+                case .vortex:
+                    if dist == 0 { continue }
+                    fx = (-dy / dist) * strength; fy = ( dx / dist) * strength
+                case .drag:
+                    fx = -body.velocity.dx * strength
+                    fy = -body.velocity.dy * strength
+                case .spring:
+                    fx = -dx * strength
+                    fy = -dy * strength
+                case .magnetic:
+                    if dist == 0 { continue }
+                    let s = strength * body.charge
+                    fx = (-dx / dist) * s; fy = (-dy / dist) * s
+                case .noise, .turbulence, .electric, .velocityField, .customField:
+                    continue
+                }
+                cb_apply_force(body.bodyId, Float(fx), Float(fy))
+            }
+        }
+        _ = dt   // currently unused; kept for future per-frame ramping
+    }
+    private func collectFields(_ node: SKNode, into out: inout [SKFieldNode]) {
+        if let f = node as? SKFieldNode { out.append(f) }
+        for c in node.children { collectFields(c, into: &out) }
+    }
+
     func step(_ dt: TimeInterval, scene: SKScene) {
         if !started { begin(scene); return }
         createBodies(scene)                                   // pick up nodes added since last step
         createPendingJoints()                                 // joints added before their bodies
+        applyFields(scene, dt: dt)                            // SKFieldNode → cb_apply_force
         for (_, b) in SKPhysicsWorld.registry where b.velocityDirty {
             cb_set_velocity(b.bodyId, Float(b.velocity.dx), Float(b.velocity.dy)); b.velocityDirty = false
         }

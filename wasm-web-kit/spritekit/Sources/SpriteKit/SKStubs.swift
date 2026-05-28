@@ -172,19 +172,102 @@ public final class SKTextureAtlas {
 // through. SKCropNode optionally honors a rectangular maskNode via a gfx
 // clip rect; non-rect masks degrade to "no clip".
 // =============================================================================
+// SKEffectNode applies a Canvas2D ctx.filter string (read from `filterString`
+// if set, else from the legacy `filter: SKFilter` shim) around its children's
+// render call. Apple's CIFilter is non-portable; games passing CIFilter
+// instances see no effect, but games that adopt our SKFilter helper or set
+// `filterString` directly get real ctx.filter rendering.
 public class SKEffectNode: SKNode {
     public var shouldEnableEffects: Bool = false
     public var shouldRasterize: Bool = false
     public var shouldCenterFilter: Bool = false
     public var blendMode: SKBlendMode = .alpha
-    public var filter: AnyObject?      // CIFilter on Apple; ignored here
+    public var filter: AnyObject?              // CIFilter stand-in
     public var shader: SKShader?
+    // Convenience: a portable CSS-filter string honored by Canvas2D's
+    // ctx.filter — e.g. "blur(8px) saturate(150%)". Games can set this
+    // directly to get a real visual effect on web.
+    public var filterString: String?
     public override init() { super.init() }
+
+    override func draw(alpha: CGFloat) {
+        // Children are drawn by renderTree via the SKNode base path; this hook
+        // exists so the effect node can wrap that draw with a filter set/clear.
+        // We can't intercept renderTree directly, so apply the filter at the
+        // gfx layer for the duration of this subtree by toggling it in
+        // renderTree (see SKEffectNode-specific override below).
+    }
+
+    override func renderTree(parentAlpha: CGFloat) {
+        if isHidden || alpha <= 0 { return }
+        let eff = parentAlpha * alpha
+        gfx_save()
+        gfx_translate(Float(position.x), Float(position.y))
+        if zRotation != 0 { gfx_rotate(Float(-zRotation * 180.0 / Double.pi)) }
+        if xScale != 1 || yScale != 1 { gfx_scale(Float(xScale), Float(yScale)) }
+
+        let usingFilter = shouldEnableEffects && filterString != nil
+        if usingFilter, let f = filterString {
+            withUTF8Ptr(f) { gfx_set_filter($0, $1) }
+        }
+        for c in children.sorted(by: { $0.zPosition < $1.zPosition }) {
+            c.renderTree(parentAlpha: eff)
+        }
+        if usingFilter { gfx_clear_filter() }
+        gfx_restore()
+    }
 }
 
+// SKCropNode: render the children into an offscreen, render the mask with
+// composite mode destination-in so opaque mask pixels keep children, then
+// commit the offscreen back to the main target. Apple's mask uses alpha;
+// Canvas2D destination-in does the same.
 public final class SKCropNode: SKEffectNode {
     public var maskNode: SKNode?
     public override init() { super.init() }
+
+    override func renderTree(parentAlpha: CGFloat) {
+        guard let mask = maskNode else {
+            // No mask: behave like a transparent container.
+            super.renderTree(parentAlpha: parentAlpha)
+            return
+        }
+        if isHidden || alpha <= 0 { return }
+        let eff = parentAlpha * alpha
+
+        // Bounds in our local coordinate space.
+        let frame = calculateAccumulatedFrame()
+        let w = max(1, Int(frame.width)), h = max(1, Int(frame.height))
+
+        gfx_save()
+        gfx_translate(Float(position.x), Float(position.y))
+        if zRotation != 0 { gfx_rotate(Float(-zRotation * 180.0 / Double.pi)) }
+        if xScale != 1 || yScale != 1 { gfx_scale(Float(xScale), Float(yScale)) }
+
+        // Render children + mask into an offscreen canvas, then composite back.
+        let off = gfx_offscreen_begin(Int32(w), Int32(h))
+        // Children first.
+        gfx_save()
+        gfx_translate(Float(-frame.minX), Float(-frame.minY))
+        for c in children.sorted(by: { $0.zPosition < $1.zPosition }) where c !== mask {
+            c.renderTree(parentAlpha: eff)
+        }
+        // Mask second with destination-in: only keep pixels under opaque mask.
+        gfx_set_composite(1)   // destination-in
+        mask.renderTree(parentAlpha: 1)
+        gfx_set_composite(0)   // restore default
+        gfx_restore()
+
+        let img = gfx_offscreen_end_to_image(off)
+        if img > 0 {
+            // Draw the masked image back onto the current target at the
+            // child bounding box position.
+            gfx_draw_image(img, 0, 0, Float(w), Float(h),
+                           Float(frame.minX), Float(frame.minY),
+                           Float(w), Float(h), 0xFFFFFFFF)
+        }
+        gfx_restore()
+    }
 }
 
 public enum SKBlendMode: Int {
@@ -322,16 +405,44 @@ public final class SKTileMapNode: SKNode {
 // no-op flag. Wiring an actual HTML <video> element requires a vid_* ABI
 // (deferred). For now this exists so games using video splashes compile.
 // =============================================================================
+// SKVideoNode — DOM <video> overlay. The vid_* ABI mounts an absolutely
+// positioned <video> element above the canvas; play/pause/stop control it.
+// Position + size are re-syncd each frame from the node's transform so it
+// rides along with parent scrolling / scene transitions.
 public final class SKVideoNode: SKNode {
     public let videoName: String?
     public let videoURL: SKAudioURL?
     public var size = CGSize.zero
     public var isPlaying = false
-    public init(fileNamed name: String) { videoName = name; videoURL = nil; super.init() }
-    public init(url: SKAudioURL) { videoName = nil; videoURL = url; super.init() }
-    public func play()  { isPlaying = true }
-    public func pause() { isPlaying = false }
-    public func stop()  { isPlaying = false }
+    var videoId: Int32 = -1
+
+    public init(fileNamed name: String) {
+        videoName = name; videoURL = nil; super.init()
+        self.videoId = withUTF8Ptr(name) { vid_load($0, $1) }
+    }
+    public init(url: SKAudioURL) {
+        videoName = nil; videoURL = url; super.init()
+        self.videoId = withUTF8Ptr(url.lastPathComponent) { vid_load($0, $1) }
+    }
+    public func play()  { if videoId >= 0 { vid_play(videoId); isPlaying = true } }
+    public func pause() { if videoId >= 0 { vid_pause(videoId); isPlaying = false } }
+    public func stop()  { if videoId >= 0 { vid_stop(videoId);  isPlaying = false } }
+
+    override func draw(alpha: CGFloat) {
+        guard videoId >= 0 else { return }
+        // Position the DOM video element to match this node's current location.
+        // Apple's SKVideoNode uses anchorPoint (0.5, 0.5) implicitly, so center
+        // the rect on the absolute position. Y-up to y-down: the SKView root
+        // flip is in effect, so we feed the unflipped coords directly.
+        let abs = absolutePosition()
+        let w = Float(size.width), h = Float(size.height)
+        vid_set_rect(videoId, Float(abs.x) - w/2, Float(abs.y) - h/2, w, h)
+        vid_set_visible(videoId, isHidden || alpha <= 0 ? 0 : 1)
+    }
+    public override func removeFromParent() {
+        if videoId >= 0 { vid_set_visible(videoId, 0) }
+        super.removeFromParent()
+    }
 }
 
 // =============================================================================

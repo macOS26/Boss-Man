@@ -43,6 +43,43 @@ WABI void  gp_map_to_keys(int enable);
 WABI int   tts_speak(const char* utf8, int len, float rate, float pitch, float volume);
 WABI void  tts_cancel(void);
 
+/* offscreen canvas (SKView.texture(from:), SKCropNode, SKEffectNode) */
+/* gfx_offscreen_begin: switch all subsequent gfx_* calls to an offscreen */
+/* canvas of (w,h) at devicePixelRatio. Returns a handle the caller passes */
+/* to gfx_offscreen_end to either commit (returns img handle) or discard. */
+WABI int   gfx_offscreen_begin(int w, int h);
+WABI int   gfx_offscreen_end_to_image(int handle);   /* returns img handle */
+WABI void  gfx_offscreen_end_discard(int handle);
+
+/* Canvas2D filter string (CSS filter syntax: 'blur(8px) saturate(150%)'). */
+/* gfx_set_filter applies to all subsequent draws until gfx_clear_filter. */
+WABI void  gfx_set_filter(const char* utf8, int len);
+WABI void  gfx_clear_filter(void);
+
+/* Composite mode: 0=source-over (default), 1=destination-in, 2=destination-out, */
+/* 3=lighter, 4=multiply, 5=screen, 6=overlay. */
+WABI void  gfx_set_composite(int mode);
+
+/* DOM video element (SKVideoNode). vid_load registers the source by name */
+/* (resolved through the asset table), vid_play / vid_pause control playback, */
+/* vid_set_rect positions/sizes the element in logical pixels (y-down). */
+WABI int   vid_load(const char* name, int len);
+WABI void  vid_play(int id);
+WABI void  vid_pause(int id);
+WABI void  vid_stop(int id);
+WABI void  vid_set_rect(int id, float x, float y, float w, float h);
+WABI void  vid_set_visible(int id, int visible);
+
+/* Sound positional / playback rate (per-voice) */
+WABI void  snd_set_pan(int voice, float pan);   /* -1 = left, +1 = right */
+WABI void  snd_set_rate(int voice, float rate); /* 1.0 = normal speed */
+
+/* Pixel-perfect physics polygon from a texture's alpha channel.            */
+/* Runtime reads canvas getImageData, runs marching squares + RDP simplify, */
+/* writes up to `cap` xy pairs into out_xy. Returns the actual point count. */
+WABI int   img_polygon_from_alpha(int img, float alphaThreshold,
+                                  float* out_xy, int cap);
+
 /* input */
 WABI int  key_pressed(int sfKey);
 WABI int  mouse_x(void);

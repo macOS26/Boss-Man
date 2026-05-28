@@ -117,7 +117,7 @@ open class SKNode {
     // ---- rendering ----
     func draw(alpha: CGFloat) {}   // overridden by leaf nodes
 
-    final func renderTree(parentAlpha: CGFloat) {
+    func renderTree(parentAlpha: CGFloat) {
         if isHidden || alpha <= 0 { return }
         let eff = parentAlpha * alpha
         gfx_save()
