@@ -110,13 +110,12 @@ final class TitleScene: SKScene {
     private func makeStapler() -> SKNode {
         let maxSize = CGSize(width: 380, height: 290)
         let tex = SKTexture(imageNamed: "red-stapler")
-        // Texture size isn't known until the image actually loads in the
-        // runtime; we assume the natural aspect and fit it inside maxSize.
-        // The image is ~600x440 in the source asset.
-        let source = CGSize(width: 600, height: 440)
-        let scale = min(maxSize.width / source.width, maxSize.height / source.height)
-        let fitted = CGSize(width: source.width * scale, height: source.height * scale)
-        if tex.isLoaded {
+        if tex.isLoaded, tex.size.width > 0, tex.size.height > 0 {
+            // Use the texture's actual natural dimensions so the sprite keeps
+            // its aspect ratio — no more guessing 600x440 and stretching the
+            // image when the source is something else (the asset is 1002x1002).
+            let scale = min(maxSize.width / tex.size.width, maxSize.height / tex.size.height)
+            let fitted = CGSize(width: tex.size.width * scale, height: tex.size.height * scale)
             return SKSpriteNode(texture: tex, size: fitted)
         }
         return makeFallbackStapler()

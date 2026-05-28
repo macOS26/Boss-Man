@@ -293,24 +293,30 @@ public class SKEffectNode: SKNode {
             let h = Int(bounds.height + pad * 2)
             if w > 0 && h > 0 {
                 let handle = gfx_offscreen_begin(Int32(w), Int32(h))
+                // Apply the filter on the OFFSCREEN target. Canvas2D's
+                // save/restore preserves ctx.filter, so the children's own
+                // gfx_save / gfx_restore boundaries can't clobber it. Setting
+                // the filter on the main canvas after gfx_offscreen_end and
+                // hoping it survives drawImage is unreliable — multiple
+                // browsers reset ctx.filter on context switches and after
+                // certain composite ops.
+                withUTF8Ptr(f) { gfx_set_filter($0, $1) }
                 gfx_save()
                 gfx_translate(Float(-bounds.minX + pad), Float(-bounds.minY + pad))
                 for c in children.sorted(by: { $0.zPosition < $1.zPosition }) {
                     c.renderTree(parentAlpha: eff)
                 }
                 gfx_restore()
+                gfx_clear_filter()
                 let img = gfx_offscreen_end_to_image(handle)
                 if img > 0 {
-                    withUTF8Ptr(f) { gfx_set_filter($0, $1) }
-                    // Source = -1, -1 routes to 5-arg drawImage in the runtime,
-                    // which reads the full source canvas. Crucial because the
-                    // offscreen is dpr-scaled (e.g. 2x backing pixels) and
-                    // passing the logical w/h would crop to the top-left
-                    // quarter at dpr=2.
+                    // No filter on the back-blit — the offscreen already
+                    // contains the blurred pixels. -1, -1 source dims route
+                    // through gfx_draw_image's 5-arg form so we read the
+                    // full backing canvas (not just the top-left at dpr=2).
                     gfx_draw_image(img, 0, 0, -1, -1,
                                    Float(bounds.minX - pad), Float(bounds.minY - pad),
                                    Float(w), Float(h), 0xFFFFFFFF)
-                    gfx_clear_filter()
                 }
             }
         } else {

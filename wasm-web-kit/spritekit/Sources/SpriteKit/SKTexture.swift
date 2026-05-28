@@ -28,19 +28,30 @@ public class SKTexture {
         handle = h
         pendingName = h == 0 ? name : nil
         size = .zero
+        if h > 0 { populateSize() }
     }
-    init(handle: Int32) { self.handle = handle; size = .zero }
+    init(handle: Int32) {
+        self.handle = handle; size = .zero
+        if handle > 0 { populateSize() }
+    }
 
     // Called by anyone that needs a handle: SKSpriteNode.draw, SKView.texture.
     // Resolves a deferred name lookup the first time the runtime has the
-    // asset registered.
+    // asset registered. Also populates `size` so call sites can read the
+    // natural image dimensions without guessing.
     @discardableResult
     func resolvePending() -> Int32 {
         if handle > 0 { return handle }
         guard let name = pendingName else { return 0 }
         let h = withUTF8Ptr(name) { img_by_name($0, $1) }
-        if h > 0 { handle = h; pendingName = nil }
+        if h > 0 { handle = h; pendingName = nil; populateSize() }
         return h
+    }
+
+    private func populateSize() {
+        let w = img_width(handle)
+        let h = img_height(handle)
+        if w > 0 && h > 0 { size = CGSize(width: CGFloat(w), height: CGFloat(h)) }
     }
 
     // Apple exposes size as a property in modern Swift bindings; we keep it
