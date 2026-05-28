@@ -4,24 +4,44 @@ public enum SKTextureFilteringMode { case nearest, linear }
 
 public class SKTexture {
     public internal(set) var handle: Int32
-    // True when the runtime has the backing image registered. Games use this
-    // to fall back to a procedural placeholder when an asset hasn't loaded
-    // (or is missing from manifest.json).
-    public var isLoaded: Bool { handle > 0 }
+    // The asset name we were constructed with — if any. Stored so that when
+    // the manifest preloader registers an image after this SKTexture was
+    // already built, we can retry the lookup on the next draw. Without this,
+    // an SKSpriteNode created during boot() before the asset has loaded
+    // would permanently render with handle 0 (i.e. invisible).
+    var pendingName: String? = nil
+
+    // True once the runtime has registered the backing image. Re-resolves
+    // pendingName on every read so call sites get fresh state as preloads
+    // finish.
+    public var isLoaded: Bool {
+        if handle > 0 { return true }
+        return resolvePending() > 0
+    }
     public var size: CGSize
-    public var filteringMode: SKTextureFilteringMode = .linear   // honored later if we add a tex-state ABI
+    public var filteringMode: SKTextureFilteringMode = .linear
     public var usesMipmaps: Bool = false
-    // Sub-region (atlas slicing). When non-zero, draws pull only the
-    // rectangle (sourceX, sourceY, sourceW, sourceH) out of the parent
-    // image. Coordinates are in source pixels, matching gfx_draw_image's
-    // sx/sy/sw/sh arguments.
     var sourceRect: CGRect = .zero
 
     public init(imageNamed name: String) {
-        handle = withUTF8Ptr(name) { img_by_name($0, $1) }
+        let h = withUTF8Ptr(name) { img_by_name($0, $1) }
+        handle = h
+        pendingName = h == 0 ? name : nil
         size = .zero
     }
     init(handle: Int32) { self.handle = handle; size = .zero }
+
+    // Called by anyone that needs a handle: SKSpriteNode.draw, SKView.texture.
+    // Resolves a deferred name lookup the first time the runtime has the
+    // asset registered.
+    @discardableResult
+    func resolvePending() -> Int32 {
+        if handle > 0 { return handle }
+        guard let name = pendingName else { return 0 }
+        let h = withUTF8Ptr(name) { img_by_name($0, $1) }
+        if h > 0 { handle = h; pendingName = nil }
+        return h
+    }
 
     // Apple exposes size as a property in modern Swift bindings; we keep it
     // as a property only (the historical -size() ObjC method collides).

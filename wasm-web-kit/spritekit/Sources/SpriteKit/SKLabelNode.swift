@@ -4,43 +4,56 @@ public enum SKLabelHorizontalAlignmentMode { case center, left, right }
 public enum SKLabelVerticalAlignmentMode { case baseline, center, top, bottom }
 
 public final class SKLabelNode: SKNode {
-    public var text: String = ""
+    public var text: String = "" { didSet { fontHandleNeedsRebind = true } }
     public var fontSize: CGFloat = 32
     public var fontColor: SKColor? = .white
-    public var fontName: String = "JetBrainsMono-Bold"
+    public var fontName: String = "JetBrainsMono-Bold" { didSet { fontHandleNeedsRebind = true } }
     public var horizontalAlignmentMode: SKLabelHorizontalAlignmentMode = .center
     public var verticalAlignmentMode: SKLabelVerticalAlignmentMode = .baseline
-    public var numberOfLines: Int = 1                  // no-op: single-line render only
-    public var preferredMaxLayoutWidth: CGFloat = 0    // no-op: hint for wrapping (unused)
-    public var lineBreakMode: Int = 0                  // no-op (NSLineBreakMode enum stand-in)
-    public var attributedText: String? = nil           // stored as plain text on wasm
-    public var color: SKColor = .white                 // mirrors SKSpriteNode.color (tint)
-    public var colorBlendFactor: CGFloat = 0           // no-op on text rendering
+    public var numberOfLines: Int = 1
+    public var preferredMaxLayoutWidth: CGFloat = 0
+    public var lineBreakMode: Int = 0
+    public var attributedText: String? = nil
+    public var color: SKColor = .white
+    public var colorBlendFactor: CGFloat = 0
     public var blendMode: SKBlendMode = .alpha
 
-    // SpriteKit also accepts: init(attributedText: NSAttributedString). We
-    // accept a plain String form so games using attributed strings compile;
-    // formatting attributes drop on the floor (text content survives).
-    public init(attributedText: String) { self.text = attributedText; super.init() }
+    // Cached font handle (looked up once from fontName via font_by_name, then
+    // reused across frames). Reset when fontName changes; recomputed lazily
+    // because asset preloading is asynchronous and an early init() may run
+    // before the font face has registered.
+    private var cachedFontHandle: Int32 = 0
+    private var fontHandleNeedsRebind: Bool = true
 
+    public init(attributedText: String) { self.text = attributedText; super.init() }
     public override init() { super.init() }
     public init(text: String) { self.text = text; super.init() }
     public init(fontNamed name: String) { self.fontName = name; super.init() }
 
+    // Resolve the font handle through font_by_name, retrying until the asset
+    // loader has registered it (preload races scene init; first frame may see
+    // handle 0, second frame the real one).
+    private func resolvedFontHandle() -> Int32 {
+        if !fontHandleNeedsRebind && cachedFontHandle != 0 { return cachedFontHandle }
+        let h = withUTF8Ptr(fontName) { font_by_name($0, $1) }
+        if h > 0 { cachedFontHandle = h; fontHandleNeedsRebind = false }
+        return h
+    }
+
     override func draw(alpha: CGFloat) {
         guard !text.isEmpty, let c = fontColor else { return }
         let px = Int32(fontSize)
+        let font = resolvedFontHandle()
         gfx_set_alpha(Float(alpha))
         gfx_save(); gfx_scale(1, -1)   // un-flip: text must not be mirrored
         withUTF8Ptr(text) { p, n in
-            let w = Float(txt_width(0, p, n, px, 0))
+            let w = Float(txt_width(font, p, n, px, 0))
             let x: Float
             switch horizontalAlignmentMode {
             case .center: x = -w / 2
             case .left:   x = 0
             case .right:  x = -w
             }
-            // gfx_draw_text draws downward from y (textBaseline top) in this local y-down space
             let s = Float(fontSize)
             let y: Float
             switch verticalAlignmentMode {
@@ -49,7 +62,7 @@ public final class SKLabelNode: SKNode {
             case .bottom:   y = -s
             case .baseline: y = -s * 0.8
             }
-            gfx_draw_text(0, p, n, x, y, px, c.rgba, 0)
+            gfx_draw_text(font, p, n, x, y, px, c.rgba, 0)
         }
         gfx_restore()
     }

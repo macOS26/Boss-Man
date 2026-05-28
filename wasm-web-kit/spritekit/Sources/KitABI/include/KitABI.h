@@ -25,6 +25,7 @@ WABI void gfx_draw_text(int font, const char* utf8, int len, float x, float y,
                         int sizePx, uint32_t rgba, float spacing);
 WABI int  img_by_name(const char* name, int len);
 WABI int  snd_by_name(const char* name, int len);
+WABI int  font_by_name(const char* name, int len);   /* 0 = default monospace */
 WABI int  snd_play(int buffer, float volume, int loop);
 WABI void snd_stop(int voice);
 WABI void snd_set_volume(int voice, float volume);

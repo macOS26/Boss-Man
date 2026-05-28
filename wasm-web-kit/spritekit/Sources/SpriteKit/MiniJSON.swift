@@ -7,7 +7,7 @@ import KitABI
 //
 // Returns Any (one of [String: Any], [Any], String, Double, Bool, or NSNull).
 // Returns nil on parse failure.
-func parseJSON(_ input: String) -> Any? {
+public func parseJSON(_ input: String) -> Any? {
     var parser = JSONParser(chars: Array(input.unicodeScalars))
     parser.skipWhitespace()
     let value = parser.parseValue()

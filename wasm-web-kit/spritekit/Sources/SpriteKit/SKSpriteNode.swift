@@ -50,6 +50,11 @@ public final class SKSpriteNode: SKNode {
         let w = Float(size.width), h = Float(size.height)
         let ax = Float(anchorPoint.x), ay = Float(anchorPoint.y)
         gfx_set_alpha(Float(alpha))
+        // Re-resolve a deferred-name texture each frame until the runtime
+        // registers it. This handles the boot()-before-preload-finishes race:
+        // SKSpriteNodes built during the first frame may hold a handle of 0
+        // that becomes valid once the manifest preloader catches up.
+        texture?.resolvePending()
         guard let t = texture, t.handle != 0 else {
             gfx_fill_rect(-w * ax, -h * ay, w, h, color.rgba)
             return

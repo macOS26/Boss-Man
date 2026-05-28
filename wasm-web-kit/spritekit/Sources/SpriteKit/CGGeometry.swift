@@ -3,7 +3,7 @@
 
 public typealias CGFloat = Double
 
-public struct CGPoint: Equatable, Sendable {
+public struct CGPoint: Equatable, Hashable, Sendable {
     public var x: CGFloat, y: CGFloat
     public init() { x = 0; y = 0 }
     public init(x: CGFloat, y: CGFloat) { self.x = x; self.y = y }
@@ -11,7 +11,7 @@ public struct CGPoint: Equatable, Sendable {
     public static let zero = CGPoint()
 }
 
-public struct CGSize: Equatable, Sendable {
+public struct CGSize: Equatable, Hashable, Sendable {
     public var width: CGFloat, height: CGFloat
     public init() { width = 0; height = 0 }
     public init(width: CGFloat, height: CGFloat) { self.width = width; self.height = height }
@@ -19,7 +19,7 @@ public struct CGSize: Equatable, Sendable {
     public static let zero = CGSize()
 }
 
-public struct CGVector: Equatable, Sendable {
+public struct CGVector: Equatable, Hashable, Sendable {
     public var dx: CGFloat, dy: CGFloat
     public init() { dx = 0; dy = 0 }
     public init(dx: CGFloat, dy: CGFloat) { self.dx = dx; self.dy = dy }

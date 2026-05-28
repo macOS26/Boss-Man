@@ -42,15 +42,17 @@ enum Strings {
         static let waterPelletChar = Character(waterPellet)
     }
 
-    // MARK: - Font names (PostScript IDs passed to SKLabelNode). On wasm
-    // these resolve through the kit's font preloader (manifest.json) — fall
-    // back to a default if the family isn't present.
+    // MARK: - Font names. The runtime's font preloader registers each .ttf
+    // by its filename basename (e.g. MarkerFelt-Wide.ttf → "MarkerFelt-Wide").
+    // SKLabelNode.fontName feeds those exact strings to font_by_name; on the
+    // macOS build the same constants resolve to the PostScript IDs of system
+    // fonts because Apple ships Marker Felt under both spellings.
     enum Font {
         static let menloBold      = "Menlo-Bold"
         static let menlo          = "Menlo"
         static let helveticaBold  = "Helvetica-Bold"
-        static let markerFeltThin = "Marker Felt Thin"
-        static let markerFeltWide = "Marker Felt Wide"
+        static let markerFeltThin = "MarkerFelt-Thin"
+        static let markerFeltWide = "MarkerFelt-Wide"
         static let jetBrainsMono  = "JetBrainsMono-Bold"
     }
 

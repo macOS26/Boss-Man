@@ -3,6 +3,12 @@
     "images/red-stapler.png"
   ],
   "sounds": [],
-  "fonts":  [],
-  "text":   []
+  "fonts": [
+    "fonts/JetBrainsMono-Bold.ttf",
+    "fonts/MarkerFelt-Thin.ttf",
+    "fonts/MarkerFelt-Wide.ttf"
+  ],
+  "text": [
+    "levels.json"
+  ]
 }
