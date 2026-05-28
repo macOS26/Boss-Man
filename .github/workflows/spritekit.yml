@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           BUNDLE="swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz"
-          BASE="https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm/swift-${SWIFT_VERSION}-RELEASE"
+          BASE="https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm-sdk/swift-${SWIFT_VERSION}-RELEASE"
           # Fetch the bundle locally so we can compute its SHA-256 ourselves —
           # swift.org doesn't publish a sidecar .sha256 file for the wasm
           # artifactbundle, and `swift sdk install` from a remote URL now
