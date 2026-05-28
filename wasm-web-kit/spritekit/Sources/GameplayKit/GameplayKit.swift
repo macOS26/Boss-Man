@@ -1,4 +1,5 @@
 import SpriteKit
+import KitABI
 
 // =============================================================================
 // GameplayKit shim — most surveyed games import GameplayKit (Space-Bar,

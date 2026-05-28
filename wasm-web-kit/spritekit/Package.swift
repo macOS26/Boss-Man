@@ -63,7 +63,7 @@ let package = Package(
                 swiftSettings: [.swiftLanguageMode(.v5)]),
         .target(name: "GameKit",        dependencies: ["SpriteKit", "UIKit", "KitABI"],
                 swiftSettings: [.swiftLanguageMode(.v5)]),
-        .target(name: "GameplayKit",    dependencies: ["SpriteKit"],
+        .target(name: "GameplayKit",    dependencies: ["SpriteKit", "KitABI"],
                 swiftSettings: [.swiftLanguageMode(.v5)]),
         .target(name: "GameController", dependencies: ["SpriteKit", "KitABI"],
                 swiftSettings: [.swiftLanguageMode(.v5)]),
