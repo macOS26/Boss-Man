@@ -54,6 +54,8 @@ final class GameScene: SKScene {
     private let waterDropletSpeed: CGFloat = 12 * 32     // 12 tiles/s
     private let waterHitPoints = 100
 
+    private var gameOver = false
+
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
         anchorPoint = .zero
@@ -115,6 +117,7 @@ final class GameScene: SKScene {
     // MARK: - Input
 
     override func keyDown(_ key: Int) {
+        if gameOver { return }
         if key == 36 {        // Escape
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
@@ -147,6 +150,7 @@ final class GameScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         guard let pete else { return }
+        if gameOver { return }
         let dt: CGFloat = 1.0 / 60.0
         let stepLen = moveSpeed * tileSize * dt
 
@@ -247,6 +251,10 @@ final class GameScene: SKScene {
     private func handlePeteHit() {
         lives = max(0, lives - 1)
         refreshHUD()
+        if lives == 0 {
+            triggerGameOver()
+            return
+        }
         hud.flash("OUCH!")
         contactCooldown = 1.2
         // Respawn Pete at the worker spawn so a stuck Pete doesn't immediately
@@ -256,6 +264,45 @@ final class GameScene: SKScene {
         pete.position = sceneCoord(forGrid: spawn)
         heading = nil
         queued = nil
+    }
+
+    private func triggerGameOver() {
+        gameOver = true
+        heading = nil
+        queued = nil
+
+        let overlay = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        overlay.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.55)
+        overlay.strokeColor = .clear
+        overlay.zPosition = 50
+        addChild(overlay)
+
+        let big = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
+        big.text = "GAME OVER"
+        big.fontSize = 86
+        big.fontColor = SKColor(red: 1.0, green: 0.85, blue: 0.34, alpha: 1)
+        big.position = CGPoint(x: size.width / 2, y: size.height * 0.55)
+        big.zPosition = 51
+        addChild(big)
+
+        let summary = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        summary.text = "FINAL SCORE \(score)   HIGH \(highScore)"
+        summary.fontSize = 22
+        summary.fontColor = .white
+        summary.position = CGPoint(x: size.width / 2, y: size.height * 0.44)
+        summary.zPosition = 51
+        addChild(summary)
+
+        run(SKAction.sequence([
+            SKAction.wait(forDuration: 3.0),
+            SKAction.run { [weak self] in self?.returnToTitle() },
+        ]))
+    }
+
+    private func returnToTitle() {
+        let title = TitleScene(size: size)
+        title.scaleMode = .aspectFit
+        view?.presentScene(title, transition: .fade(withDuration: 0.5))
     }
 
     private func canStep(_ dir: MoveDirection) -> Bool {
