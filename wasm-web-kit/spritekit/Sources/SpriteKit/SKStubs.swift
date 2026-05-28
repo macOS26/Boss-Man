@@ -235,10 +235,28 @@ public final class SKLightNode: SKNode {
 // tile groups. Render hook draws a flat fillColor per cell; richer tileset
 // rendering requires hooking SKTexture into the cell lookup.
 // =============================================================================
+public final class SKTileDefinition {
+    public var textures: [SKTexture] = []
+    public var name: String?
+    public var size = CGSize.zero
+    public var timePerFrame: TimeInterval = 0
+    public var placementWeight: Int = 1
+    public var userData: [String: Any]? = nil
+    public init() {}
+    public init(texture: SKTexture) { textures = [texture] }
+    public init(texture: SKTexture, size: CGSize) { textures = [texture]; self.size = size }
+    public init(textures: [SKTexture], size: CGSize, timePerFrame: TimeInterval) {
+        self.textures = textures; self.size = size; self.timePerFrame = timePerFrame
+    }
+}
+
 public final class SKTileGroup {
     public let name: String?
+    public var rules: [AnyObject] = []
     public init() { name = nil }
     public init(_ name: String) { self.name = name }
+    public init(tileDefinition: SKTileDefinition) { name = tileDefinition.name }
+    public init(rules: [AnyObject]) { name = nil; self.rules = rules }
 }
 public final class SKTileSet {
     public let name: String?

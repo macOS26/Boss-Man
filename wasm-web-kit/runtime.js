@@ -514,6 +514,21 @@ class Runtime {
       },
       gp_map_to_keys: (enable) => { this.gpMapToKeys = !!enable; },
 
+      // ---- Text to speech (Web Speech API) ----
+      // window.speechSynthesis is the standard surface; available on all major
+      // browsers since 2014. AVSpeechSynthesizer.speak() routes here. Rate
+      // and pitch are clamped to the Web Speech API's accepted ranges.
+      tts_speak: (utf8Ptr, len, rate, pitch, volume) => {
+        if (typeof speechSynthesis === 'undefined') return 0;
+        const text = this.cstr(utf8Ptr, len);
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate   = Math.max(0.1, Math.min(rate   || 1.0, 10));
+        u.pitch  = Math.max(0,   Math.min(pitch  || 1.0, 2));
+        u.volume = Math.max(0,   Math.min(volume || 1.0, 1));
+        try { speechSynthesis.speak(u); return 1; } catch (_e) { return 0; }
+      },
+      tts_cancel: () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
+
       evt_poll: (typePtr, aPtr, bPtr, cPtr, dPtr) => {
         const e = this.events.shift();
         if (!e) return 0;

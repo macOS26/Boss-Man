@@ -105,5 +105,4 @@ public final class GKGameCenterViewController: UIViewController {
     public func present(from vc: UIViewController) { gameCenterDelegate?.gameCenterViewControllerDidFinish(self) }
 }
 
-// Error stand-in — many GK callbacks ship an Optional<Error> that's always nil on web.
-public protocol Error: Sendable {}
+// GK callbacks all use Swift.Error — comes from the stdlib, no redeclaration needed.

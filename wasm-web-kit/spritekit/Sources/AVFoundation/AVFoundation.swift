@@ -13,6 +13,16 @@ import KitABI
 // simpler AVAudioPlayer path on web.
 // =============================================================================
 
+// ---- AVAudioPlayerDelegate ------------------------------------------------
+public protocol AVAudioPlayerDelegate: AnyObject {
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool)
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?)
+}
+public extension AVAudioPlayerDelegate {
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {}
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Swift.Error?) {}
+}
+
 // ---- AVAudioPlayer --------------------------------------------------------
 public final class AVAudioPlayer {
     public var volume: Float = 1.0 { didSet { if voice >= 0 { snd_set_volume(voice, volume) } } }
@@ -22,12 +32,13 @@ public final class AVAudioPlayer {
     public var currentTime: TimeInterval = 0
     public var duration: TimeInterval = 0
     public var isPlaying: Bool { voice >= 0 && snd_status(voice) == 1 }
-    public var delegate: AnyObject?
     public var pan: Float = 0
     public var meteringEnabled = false
 
     let buffer: Int32
     var voice: Int32 = -1
+
+    public weak var delegate: AVAudioPlayerDelegate?
 
     public init(contentsOf url: SKAudioURL) throws {
         let name = url.lastPathComponent
