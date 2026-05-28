@@ -25,3 +25,12 @@ WASMWEB_MANIFEST="$ROOT/web/manifest.json"
 
 source "$KIT/build.sh"
 wasmweb_build
+
+# Regenerate the file:/// bundle so opening web/index.html directly works
+# without a server. The C++ port keeps its assets at boss-man-box2d-sfml-
+# cpp/assets/ (which index.html's assetRoot already points at), so we pass
+# that path explicitly. Skip with NO_BUNDLE=1.
+if [ -z "${NO_BUNDLE:-}" ] && [ -f "$KIT/scripts/bundle.py" ]; then
+  python3 "$KIT/scripts/bundle.py" "$ROOT/web" boss.wasm \
+    --asset-root "$NATIVE/assets" || echo "(bundle.js regeneration failed)"
+fi

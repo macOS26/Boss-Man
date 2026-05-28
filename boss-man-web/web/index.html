@@ -36,6 +36,11 @@
       wasmUrl: 'boss.wasm', assetRoot: '../assets', title: 'BOSS-MAN',
     };
   </script>
+  <!-- bundle.js inlines every asset + boss.wasm as data: URLs and installs
+       a fetch() shim that redirects asset paths to them, so opening this
+       file directly from file:/// works without a server. Regenerate via:
+         python3 ../../wasm-web-kit/scripts/bundle.py web boss.wasm   -->
+  <script src="bundle.js"></script>
   <script src="runtime.js"></script>
 </body>
 </html>

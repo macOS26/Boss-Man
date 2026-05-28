@@ -46,6 +46,7 @@ fi
 # Regenerate the file:/// bundle so opening web/index.html directly works
 # without a local server. Includes bossman.wasm + every manifest asset as
 # inline data: URLs (~25 MiB base64). Skip with NO_BUNDLE=1.
-if [ -z "${NO_BUNDLE:-}" ] && [ -f scripts/bundle.py ]; then
-  python3 scripts/bundle.py || echo "(bundle.js regeneration failed)"
+KIT_BUNDLE="../wasm-web-kit/scripts/bundle.py"
+if [ -z "${NO_BUNDLE:-}" ] && [ -f "$KIT_BUNDLE" ]; then
+  python3 "$KIT_BUNDLE" web bossman.wasm || echo "(bundle.js regeneration failed)"
 fi

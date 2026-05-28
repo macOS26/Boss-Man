@@ -34,6 +34,11 @@ final class MazeBuilder {
     private var goldNodes: [CGPoint: SKNode] = [:]
     private var waterPelletNodes: [CGPoint: SKNode] = [:]
     private var waterGunNodes: [CGPoint: SKNode] = [:]
+    // Machine name (Strings.Machine.*) + scene node, indexed by tile.
+    // bossman-apple stores these in a [String: SKNode] via the node's
+    // SKNode.name; we go by grid so handlePeteArrival can look up by tile.
+    private(set) var machineNodes: [CGPoint: (name: String, node: SKNode)] = [:]
+    private(set) var brownBoxNodes: [CGPoint: SKNode] = [:]
 
     init(map: GridMap) { self.map = map }
 
@@ -115,15 +120,20 @@ final class MazeBuilder {
                     waterPelletNodes[grid] = pellet
 
                 case Strings.Tile.printerChar:
-                    addMachineEmoji(Strings.Emoji.printer, at: position, in: scene)
+                    let n = addMachineEmoji(Strings.Emoji.printer, at: position, in: scene)
+                    machineNodes[grid] = (Strings.Machine.printer, n)
                 case Strings.Tile.faxChar:
-                    addMachineEmoji(Strings.Emoji.fax, at: position, in: scene)
+                    let n = addMachineEmoji(Strings.Emoji.fax, at: position, in: scene)
+                    machineNodes[grid] = (Strings.Machine.fax, n)
                 case Strings.Tile.coverSheetChar:
-                    addMachineEmoji(Strings.Emoji.coverSheet, at: position, in: scene)
+                    let n = addMachineEmoji(Strings.Emoji.coverSheet, at: position, in: scene)
+                    machineNodes[grid] = (Strings.Machine.coverSheet, n)
                 case Strings.Tile.bookBinderChar:
-                    addMachineEmoji(Strings.Emoji.bookBinder, at: position, in: scene)
+                    let n = addMachineEmoji(Strings.Emoji.bookBinder, at: position, in: scene)
+                    machineNodes[grid] = (Strings.Machine.bookBinder, n)
                 case Strings.Tile.brownBoxChar:
-                    addBrownBoxEmoji(Strings.Emoji.brownBox, at: position, in: scene)
+                    let n = addBrownBoxEmoji(Strings.Emoji.brownBox, at: position, in: scene)
+                    brownBoxNodes[grid] = n
 
                 case Strings.Tile.workerChar:
                     workerSpawn = grid
@@ -193,9 +203,9 @@ final class MazeBuilder {
     }
 
 
-    // TPS printer / fax / cover-sheet / book-binder — placed as a single
-    // 26pt emoji label, no pulse (matches bossman-apple's machine glyphs).
-    private func addMachineEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) {
+    // TPS printer / fax / cover-sheet / book-binder — 26pt emoji label,
+    // no pulse (matches bossman-apple's machine glyphs).
+    private func addMachineEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) -> SKNode {
         let label = SKLabelNode(text: emoji)
         label.fontSize = 26
         label.verticalAlignmentMode = .center
@@ -203,11 +213,12 @@ final class MazeBuilder {
         label.position = position
         label.zPosition = 6
         scene.addChild(label)
+        return label
     }
 
-    // Brown TPS report box. Slightly larger glyph (28pt) and sits one
+    // Brown TPS delivery box. Slightly larger glyph (28pt) and sits one
     // z-layer below the other machines, matching bossman-apple.
-    private func addBrownBoxEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) {
+    private func addBrownBoxEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) -> SKNode {
         let label = SKLabelNode(text: emoji)
         label.fontSize = 28
         label.verticalAlignmentMode = .center
@@ -215,6 +226,24 @@ final class MazeBuilder {
         label.position = position
         label.zPosition = 4
         scene.addChild(label)
+        return label
+    }
+
+    // Mark a machine collected: fade it to 0.55 alpha (matching bossman-
+    // apple's grayOutMachine) and drop it from the active map so Pete
+    // can't double-collect. Returns the machine name + scene position.
+    @discardableResult
+    func collectMachine(at grid: CGPoint) -> (name: String, position: CGPoint)? {
+        guard let m = machineNodes[grid] else { return nil }
+        machineNodes.removeValue(forKey: grid)
+        m.node.run(.fadeAlpha(to: 0.55, duration: 0.2))
+        return (m.name, m.node.position)
+    }
+
+    // Returns true if Pete stepped onto a brown box tile.
+    func touchedBrownBox(at grid: CGPoint) -> CGPoint? {
+        guard let n = brownBoxNodes[grid] else { return nil }
+        return n.position
     }
 
     private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {

@@ -54,6 +54,14 @@ final class GameScene: SKScene {
     private let frightenDuration: TimeInterval = 6
     private let eatBossPoints = 500
 
+    // TPS report tracking, mirroring bossman-apple's RoundState.reportItems
+    // + tpsReportsDelivered. Indexes into reportItemPoints award 10/25/50/100
+    // per collected item; the brown box turns them in for level*100+100.
+    private var collectedReports: Set<String> = []
+    private var tpsReportsDelivered = 0
+    private let requiredReports = Strings.Machine.required
+    private let reportItemPoints = [10, 25, 50, 100]
+
     private var waterAmmo: Int = 0
     private var waterDroplets: [WaterDroplet] = []
     private let waterShotsPerPellet = 5
@@ -351,6 +359,48 @@ final class GameScene: SKScene {
             sound.playFishOrTreat()
             refreshHUD()
         }
+        if let machine = mazeBuilder.collectMachine(at: grid),
+           requiredReports.contains(machine.name),
+           !collectedReports.contains(machine.name) {
+            collectedReports.insert(machine.name)
+            let idx = collectedReports.count - 1
+            let pts = idx < reportItemPoints.count ? reportItemPoints[idx] : 100
+            score += pts
+            ScorePopup.show(pts, at: machine.position, in: self)
+            sound.playMachine(named: machine.name)
+            refreshHUD()
+            if collectedReports.count == requiredReports.count {
+                hud.flash("TPS REPORT READY!", duration: 3.0)
+            } else {
+                let display = Strings.Machine.displayName[machine.name] ?? machine.name
+                hud.flash("\(display) +\(pts)", duration: 1.5)
+            }
+        }
+        if let boxPos = mazeBuilder.touchedBrownBox(at: grid) {
+            collectTPSReport(at: boxPos)
+        }
+    }
+
+    // bossman-apple's collectTPSReport — when Pete touches the brown box
+    // with all four items collected, turn them in for level*100+100,
+    // bump the report counter, clear the set. Missing items just shows a
+    // message.
+    private func collectTPSReport(at pos: CGPoint) {
+        guard collectedReports.count == requiredReports.count else {
+            let missing = requiredReports.filter { !collectedReports.contains($0) }
+            let names = missing.compactMap { Strings.Machine.displayName[$0] }.joined(separator: ", ")
+            hud.flash("STILL NEED: \(names)", duration: 2.5)
+            sound.playTpsMissingItems(missing)
+            return
+        }
+        let pts = (levelIndex + 1) * 100 + 100
+        score += pts
+        ScorePopup.show(pts, at: pos, in: self)
+        tpsReportsDelivered += 1
+        collectedReports.removeAll()
+        sound.playTpsDeliver()
+        hud.flash("TPS DELIVERED +\(pts)", duration: 2.5)
+        refreshHUD()
     }
 
     private func handlePeteHit() {
@@ -490,6 +540,9 @@ final class GameScene: SKScene {
         gridMap.setRows(rows)
         dotsRemaining = mazeBuilder.build(in: mazeRoot)
         dotsTotal = dotsRemaining
+        // Each level starts a fresh TPS round, matching bossman-apple's
+        // RoundState.advanceLevel reset.
+        collectedReports.removeAll()
         scheduleTravelerForCurrentLevel()
         hud.update(travelers: upcomingTravelers())
 
@@ -593,7 +646,7 @@ final class GameScene: SKScene {
         }
         hud.update(score: score, highScore: highScore,
                    level: levelIndex + 1, dotsLeft: dotsRemaining,
-                   totalDots: dotsTotal)
+                   totalDots: dotsTotal, reports: tpsReportsDelivered)
         hud.update(lives: lives)
         hud.update(ammo: waterAmmo)
     }

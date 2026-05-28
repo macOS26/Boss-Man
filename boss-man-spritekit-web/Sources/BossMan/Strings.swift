@@ -104,6 +104,23 @@ enum Strings {
         static let noScores            = "No local scores yet."
     }
 
+    // MARK: - TPS report machines. The name strings double as the keys
+    // RoundState.reportItems tracks, matching bossman-apple's Strings.Machine.
+    enum Machine {
+        static let printer    = "TPS Printer"
+        static let fax        = "TPS Fax Machine"
+        static let coverSheet = "TPS Cover Sheet"
+        static let bookBinder = "TPS Book Binder"
+        static let brownBox   = "TPS Delivery Box"
+        static let required: [String] = [printer, fax, coverSheet, bookBinder]
+        static let displayName: [String: String] = [
+            printer:    "Printer",
+            fax:        "Fax",
+            coverSheet: "Cover Sheet",
+            bookBinder: "Book Binder",
+        ]
+    }
+
     // MARK: - Emoji glyphs used as SKLabelNode text.
     enum Emoji {
         static let sunglasses = "\u{1F576}\u{FE0F}"           // 🕶
