@@ -51,8 +51,15 @@ final class SoundManager {
         //   "google us english"  Chrome's default US-male variant.
         let preferred = "alex,rocko,ralph,daniel,david,mark,fred,reed,grandpa,junior,google us english"
         let robotic   = "bahh,bells,boing,bubbles,cellos,deranged,good news,hysterical,pipe organ,trinoids,whisper,zarvox,albert,eddy"
+        // Common female-voice name fragments across Apple, Microsoft, and
+        // Google Web Speech pools. The picker tries male voices first
+        // (entire en-US -> any-English -> all pipeline) before touching
+        // anything in this list, so we never fall through to a female
+        // voice when a male one exists somewhere.
+        let female    = "samantha,karen,tessa,moira,ava,susan,victoria,allison,veena,fiona,kate,kathy,sandy,whisper,paulina,monica,marie,zira,hazel,heather,jenny,aria,catherine,clara,linda,sara,google uk english female,google us english female"
         callCSV(preferred, tts_set_preferred_voices)
         callCSV(robotic,   tts_set_robotic_voices)
+        callCSV(female,    tts_set_female_voices)
     }
 
     private func callCSV(_ s: String, _ f: (UnsafePointer<CChar>?, Int32) -> Void) {

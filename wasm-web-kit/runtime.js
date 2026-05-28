@@ -151,6 +151,7 @@ class Runtime {
     // and caches the result. Robotic / novelty voices excluded.
     this._ttsPreferred = [];
     this._ttsRobotic = [];
+    this._ttsFemale = [];
     this._ttsVoice = null;
     if (typeof speechSynthesis !== 'undefined') {
       // Voices populate asynchronously on some browsers; reset cache
@@ -652,6 +653,11 @@ class Runtime {
       tts_set_robotic_voices: (utf8Ptr, len) => {
         const csv = this.cstr(utf8Ptr, len).toLowerCase();
         this._ttsRobotic = csv.split(',').map(s => s.trim()).filter(Boolean);
+        this._ttsVoice = null;
+      },
+      tts_set_female_voices: (utf8Ptr, len) => {
+        const csv = this.cstr(utf8Ptr, len).toLowerCase();
+        this._ttsFemale = csv.split(',').map(s => s.trim()).filter(Boolean);
         this._ttsVoice = null;
       },
       tts_speak: (utf8Ptr, len, rate, pitch, volume) => {
@@ -1457,25 +1463,31 @@ void main() {
     return dot > 0 ? base.slice(0, dot) : base;
   }
 
-  // Mirrors bossman-apple's SoundManager.pickBossVoice + bestVoice. Walks
-  // the preference list in order; for each name, returns the highest-
-  // quality voice in the en-US pool that matches it (premium > enhanced
-  // > anything). Falls back to any-English non-robotic voice, then any
-  // English voice. Returns null until speechSynthesis has voices loaded.
+  // Mirrors bossman-apple's SoundManager.pickBossVoice + bestVoice.
+  // Splits voices into NON-female and female pools (matching Apple's
+  // gender filter — the Web Speech API doesn't expose v.gender, so we
+  // match on a name-fragments list the consumer supplies). For each
+  // pool, walks the preference list in order; first match wins, ranked
+  // by premium > enhanced > anything within the match. Tries the entire
+  // non-female pipeline (en-US -> any-English -> all) BEFORE touching
+  // any female voice, so we never pick a female voice when a male one
+  // exists anywhere in the pool.
   _pickTTSVoice() {
     if (this._ttsVoice) return this._ttsVoice;
     if (typeof speechSynthesis === 'undefined') return null;
     const all = speechSynthesis.getVoices();
     if (!all || !all.length) return null;
     const robotic = this._ttsRobotic;
-    const usable = all.filter((v) => {
-      const n = (v.name || '').toLowerCase();
-      return !robotic.some((r) => n.includes(r));
-    });
+    const female  = this._ttsFemale;
+    const matches = (v, fragments) => {
+      const id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
+      return fragments.some((f) => id.includes(f));
+    };
+    const usable = all.filter((v) => !matches(v, robotic));
+    const nonFemale = usable.filter((v) => !matches(v, female));
+    const femaleOnly = usable.filter((v) =>  matches(v, female));
     const usOnly = (a) => a.filter((v) => v.lang === 'en-US');
     const anyEn  = (a) => a.filter((v) => (v.lang || '').startsWith('en'));
-    // Apple's quality flags don't surface via Web Speech, so we proxy:
-    // names containing "premium" or "enhanced" rank higher.
     const rank = (v) => {
       const id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
       if (id.includes('premium')) return 2;
@@ -1483,24 +1495,26 @@ void main() {
       return 0;
     };
     const best = (pool) => {
+      if (!pool.length) return null;
       for (const name of this._ttsPreferred) {
-        const matches = pool.filter((v) => {
+        const m = pool.filter((v) => {
           const id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
           return id.includes(name);
         });
-        if (matches.length) {
-          matches.sort((a, b) => rank(b) - rank(a));
-          return matches[0];
+        if (m.length) {
+          m.sort((a, b) => rank(b) - rank(a));
+          return m[0];
         }
       }
-      if (!pool.length) return null;
-      const sorted = pool.slice().sort((a, b) => rank(b) - rank(a));
-      return sorted[0];
+      return pool.slice().sort((a, b) => rank(b) - rank(a))[0];
     };
     const v =
-      best(usOnly(usable)) ||
-      best(anyEn(usable))  ||
-      best(usable);
+      best(usOnly(nonFemale)) ||
+      best(anyEn(nonFemale))  ||
+      best(nonFemale)         ||
+      best(usOnly(femaleOnly)) ||
+      best(anyEn(femaleOnly))  ||
+      best(femaleOnly);
     this._ttsVoice = v || null;
     return this._ttsVoice;
   }
