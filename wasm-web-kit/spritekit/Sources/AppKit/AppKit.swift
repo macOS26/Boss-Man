@@ -42,7 +42,7 @@ public final class NSBezierPath {
 // codes are routed through SKScene.keyDown/keyUp already; this type exists so
 // `NSEvent.ModifierFlags` references compile.
 public struct NSEvent {
-    public struct ModifierFlags: OptionSet {
+    public struct ModifierFlags: OptionSet, Sendable {
         public let rawValue: UInt
         public init(rawValue: UInt) { self.rawValue = rawValue }
         public static let shift   = ModifierFlags(rawValue: 1 << 0)
