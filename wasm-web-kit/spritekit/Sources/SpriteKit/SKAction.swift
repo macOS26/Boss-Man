@@ -5,6 +5,7 @@ public final class SKAction {
         case moveBy(CGFloat, CGFloat), moveTo(CGPoint), moveToX(CGFloat), moveToY(CGFloat)
         case scaleTo(CGFloat), scaleBy(CGFloat), fadeTo(CGFloat)
         case rotateBy(CGFloat), rotateTo(CGFloat)
+        case colorize(SKColor, CGFloat)
         case wait, run(() -> Void), custom((SKNode, CGFloat) -> Void)
         case sequence([SKAction]), group([SKAction]), repeatN(SKAction, Int), repeatForever(SKAction)
         case removeFromParent
@@ -35,6 +36,36 @@ public final class SKAction {
     public static func `repeat`(_ a: SKAction, count: Int) -> SKAction { SKAction(.repeatN(a, count), a.duration * Double(count)) }
     public static func repeatForever(_ a: SKAction) -> SKAction { SKAction(.repeatForever(a), .infinity) }
     public static func removeFromParent() -> SKAction { SKAction(.removeFromParent, 0) }
+
+    // Animated tint on SKSpriteNode (color + colorBlendFactor).
+    public static func colorize(with color: SKColor, colorBlendFactor: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction(.colorize(color, colorBlendFactor), d)
+    }
+    public static func colorize(withColorBlendFactor f: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction(.colorize(.white, f), d)
+    }
+
+    // Real reversal for cases where it has a meaning; best-effort for the rest.
+    public func reversed() -> SKAction {
+        switch kind {
+        case let .moveBy(dx, dy):
+            let a = SKAction(.moveBy(-dx, -dy), duration); a.timingMode = timingMode; return a
+        case let .rotateBy(r):
+            let a = SKAction(.rotateBy(-r), duration); a.timingMode = timingMode; return a
+        case let .scaleBy(s):
+            let a = SKAction(.scaleBy(s == 0 ? 0 : 1 / s), duration); a.timingMode = timingMode; return a
+        case let .sequence(acts):
+            return SKAction(.sequence(acts.reversed().map { $0.reversed() }), duration)
+        case let .group(acts):
+            return SKAction(.group(acts.map { $0.reversed() }), duration)
+        case let .repeatN(a, c):
+            return SKAction(.repeatN(a.reversed(), c), duration)
+        case let .repeatForever(a):
+            return SKAction(.repeatForever(a.reversed()), duration)
+        default:
+            return self                                // wait/run/fadeTo/etc. have no clean reverse
+        }
+    }
 }
 
 final class RunningAction {
@@ -44,6 +75,7 @@ final class RunningAction {
     var started = false
     var startPos = CGPoint.zero, targetPos = CGPoint.zero
     var startScale: CGFloat = 1, startAlpha: CGFloat = 1, startRot: CGFloat = 0
+    var startColor = SKColor.white, startBlend: CGFloat = 0
     var seqIndex = 0
     var child: RunningAction?
     var groupChildren: [RunningAction] = []
@@ -88,6 +120,7 @@ final class RunningAction {
             if !started {
                 started = true
                 startPos = node.position; startScale = node.xScale; startAlpha = node.alpha; startRot = node.zRotation
+                if let s = node as? SKSpriteNode { startColor = s.color; startBlend = s.colorBlendFactor }
                 if case .moveBy(let dx, let dy) = action.kind { targetPos = CGPoint(x: startPos.x + dx, y: startPos.y + dy) }
                 if case .moveTo(let p) = action.kind { targetPos = p }
             }
@@ -109,6 +142,14 @@ final class RunningAction {
         case .fadeTo(let a): node.alpha = startAlpha + (a - startAlpha) * p
         case .rotateBy(let a): node.zRotation = startRot + a * p
         case .rotateTo(let a): node.zRotation = startRot + (a - startRot) * p
+        case let .colorize(target, factor):
+            if let s = node as? SKSpriteNode {
+                s.color = SKColor(red:   startColor.r + (target.r - startColor.r) * p,
+                                  green: startColor.g + (target.g - startColor.g) * p,
+                                  blue:  startColor.b + (target.b - startColor.b) * p,
+                                  alpha: startColor.a + (target.a - startColor.a) * p)
+                s.colorBlendFactor = startBlend + (factor - startBlend) * p
+            }
         case .custom(let b): b(node, elapsed)
         default: break
         }

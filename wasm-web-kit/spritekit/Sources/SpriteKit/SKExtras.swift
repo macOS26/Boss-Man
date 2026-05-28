@@ -26,9 +26,7 @@ public extension SKNode {
 public extension SKAction {
     static func fadeAlpha(by factor: CGFloat, duration d: TimeInterval) -> SKAction { fadeAlpha(to: factor, duration: d) }
     static func scaleX(to x: CGFloat, y: CGFloat, duration d: TimeInterval) -> SKAction { scale(to: (x + y) / 2, duration: d) }
-    static func colorize(with color: SKColor, colorBlendFactor: CGFloat, duration d: TimeInterval) -> SKAction { .wait(forDuration: d) }
     static func playSoundFileNamed(_ name: String, waitForCompletion wait: Bool) -> SKAction {
         SKAction.run { let h = withUTF8Ptr(name) { snd_by_name($0, $1) }; if h != 0 { _ = snd_play(h, 100, 0) } }
     }
-    func reversed() -> SKAction { self }   // best-effort: most game actions are symmetric or replayed
 }

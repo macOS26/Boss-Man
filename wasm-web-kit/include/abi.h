@@ -83,6 +83,20 @@ WABI int  mouse_y();
 // type matches sf::Event::EventType ordering used by our Window/Event.hpp.
 WABI int  evt_poll(int* type, int* a, int* b, int* c, int* d);
 
+// ---- gamepad / USB arcade joystick (Web Gamepad API) ----
+// Up to 4 simultaneous controllers. USB arcade sticks register as standard
+// gamepads in the browser, so the same API covers both. Buttons follow the
+// W3C Standard Gamepad layout (0=A/South, 1=B/East, 2=X/West, 3=Y/North,
+// 4=L1, 5=R1, 6=L2, 7=R2, 8=Select, 9=Start, 10=L3, 11=R3,
+// 12=DpadUp, 13=DpadDown, 14=DpadLeft, 15=DpadRight, 16=Home).
+WABI int   gp_connected(int pad);                  // 0/1
+WABI int   gp_button(int pad, int button);         // 0/1 (digital edge of analog trigger)
+WABI float gp_button_value(int pad, int button);   // 0..1 (analog triggers)
+WABI float gp_axis(int pad, int axis);             // -1..1 (0/1 left stick, 2/3 right stick)
+// Runtime can synthesize key events for d-pad/stick so games that already read
+// arrow keys + Space "just work" on a gamepad. Toggleable per-game.
+WABI void  gp_map_to_keys(int enable);
+
 // ---- window ----
 WABI void win_set_title(const char* s, int len);
 WABI int  win_width();

@@ -16,6 +16,8 @@ open class SKNode {
 
     public var userData: [String: Any]? = nil
     public var physicsBody: SKPhysicsBody? { didSet { physicsBody?.node = self } }
+    public var speed: CGFloat = 1
+    public var isPaused = false
 
     public init() {}
 
@@ -31,6 +33,21 @@ open class SKNode {
     public func removeAllChildren() { for c in children { c.parent = nil }; children.removeAll() }
     public func childNode(withName name: String) -> SKNode? { children.first { $0.name == name } }
     public func contains(_ node: SKNode) -> Bool { children.contains { $0 === node } }
+
+    // Swift-friendly enumeration over children (and descendants) matching a name.
+    // The block can set `stop = true` to short-circuit.
+    public func enumerateChildNodes(withName name: String, using block: (SKNode, inout Bool) -> Void) {
+        var stop = false
+        enumerateImpl(withName: name, stop: &stop, using: block)
+    }
+    private func enumerateImpl(withName name: String, stop: inout Bool,
+                               using block: (SKNode, inout Bool) -> Void) {
+        for c in children {
+            if stop { return }
+            if c.name == name { block(c, &stop); if stop { return } }
+            c.enumerateImpl(withName: name, stop: &stop, using: block)
+        }
+    }
 
     public var scene: SKScene? { (self as? SKScene) ?? parent?.scene }
 
@@ -66,12 +83,14 @@ open class SKNode {
     public var hasActions: Bool { !runningActions.isEmpty }
 
     final func stepActions(_ dt: CGFloat) {
+        if isPaused { return }                       // halt this subtree
+        let scaled = dt * speed                      // SKNode.speed scales time per subtree
         var i = 0
         while i < runningActions.count {
-            if runningActions[i].step(dt, node: self) { runningActions.remove(at: i) } else { i += 1 }
+            if runningActions[i].step(scaled, node: self) { runningActions.remove(at: i) } else { i += 1 }
         }
-        tickSelf(TimeInterval(dt))
-        for c in children { c.stepActions(dt) }
+        tickSelf(TimeInterval(scaled))
+        for c in children { c.stepActions(scaled) }
     }
 
     // Per-frame update hook for nodes that animate themselves (e.g. SKEmitterNode).

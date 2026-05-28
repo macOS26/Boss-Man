@@ -32,6 +32,11 @@ public final class SKPhysicsBody {
     public var restitution: CGFloat = 0.2
     public var mass: CGFloat = 1
     public var isSensor = false
+    public var usesPreciseCollisionDetection = false   // no-op: Box2D continuous detection
+    public var fieldBitMask: UInt32 = 0xFFFFFFFF       // no-op: SKFieldNode not yet implemented
+    public var pinned = false                          // no-op
+    public var density: CGFloat = 1                    // no-op (mass drives the body)
+    public var angularDamping: CGFloat = 0.1           // no-op
 
     public internal(set) weak var node: SKNode?
     var bodyId: Int32 = -1

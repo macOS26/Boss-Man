@@ -7,11 +7,34 @@ public final class SKView {
     public private(set) var scene: SKScene?
     private var elapsed: TimeInterval = 0
 
+    // No-op rendering knobs (so SpriteKit games drop in unchanged). The kit always
+    // renders top-down via Canvas2D and doesn't expose these debug overlays.
+    public var showsFPS = false
+    public var showsNodeCount = false
+    public var showsPhysics = false
+    public var showsDrawCount = false
+    public var showsFields = false
+    public var showsQuadCount = false
+    public var ignoresSiblingOrder = false
+    public var allowsTransparency = false
+    public var shouldCullNonVisibleNodes = true
+    public var preferredFramesPerSecond: Int = 60
+    public var isAsynchronous = true
+    public var isPaused = false
+    public var bounds: CGRect = .zero
+
     public init() {}
 
     public func presentScene(_ scene: SKScene?) {
         self.scene = scene
         if let s = scene { s.view = self; s.didMove(to: self) }
+    }
+
+    // Transitioning between scenes — the transition itself is a no-op; we just
+    // present the new scene immediately. Games using SKTransition keep their
+    // call sites intact.
+    public func presentScene(_ scene: SKScene, transition: SKTransition) {
+        presentScene(scene)
     }
 
     public func tick(_ dtMs: Double) {

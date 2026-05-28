@@ -10,6 +10,9 @@ public final class SKLabelNode: SKNode {
     public var fontName: String = "JetBrainsMono-Bold"
     public var horizontalAlignmentMode: SKLabelHorizontalAlignmentMode = .center
     public var verticalAlignmentMode: SKLabelVerticalAlignmentMode = .baseline
+    public var numberOfLines: Int = 1                  // no-op: single-line render only
+    public var preferredMaxLayoutWidth: CGFloat = 0    // no-op: hint for wrapping (unused)
+    public var lineBreakMode: Int = 0                  // no-op (NSLineBreakMode enum stand-in)
 
     public override init() { super.init() }
     public init(text: String) { self.text = text; super.init() }

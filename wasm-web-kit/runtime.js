@@ -125,6 +125,14 @@ class Runtime {
     this.offY = 0;
     this.events = [];                // queued {type,a,b,c,d}
 
+    // Gamepad / USB arcade joystick state. We poll navigator.getGamepads()
+    // once per frame and remember the previous button states so we can detect
+    // edges and emit synthetic keydown/keyup events when key-mapping is on.
+    this.gpEnabled = true;          // master poll switch
+    this.gpMapToKeys = true;        // synthesize arrow/space keys from d-pad/stick
+    this.gpAxisDeadzone = 0.35;     // threshold above which a stick "presses" a direction
+    this.gpPrev = [null, null, null, null];   // last frame's {buttons:[0/1], axesDir:{up,down,left,right}}
+
     // default font handle 0 maps to a monospace stack
     this.defaultFontFamily = 'JetBrainsMono-Bold, ui-monospace, Menlo, monospace';
   }
@@ -487,6 +495,25 @@ class Runtime {
       },
       mouse_x: () => this.mouseX | 0,
       mouse_y: () => this.mouseY | 0,
+      // ---- gamepad / USB arcade joystick (Web Gamepad API) ----
+      // pollGamepads() runs once per frame (above the wasm frame call) and
+      // refreshes this.gpSnap[pad] = {buttons:[0/1], values:[0..1], axes:[-1..1]}.
+      // These imports just read the snapshot, so they're cheap to call repeatedly.
+      gp_connected: (pad) => (this.gpSnap && this.gpSnap[pad]) ? 1 : 0,
+      gp_button: (pad, btn) => {
+        const s = this.gpSnap && this.gpSnap[pad];
+        return s && s.buttons[btn] ? 1 : 0;
+      },
+      gp_button_value: (pad, btn) => {
+        const s = this.gpSnap && this.gpSnap[pad];
+        return s ? (s.values[btn] || 0) : 0;
+      },
+      gp_axis: (pad, axis) => {
+        const s = this.gpSnap && this.gpSnap[pad];
+        return s ? (s.axes[axis] || 0) : 0;
+      },
+      gp_map_to_keys: (enable) => { this.gpMapToKeys = !!enable; },
+
       evt_poll: (typePtr, aPtr, bPtr, cPtr, dPtr) => {
         const e = this.events.shift();
         if (!e) return 0;
@@ -736,6 +763,69 @@ class Runtime {
     });
   }
 
+  // Poll the Web Gamepad API once per frame. USB arcade joysticks register as
+  // standard gamepads (often as "Generic USB Joystick" with axes 0/1 = X/Y),
+  // so the same loop handles them and Xbox/PlayStation/Switch controllers.
+  // Snapshots the connected pads for the gp_* imports and (if gpMapToKeys is
+  // on) synthesizes keydown/keyup events on edges of the d-pad, left stick,
+  // and the A/Start buttons so games written for arrow keys + Space just work.
+  pollGamepads() {
+    if (!this.gpEnabled || !navigator.getGamepads) return;
+    const pads = navigator.getGamepads();
+    const snap = [];
+    const dz = this.gpAxisDeadzone;
+    for (let i = 0; i < 4; i++) {
+      const p = pads[i];
+      if (!p) { snap[i] = null; continue; }
+      const buttons = new Array(p.buttons.length);
+      const values = new Array(p.buttons.length);
+      for (let b = 0; b < p.buttons.length; b++) {
+        const btn = p.buttons[b];
+        const v = typeof btn === 'object' ? btn.value : (btn ? 1 : 0);
+        const pressed = typeof btn === 'object' ? btn.pressed : !!btn;
+        buttons[b] = pressed ? 1 : 0;
+        values[b] = v;
+      }
+      const ax = p.axes || [];
+      snap[i] = { buttons, values, axes: ax };
+
+      if (!this.gpMapToKeys) continue;
+
+      // Direction = d-pad OR left stick past deadzone.
+      const left  = buttons[14] || (ax[0] || 0) < -dz;
+      const right = buttons[15] || (ax[0] || 0) >  dz;
+      const up    = buttons[12] || (ax[1] || 0) < -dz;
+      const down  = buttons[13] || (ax[1] || 0) >  dz;
+      const fire  = buttons[0];   // A / Cross / South -> Space
+      const pause = buttons[9];   // Start             -> P
+
+      const prev = this.gpPrev[i] || { left: 0, right: 0, up: 0, down: 0, fire: 0, pause: 0 };
+      this.emitSynthKey('ArrowLeft',  left,  prev.left);
+      this.emitSynthKey('ArrowRight', right, prev.right);
+      this.emitSynthKey('ArrowUp',    up,    prev.up);
+      this.emitSynthKey('ArrowDown',  down,  prev.down);
+      this.emitSynthKey('Space',      fire,  prev.fire);
+      this.emitSynthKey('KeyP',       pause, prev.pause);
+      this.gpPrev[i] = { left, right, up, down, fire, pause };
+    }
+    this.gpSnap = snap;
+  }
+
+  // Edge-trigger a synthetic key event. Mirrors the keydown/keyup wiring in
+  // wireInput(): both queues an EVT.KeyPressed/KeyReleased and updates the
+  // pressed-set the game polls via key_pressed().
+  emitSynthKey(code, now, prev) {
+    if (!now === !prev) return;
+    const sf = DOM_TO_SF.get(code);
+    if (now) {
+      this.pressed.add(code);
+      if (sf !== undefined) this.events.push({ type: EVT.KeyPressed, a: sf, b: 0, c: 0, d: 0 });
+    } else {
+      this.pressed.delete(code);
+      if (sf !== undefined) this.events.push({ type: EVT.KeyReleased, a: sf, b: 0, c: 0, d: 0 });
+    }
+  }
+
   // Size the canvas backing store to the displayed pixels (x devicePixelRatio)
   // so the game, which draws in logical 1184x644, renders crisp at any window or
   // fullscreen size. baseScale/offX/offY letterbox logical space into the store.
@@ -802,6 +892,7 @@ class Runtime {
       const dt = t - last;
       last = t;
       try {
+        this.pollGamepads();        // emit synthetic key events before the frame
         this.exports.frame(dt);
       } catch (err) {
         console.error('frame() threw', err);
