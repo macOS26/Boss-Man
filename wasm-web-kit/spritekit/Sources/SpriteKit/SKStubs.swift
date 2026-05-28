@@ -264,7 +264,7 @@ public class SKEffectNode: SKNode {
         let eff = parentAlpha * alpha
         gfx_save()
         gfx_translate(Float(position.x), Float(position.y))
-        if zRotation != 0 { gfx_rotate(Float(-zRotation * 180.0 / Double.pi)) }
+        if zRotation != 0 { gfx_rotate(Float(zRotation * 180.0 / Double.pi)) }
         if xScale != 1 || yScale != 1 { gfx_scale(Float(xScale), Float(yScale)) }
 
         let usingFilter = shouldEnableEffects && filterString != nil
@@ -302,7 +302,7 @@ public final class SKCropNode: SKEffectNode {
 
         gfx_save()
         gfx_translate(Float(position.x), Float(position.y))
-        if zRotation != 0 { gfx_rotate(Float(-zRotation * 180.0 / Double.pi)) }
+        if zRotation != 0 { gfx_rotate(Float(zRotation * 180.0 / Double.pi)) }
         if xScale != 1 || yScale != 1 { gfx_scale(Float(xScale), Float(yScale)) }
 
         // Render children + mask into an offscreen canvas, then composite back.

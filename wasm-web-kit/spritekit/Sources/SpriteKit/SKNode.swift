@@ -122,7 +122,12 @@ open class SKNode {
         let eff = parentAlpha * alpha
         gfx_save()
         gfx_translate(Float(position.x), Float(position.y))
-        if zRotation != 0 { gfx_rotate(Float(-zRotation * 180.0 / Double.pi)) } // flipped space
+        // We're rendering inside the SKView's outer scale(1,-1) Y-flip, so
+        // Canvas2D's positive-rotate-clockwise convention appears as CCW on
+        // screen — which is exactly what SpriteKit's positive zRotation
+        // means. Pass zRotation through without inverting; the prior code
+        // negated it and rendered every rotation in the wrong direction.
+        if zRotation != 0 { gfx_rotate(Float(zRotation * 180.0 / Double.pi)) }
         if xScale != 1 || yScale != 1 { gfx_scale(Float(xScale), Float(yScale)) }
         draw(alpha: eff)
         if children.count > 1 {

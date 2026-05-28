@@ -231,7 +231,7 @@ public final class SKEmitterNode: SKNode {
                 let h = Float(particleSize.height * p.scale)
                 gfx_save()
                 gfx_translate(Float(p.x), Float(p.y))
-                if p.rotation != 0 { gfx_rotate(Float(-p.rotation * 180.0 / Double.pi)) }
+                if p.rotation != 0 { gfx_rotate(Float(p.rotation * 180.0 / Double.pi)) }
                 gfx_draw_image(tex.handle, 0, 0, 0, 0, -w/2, -h/2, w, h, c.rgba)
                 gfx_restore()
             } else {

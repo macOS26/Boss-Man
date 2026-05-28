@@ -104,7 +104,7 @@ public final class SKView {
             let sx = cam.xScale == 0 ? 1 : 1 / cam.xScale
             let sy = cam.yScale == 0 ? 1 : 1 / cam.yScale
             gfx_scale(Float(sx), Float(sy))
-            if cam.zRotation != 0 { gfx_rotate(Float(-cam.zRotation * 180.0 / Double.pi)) }
+            if cam.zRotation != 0 { gfx_rotate(Float(cam.zRotation * 180.0 / Double.pi)) }
             gfx_translate(Float(-cam.position.x), Float(-cam.position.y))
         }
         s.renderTree(parentAlpha: 1)
