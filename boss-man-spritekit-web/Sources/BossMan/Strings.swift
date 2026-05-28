@@ -73,6 +73,17 @@ enum Strings {
         static let startFullscreen  = "BossMan.startFullscreen"
     }
 
+    // MARK: - Emoji glyphs used as SKLabelNode text.
+    enum Emoji {
+        static let sunglasses = "\u{1F576}\u{FE0F}"           // 🕶
+        static let waterGun   = "\u{1F52B}"                    // 🔫
+        static let printer    = "\u{1F5A8}\u{FE0F}"           // 🖨
+        static let fax        = "\u{1F4E0}"                    // 📠
+        static let coverSheet = "\u{1F4C4}"                    // 📄
+        static let bookBinder = "\u{1F4DA}"                    // 📚
+        static let brownBox   = "\u{1F4E6}"                    // 📦
+    }
+
     // MARK: - SKAction keys (the per-scope "name" passed to run(_:withKey:))
     enum ActionKey {
         static let walk             = "walk"
