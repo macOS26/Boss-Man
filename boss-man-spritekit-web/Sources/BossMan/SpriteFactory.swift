@@ -11,9 +11,18 @@ import SpriteKit
 enum SpriteFactory {
 
     static let bossShoeGoldColor = SKColor(red: 0.7, green: 0.5, blue: 0.0, alpha: 1)
-    static let wallFillColor     = SKColor(red: 0.16, green: 0.18, blue: 0.34, alpha: 1)
-    static let wallStrokeColor   = SKColor(red: 0.30, green: 0.34, blue: 0.62, alpha: 1)
+    // Cubicle palette — `cubicleColor` is .systemBlue in the macOS edition;
+    // the wall fill drops it to 0.55 alpha so the floor checker reads through.
+    static let cubicleColor      = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 1)
+    static let wallFillColor     = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 0.55)
+    static let wallStrokeColor   = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 1)
+    static let wallTrimColor     = SKColor(white: 0.55, alpha: 1)
     static let mazeBackground    = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
+    // Floor checker: two near-black shades that alternate (rowIndex+columnIndex)
+    // so the maze surface has the same subtle texture as the macOS edition.
+    static let floorTileA        = SKColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1)
+    static let floorTileB        = SKColor(red: 0.09, green: 0.10, blue: 0.11, alpha: 1)
+    static let floorTileStroke   = SKColor(white: 0.16, alpha: 1)
     static let dotColor          = SKColor(red: 1.0,  green: 0.85, blue: 0.55, alpha: 1)
 
     // MARK: - Pickups
@@ -68,16 +77,56 @@ enum SpriteFactory {
         return n
     }
 
-    // MARK: - Walls
+    // MARK: - Walls + floor
 
-    // A single wall tile — solid blue rectangle with a thin lighter outline.
-    // MazeBuilder lays one of these at each '#' cell.
-    static func wallTile(size: CGFloat) -> SKShapeNode {
+    // A single floor tile — a near-black square with a one-pixel darker
+    // edge. The two shades alternate by (col+row) parity to produce the
+    // checker pattern the macOS edition bakes into its background texture.
+    static func floorTile(size: CGFloat, alternate: Bool) -> SKShapeNode {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
-        let n = SKShapeNode(rect: rect, cornerRadius: 2)
-        n.fillColor = wallFillColor
-        n.strokeColor = wallStrokeColor
+        let n = SKShapeNode(rect: rect)
+        n.fillColor = alternate ? floorTileA : floorTileB
+        n.strokeColor = floorTileStroke
         n.lineWidth = 1
+        n.isAntialiased = false
+        return n
+    }
+
+    // A single cubicle wall tile — three stacked shapes:
+    //   1. inset 1px fill   (translucent cubicle blue so the floor reads through)
+    //   2. inset 2px stroke (solid cubicle blue, 2px lineWidth — the "panel edge")
+    //   3. horizontal gray trim band high on the tile (the "shelf" the macOS
+    //      edition draws to suggest a cubicle divider).
+    static func wallTile(size: CGFloat) -> SKNode {
+        let n = SKNode()
+
+        let fillRect = CGRect(x: -(size - 2) / 2, y: -(size - 2) / 2,
+                              width: size - 2, height: size - 2)
+        let fill = SKShapeNode(rect: fillRect)
+        fill.fillColor = wallFillColor
+        fill.strokeColor = .clear
+        fill.isAntialiased = false
+        n.addChild(fill)
+
+        let strokeRect = CGRect(x: -(size - 4) / 2, y: -(size - 4) / 2,
+                                width: size - 4, height: size - 4)
+        let stroke = SKShapeNode(rect: strokeRect)
+        stroke.fillColor = .clear
+        stroke.strokeColor = wallStrokeColor
+        stroke.lineWidth = 2
+        stroke.isAntialiased = false
+        n.addChild(stroke)
+
+        // Trim band, ~4px tall, positioned 6px above the tile centre.
+        let trimWidth = size - 10
+        let trimRect = CGRect(x: -trimWidth / 2, y: 6 - 2,
+                              width: trimWidth, height: 4)
+        let trim = SKShapeNode(rect: trimRect)
+        trim.fillColor = wallTrimColor
+        trim.strokeColor = .clear
+        trim.isAntialiased = false
+        n.addChild(trim)
+
         return n
     }
 

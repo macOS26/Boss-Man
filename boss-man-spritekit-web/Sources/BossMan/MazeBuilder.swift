@@ -39,7 +39,8 @@ final class MazeBuilder {
 
     @discardableResult
     func build(in scene: SKNode) -> Int {
-        // Backdrop — solid dark fill behind the maze.
+        // Backdrop — solid dark fill behind the maze. The per-tile floor
+        // checker sits at z=-9; walls and pickups go on top.
         let bg = SKShapeNode(rect: CGRect(x: 0, y: 0,
                                           width: CGFloat(map.columnCount) * map.tileSize,
                                           height: CGFloat(map.rowCount) * map.tileSize))
@@ -55,6 +56,15 @@ final class MazeBuilder {
             for (columnIndex, char) in row.enumerated() {
                 let grid = CGPoint(x: columnIndex, y: rowIndex)
                 let position = map.point(for: grid)
+
+                // Floor checker tile under every cell. The macOS edition
+                // bakes this into a single texture; we draw one SKShapeNode
+                // per tile because we don't have offscreen CG rendering.
+                let alt = (rowIndex + columnIndex).isMultiple(of: 2)
+                let floor = SpriteFactory.floorTile(size: map.tileSize, alternate: alt)
+                floor.position = position
+                floor.zPosition = -9
+                scene.addChild(floor)
 
                 switch char {
                 case Strings.Tile.wallChar:
@@ -155,6 +165,7 @@ final class MazeBuilder {
         wall.physicsBody = body
         scene.addChild(wall)
     }
+
 
     private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {
         let dot = SpriteFactory.dotVisual(radius: map.tileSize * 0.18)
