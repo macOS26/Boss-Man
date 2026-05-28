@@ -1,14 +1,38 @@
-# SpriteKit on WebAssembly (`wasm-web-kit/spritekit`)
+# SuperBox64 SpriteKit
 
-A Swift reimplementation of the **SpriteKit** API surface, compiled to
-`wasm32-wasip1` (no Emscripten) and rendered through the parent
-[`wasm-web-kit`](../README.md) runtime (Canvas2D + WebAudio + DOM). Apple's
-SpriteKit is closed-source and Apple-only; this is an independent compat layer so
-SpriteKit-style Swift games can run in the browser.
+**An open reimplementation of Apple's SpriteKit, in Swift, that runs in the
+browser as WebAssembly.**
 
-The module is named `SpriteKit`, so on web a game's `import SpriteKit` resolves
-here. Physics is backed by **Box2D** compiled to the same wasm module (SpriteKit's
-own physics is itself a Box2D fork, so the mapping is close).
+It provides the SpriteKit API — `SKScene`, `SKNode`, `SKSpriteNode`,
+`SKLabelNode`, `SKShapeNode`, `SKAction`, `SKPhysicsBody`/`SKPhysicsWorld`, etc. —
+implemented from scratch on the [`wasm-web-kit`](../README.md) runtime (Canvas2D +
+WebAudio + DOM input), with physics driven by **Box2D** compiled to the same wasm
+module. The package is branded *SuperBox64 SpriteKit* but vends a module named
+`SpriteKit`, so a game's `import SpriteKit` resolves here **unchanged** — it's
+drop-in.
+
+## Why is this needed for WebAssembly?
+
+Apple's SpriteKit is a **closed-source, Apple-only** framework — it's built on
+Metal, Core Animation, and the Objective-C runtime, and ships only inside iOS /
+macOS / tvOS. It **cannot compile to, or run on, WebAssembly**: there is no
+`import SpriteKit` off Apple platforms, and you can't ship Apple's binary to a
+browser.
+
+But the *language* travels fine: Swift compiles to `wasm32-wasip1` (via the
+swift.org WebAssembly SDK, no Emscripten). So to run a Swift/SpriteKit game on the
+web, the only missing piece is **SpriteKit itself** — the scene graph, the action
+system, and the physics. SuperBox64 SpriteKit *is* that missing piece: a web-native
+reimplementation that `import SpriteKit` binds to instead of Apple's framework.
+
+It also supplies the physics engine Apple's SpriteKit otherwise hides. SpriteKit's
+`SKPhysicsBody` is internally a **fork of Box2D**; on web there is no bundled
+engine, so we link **Box2D-to-wasm** behind `SKPhysicsWorld` — the same engine,
+brought in explicitly (the "Box" in *SuperBox64*) so bodies, collisions, and
+`didBegin` contacts behave like they do on a Mac.
+
+Net: `import SpriteKit` + Swift→wasm + SuperBox64 SpriteKit + Box2D = a SpriteKit
+game running in a browser tab, no Emscripten, no Apple frameworks.
 
 > Reference/demo: [`../../boss-man-spritekit-web`](../../boss-man-spritekit-web) —
 > an interactive scene (arrow-key player, SKActions, a Box2D physics pile). It does

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "SpriteKitWeb",
+    name: "SuperBox64SpriteKit",   // brand; vends module `SpriteKit` so games import unchanged
     products: [
         .library(name: "SpriteKit", targets: ["SpriteKit"]),
         .library(name: "KitABI", targets: ["KitABI"]),
