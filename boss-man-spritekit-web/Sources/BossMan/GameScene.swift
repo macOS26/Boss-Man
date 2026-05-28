@@ -23,12 +23,13 @@ final class GameScene: SKScene {
     private var gridMap: GridMap!
     private var mazeBuilder: MazeBuilder!
     private var pete: PixelPerson!
+    private var peteMover: TileMover!
     private let mazeRoot = SKNode()
 
-    private var peteGrid = CGPoint.zero
-    private var heading: MoveDirection? = nil
-    private var queued:  MoveDirection? = nil
-    private var moveSpeed: CGFloat = 8.0    // tiles per second
+    // Input buffer: pressing a direction sets `queued`; Pete adopts it the
+    // next time the mover hits a tile centre and that direction is walkable.
+    private var queued: MoveDirection? = nil
+    private let peteStep: TimeInterval = 0.13   // ~7.7 tiles/s
     private let tileSize: CGFloat = 32
     private var containerOriginX: CGFloat = 0
 
@@ -81,11 +82,11 @@ final class GameScene: SKScene {
         refreshHUD()
 
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
-        peteGrid = spawn
         pete = SpriteFactory.petePerson()
-        pete.position = sceneCoord(forGrid: spawn)
         pete.zPosition = 5
         addChild(pete)
+        peteMover = TileMover(node: pete, spawn: spawn, map: gridMap,
+                              step: peteStep, containerOriginX: containerOriginX)
 
         for (index, bossSpawn) in mazeBuilder.bossSpawns.enumerated() {
             let boss = BossController(blueprintIndex: bossSpawn.index,
@@ -137,13 +138,12 @@ final class GameScene: SKScene {
         }
         if let dir = MoveDirection(keyCode: key) {
             queued = dir
-            if heading == nil { heading = dir }
             pete?.setFacing(dir)
         }
     }
 
     private func fireWater() {
-        guard waterAmmo > 0, let h = heading ?? queued else { return }
+        guard waterAmmo > 0, let h = peteMover.dir ?? queued else { return }
         waterAmmo -= 1
         let drop = WaterDroplet(direction: h, speed: waterDropletSpeed)
         drop.position = pete.position
@@ -156,70 +156,31 @@ final class GameScene: SKScene {
     // MARK: - Update loop
 
     override func update(_ currentTime: TimeInterval) {
-        guard let pete else { return }
+        guard pete != nil, peteMover != nil else { return }
         if gameOver || isUserPaused { return }
-        let dt: CGFloat = 1.0 / 60.0
-        let stepLen = moveSpeed * tileSize * dt
+        let dt: TimeInterval = 1.0 / 60.0
 
-        let targetCentre = sceneCoord(forGrid: peteGrid)
-        let dx = targetCentre.x - pete.position.x
-        let dy = targetCentre.y - pete.position.y
-        let dist = (dx * dx + dy * dy).squareRoot()
-
-        if dist < 0.5 {
-            pete.position = targetCentre
-
-            if let partner = gridMap.tunnelPartner(of: peteGrid) {
-                peteGrid = partner
-                pete.position = sceneCoord(forGrid: partner)
-            }
-
-            if mazeBuilder.collectDot(at: peteGrid) {
-                score += dotPoints
-                dotsRemaining = max(0, dotsRemaining - 1)
-                refreshHUD()
-                if dotsRemaining == 0 { advanceLevel() }
-            }
-            if mazeBuilder.collectGold(at: peteGrid) {
-                score += goldPoints
-                refreshHUD()
-                ScorePopup.show(goldPoints, at: sceneCoord(forGrid: peteGrid), in: self)
-                frightenSecondsLeft = frightenDuration
-                for b in bosses { b.setFrightened(true) }
-                hud.flash("FRIGHTEN!", duration: 1.2)
-            }
-            if mazeBuilder.collectWaterPellet(at: peteGrid) {
-                waterAmmo += waterShotsPerPellet
-                refreshHUD()
-            }
-            if mazeBuilder.collectWaterGun(at: peteGrid) {
-                waterAmmo += waterShotsPerGun
-                refreshHUD()
-                hud.flash("WATER GUN!", duration: 1.0)
-            }
-
-            if let q = queued, canStep(q) {
-                heading = q
-                pete.setFacing(q)
-            } else if let h = heading, !canStep(h) {
-                heading = nil
-            }
-
-            if let h = heading {
-                let next = nextGrid(in: h)
-                if gridMap.isWalkable(next) && !gridMap.isHideout(next) {
-                    peteGrid = next
-                }
-            }
-        } else {
-            let invDist = 1.0 / dist
-            pete.position.x += dx * invDist * stepLen
-            pete.position.y += dy * invDist * stepLen
+        // Time-based tile stepper: when Pete reaches a tile centre, decide()
+        // picks the next direction (queued > current); the mover lerps to the
+        // next tile over `peteStep` seconds with the lerp parameter clamped
+        // 0..1 — so overshoot vibration is impossible. onArrive runs the
+        // pickup/level/respawn bookkeeping in scene coords.
+        let decide: (TileMover) -> MoveDirection? = { [weak self] e in
+            guard let self else { return nil }
+            if let q = self.queued, e.canStep(q) { return q }
+            if let d = e.dir, e.canStep(d) { return d }
+            return nil
         }
+        let onArrive: (TileMover) -> Void = { [weak self] e in
+            guard let self else { return }
+            self.handlePeteArrival(at: e.grid)
+            if let d = e.dir { self.pete?.setFacing(d) }
+        }
+        peteMover.advance(dt, decide: decide, onArrive: onArrive)
 
-        for boss in bosses { boss.step(dt: TimeInterval(dt), peteGrid: peteGrid) }
+        for boss in bosses { boss.step(dt: dt, peteGrid: peteMover.grid) }
 
-        stepWaterDroplets(dt: TimeInterval(dt))
+        stepWaterDroplets(dt: dt)
 
         if frightenSecondsLeft > 0 {
             frightenSecondsLeft -= TimeInterval(dt)
@@ -255,6 +216,36 @@ final class GameScene: SKScene {
         return nil
     }
 
+    // Called by the TileMover when Pete snaps to a new tile centre — picks
+    // up dots/gold/water-pickups and fires the level transition. The mover
+    // already handles tunnel wrap before this runs, so `grid` is the final
+    // post-wrap cell.
+    private func handlePeteArrival(at grid: CGPoint) {
+        if mazeBuilder.collectDot(at: grid) {
+            score += dotPoints
+            dotsRemaining = max(0, dotsRemaining - 1)
+            refreshHUD()
+            if dotsRemaining == 0 { advanceLevel() }
+        }
+        if mazeBuilder.collectGold(at: grid) {
+            score += goldPoints
+            refreshHUD()
+            ScorePopup.show(goldPoints, at: peteMover.centre(of: grid), in: self)
+            frightenSecondsLeft = frightenDuration
+            for b in bosses { b.setFrightened(true) }
+            hud.flash("FRIGHTEN!", duration: 1.2)
+        }
+        if mazeBuilder.collectWaterPellet(at: grid) {
+            waterAmmo += waterShotsPerPellet
+            refreshHUD()
+        }
+        if mazeBuilder.collectWaterGun(at: grid) {
+            waterAmmo += waterShotsPerGun
+            refreshHUD()
+            hud.flash("WATER GUN!", duration: 1.0)
+        }
+    }
+
     private func handlePeteHit() {
         lives = max(0, lives - 1)
         refreshHUD()
@@ -267,15 +258,21 @@ final class GameScene: SKScene {
         // Respawn Pete at the worker spawn so a stuck Pete doesn't immediately
         // retake another hit; bosses keep their position.
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
-        peteGrid = spawn
-        pete.position = sceneCoord(forGrid: spawn)
-        heading = nil
+        resetPete(to: spawn)
+    }
+
+    private func resetPete(to spawn: CGPoint) {
+        peteMover.grid = spawn
+        peteMover.dir = nil
+        peteMover.moving = false
+        peteMover.moveT = 0
+        pete.position = peteMover.centre(of: spawn)
         queued = nil
     }
 
     private func triggerGameOver() {
         gameOver = true
-        heading = nil
+        peteMover.dir = nil
         queued = nil
 
         if score > 0 {
@@ -339,15 +336,6 @@ final class GameScene: SKScene {
         view?.presentScene(title, transition: .fade(withDuration: 0.5))
     }
 
-    private func canStep(_ dir: MoveDirection) -> Bool {
-        let n = nextGrid(in: dir)
-        return gridMap.isWalkable(n) && !gridMap.isHideout(n)
-    }
-    private func nextGrid(in dir: MoveDirection) -> CGPoint {
-        let (dx, dy) = dir.delta
-        return CGPoint(x: peteGrid.x + CGFloat(dx), y: peteGrid.y + CGFloat(dy))
-    }
-
     private func advanceLevel() {
         levelIndex = (levelIndex + 1) % max(1, Levels.officeMaps.count)
         hud.flash("LEVEL \(levelIndex + 1)!", duration: 1.4)
@@ -361,10 +349,7 @@ final class GameScene: SKScene {
         dotsRemaining = mazeBuilder.build(in: mazeRoot)
 
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
-        peteGrid = spawn
-        pete.position = sceneCoord(forGrid: spawn)
-        heading = nil
-        queued = nil
+        resetPete(to: spawn)
 
         for bossSpawn in mazeBuilder.bossSpawns {
             let boss = BossController(blueprintIndex: bossSpawn.index,
