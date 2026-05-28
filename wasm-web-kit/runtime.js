@@ -932,6 +932,25 @@ class Runtime {
       // ============================================================
       gfx_set_filter: (ptr, len) => { this.ctx2d().filter = this.cstr(ptr, len); },
       gfx_clear_filter: ()       => { this.ctx2d().filter = 'none'; },
+
+      // Canvas2D shadowBlur is the proper drop-shadow primitive and works
+      // uniformly across browsers. ctx.filter blur applied to fillRect is
+      // unreliable; shadow* properties are guaranteed to render a Gaussian
+      // halo behind any subsequent fillRect / drawImage / fillText.
+      gfx_set_shadow: (blur, dx, dy, rgba) => {
+        const c = this.ctx2d();
+        c.shadowBlur    = blur;
+        c.shadowOffsetX = dx;
+        c.shadowOffsetY = dy;
+        c.shadowColor   = this.css(rgba);
+      },
+      gfx_clear_shadow: () => {
+        const c = this.ctx2d();
+        c.shadowBlur    = 0;
+        c.shadowOffsetX = 0;
+        c.shadowOffsetY = 0;
+        c.shadowColor   = 'transparent';
+      },
       gfx_set_composite: (mode)  => {
         const modes = ['source-over','destination-in','destination-out',
                        'lighter','multiply','screen','overlay'];

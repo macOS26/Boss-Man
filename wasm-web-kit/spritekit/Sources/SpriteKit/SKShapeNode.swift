@@ -11,6 +11,13 @@ public final class SKShapeNode: SKNode {
     public var lineWidth: CGFloat = 1
     public var isAntialiased = true
     public var glowWidth: CGFloat = 0
+    // Drop shadow. shadowBlur > 0 activates a Canvas2D shadowBlur pass that
+    // renders a real Gaussian halo behind the shape. shadowOffset is in
+    // scene y-up coords (positive dy = above); the render path negates dy
+    // for the underlying Canvas2D y-down shadowOffsetY.
+    public var shadowBlur: CGFloat = 0
+    public var shadowOffset: CGVector = .zero
+    public var shadowColor: SKColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.4)
     public var path: CGPath? { didSet { kind = .path } }   // reassigning the path re-shapes the node
 
     // Line styling — Apple maps these to Canvas2D lineCap/lineJoin almost 1:1.
@@ -80,6 +87,18 @@ public final class SKShapeNode: SKNode {
         gfx_set_alpha(Float(alpha))
         let hasFill = fillColor.a > 0
         let hasStroke = strokeColor.a > 0 && lineWidth > 0
+        // Activate Canvas2D shadowBlur for this draw if the node opted in. dy
+        // is negated because SpriteKit's y-up shadow offset (positive = above)
+        // maps to Canvas2D's y-down shadowOffsetY (positive = below). Cleared
+        // after the draw so siblings don't inherit it.
+        let hasShadow = shadowBlur > 0 && shadowColor.a > 0
+        if hasShadow {
+            gfx_set_shadow(Float(shadowBlur),
+                           Float(shadowOffset.dx),
+                           Float(-shadowOffset.dy),
+                           shadowColor.rgba)
+        }
+        defer { if hasShadow { gfx_clear_shadow() } }
         switch kind {
         case let .rect(x, y, w, h):
             if hasFill { gfx_fill_rect(Float(x), Float(y), Float(w), Float(h), fillColor.rgba) }

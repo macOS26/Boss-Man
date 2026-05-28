@@ -59,6 +59,13 @@ WABI void  gfx_offscreen_end_discard(int handle);
 WABI void  gfx_set_filter(const char* utf8, int len);
 WABI void  gfx_clear_filter(void);
 
+/* Canvas2D shadowBlur primitive — gives a real Gaussian drop shadow for any
+ * subsequent draw call (fillRect, drawImage, etc.). dx/dy are in canvas
+ * (y-down) pixels, applied after the active transform. blurRadius > 0
+ * activates the shadow; gfx_clear_shadow() resets shadowBlur + shadowColor. */
+WABI void  gfx_set_shadow(float blurRadius, float dx, float dy, uint32_t rgba);
+WABI void  gfx_clear_shadow(void);
+
 /* Composite mode: 0=source-over (default), 1=destination-in, 2=destination-out, */
 /* 3=lighter, 4=multiply, 5=screen, 6=overlay. */
 WABI void  gfx_set_composite(int mode);

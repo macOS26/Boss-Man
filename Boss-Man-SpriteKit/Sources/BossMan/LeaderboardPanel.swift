@@ -38,24 +38,18 @@ final class LeaderboardPanel: SKNode {
             height: panelSize.height
         )
 
-        // 1. Drop shadow — wrap a dark offset rect in an SKEffectNode so the
-        // runtime applies a Canvas2D blur filter around the children. zPosition
-        // -1 keeps it behind every sibling.
-        let shadowRect = rect.offsetBy(dx: 6, dy: -8).insetBy(dx: -2, dy: -2)
-        let shadow = SKShapeNode(rect: shadowRect)
-        shadow.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.14)
-        shadow.strokeColor = .clear
-        let blur = SKEffectNode()
-        blur.shouldEnableEffects = true
-        blur.filterString = "blur(6px)"
-        blur.zPosition = -1
-        blur.addChild(shadow)
-        addChild(blur)
-
-        // 2. Post-it body.
+        // Post-it body with a real Canvas2D shadowBlur drop shadow. The
+        // earlier SKEffectNode + ctx.filter approach gave hard edges because
+        // fillRect honoring of ctx.filter is inconsistent across browsers.
+        // SKShapeNode.shadowBlur routes through ctx.shadowBlur, which is the
+        // standard Canvas2D drop-shadow primitive and produces a real
+        // Gaussian halo for every subsequent fill.
         let postIt = SKShapeNode(rect: rect)
         postIt.fillColor = SKColor(red: 1.0, green: 0.92, blue: 0.42, alpha: 1)
         postIt.strokeColor = .clear
+        postIt.shadowBlur = 14
+        postIt.shadowOffset = CGVector(dx: 6, dy: -8)
+        postIt.shadowColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.22)
         addChild(postIt)
 
         // 3. Adhesive strip across the top.
