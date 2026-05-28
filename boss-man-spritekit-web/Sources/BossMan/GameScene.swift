@@ -43,6 +43,9 @@ final class GameScene: SKScene {
 
     private var bosses: [BossController] = []
     private var contactCooldown: TimeInterval = 0     // brief grace after a hit
+    private var frightenSecondsLeft: TimeInterval = 0
+    private let frightenDuration: TimeInterval = 6
+    private let eatBossPoints = 500
 
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
@@ -148,6 +151,9 @@ final class GameScene: SKScene {
                 score += goldPoints
                 refreshHUD()
                 ScorePopup.show(goldPoints, at: sceneCoord(forGrid: peteGrid), in: self)
+                frightenSecondsLeft = frightenDuration
+                for b in bosses { b.setFrightened(true) }
+                hud.flash("FRIGHTEN!", duration: 1.2)
             }
 
             if let q = queued, canStep(q) {
@@ -171,8 +177,27 @@ final class GameScene: SKScene {
 
         for boss in bosses { boss.step(dt: TimeInterval(dt), peteGrid: peteGrid) }
 
-        if contactCooldown > 0 { contactCooldown -= TimeInterval(dt) }
-        else if let _ = bossOnPete() { handlePeteHit() }
+        if frightenSecondsLeft > 0 {
+            frightenSecondsLeft -= TimeInterval(dt)
+            if frightenSecondsLeft <= 0 {
+                frightenSecondsLeft = 0
+                for b in bosses { b.setFrightened(false) }
+            }
+        }
+        if contactCooldown > 0 {
+            contactCooldown -= TimeInterval(dt)
+        } else if let b = bossOnPete() {
+            if b.isFrightened {
+                score += eatBossPoints
+                refreshHUD()
+                ScorePopup.show(eatBossPoints, at: b.sprite.position, in: self,
+                                color: SKColor(red: 0.3, green: 0.7, blue: 1, alpha: 1))
+                b.returnHome()
+                contactCooldown = 0.4
+            } else {
+                handlePeteHit()
+            }
+        }
     }
 
     private func bossOnPete() -> BossController? {
