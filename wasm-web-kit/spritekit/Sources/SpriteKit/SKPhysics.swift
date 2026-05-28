@@ -480,33 +480,30 @@ public final class SKPhysicsWorld {
         for (_, b) in SKPhysicsWorld.registry where b.velocityDirty {
             cb_set_velocity(b.bodyId, Float(b.velocity.dx), Float(b.velocity.dy)); b.velocityDirty = false
         }
-        // Kinematic sync: non-dynamic bodies AND dynamic-sensor bodies
-        // (game-driven movement, contact reporting only — no physics
-        // integration) get their Box2D transform pushed FROM the SKNode
-        // each frame so contact detection sees the actual current
-        // position. Without it the body is frozen at spawn while the
-        // sprite animates elsewhere.
+        // Push every body's Box2D transform FROM its SKNode each frame
+        // so contact detection always sees the actual current scene
+        // positions. Apple SpriteKit does this implicitly; SuperBox64
+        // has to do it explicitly because Box2D bodies don't observe
+        // SKNode mutations on their own.
         //
-        // Box2D never reports contacts between two static bodies, so the
-        // common "static traveler vs Pete" pattern requires Pete to be
-        // dynamic — and that means we MUST push his position in here
-        // (otherwise his Box2D body stays at his spawn cell while the
-        // SKNode moves), and we MUST NOT read it back out after the
-        // step (Box2D would otherwise overwrite the TileMover-driven
-        // position). The "dynamic && sensor" combo expresses exactly
-        // that semantic.
+        // This is the missing half of node<->body sync. Without it, a
+        // dynamic body that the game moves via SKAction.move or by
+        // writing node.position directly (which is what every consumer
+        // does, including bossman-apple) stays at its spawn position
+        // in Box2D's world — and no contacts fire because the body
+        // never goes anywhere as far as Box2D is concerned.
         for (id, b) in SKPhysicsWorld.registry {
-            let kinematic = !b.isDynamic || b.isSensor
-            guard kinematic, let n = b.node else { continue }
+            guard let n = b.node else { continue }
             cb_set_transform(id, Float(n.position.x), Float(n.position.y),
                              Float(n.zRotation))
         }
         cb_step(Float(dt))
+        // Read positions back for true dynamic bodies (so simulated
+        // motion — gravity, contacts with non-zero collisionBitMask —
+        // is visible). For game-driven bodies the read-back will equal
+        // what we just pushed in.
         for (id, b) in SKPhysicsWorld.registry {
-            // Only true dynamic bodies (NOT sensors) read their position
-            // back from Box2D. Sensors are game-driven and shouldn't have
-            // their position clobbered.
-            guard b.isDynamic, !b.isSensor, let n = b.node else { continue }
+            guard b.isDynamic, let n = b.node else { continue }
             var x: Float = 0, y: Float = 0
             cb_get_position(id, &x, &y)
             n.position = CGPoint(x: CGFloat(x), y: CGFloat(y))

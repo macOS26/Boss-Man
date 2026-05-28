@@ -121,20 +121,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         pete = SpriteFactory.petePerson()
         pete.zPosition = 5
-        // bossman-apple WorkerController.configureNode: circle r=10, worker
-        // category, contact-test against every interactable. The body must
-        // be DYNAMIC (Box2D never reports contacts between two static
-        // bodies — the traveler/dot/disc bodies are static, so Pete has to
-        // be dynamic for didBegin to fire). Marking it as a sensor keeps
-        // the TileMover in charge of position (Box2D won't integrate
-        // forces or overwrite where Pete is on the grid).
+        // Verbatim from bossman-apple WorkerController.configureNode
+        // (lines 40-44): circle r=10, worker category, contact-test
+        // against everything Pete interacts with, collision against
+        // walls. The body is plain dynamic (default) — no sensor flag,
+        // no kinematic gymnastics. SuperBox64 SpriteKit auto-syncs
+        // node.position into Box2D each frame, so the TileMover-driven
+        // position drives the body's world location.
         let peteBody = SKPhysicsBody(circleOfRadius: 10)
-        peteBody.isDynamic = true
-        peteBody.isSensor = true
         peteBody.allowsRotation = false
         peteBody.categoryBitMask = PhysicsCategory.worker
-        peteBody.contactTestBitMask = PhysicsCategory.fish
-        peteBody.collisionBitMask = 0
+        peteBody.contactTestBitMask =
+            PhysicsCategory.dot | PhysicsCategory.boss |
+            PhysicsCategory.machine | PhysicsCategory.tpsBox |
+            PhysicsCategory.goldDisc | PhysicsCategory.fish |
+            PhysicsCategory.waterGun | PhysicsCategory.waterPellet
+        peteBody.collisionBitMask = PhysicsCategory.wall
         pete.physicsBody = peteBody
         addChild(pete)
         peteMover = TileMover(node: pete, spawn: spawn, map: gridMap,
