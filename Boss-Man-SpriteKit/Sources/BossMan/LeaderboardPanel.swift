@@ -47,9 +47,9 @@ final class LeaderboardPanel: SKNode {
         let postIt = SKShapeNode(rect: rect)
         postIt.fillColor = SKColor(red: 1.0, green: 0.92, blue: 0.42, alpha: 1)
         postIt.strokeColor = .clear
-        postIt.shadowBlur = 14
-        postIt.shadowOffset = CGVector(dx: 6, dy: -8)
-        postIt.shadowColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.22)
+        postIt.shadowBlur = 28
+        postIt.shadowOffset = CGVector(dx: 8, dy: -10)
+        postIt.shadowColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.28)
         addChild(postIt)
 
         // 3. Adhesive strip across the top.
