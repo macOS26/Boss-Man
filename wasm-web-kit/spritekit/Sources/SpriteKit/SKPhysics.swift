@@ -152,9 +152,18 @@ public final class SKPhysicsBody {
         guard bodyId < 0, let n = node else { return }
         let x = Float(n.position.x), y = Float(n.position.y)
         let cat = UInt16(truncatingIfNeeded: categoryBitMask)
-        let mask = UInt16(truncatingIfNeeded: collisionBitMask)
+        // Apple SpriteKit has two independent filters: collisionBitMask gates
+        // physical bounce, contactTestBitMask gates the didBegin callback (OR'd
+        // either way). Box2D has a single category/mask filter (two-way AND)
+        // that gates BOTH response AND contact generation — so a body with
+        // collisionBitMask 0 (Apple's "pass through but still notify me") would
+        // be invisible to Box2D contact detection. Feed Box2D the UNION so the
+        // pair is generated for either purpose, then mark contact-only bodies
+        // (no collision intent) as sensors so they generate the event with no
+        // impulse. The post-step poll re-applies Apple's contactTest OR.
+        let mask = UInt16(truncatingIfNeeded: collisionBitMask | contactTestBitMask)
         let dyn: Int32 = isDynamic ? 1 : 0
-        let sensor: Int32 = isSensor ? 1 : 0
+        let sensor: Int32 = (isSensor || collisionBitMask == 0) ? 1 : 0
         switch shape {
         case let .rect(w, h): bodyId = cb_add_box(x, y, Float(w/2), Float(h/2), dyn, cat, mask, sensor)
         case let .circle(r):  bodyId = cb_add_circle(x, y, Float(r), dyn, cat, mask, sensor)
