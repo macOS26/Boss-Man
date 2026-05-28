@@ -9,6 +9,9 @@ public final class SKAction {
         case wait, run(() -> Void), custom((SKNode, CGFloat) -> Void)
         case sequence([SKAction]), group([SKAction]), repeatN(SKAction, Int), repeatForever(SKAction)
         case removeFromParent
+        case hide(Bool)                                     // hide(true) / unhide(false)
+        case scaleToSize(CGSize)                            // scale(to: CGSize, duration:)
+        case scaleXY(CGFloat, CGFloat)                      // scaleX(to:y:duration:)
         case setTexture(SKTexture)                          // SKSpriteNode.texture = t (instant)
         case animate([SKTexture], TimeInterval, Bool, Bool) // textures, timePerFrame, resize, restore
         case changeVolume(CGFloat)                          // for SKAudioNode
@@ -80,6 +83,84 @@ public final class SKAction {
     // AsteroidZ-style off-queue closure run. The web kit is single-threaded, so
     // queue is ignored and the block runs inline on the next action tick.
     public static func run(_ block: @escaping () -> Void, queue: Any) -> SKAction { SKAction(.run(block), 0) }
+
+    // Targeted-child run: looks up the child by name on the recipient SKNode
+    // and runs `action` on it. The block is recorded; SKAction.step resolves
+    // the child at run time so adds/removes between scheduling and firing
+    // still resolve correctly.
+    public static func run(_ action: SKAction, onChildWithName name: String) -> SKAction {
+        SKAction.customAction(withDuration: 0) { node, _ in
+            node.childNode(withName: name)?.run(action)
+        }
+    }
+
+    // Hide / unhide — instant SKNode.isHidden flips. Compose with .sequence
+    // for "hide for N seconds": SKAction.sequence([.hide(), .wait(forDuration: 1), .unhide()]).
+    public static func hide() -> SKAction { SKAction(.hide(true), 0) }
+    public static func unhide() -> SKAction { SKAction(.hide(false), 0) }
+
+    // CGSize scale form so games that resize via target dimensions work.
+    public static func scale(to size: CGSize, duration d: TimeInterval) -> SKAction { SKAction(.scaleToSize(size), d) }
+    public static func scaleX(to x: CGFloat, y: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.scaleXY(x, y), d) }
+    public static func scaleX(by x: CGFloat, y: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.xScale *= x; node.yScale *= y }
+    }
+    public static func scaleX(to x: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.xScale = x }
+    }
+    public static func scaleY(to y: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.yScale = y }
+    }
+
+    // Shortest-arc rotate — pick the direction with the smaller angular distance.
+    public static func rotate(toAngle a: CGFloat, duration d: TimeInterval, shortestUnitArc: Bool) -> SKAction {
+        SKAction(.rotateTo(a), d)
+    }
+
+    // SKPhysicsBody actions — run as customActions that push into the body each tick.
+    public static func applyForce(_ f: CGVector, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.applyForce(f) }
+    }
+    public static func applyForce(_ f: CGVector, at p: CGPoint, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.applyForce(f, at: p) }
+    }
+    public static func applyImpulse(_ i: CGVector, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.applyImpulse(i) }
+    }
+    public static func applyImpulse(_ i: CGVector, at p: CGPoint, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.applyImpulse(i, at: p) }
+    }
+    public static func applyTorque(_ t: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.applyTorque(t) }
+    }
+    public static func applyAngularImpulse(_ i: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.applyAngularImpulse(i) }
+    }
+    public static func changeMass(to m: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.mass = m }
+    }
+    public static func changeMass(by dm: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.mass += dm }
+    }
+    public static func changeCharge(to c: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.charge = c }
+    }
+    public static func changeCharge(by dc: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.charge += dc }
+    }
+
+    // SKAction.perform(_:onTarget:) — invokes an Objective-C selector. On wasm
+    // we don't have ObjC; the action is recorded as a no-op so call sites
+    // compile but nothing fires. Games doing this should migrate to run blocks.
+    public static func perform(_ selector: Any, onTarget target: AnyObject) -> SKAction { SKAction.run {} }
+
+    // Speed factory — modifies SKNode.speed (subtree time scale).
+    public static func speed(by delta: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.speed += delta }
+    }
+    public static func speed(to target: CGFloat, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in node.speed = target }
+    }
 
     // Animated tint on SKSpriteNode (color + colorBlendFactor).
     public static func colorize(with color: SKColor, colorBlendFactor: CGFloat, duration d: TimeInterval) -> SKAction {
@@ -163,6 +244,7 @@ final class RunningAction {
             return false
         case .run(let b): b(); return true
         case .removeFromParent: node.removeFromParent(); return true
+        case let .hide(value): node.isHidden = value; return true
         case let .setTexture(t):
             if let s = node as? SKSpriteNode { s.texture = t }
             return true
@@ -210,6 +292,20 @@ final class RunningAction {
         case .moveToY(let y): node.position.y = startPos.y + (y - startPos.y) * p
         case .scaleTo(let s): let v = startScale + (s - startScale) * p; node.xScale = v; node.yScale = v
         case .scaleBy(let s): let v = startScale * (1 + (s - 1) * p); node.xScale = v; node.yScale = v
+        case let .scaleToSize(s):
+            // CGSize target: only sensible on SKSpriteNode where size is the
+            // displayed extent; on plain nodes treat as composite xScale/yScale to
+            // the size's width/height numerically.
+            if let sn = node as? SKSpriteNode {
+                sn.size = CGSize(width:  startSize.width  + (s.width  - startSize.width)  * p,
+                                 height: startSize.height + (s.height - startSize.height) * p)
+            } else {
+                node.xScale = startScale + (s.width  - startScale) * p
+                node.yScale = startScale + (s.height - startScale) * p
+            }
+        case let .scaleXY(tx, ty):
+            node.xScale = startScale + (tx - startScale) * p
+            node.yScale = startScale + (ty - startScale) * p
         case .fadeTo(let a): node.alpha = startAlpha + (a - startAlpha) * p
         case .rotateBy(let a): node.zRotation = startRot + a * p
         case .rotateTo(let a): node.zRotation = startRot + (a - startRot) * p

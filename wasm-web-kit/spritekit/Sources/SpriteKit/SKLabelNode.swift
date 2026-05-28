@@ -13,6 +13,15 @@ public final class SKLabelNode: SKNode {
     public var numberOfLines: Int = 1                  // no-op: single-line render only
     public var preferredMaxLayoutWidth: CGFloat = 0    // no-op: hint for wrapping (unused)
     public var lineBreakMode: Int = 0                  // no-op (NSLineBreakMode enum stand-in)
+    public var attributedText: String? = nil           // stored as plain text on wasm
+    public var color: SKColor = .white                 // mirrors SKSpriteNode.color (tint)
+    public var colorBlendFactor: CGFloat = 0           // no-op on text rendering
+    public var blendMode: SKBlendMode = .alpha
+
+    // SpriteKit also accepts: init(attributedText: NSAttributedString). We
+    // accept a plain String form so games using attributed strings compile;
+    // formatting attributes drop on the floor (text content survives).
+    public init(attributedText: String) { self.text = attributedText; super.init() }
 
     public override init() { super.init() }
     public init(text: String) { self.text = text; super.init() }

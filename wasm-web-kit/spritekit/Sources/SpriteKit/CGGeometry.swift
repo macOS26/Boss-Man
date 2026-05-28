@@ -44,6 +44,28 @@ public struct CGRect: Equatable, Sendable {
     public func contains(_ p: CGPoint) -> Bool {
         p.x >= minX && p.x < maxX && p.y >= minY && p.y < maxY
     }
+    public func contains(_ r: CGRect) -> Bool {
+        r.minX >= minX && r.maxX <= maxX && r.minY >= minY && r.maxY <= maxY
+    }
+    public func intersects(_ r: CGRect) -> Bool {
+        !(maxX <= r.minX || minX >= r.maxX || maxY <= r.minY || minY >= r.maxY)
+    }
+    public func intersection(_ r: CGRect) -> CGRect {
+        let x = max(minX, r.minX), y = max(minY, r.minY)
+        let xx = min(maxX, r.maxX), yy = min(maxY, r.maxY)
+        if xx <= x || yy <= y { return .zero }
+        return CGRect(x: x, y: y, width: xx - x, height: yy - y)
+    }
+    public func union(_ r: CGRect) -> CGRect {
+        let x = min(minX, r.minX), y = min(minY, r.minY)
+        return CGRect(x: x, y: y, width: max(maxX, r.maxX) - x, height: max(maxY, r.maxY) - y)
+    }
+    public func insetBy(dx: CGFloat, dy: CGFloat) -> CGRect {
+        CGRect(x: minX + dx, y: minY + dy, width: width - dx * 2, height: height - dy * 2)
+    }
+    public func offsetBy(dx: CGFloat, dy: CGFloat) -> CGRect {
+        CGRect(x: minX + dx, y: minY + dy, width: width, height: height)
+    }
     public static let zero = CGRect()
 }
 

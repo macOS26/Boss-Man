@@ -52,6 +52,68 @@ open class SKNode {
 
     public var scene: SKScene? { (self as? SKScene) ?? parent?.scene }
 
+    public var isUserInteractionEnabled = false
+
+    // Apple's SKNode.frame is the node's content bounds in *parent* space.
+    // For our shim a sensible default is "zero-sized at position"; subclasses
+    // (SKSpriteNode, SKShapeNode, SKLabelNode) override to report real bounds.
+    open var frame: CGRect { CGRect(x: position.x, y: position.y, width: 0, height: 0) }
+
+    // Union frame across self + every descendant — used for hit-testing whole
+    // subtrees and for camera/scroll bounds.
+    public func calculateAccumulatedFrame() -> CGRect {
+        var r = self.frame
+        for c in children {
+            let cf = c.calculateAccumulatedFrame()
+            let off = CGRect(x: cf.minX + c.position.x, y: cf.minY + c.position.y,
+                             width: cf.width, height: cf.height)
+            if r == .zero { r = off; continue }
+            let minX = min(r.minX, off.minX), minY = min(r.minY, off.minY)
+            let maxX = max(r.maxX, off.maxX), maxY = max(r.maxY, off.maxY)
+            r = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        }
+        return r
+    }
+
+    public func inParentHierarchy(_ candidate: SKNode) -> Bool {
+        var n: SKNode? = self.parent
+        while let p = n { if p === candidate { return true }; n = p.parent }
+        return false
+    }
+
+    public func move(toParent newParent: SKNode) {
+        let world = absolutePosition()
+        removeFromParent()
+        newParent.addChild(self)
+        self.position = CGPoint(x: world.x - newParent.absolutePosition().x,
+                                y: world.y - newParent.absolutePosition().y)
+    }
+    public func removeChildren(in nodes: [SKNode]) {
+        for n in nodes where n.parent === self { n.removeFromParent() }
+    }
+    public func removeAllActions(in nodes: [SKNode]) {
+        for n in nodes { n.removeAllActions() }
+    }
+
+    // Hit-testing in *this* node's coordinate space. Walks descendants and
+    // returns nodes whose accumulated frame contains the point. Top-most
+    // (deepest, highest zPosition) wins.
+    public func atPoint(_ p: CGPoint) -> SKNode {
+        nodes(at: p).first ?? self
+    }
+    public func nodes(at p: CGPoint) -> [SKNode] {
+        var hits: [SKNode] = []
+        if frame.contains(p) { hits.append(self) }
+        for c in children {
+            let lp = CGPoint(x: p.x - c.position.x, y: p.y - c.position.y)
+            hits.append(contentsOf: c.nodes(at: lp))
+        }
+        return hits.sorted { $0.zPosition > $1.zPosition }
+    }
+    public func intersects(_ other: SKNode) -> Bool {
+        frame.intersects(other.frame)
+    }
+
     // ---- rendering ----
     func draw(alpha: CGFloat) {}   // overridden by leaf nodes
 
