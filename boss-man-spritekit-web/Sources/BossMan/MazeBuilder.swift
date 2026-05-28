@@ -77,9 +77,13 @@ final class MazeBuilder {
 
                 case Strings.Tile.goldDiscChar:
                     goldDiscPositions.append(grid)
-                    let gold = SpriteFactory.goldDiscVisual(radius: map.tileSize * 0.32)
+                    let gold = SpriteFactory.goldDiscVisual(radius: map.tileSize * 0.28)
                     gold.position = position
-                    gold.zPosition = 1
+                    gold.zPosition = 6
+                    gold.run(.repeatForever(.sequence([
+                        .scale(to: 1.25, duration: 0.35),
+                        .scale(to: 1.0,  duration: 0.35),
+                    ])))
                     scene.addChild(gold)
                     goldNodes[grid] = gold
 
