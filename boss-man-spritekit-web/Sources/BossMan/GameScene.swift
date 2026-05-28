@@ -125,7 +125,7 @@ final class GameScene: SKScene {
                                           sound: sound,
                                           containerOriginX: containerOriginX)
         scheduleTravelerForCurrentLevel()
-        hud.update(travelers: upcomingTravelers())
+        hud.update(travelers: unlockedTravelers())
         sound.playLevelStart()
     }
 
@@ -133,14 +133,13 @@ final class GameScene: SKScene {
         levelTravelers[levelIndex % levelTravelers.count]
     }
 
-    private func upcomingTravelers() -> [LevelTraveler] {
-        // Show the next 5 levels' travelers in the HUD corner so the
-        // player knows what's coming, like bossman-apple's emoji trail.
-        var out: [LevelTraveler] = []
-        for offset in 0..<5 {
-            out.append(levelTravelers[(levelIndex + offset) % levelTravelers.count])
-        }
-        return out
+    // Verbatim port of bossman-apple's refreshHUD: cyclePosition = ((level-1)
+    // % count) + 1, then Array(levelTravelers.prefix(cyclePosition)). Level 1
+    // -> just the fish; later levels add one glyph each until the cycle
+    // wraps. Right-justified by the HUD container's positioning math.
+    private func unlockedTravelers() -> [LevelTraveler] {
+        let cyclePosition = (levelIndex % levelTravelers.count) + 1
+        return Array(levelTravelers.prefix(cyclePosition))
     }
 
     private func scheduleTravelerForCurrentLevel() {
@@ -544,7 +543,7 @@ final class GameScene: SKScene {
         // RoundState.advanceLevel reset.
         collectedReports.removeAll()
         scheduleTravelerForCurrentLevel()
-        hud.update(travelers: upcomingTravelers())
+        hud.update(travelers: unlockedTravelers())
 
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
