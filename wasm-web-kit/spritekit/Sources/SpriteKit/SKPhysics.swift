@@ -240,6 +240,46 @@ public final class SKPhysicsWorld {
             }
         }
     }
+    public func enumerateBodies(in rect: CGRect, using block: (SKPhysicsBody, UnsafeMutablePointer<Bool>) -> Void) {
+        var stop = false
+        for b in SKPhysicsWorld.registry.values {
+            if stop { return }
+            if let n = b.node, rect.contains(n.position) { block(b, &stop) }
+        }
+    }
+    // Ray-cast: walks bodies along a line segment in scene space, returning
+    // the first body hit. The Box2D shim doesn't yet expose a ray query, so
+    // we sample at fixed intervals — accurate enough for most game queries.
+    public func body(alongRayStart start: CGPoint, end: CGPoint) -> SKPhysicsBody? {
+        let dx = end.x - start.x, dy = end.y - start.y
+        let len = (Double(dx*dx + dy*dy)).squareRoot()
+        if len == 0 { return body(at: start) }
+        let steps = max(2, Int(len / 8))
+        for i in 0...steps {
+            let t = CGFloat(i) / CGFloat(steps)
+            let p = CGPoint(x: start.x + dx * t, y: start.y + dy * t)
+            if let b = body(at: p) { return b }
+        }
+        return nil
+    }
+    public func enumerateBodies(alongRayStart start: CGPoint, end: CGPoint,
+                                using block: (SKPhysicsBody, CGPoint, CGVector, UnsafeMutablePointer<Bool>) -> Void) {
+        var stop = false
+        let dx = end.x - start.x, dy = end.y - start.y
+        let len = (Double(dx*dx + dy*dy)).squareRoot()
+        if len == 0 { return }
+        let steps = max(2, Int(len / 8))
+        var seen = Set<Int32>()
+        for i in 0...steps {
+            if stop { return }
+            let t = CGFloat(i) / CGFloat(steps)
+            let p = CGPoint(x: start.x + dx * t, y: start.y + dy * t)
+            if let b = body(at: p), !seen.contains(b.bodyId) {
+                seen.insert(b.bodyId)
+                block(b, p, CGVector(dx: dx / CGFloat(len), dy: dy / CGFloat(len)), &stop)
+            }
+        }
+    }
 
     func begin(_ scene: SKScene) {
         SKPhysicsWorld.registry.removeAll()
