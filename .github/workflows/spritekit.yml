@@ -4,13 +4,13 @@ on:
   push:
     paths:
       - 'wasm-web-kit/**'
-      - 'Boss-Man-SpriteKit/**'
+      - 'boss-man-spritekit-web/**'
       - 'boss-man-spritekit-web-simple/**'
       - '.github/workflows/spritekit.yml'
   pull_request:
     paths:
       - 'wasm-web-kit/**'
-      - 'Boss-Man-SpriteKit/**'
+      - 'boss-man-spritekit-web/**'
       - 'boss-man-spritekit-web-simple/**'
       - '.github/workflows/spritekit.yml'
   workflow_dispatch: {}
@@ -73,8 +73,8 @@ jobs:
             xcrun --toolchain "$TOOLCHAINS" swift build \
             --swift-sdk "$WASM_SDK" -c release
 
-      - name: Build Boss-Man-SpriteKit (the wasm port)
-        working-directory: Boss-Man-SpriteKit
+      - name: Build boss-man-spritekit-web (the wasm port)
+        working-directory: boss-man-spritekit-web
         run: |
           set -euo pipefail
           SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
@@ -94,8 +94,8 @@ jobs:
           path: |
             wasm-web-kit/spritekit/.build/wasm32-unknown-wasip1/release/*.wasm
             wasm-web-kit/spritekit/Examples/Hello/.build/wasm32-unknown-wasip1/release/Hello.wasm
-            Boss-Man-SpriteKit/.build/wasm32-unknown-wasip1/release/BossMan.wasm
-            Boss-Man-SpriteKit/web/bossman.wasm
+            boss-man-spritekit-web/.build/wasm32-unknown-wasip1/release/BossMan.wasm
+            boss-man-spritekit-web/web/bossman.wasm
             boss-man-spritekit-web-simple/.build/wasm32-unknown-wasip1/release/Demo.wasm
           if-no-files-found: warn
           retention-days: 30

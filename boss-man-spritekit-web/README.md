@@ -41,7 +41,7 @@ runs `_initialize` + `boot`, then drives `frame(dtMs)` once per
 ## Project layout
 
 ```
-Boss-Man-SpriteKit/
+boss-man-spritekit-web/
 ├── Package.swift            SwiftPM manifest. Depends on
 │                            ../wasm-web-kit/spritekit by path; pulls
 │                            SpriteKit + Box2DBridge + AppKit + GameKit +
