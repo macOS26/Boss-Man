@@ -63,8 +63,19 @@ final class PixelPerson: SKNode {
         addChild(leftEye)
         addChild(rightEye)
         if wearsSunglasses { addSunglasses() }
-        _ = walkExaggeration   // recorded for the future detailed body
         _ = headYOffset
+
+        // Tiny walking bob — squashes vertically then springs back. Loops
+        // forever and is cheap (two scaleY actions). The walkExaggeration
+        // parameter widens the squash for Pete vs the bosses.
+        let amp: CGFloat = 0.08 + max(0, walkExaggeration) * 0.04
+        let bob = SKAction.sequence([
+            SKAction.scaleY(to: 1 - amp, duration: 0.16),
+            SKAction.scaleY(to: 1 + amp * 0.4, duration: 0.16),
+            SKAction.scaleY(to: 1, duration: 0.12),
+            SKAction.wait(forDuration: 0.05),
+        ])
+        body.run(SKAction.repeatForever(bob))
     }
 
     private func addSunglasses() {

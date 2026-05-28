@@ -142,6 +142,7 @@ final class GameScene: SKScene {
                 score += dotPoints
                 dotsRemaining = max(0, dotsRemaining - 1)
                 refreshHUD()
+                if dotsRemaining == 0 { advanceLevel() }
             }
             if mazeBuilder.collectGold(at: peteGrid) {
                 score += goldPoints
@@ -206,6 +207,37 @@ final class GameScene: SKScene {
     private func nextGrid(in dir: MoveDirection) -> CGPoint {
         let (dx, dy) = dir.delta
         return CGPoint(x: peteGrid.x + CGFloat(dx), y: peteGrid.y + CGFloat(dy))
+    }
+
+    private func advanceLevel() {
+        levelIndex = (levelIndex + 1) % max(1, Levels.officeMaps.count)
+        hud.flash("LEVEL \(levelIndex + 1)!", duration: 1.4)
+
+        for boss in bosses { boss.sprite.removeFromParent() }
+        bosses.removeAll()
+        mazeRoot.removeAllChildren()
+
+        let rows = Levels.officeMaps[levelIndex]
+        gridMap.setRows(rows)
+        dotsRemaining = mazeBuilder.build(in: mazeRoot)
+
+        let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
+        peteGrid = spawn
+        pete.position = sceneCoord(forGrid: spawn)
+        heading = nil
+        queued = nil
+
+        for bossSpawn in mazeBuilder.bossSpawns {
+            let boss = BossController(blueprintIndex: bossSpawn.index,
+                                      spawn: bossSpawn.position,
+                                      map: gridMap,
+                                      tileSize: tileSize,
+                                      containerOriginX: containerOriginX)
+            boss.install(in: self)
+            bosses.append(boss)
+        }
+
+        refreshHUD()
     }
 
     private func refreshHUD() {
