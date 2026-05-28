@@ -186,7 +186,16 @@ final class GameScene: SKScene {
         }
         peteMover.advance(dt, decide: decide, onArrive: onArrive)
 
-        for boss in bosses { boss.step(dt: dt, peteGrid: peteMover.grid) }
+        // Bill (blueprint 0) is the BLINKY anchor that Bob's flanker
+        // personality reflects through. If Bill isn't on the level we
+        // pass nil and Bob falls back to direct chase.
+        let blinky = bosses.first(where: { $0.blueprintIndex == 0 })?.grid
+        for boss in bosses {
+            boss.step(dt: dt,
+                      peteGrid: peteMover.grid,
+                      peteDirection: peteMover.dir,
+                      blinkyGrid: blinky)
+        }
 
         stepWaterDroplets(dt: dt)
 

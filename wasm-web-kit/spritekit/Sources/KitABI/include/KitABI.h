@@ -23,6 +23,7 @@ WABI void gfx_draw_image(int img, float sx, float sy, float sw, float sh,
 WABI int  txt_width(int font, const char* utf8, int len, int sizePx, float spacing);
 WABI void gfx_draw_text(int font, const char* utf8, int len, float x, float y,
                         int sizePx, uint32_t rgba, float spacing);
+WABI void gfx_set_text_baseline(int mode);
 WABI int  img_by_name(const char* name, int len);
 WABI int  img_width(int img);
 WABI int  img_height(int img);

@@ -14,14 +14,18 @@ final class BossController {
     let homeGrid: CGPoint
     private weak var map: GridMap?
     let mover: TileMover
+    let ai: BossAI
 
-    private let chaseStep: TimeInterval     = 0.16    // ~6.25 tiles/s
-    private let frightenedStep: TimeInterval = 0.22   // ~4.5 tiles/s
+    // Base step at speed 1.0. Per-personality speed scales this (matches
+    // bossman-apple's moveInterval/moveDuration division by blueprint speed).
+    private let baseChaseStep: TimeInterval     = 0.16
+    private let baseFrightenedStep: TimeInterval = 0.22
+    private let speed: Double
+
+    private var chaseStep: TimeInterval     { baseChaseStep / speed }
+    private var frightenedStep: TimeInterval { baseFrightenedStep / speed }
 
     private(set) var isFrightened: Bool = false
-    // Last tile the boss left, so the random-wander fallback doesn't U-turn
-    // every step. Matches bossman-apple's BossAI.previousGrid.
-    private var previousGrid: CGPoint? = nil
 
     var grid: CGPoint { mover.grid }
 
@@ -30,11 +34,16 @@ final class BossController {
         self.blueprintIndex = blueprintIndex
         self.map = map
         self.homeGrid = spawn
+        let blueprint = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)]
+        self.speed = blueprint.speed
+        self.ai = BossAI(homeGrid: spawn, detectionRange: 10,
+                         personality: blueprint.personality, map: map)
         self.sprite = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
         self.sprite.zPosition = 4
         _ = tileSize
         self.mover = TileMover(node: sprite, spawn: spawn, map: map,
-                               step: chaseStep, containerOriginX: containerOriginX)
+                               step: baseChaseStep / blueprint.speed,
+                               containerOriginX: containerOriginX)
     }
 
     // Mirrors bossman-apple: mutate the body / tie / tie-outline / eye
@@ -67,12 +76,13 @@ final class BossController {
         mover.moving  = false
         mover.moveT   = 0
         sprite.position = mover.centre(of: homeGrid)
+        ai.teleport(to: homeGrid)
         setFrightened(false)
     }
 
     func install(in scene: SKNode) { scene.addChild(sprite) }
 
-    func step(dt: TimeInterval, peteGrid: CGPoint) {
+    func step(dt: TimeInterval, peteGrid: CGPoint, peteDirection: MoveDirection?, blinkyGrid: CGPoint?) {
         guard let map = map else { return }
         let frightened = isFrightened
         let cols = map.columnCount
@@ -80,27 +90,24 @@ final class BossController {
         mover.advance(dt,
                       decide: { [weak self] e in
                           guard let self else { return nil }
-                          // Chase / flee / wander, in that order. When Pete
-                          // is unreachable (e.g. sitting in a hideout) BFS
-                          // returns nil; we fall back to a random walkable
-                          // step so the boss keeps wandering instead of
-                          // freezing in place. Matches bossman-apple's
-                          // BossAI.planNextStep: shortestStep ?? random.
-                          let next: CGPoint?
-                          if frightened {
-                              next = Self.fleeStep(from: e.grid, away: peteGrid, on: map)
-                                  ?? self.randomStep(from: e.grid, on: map)
-                          } else {
-                              next = Pathfinder.nextStep(from: e.grid, to: peteGrid, on: map)
-                                  ?? self.randomStep(from: e.grid, on: map)
-                          }
-                          guard let nxt = next else { return nil }
-                          let dx = Int(nxt.x - e.grid.x)
-                          let dy = Int(nxt.y - e.grid.y)
-                          // Tunnel wrap: BFS may return the far mouth (delta > 1).
-                          // Translate that back into the local direction the boss
-                          // must face to step OFF the maze edge; the mover's
-                          // tileAfter() converts that into the partner teleport.
+                          // Keep BossAI's internal grid in sync with where
+                          // the TileMover thinks we are. They diverge only
+                          // briefly during the mover's per-frame guard loop,
+                          // but planNextStep needs the current cell to seed
+                          // its BFS correctly.
+                          self.ai.teleport(to: e.grid)
+                          guard let move = self.ai.planNextStep(
+                              workerGrid: peteGrid,
+                              workerDirection: peteDirection,
+                              blinkyGrid: blinkyGrid,
+                              flee: frightened
+                          ) else { return nil }
+                          let dx = Int(move.to.x - e.grid.x)
+                          let dy = Int(move.to.y - e.grid.y)
+                          // Tunnel wrap: planNextStep may return the far
+                          // mouth (delta > 1). Convert that into the local
+                          // direction the boss must face to step off the
+                          // maze edge; mover.tileAfter does the teleport.
                           if abs(dx) > 1 {
                               return e.grid.x < CGFloat(cols) / 2 ? .left : .right
                           }
@@ -111,48 +118,9 @@ final class BossController {
                       },
                       onArrive: { [weak self] e in
                           guard let self else { return }
-                          self.previousGrid = e.grid
+                          self.ai.teleport(to: e.grid)
                           if let d = e.dir { self.sprite.setFacing(d) }
                       })
-    }
-
-    // Pick a random walkable neighbour, avoiding the cell we just came from
-    // when we have a real choice (so the boss doesn't oscillate on the spot).
-    private func randomStep(from grid: CGPoint, on map: GridMap) -> CGPoint? {
-        var options = map.walkableNeighbors(of: grid)
-        if let prev = previousGrid, options.count > 1 {
-            options.removeAll { $0 == prev }
-        }
-        return options.randomElement()
-    }
-
-    // Pick the walkable neighbour that maximises BFS distance from Pete.
-    private static func fleeStep(from start: CGPoint, away pete: CGPoint, on map: GridMap) -> CGPoint? {
-        var best: CGPoint?
-        var bestDist = -1
-        for n in map.walkableNeighbors(of: start) {
-            let d = approxBFSDistance(from: n, to: pete, on: map, cap: 24)
-            if d > bestDist { bestDist = d; best = n }
-        }
-        return best
-    }
-
-    // BFS distance capped to keep flee evaluation cheap (one call per boss
-    // per tile-centre arrival). cap=24 covers most reasonable maze distances.
-    private static func approxBFSDistance(from start: CGPoint, to target: CGPoint, on map: GridMap, cap: Int) -> Int {
-        if start == target { return 0 }
-        var queue: [(CGPoint, Int)] = [(start, 0)]
-        var visited = Set<CGPoint>([start])
-        while !queue.isEmpty {
-            let (node, dist) = queue.removeFirst()
-            if dist >= cap { return cap }
-            for n in map.walkableNeighbors(of: node) where !visited.contains(n) {
-                if n == target { return dist + 1 }
-                visited.insert(n)
-                queue.append((n, dist + 1))
-            }
-        }
-        return cap
     }
 }
 

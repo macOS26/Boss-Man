@@ -50,6 +50,14 @@ WABI void gfx_draw_image(int img, float sx, float sy, float sw, float sh,
 WABI int  txt_width(int font, const char* utf8, int len, int sizePx, float letterSpacing);
 WABI void gfx_draw_text(int font, const char* utf8, int len, float x, float y,
                         int sizePx, uint32_t rgba, float letterSpacing);
+// Selects Canvas2D textBaseline for subsequent gfx_draw_text calls.
+//   0 = alphabetic (true typographic baseline; the default)
+//   1 = middle     (vertical CENTRE of the glyph bounding box — what SK
+//                  .center alignment actually means; gives correct emoji
+//                  centring without per-glyph metrics)
+//   2 = top
+//   3 = bottom
+WABI void gfx_set_text_baseline(int mode);
 
 // ---- images / fonts / render textures (loaded/created via JS) ----
 WABI int  img_by_name(const char* name, int len);  // preloaded image -> handle

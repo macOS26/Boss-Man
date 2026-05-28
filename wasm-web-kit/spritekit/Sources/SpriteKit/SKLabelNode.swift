@@ -54,15 +54,23 @@ public final class SKLabelNode: SKNode {
             case .left:   x = 0
             case .right:  x = -w
             }
-            let s = Float(fontSize)
-            let y: Float
+            // Let Canvas2D pick the textBaseline directly so the y anchor
+            // matches what each alignment mode means visually. The legacy
+            // hand-rolled offsets (y = -s * 0.5, etc.) gave the right answer
+            // for the em-box's geometric centre but emojis don't sit dead
+            // centre in the em-box; setting textBaseline = 'middle' lets the
+            // canvas use the actual glyph centre, which is what SpriteKit's
+            // .center alignment promises.
+            let baselineMode: Int32
             switch verticalAlignmentMode {
-            case .center:   y = -s * 0.5
-            case .top:      y = 0
-            case .bottom:   y = -s
-            case .baseline: y = -s * 0.8
+            case .baseline: baselineMode = 0       // alphabetic
+            case .center:   baselineMode = 1       // middle
+            case .top:      baselineMode = 2
+            case .bottom:   baselineMode = 3
             }
-            gfx_draw_text(font, p, n, x, y, px, c.rgba, 0)
+            gfx_set_text_baseline(baselineMode)
+            gfx_draw_text(font, p, n, x, 0, px, c.rgba, 0)
+            gfx_set_text_baseline(2)               // restore default 'top'
         }
         gfx_restore()
     }

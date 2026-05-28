@@ -132,6 +132,12 @@ class Runtime {
     this.targets = [{ canvas, ctx: this.ctx }];
     this.curTarget = 0;
 
+    // gfx_set_text_baseline persists the canvas2D textBaseline used by
+    // gfx_draw_text. Default 2 = 'top' so callers that never call the new
+    // ABI get the historic behaviour. SK .center alignment sets it to 1
+    // ('middle') so emoji glyphs centre on their anchor.
+    this._textBaselineMode = 2;
+
     // ---- handle tables (1-based; 0 means "not loaded/none") ----
     this.images = [null];   // each: { source, width, height }  source = drawable
     this.shaders = [null];  // each: { program, uniformLocs, srcText }
@@ -404,11 +410,23 @@ class Runtime {
         }
         return Math.ceil(w);
       },
+      gfx_set_text_baseline: (mode) => {
+        // Persisted on the Game so a draw call can read it back. 0=alphabetic,
+        // 1=middle (visual centre — what SK .center wants), 2=top, 3=bottom.
+        // Defaults back to 'top' after every draw to preserve historic
+        // behaviour for callers that don't touch it.
+        this._textBaselineMode = mode | 0;
+      },
       gfx_draw_text: (font, ptr, len, x, y, sizePx, rgba, letterSpacing) => {
         const c = this.ctx2d();
         const s = this.cstr(ptr, len);
         this.applyFont(c, font, sizePx, letterSpacing);
-        c.textBaseline = 'top';
+        const mode = this._textBaselineMode | 0;
+        c.textBaseline =
+          mode === 1 ? 'middle' :
+          mode === 2 ? 'top' :
+          mode === 3 ? 'bottom' :
+          mode === 0 ? 'alphabetic' : 'top';
         c.textAlign = 'left';
         c.fillStyle = this.css(rgba);
         if (this.hasLetterSpacing || !letterSpacing) {
