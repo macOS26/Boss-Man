@@ -1,26 +1,24 @@
 import SpriteKit
 
-// HUD overlay for the maze. First wasm pass keeps the macOS original's
-// information density but trims the iconography (TPS reports counter,
-// water-gun crop node, level emoji container) until those gameplay loops
-// are wired through. What ships today:
+// HUD overlay for the maze. Matches bossman-apple's layout exactly:
+//   Row 1 (y = h-22): Score: X   High: Y   Level: Z   Dots: D/T   Reports: R
+//   Row 2 (y = h-52): TPS: <emoji checklist>            (right: flash messages)
+//   Row 3 (y = h-84): Lives: <pete icons>               (right: water gun + ammo dots)
 //
-//   - statusLabel: score + high-score + level + dots, top-left.
-//   - livesLabel:  remaining lives, top-left under status.
-//   - messageLabel: transient announcement strip, top-right.
-//
-// All labels live on the SKScene directly so they ride above the maze
-// without needing a separate camera layer.
+// A translucent dark panel (100px tall) backs the whole strip so labels
+// never sit on top of cubicle walls.
 final class HUD {
-    // Matches bossman-apple: the HUD reserves a 100px panel at the top of
-    // the scene. GameScene reads this and offsets the maze so the two
-    // never overlap.
     static let panelHeight: CGFloat = 100
+    static let maxLives = 5
 
     private let statusLabel  = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let tpsLabel     = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let livesLabel   = SKLabelNode(fontNamed: Strings.Font.menloBold)
-    private let ammoLabel    = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let waterGunIcon = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private let ammoDots     = SKLabelNode(fontNamed: Strings.Font.menloBold)
+    private var lifeIcons: [PixelPerson] = []
+
     private weak var scene: SKScene?
 
     func install(in scene: SKScene) {
@@ -40,48 +38,92 @@ final class HUD {
         statusLabel.position = CGPoint(x: 16, y: size.height - 22)
         statusLabel.zPosition = 21
         statusLabel.fontColor = .white
-        statusLabel.text = ""
         scene.addChild(statusLabel)
+
+        tpsLabel.fontSize = 19
+        tpsLabel.horizontalAlignmentMode = .left
+        tpsLabel.verticalAlignmentMode = .center
+        tpsLabel.position = CGPoint(x: 16, y: size.height - 52)
+        tpsLabel.zPosition = 21
+        tpsLabel.fontColor = .white
+        tpsLabel.text = "TPS:"
+        scene.addChild(tpsLabel)
 
         livesLabel.fontSize = 19
         livesLabel.horizontalAlignmentMode = .left
         livesLabel.verticalAlignmentMode = .center
-        livesLabel.position = CGPoint(x: 16, y: size.height - 52)
+        livesLabel.position = CGPoint(x: 16, y: size.height - 84)
         livesLabel.zPosition = 21
-        livesLabel.fontColor = SKColor(red: 0.20, green: 0.85, blue: 0.30, alpha: 1)
-        livesLabel.text = "LIVES 3"
+        livesLabel.fontColor = SKColor(red: 0.20, green: 0.78, blue: 0.35, alpha: 1) // systemGreen
+        livesLabel.text = "Lives:"
         scene.addChild(livesLabel)
 
-        ammoLabel.fontSize = 19
-        ammoLabel.horizontalAlignmentMode = .left
-        ammoLabel.verticalAlignmentMode = .center
-        ammoLabel.position = CGPoint(x: 16, y: size.height - 84)
-        ammoLabel.zPosition = 21
-        ammoLabel.fontColor = SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1)
-        ammoLabel.text = "AMMO 0"
-        scene.addChild(ammoLabel)
+        let iconStartX: CGFloat = 90
+        let iconSpacing: CGFloat = 24
+        for i in 0..<HUD.maxLives {
+            let icon = SpriteFactory.petePerson()
+            icon.setScale(0.45)
+            icon.position = CGPoint(x: iconStartX + CGFloat(i) * iconSpacing,
+                                    y: size.height - 84)
+            icon.zPosition = 21
+            scene.addChild(icon)
+            lifeIcons.append(icon)
+        }
 
         messageLabel.fontSize = 19
         messageLabel.horizontalAlignmentMode = .right
         messageLabel.verticalAlignmentMode = .center
-        messageLabel.position = CGPoint(x: size.width - 16, y: size.height - 22)
+        messageLabel.position = CGPoint(x: size.width - 16, y: size.height - 52)
         messageLabel.zPosition = 21
-        messageLabel.fontColor = SKColor(red: 1.0, green: 0.85, blue: 0.34, alpha: 1)
-        messageLabel.text = ""
+        messageLabel.fontColor = SKColor(red: 1.0, green: 0.91, blue: 0.34, alpha: 1) // systemYellow
         scene.addChild(messageLabel)
+
+        let iconX = size.width - 16
+        waterGunIcon.fontSize = 19
+        waterGunIcon.horizontalAlignmentMode = .right
+        waterGunIcon.verticalAlignmentMode = .center
+        waterGunIcon.position = CGPoint(x: iconX, y: size.height - 84)
+        waterGunIcon.zPosition = 21
+        waterGunIcon.fontColor = SKColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1) // systemBlue
+        waterGunIcon.text = Strings.Emoji.waterGun
+        waterGunIcon.alpha = 0.5
+        scene.addChild(waterGunIcon)
+
+        ammoDots.fontSize = 19
+        ammoDots.horizontalAlignmentMode = .right
+        ammoDots.verticalAlignmentMode = .center
+        ammoDots.position = CGPoint(x: iconX - 28, y: size.height - 84)
+        ammoDots.zPosition = 21
+        ammoDots.fontColor = SKColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1) // systemRed
+        ammoDots.text = (0..<8).map { _ in "\u{25CB}" }.joined(separator: " ")          // ○
+        scene.addChild(ammoDots)
     }
 
-    // MARK: - State updates
-
-    func update(score: Int, highScore: Int, level: Int, dotsLeft: Int) {
-        statusLabel.text = "SCORE \(score)   HI \(highScore)   LEVEL \(level)   DOTS \(dotsLeft)"
+    func update(score: Int, highScore: Int, level: Int, dotsLeft: Int, totalDots: Int, reports: Int = 0) {
+        statusLabel.text = "Score: \(score)   High: \(highScore)   Level: \(level)   Dots: \(dotsLeft)/\(totalDots)   Reports: \(reports)"
     }
+
     func update(lives: Int) {
-        livesLabel.text = "LIVES \(max(0, lives))"
+        for (i, icon) in lifeIcons.enumerated() { icon.isHidden = i >= lives }
     }
+
+    // Render 8 ammo slots: ● for each remaining shot (capped at 8), ○ for the
+    // rest. systemBlue when ammo > 0, systemRed at 0 (matching bossman-apple).
     func update(ammo: Int) {
-        ammoLabel.text = "AMMO \(max(0, ammo))"
+        let shown = min(8, max(0, ammo))
+        let text = (0..<8).map { $0 < shown ? "\u{25CF}" : "\u{25CB}" }.joined(separator: " ")
+        ammoDots.text = text
+        let blue = SKColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+        let red  = SKColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1)
+        if ammo > 0 {
+            ammoDots.fontColor = blue
+            waterGunIcon.alpha = 1.0
+        } else {
+            ammoDots.fontColor = red
+            waterGunIcon.alpha = 0.5
+        }
     }
+
     func flash(_ text: String, duration: TimeInterval = 1.6) {
         messageLabel.removeAllActions()
         messageLabel.text = text

@@ -23,13 +23,17 @@ import SpriteKit
 //   Eye tracking: setLookDirection nudges both eye nodes + the tie by 1px
 //   in the heading direction. Cheap, but reads convincingly.
 final class PixelPerson: SKNode {
-    // Initial palette captured so the boss can restore its tie/body after
-    // frighten mode ends (bossman-apple mutates these on the same node and
-    // doesn't keep its own backup).
+    // Initial palette captured so the boss can restore its tie/body/skin
+    // after frighten mode ends (bossman-apple mutates these on the same
+    // node and doesn't keep its own backup).
     let baseBodyColor: SKColor
     let baseTieColor:  SKColor
+    let baseSkinColor: SKColor
 
     private let bodyContainer = SKNode()
+    private var head: SKShapeNode!
+    private var leftHand: SKShapeNode!
+    private var rightHand: SKShapeNode!
 
     private let torso: SKShapeNode
     private let leftArm: SKShapeNode
@@ -66,6 +70,7 @@ final class PixelPerson: SKNode {
         self.baseBodyColor = bodyColor
         self.baseTieColor  = tieColor
         let skin = SKColor(red: 0.96, green: 0.78, blue: 0.62, alpha: 1)
+        self.baseSkinColor = skin
         let shoeColor = SKColor(red: 0.12, green: 0.08, blue: 0.05, alpha: 1)
 
         leftLeg   = SKShapeNode(rectOf: CGSize(width: 6, height: 8))
@@ -137,25 +142,28 @@ final class PixelPerson: SKNode {
         rightArm.zPosition = 3
         bodyContainer.addChild(rightArm)
 
-        let leftHand = SKShapeNode(circleOfRadius: 2.5)
-        leftHand.fillColor = skin
-        leftHand.strokeColor = .clear
-        leftHand.position = CGPoint(x: 0, y: -8)
-        leftArm.addChild(leftHand)
+        let lh = SKShapeNode(circleOfRadius: 2.5)
+        lh.fillColor = skin
+        lh.strokeColor = .clear
+        lh.position = CGPoint(x: 0, y: -8)
+        leftArm.addChild(lh)
+        leftHand = lh
 
-        let rightHand = SKShapeNode(circleOfRadius: 2.5)
-        rightHand.fillColor = skin
-        rightHand.strokeColor = .clear
-        rightHand.position = CGPoint(x: 0, y: -8)
-        rightArm.addChild(rightHand)
+        let rh = SKShapeNode(circleOfRadius: 2.5)
+        rh.fillColor = skin
+        rh.strokeColor = .clear
+        rh.position = CGPoint(x: 0, y: -8)
+        rightArm.addChild(rh)
+        rightHand = rh
 
-        let head = SKShapeNode(rectOf: CGSize(width: 14, height: 12), cornerRadius: 2)
-        head.fillColor = skin
-        head.strokeColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.5)
-        head.lineWidth = 1
-        head.position = CGPoint(x: 0, y: 13 + headYOffset)
-        head.zPosition = 4
-        bodyContainer.addChild(head)
+        let hd = SKShapeNode(rectOf: CGSize(width: 14, height: 12), cornerRadius: 2)
+        hd.fillColor = skin
+        hd.strokeColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.5)
+        hd.lineWidth = 1
+        hd.position = CGPoint(x: 0, y: 13 + headYOffset)
+        hd.zPosition = 4
+        bodyContainer.addChild(hd)
+        head = hd
 
         let hair = SKShapeNode(rectOf: CGSize(width: 14, height: 4))
         hair.fillColor = hairColor
@@ -217,6 +225,15 @@ final class PixelPerson: SKNode {
             tie.strokeColor = .clear
             tie.lineWidth = 0
         }
+    }
+
+    // Mutates head + both hands to a new skin tone (used by frighten mode
+    // to give the boss a blue-tinted face/hands while keeping the same
+    // per-channel brightness as the original skin).
+    func setSkinColor(_ color: SKColor) {
+        head.fillColor      = color
+        leftHand.fillColor  = color
+        rightHand.fillColor = color
     }
 
     func setShoeOutlineColor(_ color: SKColor) {

@@ -19,6 +19,9 @@ final class BossController {
     private let frightenedStep: TimeInterval = 0.22   // ~4.5 tiles/s
 
     private(set) var isFrightened: Bool = false
+    // Last tile the boss left, so the random-wander fallback doesn't U-turn
+    // every step. Matches bossman-apple's BossAI.previousGrid.
+    private var previousGrid: CGPoint? = nil
 
     var grid: CGPoint { mover.grid }
 
@@ -46,12 +49,14 @@ final class BossController {
             sprite.setTieColor(SpriteFactory.fleeTieColor)
             sprite.setTieOutline(color: SpriteFactory.bossShoeGoldColor)
             sprite.setEyeColor(SpriteFactory.fleeEyeColor)
+            sprite.setSkinColor(SpriteFactory.fleeSkinColor)
             mover.step = frightenedStep
         } else {
             sprite.setBodyColor(sprite.baseBodyColor)
             sprite.setTieColor(sprite.baseTieColor)
             sprite.setTieOutline(color: nil)
             sprite.setEyeColor(.black)
+            sprite.setSkinColor(sprite.baseSkinColor)
             mover.step = chaseStep
         }
     }
@@ -73,12 +78,21 @@ final class BossController {
         let cols = map.columnCount
         let rows = map.rowCount
         mover.advance(dt,
-                      decide: { e in
+                      decide: { [weak self] e in
+                          guard let self else { return nil }
+                          // Chase / flee / wander, in that order. When Pete
+                          // is unreachable (e.g. sitting in a hideout) BFS
+                          // returns nil; we fall back to a random walkable
+                          // step so the boss keeps wandering instead of
+                          // freezing in place. Matches bossman-apple's
+                          // BossAI.planNextStep: shortestStep ?? random.
                           let next: CGPoint?
                           if frightened {
                               next = Self.fleeStep(from: e.grid, away: peteGrid, on: map)
+                                  ?? self.randomStep(from: e.grid, on: map)
                           } else {
                               next = Pathfinder.nextStep(from: e.grid, to: peteGrid, on: map)
+                                  ?? self.randomStep(from: e.grid, on: map)
                           }
                           guard let nxt = next else { return nil }
                           let dx = Int(nxt.x - e.grid.x)
@@ -95,9 +109,21 @@ final class BossController {
                           }
                           return MoveDirection.from(delta: (dx, dy))
                       },
-                      onArrive: { e in
+                      onArrive: { [weak self] e in
+                          guard let self else { return }
+                          self.previousGrid = e.grid
                           if let d = e.dir { self.sprite.setFacing(d) }
                       })
+    }
+
+    // Pick a random walkable neighbour, avoiding the cell we just came from
+    // when we have a real choice (so the boss doesn't oscillate on the spot).
+    private func randomStep(from grid: CGPoint, on map: GridMap) -> CGPoint? {
+        var options = map.walkableNeighbors(of: grid)
+        if let prev = previousGrid, options.count > 1 {
+            options.removeAll { $0 == prev }
+        }
+        return options.randomElement()
     }
 
     // Pick the walkable neighbour that maximises BFS distance from Pete.

@@ -13,6 +13,9 @@ final class PixelPerson: SKNode {
     private let leftShoe: SKShapeNode
     private let rightShoe: SKShapeNode
     private let walkExaggeration: CGFloat
+    private var head: SKShapeNode!
+    private var leftHand: SKShapeNode!
+    private var rightHand: SKShapeNode!
 
     // MARK: - Eye tracking
     private var leftEye: SKShapeNode?
@@ -130,25 +133,28 @@ final class PixelPerson: SKNode {
         rightArm.zPosition = 3
         bodyContainer.addChild(rightArm)
 
-        let leftHand = SKShapeNode(circleOfRadius: 2.5)
-        leftHand.fillColor = skin
-        leftHand.strokeColor = .clear
-        leftHand.position = CGPoint(x: 0, y: -8)
-        leftArm.addChild(leftHand)
+        let lh = SKShapeNode(circleOfRadius: 2.5)
+        lh.fillColor = skin
+        lh.strokeColor = .clear
+        lh.position = CGPoint(x: 0, y: -8)
+        leftArm.addChild(lh)
+        leftHand = lh
 
-        let rightHand = SKShapeNode(circleOfRadius: 2.5)
-        rightHand.fillColor = skin
-        rightHand.strokeColor = .clear
-        rightHand.position = CGPoint(x: 0, y: -8)
-        rightArm.addChild(rightHand)
+        let rh = SKShapeNode(circleOfRadius: 2.5)
+        rh.fillColor = skin
+        rh.strokeColor = .clear
+        rh.position = CGPoint(x: 0, y: -8)
+        rightArm.addChild(rh)
+        rightHand = rh
 
-        let head = SKShapeNode(rectOf: CGSize(width: 14, height: 12), cornerRadius: 2)
-        head.fillColor = skin
-        head.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
-        head.lineWidth = 1
-        head.position = CGPoint(x: 0, y: 13 + headYOffset)
-        head.zPosition = 4
-        bodyContainer.addChild(head)
+        let hd = SKShapeNode(rectOf: CGSize(width: 14, height: 12), cornerRadius: 2)
+        hd.fillColor = skin
+        hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
+        hd.lineWidth = 1
+        hd.position = CGPoint(x: 0, y: 13 + headYOffset)
+        hd.zPosition = 4
+        bodyContainer.addChild(hd)
+        head = hd
 
         let hair = SKShapeNode(rectOf: CGSize(width: 14, height: 4))
         hair.fillColor = hairColor
@@ -210,6 +216,15 @@ final class PixelPerson: SKNode {
             tie.strokeColor = .clear
             tie.lineWidth = 0
         }
+    }
+
+    // Frighten-mode face/hands tint. Brightness matches the original skin
+    // (same channel sums, just B-dominant instead of R-dominant) so the
+    // figure reads as blue without flattening to a uniform fill.
+    func setSkinColor(_ color: NSColor) {
+        head.fillColor      = color
+        leftHand.fillColor  = color
+        rightHand.fillColor = color
     }
 
     func setShoeOutlineColor(_ color: NSColor) {

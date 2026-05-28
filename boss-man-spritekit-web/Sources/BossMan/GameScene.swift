@@ -39,6 +39,7 @@ final class GameScene: SKScene {
     private var lives = 3
     private var levelIndex = 0
     private var dotsRemaining = 0
+    private var dotsTotal     = 0
     private let dotPoints = 10
     private let goldPoints = 200
 
@@ -79,6 +80,7 @@ final class GameScene: SKScene {
 
         mazeBuilder = MazeBuilder(map: gridMap)
         dotsRemaining = mazeBuilder.build(in: mazeRoot)
+        dotsTotal = dotsRemaining
 
         hud.install(in: self)
         highScore = Persistence.int(forKey: Strings.DefaultsKey.highScore)
@@ -353,6 +355,7 @@ final class GameScene: SKScene {
         let rows = Levels.officeMaps[levelIndex]
         gridMap.setRows(rows)
         dotsRemaining = mazeBuilder.build(in: mazeRoot)
+        dotsTotal = dotsRemaining
 
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
@@ -417,7 +420,8 @@ final class GameScene: SKScene {
             Persistence.set(highScore, forKey: Strings.DefaultsKey.highScore)
         }
         hud.update(score: score, highScore: highScore,
-                   level: levelIndex + 1, dotsLeft: dotsRemaining)
+                   level: levelIndex + 1, dotsLeft: dotsRemaining,
+                   totalDots: dotsTotal)
         hud.update(lives: lives)
         hud.update(ammo: waterAmmo)
     }

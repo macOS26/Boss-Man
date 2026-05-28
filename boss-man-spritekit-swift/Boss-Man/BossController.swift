@@ -52,6 +52,11 @@ final class BossController {
     static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
     static let fleeTieColor:  NSColor = .systemYellow
     static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
+    // Blue-tinted skin used in frighten mode. Channels are the base skin's
+    // (0.96, 0.78, 0.62) with R and B swapped, so brightness is preserved
+    // and the face/hands read as blue at the same value as before.
+    static let fleeSkinColor: NSColor = NSColor(calibratedRed: 0.62, green: 0.78, blue: 0.96, alpha: 1)
+    static let baseSkinColor: NSColor = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
     static var bossShoeGoldColor: NSColor { SpriteFactory.bossShoeGoldColor }
 
     weak var delegate: BossControllerDelegate?
@@ -120,6 +125,7 @@ final class BossController {
             node.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
             node.setShoeOutlineColor(Self.bossShoeGoldColor)
             node.setEyeColor(Self.fleeEyeColor)
+            node.setSkinColor(Self.fleeSkinColor)
         }
         scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
@@ -189,6 +195,7 @@ final class BossController {
         node.setShirtOutlineColor(.white)
         node.setShoeOutlineColor(Self.bossShoeGoldColor)
         node.setEyeColor(.black)
+        node.setSkinColor(Self.baseSkinColor)
         entities[index].captureCount = 0
         entities[index].isInFleeMode = false
         entities[index].mustExitDoorway = false
@@ -273,6 +280,7 @@ final class BossController {
             entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
             entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
+            entities[i].node.setSkinColor(active ? Self.fleeSkinColor : Self.baseSkinColor)
         }
         refreshTags(goldDiscActive: active)
         if !active { applyFleeThawTransition() }
@@ -468,6 +476,7 @@ final class BossController {
             boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             boss.node.setShoeOutlineColor(Self.bossShoeGoldColor)
             boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
+            boss.node.setSkinColor(powerActive ? Self.fleeSkinColor : Self.baseSkinColor)
         }
         refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)
