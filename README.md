@@ -7,7 +7,15 @@ An *Office Space* inspired maze game built with SpriteKit and Swift.
 
 ## Download the DMG
 
-https://github.com/macOS26/Boss-Man/releases
+Grab the latest macOS build, signed, notarized, and ready to play:
+
+[github.com/macOS26/Boss-Man/releases](https://github.com/macOS26/Boss-Man/releases)
+
+## Official Website
+
+Screenshots, trailers, leaderboards, and more:
+
+[boss-man.us](https://boss-man.us)
 
 ## Object of the Game
 
