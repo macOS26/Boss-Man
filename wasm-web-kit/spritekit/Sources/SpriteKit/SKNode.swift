@@ -18,6 +18,7 @@ open class SKNode {
     public var physicsBody: SKPhysicsBody? { didSet { physicsBody?.node = self } }
     public var speed: CGFloat = 1
     public var isPaused = false
+    public var constraints: [SKConstraint]? = nil  // applied after stepActions, before render
 
     public init() {}
 
@@ -90,6 +91,9 @@ open class SKNode {
             if runningActions[i].step(scaled, node: self) { runningActions.remove(at: i) } else { i += 1 }
         }
         tickSelf(TimeInterval(scaled))
+        if let cs = constraints {                    // post-action constraint pass
+            for c in cs { c.apply(to: self) }
+        }
         for c in children { c.stepActions(scaled) }
     }
 

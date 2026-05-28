@@ -73,6 +73,18 @@ public final class SKView {
         gfx_save()
         gfx_translate(0, Float(s.size.height))   // map world y-up -> screen y-down
         gfx_scale(1, -1)
+        // Apply the camera's inverse so the scene appears as if shot through
+        // its lens: translate the world so cam.position sits at scene center,
+        // then rotate/scale by the camera's inverse. We render the camera node
+        // itself (so its children act as UI overlays riding along).
+        if let cam = s.camera {
+            gfx_translate(Float(s.size.width / 2), Float(s.size.height / 2))
+            let sx = cam.xScale == 0 ? 1 : 1 / cam.xScale
+            let sy = cam.yScale == 0 ? 1 : 1 / cam.yScale
+            gfx_scale(Float(sx), Float(sy))
+            if cam.zRotation != 0 { gfx_rotate(Float(-cam.zRotation * 180.0 / Double.pi)) }
+            gfx_translate(Float(-cam.position.x), Float(-cam.position.y))
+        }
         s.renderTree(parentAlpha: 1)
         gfx_restore()
     }
