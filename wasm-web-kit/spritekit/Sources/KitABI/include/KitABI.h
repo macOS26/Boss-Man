@@ -163,6 +163,8 @@ WABI int  mouse_button(int b);
 WABI int  evt_poll(int* type, int* a, int* b, int* c, int* d);
 WABI int  win_width(void);
 WABI int  win_height(void);
+WABI void win_set_title(const char* s, int len);
+WABI void win_request_fullscreen(void);
 
 /* libm wrappers — see shim.c. Swift uses these instead of importing libm
  * directly because @_silgen_name passes through Swift's witness mangling

@@ -24,6 +24,9 @@ final class TitleScene: SKScene {
         title.fontColor = .black
         title.position = CGPoint(x: size.width / 2, y: size.height * 0.74)
         title.zRotation = -0.04
+        // The leaderboard post-it docks at the left edge and we want the
+        // wordmark to read as the foreground element when they overlap.
+        title.zPosition = 10
         addChild(title)
 
         let stapler = makeStapler()
@@ -59,6 +62,16 @@ final class TitleScene: SKScene {
         hint.position = CGPoint(x: size.width / 2, y: 18)
         addChild(hint)
 
+        // Fullscreen hint, bottom-right corner (matches the C++ build's
+        // TitleScreen layout). Right-aligned at (W - 20, 18) in y-up.
+        let fsHint = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
+        fsHint.text = "F for Fullscreen"
+        fsHint.fontSize = 16
+        fsHint.fontColor = .black
+        fsHint.horizontalAlignmentMode = .right
+        fsHint.position = CGPoint(x: size.width - 20, y: 18)
+        addChild(fsHint)
+
         let panel = LeaderboardPanel(size: CGSize(width: 320, height: 400))
         panel.position = CGPoint(x: 320 / 2 + 32, y: size.height * 0.5)
         addChild(panel)
@@ -69,9 +82,10 @@ final class TitleScene: SKScene {
     // synthesizes Arrow/Space/P so a controller works too.
     override func keyDown(_ key: Int) {
         switch key {
-        case 15:  startGame()       // P  → Play
-        case 4:   startEditor()     // E  → Level editor
-        case 57:  startGame()       // Space → Play (gamepad A button maps here)
+        case 15:  startGame()                    // P  → Play
+        case 4:   startEditor()                  // E  → Level editor
+        case 5:   win_request_fullscreen()       // F  → Fullscreen
+        case 57:  startGame()                    // Space → Play (gamepad A button maps here)
         default: break
         }
     }
