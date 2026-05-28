@@ -777,7 +777,16 @@ class Runtime {
       env: this.envImports(),
       wasi_snapshot_preview1: this.wasiImports(),
     };
-    const { instance } = await WebAssembly.instantiateStreaming(fetch(url), imports);
+    // Prefer streaming, but fall back to fetch->arrayBuffer->instantiate so we
+    // work even when the server doesn't send Content-Type: application/wasm
+    // (instantiateStreaming hard-requires it; plain instantiate doesn't care).
+    let instance;
+    try {
+      ({ instance } = await WebAssembly.instantiateStreaming(fetch(url), imports));
+    } catch (_e) {
+      const bytes = await fetch(url).then((r) => r.arrayBuffer());
+      ({ instance } = await WebAssembly.instantiate(bytes, imports));
+    }
     this.exports = instance.exports;
     this.wasmMemory = this.exports.memory;
 
