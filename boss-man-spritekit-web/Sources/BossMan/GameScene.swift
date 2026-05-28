@@ -239,7 +239,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             dialog.handleKey(key, shift: false)
             return
         }
-        if gameOver { return }
+        if gameOver {
+            // bossman-apple keeps the GAME OVER card over the live scene and
+            // waits for the player: P starts a new game, Esc returns to title.
+            if key == 15 { restartGame() }
+            else if key == 36 { returnToTitle() }
+            return
+        }
         if key == 36 {        // Escape
             sound.stopAllAudio()
             let title = TitleScene(size: size)
@@ -574,10 +580,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         summary.zPosition = 102
         addChild(summary)
 
+        // bossman-apple does NOT auto-transition on game over: the dim GAME
+        // OVER card sits on top of the still-live maze and every sprite stays
+        // on the board until the player presses P (new game) or Esc (title).
         if score > 0 {
             presentUsernameDialog()
-        } else {
-            scheduleReturnToTitle(delay: 3.0)
         }
     }
 
@@ -589,13 +596,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 guard let self else { return }
                 LocalHighScores.submit(name: name, score: self.score)
                 self.dismissUsernameDialog()
-                self.scheduleReturnToTitle(delay: 1.2)
             },
             onSkip: { [weak self] in
                 guard let self else { return }
                 LocalHighScores.submit(name: "ANON", score: self.score)
                 self.dismissUsernameDialog()
-                self.scheduleReturnToTitle(delay: 1.2)
             }
         )
         dialog.position = CGPoint(x: size.width / 2, y: size.height * 0.40)
@@ -609,11 +614,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         usernameDialog = nil
     }
 
-    private func scheduleReturnToTitle(delay: TimeInterval) {
-        run(SKAction.sequence([
-            SKAction.wait(forDuration: delay),
-            SKAction.run { [weak self] in self?.returnToTitle() },
-        ]))
+    private func restartGame() {
+        sound.stopAllAudio()
+        let game = GameScene(size: size)
+        game.scaleMode = .aspectFit
+        view?.presentScene(game, transition: .fade(withDuration: 0.4))
     }
 
     private func togglePause() {

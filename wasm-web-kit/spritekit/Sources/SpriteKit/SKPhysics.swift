@@ -331,8 +331,9 @@ public final class SKPhysicsWorld {
     // Debug visualization. When true, SKView.render strokes the outline
     // of every registered Box2D body on top of the scene so the player
     // can see where the physics shapes actually sit relative to the
-    // sprites. Toggle from the consumer via scene.physicsWorld.showsPhysics.
-    public var showsPhysics: Bool = true
+    // sprites. OFF by default to match Apple SpriteKit (SKView.showsPhysics
+    // is false by default); opt in via scene.physicsWorld.showsPhysics = true.
+    public var showsPhysics: Bool = false
 
     // Walks every body in the registry and strokes its shape on the
     // active draw target. Called from SKView.render after the scene
