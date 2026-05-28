@@ -27,7 +27,49 @@ final class LeaderboardPanel: SKNode {
         self.panelSize = size
         super.init()
         buildShell()
-        showStatus("NO SCORES YET")
+        let entries = LocalHighScores.load()
+        if entries.isEmpty {
+            showStatus("NO SCORES YET")
+        } else {
+            renderRows(entries)
+        }
+    }
+
+    private func renderRows(_ entries: [LocalHighScores.Entry]) {
+        entriesNode.removeAllChildren()
+        let rowH: CGFloat = 28
+        let leftEdge  = -panelSize.width / 2 + 18
+        let rightEdge =  panelSize.width / 2 - 18
+        for (i, entry) in entries.prefix(10).enumerated() {
+            let y = -CGFloat(i) * rowH
+
+            let rank = SKLabelNode(fontNamed: titleFontName)
+            rank.text = "\(i + 1)."
+            rank.fontSize = 18
+            rank.fontColor = .black
+            rank.horizontalAlignmentMode = .right
+            rank.verticalAlignmentMode = .center
+            rank.position = CGPoint(x: leftEdge + 22, y: y)
+            entriesNode.addChild(rank)
+
+            let name = SKLabelNode(fontNamed: titleFontName)
+            name.text = entry.name
+            name.fontSize = 18
+            name.fontColor = .black
+            name.horizontalAlignmentMode = .left
+            name.verticalAlignmentMode = .center
+            name.position = CGPoint(x: leftEdge + 28, y: y)
+            entriesNode.addChild(name)
+
+            let s = SKLabelNode(fontNamed: titleFontName)
+            s.text = String(entry.score)
+            s.fontSize = 18
+            s.fontColor = .black
+            s.horizontalAlignmentMode = .right
+            s.verticalAlignmentMode = .center
+            s.position = CGPoint(x: rightEdge, y: y)
+            entriesNode.addChild(s)
+        }
     }
 
     private func buildShell() {

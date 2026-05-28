@@ -278,6 +278,11 @@ final class GameScene: SKScene {
         heading = nil
         queued = nil
 
+        if score > 0 {
+            let playerName = Persistence.string(forKey: Strings.DefaultsKey.playerName) ?? "ANON"
+            LocalHighScores.submit(name: playerName, score: score)
+        }
+
         let overlay = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
         overlay.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.55)
         overlay.strokeColor = .clear
