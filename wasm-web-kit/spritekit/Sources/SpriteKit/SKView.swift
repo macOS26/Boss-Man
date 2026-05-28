@@ -62,6 +62,7 @@ public final class SKView {
         guard let s = scene else { return }
         let dt = dtMs / 1000.0
         elapsed += dt
+        SKSpriteNode._setKitClock(Float(elapsed))    // u_time for SKShader binds
         pollEvents(s)
         s.stepActions(dt)
         s.update(elapsed)

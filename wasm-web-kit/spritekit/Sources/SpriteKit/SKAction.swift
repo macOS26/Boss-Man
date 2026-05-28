@@ -226,10 +226,32 @@ public final class SKAction {
         SKAction.customAction(withDuration: d) { node, _ in (node as? SKFieldNode)?.falloff += delta }
     }
 
-    // SKAction.perform(_:onTarget:) — invokes an Objective-C selector. On wasm
-    // we don't have ObjC; the action is recorded as a no-op so call sites
-    // compile but nothing fires. Games doing this should migrate to run blocks.
-    public static func perform(_ selector: Any, onTarget target: AnyObject) -> SKAction { SKAction.run {} }
+    // SKAction.perform(_:onTarget:) — Apple's selector dispatch. On wasm
+    // there's no Objective-C runtime, so we offer a portable substitute:
+    // any AnyObject that conforms to SKActionTarget receives a
+    // perform(_ selector: String) call when the action fires. Games adopt
+    // the protocol once and switch on the selector name in their handler.
+    // Non-conforming targets are silently ignored (action still fires once,
+    // matching Apple's "selector doesn't exist" behavior of doing nothing).
+    public static func perform(_ selector: String, onTarget target: AnyObject) -> SKAction {
+        SKAction.customAction(withDuration: 0) { [weak target] _, _ in
+            (target as? SKActionTarget)?.perform(selector)
+        }
+    }
+}
+
+// Adopt SKActionTarget on any object you pass to SKAction.perform(_:onTarget:).
+// The default implementation does nothing so opting in is one-line.
+public protocol SKActionTarget: AnyObject {
+    func perform(_ selector: String)
+}
+public extension SKActionTarget {
+    func perform(_ selector: String) {}
+}
+
+extension SKAction {
+    // Marker extension intentionally empty — the perform(_:onTarget:) bodies
+    // above are members of the class, not this extension.
 
     // Speed factory — modifies SKNode.speed (subtree time scale).
     public static func speed(by delta: CGFloat, duration d: TimeInterval) -> SKAction {

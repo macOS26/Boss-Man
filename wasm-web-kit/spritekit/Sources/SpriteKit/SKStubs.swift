@@ -7,33 +7,94 @@ import KitABI
 // but ignored at draw time. Games that bind shaders for visual effects degrade
 // gracefully to their un-shaded sprites.
 // =============================================================================
+// SKShader: GLSL fragment compiled lazily on first use. The runtime injects a
+// SpriteKit-style preamble (u_time, v_tex_coord, v_color_mix, SKDefaultShading,
+// #define texture2D=texture) before the user source.
 public final class SKShader {
     public var source: String?
-    public var uniforms: [SKUniform] = []
+    public var uniforms: [SKUniform] = [] {
+        didSet { uniformsDirty = true }
+    }
     public var attributes: [SKAttribute] = []
+    // Compiled program handle in the WebGL2 runtime. Lazily filled on first
+    // apply() call when source is available.
+    var handle: Int32 = 0
+    var uniformsDirty: Bool = true
 
     public init() {}
     public init(source: String) { self.source = source }
     public init(source: String, uniforms: [SKUniform]) { self.source = source; self.uniforms = uniforms }
-    public init(fileNamed name: String) {}
+    public init(fileNamed name: String) {
+        if let asset = SKSceneLoader.loadAssetText("\(name).fsh") ?? SKSceneLoader.loadAssetText(name) {
+            self.source = asset
+        }
+    }
     public static func shader(withSource s: String) -> SKShader { SKShader(source: s) }
 
     public func addUniform(_ u: SKUniform) { uniforms.append(u) }
     public func removeUniformNamed(_ name: String) { uniforms.removeAll { $0.name == name } }
     public func uniformNamed(_ name: String) -> SKUniform? { uniforms.first { $0.name == name } }
+
+    // Compile + cache the WebGL2 program. Returns the program handle, or 0
+    // if WebGL2 is unavailable / the source failed to compile.
+    func ensureCompiled() -> Int32 {
+        if handle > 0 { return handle }
+        guard let src = source, !src.isEmpty else { return 0 }
+        handle = withUTF8Ptr(src) { gfx_shader_compile($0, $1) }
+        return handle
+    }
+
+    // Push every uniform value to the runtime. Called before every draw when
+    // uniformsDirty (which flips on every value change).
+    func bindUniforms() {
+        guard handle > 0 else { return }
+        for u in uniforms { u.push(to: handle) }
+        uniformsDirty = false
+    }
 }
 
+// SKUniform stores a single GLSL uniform value. Type is implied by which
+// initializer / property is set. On push the runtime selects the appropriate
+// gfx_shader_set_uniform_* call. Reading existing Apple call sites:
+// SKUniform(name: "u_time", float: 0) → push as float; SKUniform(name:,
+// vectorFloat2:) → push as vec2; SKUniform(name:, texture:) → push as sampler.
 public final class SKUniform {
+    public enum Kind { case float, v2, v3, v4, texture }
     public let name: String
+    public var kind: Kind
     public var floatValue: Float = 0
     public var vectorFloat2: (Float, Float) = (0, 0)
     public var vectorFloat3: (Float, Float, Float) = (0, 0, 0)
     public var vectorFloat4: (Float, Float, Float, Float) = (0, 0, 0, 0)
     public var textureValue: SKTexture?
 
-    public init(name: String) { self.name = name }
-    public init(name: String, float value: Float) { self.name = name; self.floatValue = value }
-    public init(name: String, texture: SKTexture?) { self.name = name; self.textureValue = texture }
+    public init(name: String) { self.name = name; self.kind = .float }
+    public init(name: String, float value: Float) { self.name = name; self.kind = .float; self.floatValue = value }
+    public init(name: String, vectorFloat2 v: (Float, Float)) {
+        self.name = name; self.kind = .v2; self.vectorFloat2 = v
+    }
+    public init(name: String, vectorFloat3 v: (Float, Float, Float)) {
+        self.name = name; self.kind = .v3; self.vectorFloat3 = v
+    }
+    public init(name: String, vectorFloat4 v: (Float, Float, Float, Float)) {
+        self.name = name; self.kind = .v4; self.vectorFloat4 = v
+    }
+    public init(name: String, texture: SKTexture?) {
+        self.name = name; self.kind = .texture; self.textureValue = texture
+    }
+
+    func push(to shader: Int32) {
+        withUTF8Ptr(name) { ptr, len in
+            switch kind {
+            case .float:   gfx_shader_set_uniform_f (shader, ptr, len, floatValue)
+            case .v2:      gfx_shader_set_uniform_v2(shader, ptr, len, vectorFloat2.0, vectorFloat2.1)
+            case .v3:      gfx_shader_set_uniform_v3(shader, ptr, len, vectorFloat3.0, vectorFloat3.1, vectorFloat3.2)
+            case .v4:      gfx_shader_set_uniform_v4(shader, ptr, len, vectorFloat4.0, vectorFloat4.1, vectorFloat4.2, vectorFloat4.3)
+            case .texture:
+                if let t = textureValue { gfx_shader_set_uniform_t(shader, ptr, len, t.handle) }
+            }
+        }
+    }
 }
 
 public final class SKAttribute {

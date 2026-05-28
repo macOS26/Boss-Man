@@ -78,6 +78,9 @@ public enum SKSceneLoader {
         return nil
     }
 
+    // Public helper for non-loader call sites (SKShader(fileNamed:) etc.).
+    public static func loadAssetText(_ path: String) -> String? { readAssetText(path) }
+
     private static func readAssetText(_ path: String) -> String? {
         let exists = withUTF8Ptr(path) { ptr, n -> Int32 in asset_exists(ptr, n) }
         if exists == 0 { return nil }

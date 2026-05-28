@@ -47,21 +47,46 @@ public class SKTexture {
     public func applying(_ filter: AnyObject) -> SKTexture { self }
 }
 
-// SKMutableTexture — dynamic pixels written by the game (CPU pixel buffer).
-// Backed by an in-memory RGBA buffer on the Swift side; calling modifyPixelData
-// hands the game a writable raw pointer. Future ABI extension can push the
-// buffer through the runtime to a Canvas ImageData for actual display.
+// SKMutableTexture — dynamic pixels written by the game. Backed by an
+// in-memory RGBA buffer on the Swift side; modifyPixelData hands the game a
+// writable raw pointer, then pushes the result through gfx_upload_pixels so
+// subsequent gfx_draw_image calls render the updated pixels. The image
+// handle is allocated up front via a 1×1 placeholder so the runtime has a
+// slot to upload into.
 public final class SKMutableTexture: SKTexture {
     var pixelBuffer: [UInt8]
+    let pixelWidth: Int
+    let pixelHeight: Int
+
     public init(size: CGSize) {
-        let w = Int(size.width), h = Int(size.height)
-        self.pixelBuffer = [UInt8](repeating: 0, count: max(0, w * h * 4))
-        super.init(handle: -1); self.size = size
+        let w = max(1, Int(size.width)), h = max(1, Int(size.height))
+        self.pixelWidth = w; self.pixelHeight = h
+        self.pixelBuffer = [UInt8](repeating: 0, count: w * h * 4)
+        // Allocate the image slot up front by pushing the all-transparent
+        // initial buffer; gfx_upload_pixels(0, ...) returns a fresh handle.
+        let id = pixelBuffer.withUnsafeBufferPointer { buf -> Int32 in
+            gfx_upload_pixels(0, Int32(w), Int32(h), buf.baseAddress, Int32(buf.count))
+        }
+        super.init(handle: id)
+        self.size = CGSize(width: CGFloat(w), height: CGFloat(h))
     }
+    public init(size: CGSize, pixelFormat: Int) { fatalError("init not supported") }
+
     public func modifyPixelData(_ block: (UnsafeMutableRawPointer?, Int) -> Void) {
         let count = pixelBuffer.count
         pixelBuffer.withUnsafeMutableBytes { raw in
             block(raw.baseAddress, count)
+        }
+        pushToRuntime()
+    }
+    // Force an upload of the current buffer — useful when game code has been
+    // poking pixelBuffer directly through unsafe raw access.
+    public func reload() { pushToRuntime() }
+
+    private func pushToRuntime() {
+        pixelBuffer.withUnsafeBufferPointer { buf in
+            gfx_upload_pixels(handle, Int32(pixelWidth), Int32(pixelHeight),
+                              buf.baseAddress, Int32(buf.count))
         }
     }
 }

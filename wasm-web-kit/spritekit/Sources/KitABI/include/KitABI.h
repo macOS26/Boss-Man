@@ -74,6 +74,70 @@ WABI void  vid_set_visible(int id, int visible);
 WABI void  snd_set_pan(int voice, float pan);   /* -1 = left, +1 = right */
 WABI void  snd_set_rate(int voice, float rate); /* 1.0 = normal speed */
 
+/* AVAudioEngine — Web Audio graph behind the Swift shim.                  */
+/* eng_player_create returns a player node id; connect chains arbitrary    */
+/* engine nodes (player → mixer → output). schedule_buffer plays a sample. */
+WABI int   eng_player_create(void);
+WABI void  eng_player_release(int id);
+WABI int   eng_mixer_create(void);
+WABI void  eng_node_set_volume(int id, float v);
+WABI void  eng_node_set_pan(int id, float p);
+WABI void  eng_connect(int src, int dst);     /* dst = -1 means destination */
+WABI int   eng_player_schedule_buffer(int player, int sound, int loops);
+WABI void  eng_player_play(int id);
+WABI void  eng_player_stop(int id);
+WABI void  eng_start(void);
+WABI void  eng_stop(void);
+
+/* WebGL2 shader pipeline (SKShader, SKLightNode, SKWarpGeometry, SK3DNode). */
+/* The runtime hosts a hidden WebGL2 canvas. gfx_shader_compile returns a    */
+/* program id; uniforms are pushed by name with the typed setters; apply     */
+/* renders the source image through the shader into an offscreen and blits   */
+/* the result onto the current Canvas2D target at (dstX,dstY,dstW,dstH).     */
+/* SpriteKit's standard preamble (u_time, v_tex_coord, v_color_mix,          */
+/* SKDefaultShading, #define texture2D=texture) is injected automatically.   */
+WABI int   gfx_shader_compile(const char* src, int len);
+WABI void  gfx_shader_release(int shader);
+WABI void  gfx_shader_set_uniform_f (int shader, const char* name, int nlen, float v);
+WABI void  gfx_shader_set_uniform_v2(int shader, const char* name, int nlen, float x, float y);
+WABI void  gfx_shader_set_uniform_v3(int shader, const char* name, int nlen, float x, float y, float z);
+WABI void  gfx_shader_set_uniform_v4(int shader, const char* name, int nlen, float x, float y, float z, float w);
+WABI void  gfx_shader_set_uniform_t (int shader, const char* name, int nlen, int img);
+/* Draw the source image through the shader onto the current 2D target.    */
+/* time is seconds (passed to u_time); colorRgba is the per-call tint mix. */
+WABI void  gfx_shader_draw(int shader, int srcImg, float dstX, float dstY,
+                           float dstW, float dstH, float time, uint32_t colorRgba);
+
+/* Built-in lighting pass — SKLightNode. lights is a flat array of 8 floats */
+/* per light (x, y, ambientRgbaPacked-as-float-bits, lightRgbaPacked,       */
+/* falloff, intensity, _, _) and `lightCount` says how many to read.       */
+/* normalImg is the SKSpriteNode.normalTexture (0 = no normal map).        */
+WABI void  gfx_lighting_draw(int srcImg, int normalImg,
+                             const float* lights, int lightCount,
+                             float dstX, float dstY, float dstW, float dstH,
+                             uint32_t colorRgba);
+
+/* SKWarpGeometryGrid mesh warp. The grid is (cols+1) * (rows+1) vertices  */
+/* of normalized source UVs (0..1) and destination positions in the dest   */
+/* rectangle (0..1 normalized; runtime scales to dst*).                    */
+WABI void  gfx_warp_draw(int srcImg, int cols, int rows,
+                         const float* srcUV, const float* dstXY,
+                         float dstX, float dstY, float dstW, float dstH,
+                         uint32_t colorRgba);
+
+/* SK3DNode viewport: srcImg becomes a billboarded textured quad rendered  */
+/* through a perspective camera at (camX, camY, camZ) looking at origin.   */
+/* Result blits onto the current 2D target at (dstX,dstY,dstW,dstH).       */
+WABI void  gfx_3d_draw_billboard(int srcImg, float camX, float camY, float camZ,
+                                 float dstX, float dstY, float dstW, float dstH,
+                                 uint32_t colorRgba);
+
+/* SKMutableTexture push: upload an RGBA8 pixel buffer to an image asset.  */
+/* w*h*4 bytes expected. Resizes/recreates the backing canvas if needed.   */
+/* When `img` is 0, allocates a new image asset and returns its handle;    */
+/* otherwise updates `img` in place and returns the same handle.           */
+WABI int   gfx_upload_pixels(int img, int w, int h, const uint8_t* rgba, int len);
+
 /* Asset text reads (e.g. *.json compiled from .sks).                       */
 WABI int   asset_exists(const char* name, int len);
 WABI int   asset_text(const char* name, int len, char* buf, int cap);

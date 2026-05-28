@@ -134,6 +134,12 @@ class Runtime {
 
     // ---- handle tables (1-based; 0 means "not loaded/none") ----
     this.images = [null];   // each: { source, width, height }  source = drawable
+    this.shaders = [null];  // each: { program, uniformLocs, srcText }
+    this.engineNodes = [];  // AVAudioEngine nodes (player/mixer)
+    this.glCanvas = null;   // hidden WebGL2 offscreen canvas (lazily created)
+    this.gl = null;         // WebGL2 context (lazily created)
+    this.glQuadVAO = null;  // shared full-quad VAO for shader/lighting passes
+    this.glTexFromImage = new Map();   // imgId -> WebGLTexture cache
     this.fonts = [null];    // each: family string ; index 0 is implicit default
     this.sounds = [null];   // each: AudioBuffer
     this.imageByName = new Map();
@@ -563,6 +569,304 @@ class Runtime {
       tts_cancel: () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
 
       // ============================================================
+      // WebGL2 shader pipeline (SKShader, SKLightNode, SKWarpGeometry,
+      // SK3DNode). Programs cached; uniform locations memoized.
+      // ============================================================
+      gfx_shader_compile: (ptr, len) => {
+        const gl = this.ensureGL(); if (!gl) return 0;
+        const src = this.cstr(ptr, len);
+        const program = this.linkShaderProgram(gl, this.buildShaderFrag(src));
+        if (!program) return 0;
+        const id = this.shaders.length;
+        this.shaders.push({ program, uniformLocs: new Map(), srcText: src });
+        return id;
+      },
+      gfx_shader_release: (sh) => {
+        if (sh <= 0 || sh >= this.shaders.length) return;
+        const rec = this.shaders[sh]; if (!rec) return;
+        if (this.gl && rec.program) this.gl.deleteProgram(rec.program);
+        this.shaders[sh] = null;
+      },
+      gfx_shader_set_uniform_f: (sh, nPtr, nLen, v) => {
+        if (!this.gl) return;
+        const rec = this.shaders[sh]; if (!rec) return;
+        this.gl.useProgram(rec.program);
+        const loc = this.uniLoc(sh, this.cstr(nPtr, nLen));
+        if (loc) this.gl.uniform1f(loc, v);
+      },
+      gfx_shader_set_uniform_v2: (sh, nPtr, nLen, x, y) => {
+        if (!this.gl) return;
+        const rec = this.shaders[sh]; if (!rec) return;
+        this.gl.useProgram(rec.program);
+        const loc = this.uniLoc(sh, this.cstr(nPtr, nLen));
+        if (loc) this.gl.uniform2f(loc, x, y);
+      },
+      gfx_shader_set_uniform_v3: (sh, nPtr, nLen, x, y, z) => {
+        if (!this.gl) return;
+        const rec = this.shaders[sh]; if (!rec) return;
+        this.gl.useProgram(rec.program);
+        const loc = this.uniLoc(sh, this.cstr(nPtr, nLen));
+        if (loc) this.gl.uniform3f(loc, x, y, z);
+      },
+      gfx_shader_set_uniform_v4: (sh, nPtr, nLen, x, y, z, w) => {
+        if (!this.gl) return;
+        const rec = this.shaders[sh]; if (!rec) return;
+        this.gl.useProgram(rec.program);
+        const loc = this.uniLoc(sh, this.cstr(nPtr, nLen));
+        if (loc) this.gl.uniform4f(loc, x, y, z, w);
+      },
+      gfx_shader_set_uniform_t: (sh, nPtr, nLen, imgId) => {
+        if (!this.gl) return;
+        const rec = this.shaders[sh]; if (!rec) return;
+        const tex = this.glTextureFor(imgId); if (!tex) return;
+        this.gl.useProgram(rec.program);
+        // Reserve texture unit 2+ for user textures (0 = u_texture, 1 = u_normal).
+        rec.userTexUnits = rec.userTexUnits || new Map();
+        let unit = rec.userTexUnits.get(nPtr);     // keyed by name pointer is fine; same call site reuses unit
+        if (unit === undefined) { unit = 2 + rec.userTexUnits.size; rec.userTexUnits.set(nPtr, unit); }
+        this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
+        const loc = this.uniLoc(sh, this.cstr(nPtr, nLen));
+        if (loc) this.gl.uniform1i(loc, unit);
+      },
+      gfx_shader_draw: (sh, srcImg, dx, dy, dw, dh, time, color) => {
+        if (sh <= 0 || sh >= this.shaders.length || !this.shaders[sh]) {
+          // Shader unavailable — fall back to plain image draw so the sprite
+          // still appears (un-shaded) instead of vanishing.
+          const rec = this.images[srcImg];
+          if (rec && rec.source) this.ctx2d().drawImage(rec.source, dx, dy, dw, dh);
+          return;
+        }
+        this.glRunPassToCanvas(sh, srcImg, 0, dx, dy, dw, dh, time, color, null);
+      },
+
+      // SKLightNode lighting pass. `lights` is a pointer to a tightly-packed
+      // float buffer: 8 floats per light = posX, posY, intensity, _pad,
+      // colorR, colorG, colorB, falloff. Up to 8 lights consumed.
+      gfx_lighting_draw: (srcImg, normalImg, lightsPtr, lightCount,
+                          dx, dy, dw, dh, color) => {
+        const shaderId = this.ensureLightingShader(); if (!shaderId) return;
+        const dv = this.dv();
+        const n = Math.max(0, Math.min(8, lightCount));
+        const posIntensity = new Float32Array(8 * 4);
+        const colorFalloff = new Float32Array(8 * 4);
+        for (let i = 0; i < n; i++) {
+          const base = lightsPtr + i * 32;
+          posIntensity[i*4+0] = dv.getFloat32(base + 0,  true); // x
+          posIntensity[i*4+1] = dv.getFloat32(base + 4,  true); // y
+          posIntensity[i*4+2] = 0;                              // z (kept 0 in 2D)
+          posIntensity[i*4+3] = dv.getFloat32(base + 8,  true); // intensity (in w slot)
+          colorFalloff[i*4+0] = dv.getFloat32(base + 16, true); // r
+          colorFalloff[i*4+1] = dv.getFloat32(base + 20, true); // g
+          colorFalloff[i*4+2] = dv.getFloat32(base + 24, true); // b
+          colorFalloff[i*4+3] = dv.getFloat32(base + 28, true); // falloff
+        }
+        this.glRunPassToCanvas(shaderId, srcImg, normalImg, dx, dy, dw, dh, 0, color,
+          (gl, self) => {
+            const uPos = self.uniLoc(shaderId, 'u_lightPositions');
+            const uCol = self.uniLoc(shaderId, 'u_lightColors');
+            const uCnt = self.uniLoc(shaderId, 'u_lightCount');
+            const uAmb = self.uniLoc(shaderId, 'u_ambient');
+            if (uPos) gl.uniform4fv(uPos, posIntensity);
+            if (uCol) gl.uniform4fv(uCol, colorFalloff);
+            if (uCnt) gl.uniform1i(uCnt, n);
+            if (uAmb) gl.uniform4f(uAmb, 0.2, 0.2, 0.2, 1.0);
+          });
+      },
+
+      // SKWarpGeometryGrid mesh warp. Renders a (cols x rows) cell grid of
+      // textured triangles. srcUV is (cols+1)*(rows+1)*2 floats in 0..1.
+      // dstXY is the same count, in normalized 0..1 dest coordinates.
+      gfx_warp_draw: (srcImg, cols, rows, srcUVPtr, dstXYPtr,
+                      dx, dy, dw, dh, color) => {
+        const gl = this.ensureGL(); if (!gl) return;
+        const srcTex = this.glTextureFor(srcImg); if (!srcTex) return;
+        // Build vertex arrays from wasm memory.
+        const verts = (cols + 1) * (rows + 1);
+        const dv = this.dv();
+        const xy = new Float32Array(verts * 2);
+        const uv = new Float32Array(verts * 2);
+        for (let i = 0; i < verts; i++) {
+          // dest in 0..1 → NDC -1..1 (y flipped so 0 is top)
+          xy[i*2+0] = dv.getFloat32(dstXYPtr + i*8 + 0, true) * 2 - 1;
+          xy[i*2+1] = 1 - dv.getFloat32(dstXYPtr + i*8 + 4, true) * 2;
+          uv[i*2+0] = dv.getFloat32(srcUVPtr + i*8 + 0, true);
+          uv[i*2+1] = dv.getFloat32(srcUVPtr + i*8 + 4, true);
+        }
+        // Build index buffer (2 tris per cell).
+        const idx = new Uint16Array(cols * rows * 6);
+        let k = 0;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const i00 = r * (cols + 1) + c;
+            const i10 = i00 + 1;
+            const i01 = i00 + (cols + 1);
+            const i11 = i01 + 1;
+            idx[k++] = i00; idx[k++] = i10; idx[k++] = i11;
+            idx[k++] = i00; idx[k++] = i11; idx[k++] = i01;
+          }
+        }
+        // Ensure a passthrough program exists.
+        if (this.warpShader == null) {
+          const src = `void main(){ gl_FragColor = SKDefaultShading(); }`;
+          this.warpShader = this.linkShaderProgram(gl, this.buildShaderFrag(src));
+        }
+        if (!this.warpShader) return;
+        this.glResize(dw, dh);
+        gl.useProgram(this.warpShader);
+        // Interleaved VBO.
+        const buf = new Float32Array(verts * 4);
+        for (let i = 0; i < verts; i++) {
+          buf[i*4+0] = xy[i*2+0]; buf[i*4+1] = xy[i*2+1];
+          buf[i*4+2] = uv[i*2+0]; buf[i*4+3] = uv[i*2+1];
+        }
+        const vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STREAM_DRAW);
+        gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+        gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
+        const ibo = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STREAM_DRAW);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, srcTex);
+        const r = ((color >>> 24) & 0xFF) / 255;
+        const g = ((color >>> 16) & 0xFF) / 255;
+        const b = ((color >>>  8) & 0xFF) / 255;
+        const a = ( color         & 0xFF) / 255;
+        const program = this.warpShader;
+        const uTex = gl.getUniformLocation(program, 'u_texture'); if (uTex) gl.uniform1i(uTex, 0);
+        const uCol = gl.getUniformLocation(program, 'u_color_mix'); if (uCol) gl.uniform4f(uCol, r, g, b, a);
+        gl.drawElements(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0);
+        gl.deleteBuffer(vbo); gl.deleteBuffer(ibo);
+        this.ctx2d().drawImage(this.glCanvas, 0, 0, this.glCanvas.width, this.glCanvas.height, dx, dy, dw, dh);
+      },
+
+      // SK3DNode minimal billboard render. Sets up a perspective view +
+      // textured quad at the origin. Future: OBJ + scene graph.
+      gfx_3d_draw_billboard: (srcImg, camX, camY, camZ,
+                              dx, dy, dw, dh, color) => {
+        // Simple compose: pass the texture through unchanged, scaled by view
+        // distance so the quad gets smaller as the camera pulls back. Enough
+        // to show "something" for games that only use SK3DNode for splash
+        // billboards; a full SceneKit shim is its own project.
+        const rec = this.images[srcImg];
+        if (rec && rec.source) {
+          const ctx = this.ctx2d();
+          const fov = 60 * Math.PI / 180;
+          const dist = Math.max(0.001, Math.sqrt(camX*camX + camY*camY + Math.max(camZ, 0.001) * Math.max(camZ, 0.001)));
+          const scale = 1 / (1 + dist * Math.tan(fov / 2) * 0.01);
+          const w2 = dw * scale, h2 = dh * scale;
+          ctx.drawImage(rec.source, dx + (dw - w2) / 2, dy + (dh - h2) / 2, w2, h2);
+        }
+      },
+
+      // SKMutableTexture push: replace an image asset's backing canvas with
+      // the raw RGBA8 pixels at `ptr`. Resizes the canvas to (w, h).
+      // ============================================================
+      // AVAudioEngine — real Web Audio graph.
+      // Each engine node maps to a Web Audio node (AudioBufferSourceNode for
+      // players, GainNode for mixers). Players hold a queue of scheduled
+      // buffers; play() triggers the next one. dst = -1 connects directly to
+      // audioCtx.destination so a one-line player → output chain works.
+      // ============================================================
+      eng_player_create: () => {
+        this.ensureAudio();
+        const id = this.engineNodes.length;
+        const gain = this.audioCtx.createGain();
+        this.engineNodes.push({ kind: 'player', source: null, gain, queue: [], loops: 0 });
+        return id;
+      },
+      eng_player_release: (id) => {
+        const n = this.engineNodes[id]; if (!n) return;
+        try { if (n.source) n.source.stop(); } catch (_e) {}
+        try { n.gain.disconnect(); } catch (_e) {}
+        this.engineNodes[id] = null;
+      },
+      eng_mixer_create: () => {
+        this.ensureAudio();
+        const id = this.engineNodes.length;
+        const gain = this.audioCtx.createGain();
+        this.engineNodes.push({ kind: 'mixer', gain });
+        return id;
+      },
+      eng_node_set_volume: (id, v) => {
+        const n = this.engineNodes[id]; if (!n) return;
+        n.gain.gain.value = v;
+      },
+      eng_node_set_pan: (id, p) => {
+        const n = this.engineNodes[id]; if (!n) return;
+        if (!n.panner && this.audioCtx.createStereoPanner) {
+          n.panner = this.audioCtx.createStereoPanner();
+          try { n.gain.disconnect(); n.gain.connect(n.panner); } catch (_e) {}
+          if (n.pannerDownstream) n.panner.connect(n.pannerDownstream);
+        }
+        if (n.panner) n.panner.pan.value = p;
+      },
+      eng_connect: (srcId, dstId) => {
+        const s = this.engineNodes[srcId]; if (!s) return;
+        const dst = dstId < 0 ? this.audioCtx.destination : (this.engineNodes[dstId] ? this.engineNodes[dstId].gain : null);
+        if (!dst) return;
+        try {
+          (s.panner || s.gain).connect(dst);
+          if (s.panner) s.pannerDownstream = dst;
+        } catch (_e) {}
+      },
+      eng_player_schedule_buffer: (playerId, sndId, loops) => {
+        const p = this.engineNodes[playerId]; if (!p || p.kind !== 'player') return 0;
+        const buf = this.sounds[sndId]; if (!buf) return 0;
+        p.queue.push({ buffer: buf, loops });
+        return 1;
+      },
+      eng_player_play: (id) => {
+        const p = this.engineNodes[id]; if (!p || p.kind !== 'player') return;
+        if (p.queue.length === 0) return;
+        const job = p.queue.shift();
+        const src = this.audioCtx.createBufferSource();
+        src.buffer = job.buffer;
+        src.loop = job.loops < 0;
+        src.connect(p.gain);
+        try { src.start(); } catch (_e) {}
+        p.source = src;
+      },
+      eng_player_stop: (id) => {
+        const p = this.engineNodes[id]; if (!p || p.kind !== 'player') return;
+        try { if (p.source) p.source.stop(); } catch (_e) {}
+        p.source = null; p.queue = [];
+      },
+      eng_start: () => { this.ensureAudio(); if (this.audioCtx.state === 'suspended') this.audioCtx.resume(); },
+      eng_stop:  () => { if (this.audioCtx && this.audioCtx.state === 'running') this.audioCtx.suspend(); },
+
+      gfx_upload_pixels: (imgId, w, h, ptr, len) => {
+        let rec, finalId = imgId;
+        if (imgId <= 0) {
+          // Allocate a new image slot.
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          rec = { source: cv, width: w, height: h };
+          finalId = this.images.length;
+          this.images.push(rec);
+        } else {
+          rec = this.images[imgId];
+          if (!rec) return 0;
+        }
+        let cv = rec.source;
+        if (!(cv instanceof HTMLCanvasElement)) {
+          cv = document.createElement('canvas');
+          rec.source = cv;
+        }
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        const ctx = cv.getContext('2d');
+        const data = ctx.createImageData(w, h);
+        const u8 = new Uint8Array(this.wasmMemory.buffer, ptr, Math.min(len, w * h * 4));
+        data.data.set(u8);
+        ctx.putImageData(data, 0, 0);
+        rec.width = w; rec.height = h;
+        this.glTexFromImage.delete(finalId);   // invalidate GL cache so next pass re-uploads
+        return finalId;
+      },
+
+      // ============================================================
       // Offscreen canvas pipeline (SKView.texture(from:), SKCropNode,
       // SKEffectNode). gfx_offscreen_begin pushes a new HTMLCanvasElement
       // onto this.targets, switches gfx output to it, and returns a handle.
@@ -776,6 +1080,223 @@ class Runtime {
   // helpers
   // --------------------------------------------------------------------------
   ctx2d() { return this.targets[this.curTarget].ctx; }
+
+  // ----------------------------------------------------------------------------
+  // WebGL2 shader pipeline. The kit runs Canvas2D for most drawing; SKShader
+  // and SKLightNode need a real GPU pipeline, so we host a hidden WebGL2 canvas
+  // (created on first use), compile programs against it, render the shaded
+  // result there, then drawImage it back onto the active Canvas2D target.
+  // ----------------------------------------------------------------------------
+  ensureGL() {
+    if (this.gl) return this.gl;
+    const c = document.createElement('canvas');
+    c.width = 1024; c.height = 1024;
+    const gl = c.getContext('webgl2', { premultipliedAlpha: false, alpha: true });
+    if (!gl) { console.warn('[boss] WebGL2 unavailable; shaders will no-op'); return null; }
+    this.glCanvas = c;
+    this.gl = gl;
+    // Shared full-quad VAO. Triangle strip covers [-1..1] in NDC; UVs cover [0..1].
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    const vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    // x, y, u, v
+    const verts = new Float32Array([
+      -1, -1, 0, 1,
+       1, -1, 1, 1,
+      -1,  1, 0, 0,
+       1,  1, 1, 0,
+    ]);
+    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
+    gl.bindVertexArray(null);
+    this.glQuadVAO = vao;
+    return gl;
+  }
+
+  // Build the WebGL2 preamble that lets SpriteKit-style fragment source ("void
+  // main() { ... gl_FragColor = ... }") compile against GLSL ES 3.00. We map
+  // legacy names (texture2D, gl_FragColor) and inject SKDefaultShading plus
+  // the standard SpriteKit varyings + uniforms.
+  buildShaderFrag(userSrc) {
+    return `#version 300 es
+precision highp float;
+in vec2 v_tex_coord;
+in vec4 v_color_mix;
+uniform sampler2D u_texture;
+uniform float u_time;
+out vec4 _outColor;
+#define gl_FragColor _outColor
+#define texture2D texture
+vec4 SKDefaultShading() {
+  return texture(u_texture, v_tex_coord) * v_color_mix;
+}
+${userSrc}
+`;
+  }
+
+  buildShaderVert() {
+    return `#version 300 es
+in vec2 a_position;
+in vec2 a_uv;
+out vec2 v_tex_coord;
+out vec4 v_color_mix;
+uniform vec4 u_color_mix;
+void main() {
+  v_tex_coord = a_uv;
+  v_color_mix = u_color_mix;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  }
+
+  compileShaderObj(gl, type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(sh);
+      console.warn('[boss] shader compile failed:', log, '\n\nSource:\n', src);
+      gl.deleteShader(sh);
+      return null;
+    }
+    return sh;
+  }
+  linkShaderProgram(gl, fragSrc) {
+    const vs = this.compileShaderObj(gl, gl.VERTEX_SHADER, this.buildShaderVert());
+    const fs = this.compileShaderObj(gl, gl.FRAGMENT_SHADER, fragSrc);
+    if (!vs || !fs) return null;
+    const p = gl.createProgram();
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fs);
+    gl.bindAttribLocation(p, 0, 'a_position');
+    gl.bindAttribLocation(p, 1, 'a_uv');
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      console.warn('[boss] program link failed:', gl.getProgramInfoLog(p));
+      return null;
+    }
+    return p;
+  }
+
+  // Find/create a WebGLTexture for an image asset id. Cached so repeat draws
+  // don't re-upload. SKMutableTexture invalidates by deleting the cache entry
+  // on each gfx_upload_pixels.
+  glTextureFor(imgId) {
+    const gl = this.gl;
+    let tex = this.glTexFromImage.get(imgId);
+    if (tex) return tex;
+    const rec = this.images[imgId]; if (!rec || !rec.source) return null;
+    tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, rec.source);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.glTexFromImage.set(imgId, tex);
+    return tex;
+  }
+
+  // Resize the WebGL canvas to (w, h) and reset the viewport. Used before
+  // each shader/lighting/warp draw so the framebuffer matches the dest rect.
+  glResize(w, h) {
+    const gl = this.gl;
+    const iw = Math.max(1, Math.round(w));
+    const ih = Math.max(1, Math.round(h));
+    if (this.glCanvas.width !== iw || this.glCanvas.height !== ih) {
+      this.glCanvas.width = iw; this.glCanvas.height = ih;
+    }
+    gl.viewport(0, 0, iw, ih);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
+  // Look up (and cache) a uniform location on a program.
+  uniLoc(shader, name) {
+    const rec = this.shaders[shader]; if (!rec) return null;
+    let loc = rec.uniformLocs.get(name);
+    if (loc !== undefined) return loc;
+    loc = this.gl.getUniformLocation(rec.program, name);
+    rec.uniformLocs.set(name, loc);
+    return loc;
+  }
+
+  // Cached default lighting program (compiled the first time SKLightNode renders).
+  ensureLightingShader() {
+    if (this.lightingShader != null) return this.lightingShader;
+    const gl = this.ensureGL(); if (!gl) return null;
+    // Up to 8 lights. Each light is vec4 posIntensity + vec4 colorFalloff.
+    const userSrc = `
+uniform sampler2D u_normal;
+uniform vec4 u_ambient;
+uniform vec4 u_lightPositions[8];
+uniform vec4 u_lightColors[8];
+uniform int  u_lightCount;
+void main() {
+  vec4 base = SKDefaultShading();
+  vec3 normal = vec3(0.0, 0.0, 1.0);
+  vec4 nm = texture(u_normal, v_tex_coord);
+  // If a real normal map texture is bound (alpha != 0 placeholder), use it.
+  if (nm.a > 0.001) { normal = normalize(nm.xyz * 2.0 - 1.0); }
+  vec3 accum = u_ambient.rgb * base.rgb;
+  for (int i = 0; i < 8; i++) {
+    if (i >= u_lightCount) break;
+    vec3 toLight = vec3(u_lightPositions[i].xy - gl_FragCoord.xy, u_lightPositions[i].z);
+    float dist = length(toLight);
+    vec3 dir = normalize(toLight);
+    float diff = max(dot(normal, dir), 0.0);
+    float fall = 1.0 / (1.0 + u_lightColors[i].a * dist);
+    accum += base.rgb * u_lightColors[i].rgb * diff * fall * u_lightPositions[i].w;
+  }
+  gl_FragColor = vec4(accum, base.a);
+}`;
+    const program = this.linkShaderProgram(gl, this.buildShaderFrag(userSrc));
+    if (!program) { this.lightingShader = -1; return null; }
+    const id = this.shaders.length;
+    this.shaders.push({ program, uniformLocs: new Map(), srcText: '<built-in lighting>' });
+    this.lightingShader = id;
+    return id;
+  }
+
+  // Apply a compiled program to (srcImg, dstW, dstH) into the WebGL canvas,
+  // then drawImage the result onto the current 2D target at (dstX,dstY,dstW,dstH).
+  glRunPassToCanvas(shaderId, srcImg, normalImg, dstX, dstY, dstW, dstH, time, colorRgba, extraUniforms) {
+    const gl = this.ensureGL(); if (!gl) return;
+    const rec = this.shaders[shaderId]; if (!rec) return;
+    const srcTex = this.glTextureFor(srcImg); if (!srcTex) return;
+    const normalTex = normalImg > 0 ? this.glTextureFor(normalImg) : null;
+    this.glResize(dstW, dstH);
+    gl.useProgram(rec.program);
+    gl.bindVertexArray(this.glQuadVAO);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, srcTex);
+    const uTex = this.uniLoc(shaderId, 'u_texture'); if (uTex) gl.uniform1i(uTex, 0);
+    const uTime = this.uniLoc(shaderId, 'u_time'); if (uTime) gl.uniform1f(uTime, time);
+    const uColor = this.uniLoc(shaderId, 'u_color_mix');
+    if (uColor) {
+      const r = ((colorRgba >>> 24) & 0xFF) / 255;
+      const g = ((colorRgba >>> 16) & 0xFF) / 255;
+      const b = ((colorRgba >>>  8) & 0xFF) / 255;
+      const a = ( colorRgba         & 0xFF) / 255;
+      gl.uniform4f(uColor, r, g, b, a);
+    }
+    if (normalTex) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, normalTex);
+      const uN = this.uniLoc(shaderId, 'u_normal');
+      if (uN) gl.uniform1i(uN, 1);
+    }
+    if (extraUniforms) extraUniforms(gl, this);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // Blit WebGL result onto the current Canvas2D target.
+    const dstCtx = this.ctx2d();
+    dstCtx.drawImage(this.glCanvas, 0, 0, this.glCanvas.width, this.glCanvas.height,
+                     dstX, dstY, dstW, dstH);
+  }
+
 
   css(rgba) {
     const r = (rgba >>> 24) & 0xFF;

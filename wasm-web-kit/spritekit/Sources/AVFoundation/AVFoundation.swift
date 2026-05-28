@@ -131,42 +131,91 @@ public final class AVSpeechSynthesisVoice {
 // AVAudioEngine — compile-only no-op graph so games compile. Audio doesn't play
 // through this path on web; consumers should layer AVAudioPlayer on top.
 // =============================================================================
+// AVAudioEngine — wraps the kit's Web Audio graph. Nodes (players + mixers)
+// live in the runtime; the Swift objects hold the integer node id and
+// forward attach/connect/play through the eng_* ABI.
 public final class AVAudioEngine {
-    public let mainMixerNode = AVAudioMixerNode()
+    public let mainMixerNode: AVAudioMixerNode
     public let outputNode = AVAudioOutputNode()
-    public init() {}
-    public func attach(_ node: AnyObject) {}
-    public func detach(_ node: AnyObject) {}
-    public func connect(_ src: AnyObject, to dst: AnyObject, format: Any?) {}
-    public func connect(_ src: AnyObject, to dst: AnyObject, fromBus: Int, toBus: Int, format: Any?) {}
+    public var isRunning = false
+
+    public init() {
+        self.mainMixerNode = AVAudioMixerNode()
+        // Wire main mixer → output (engine destination) by default.
+        eng_connect(self.mainMixerNode.nodeId, -1)
+    }
+    public func attach(_ node: AnyObject) {}     // creation already attaches in our model
+    public func detach(_ node: AnyObject) {
+        if let n = node as? AVAudioNode, n.nodeId >= 0 {
+            eng_player_release(n.nodeId); n.nodeId = -1
+        }
+    }
+    public func connect(_ src: AnyObject, to dst: AnyObject, format: Any?) {
+        guard let s = src as? AVAudioNode, let d = dst as? AVAudioNode else { return }
+        eng_connect(s.nodeId, d.nodeId)
+    }
+    public func connect(_ src: AnyObject, to dst: AnyObject, fromBus: Int, toBus: Int, format: Any?) {
+        connect(src, to: dst, format: format)
+    }
     public func disconnectNodeInput(_ node: AnyObject) {}
     public func disconnectNodeOutput(_ node: AnyObject) {}
     public func prepare() {}
-    public func start() throws {}
-    public func stop() {}
+    public func start() throws { eng_start(); isRunning = true }
+    public func stop() { eng_stop(); isRunning = false }
     public func reset() {}
-    public var isRunning = false
 }
-public class AVAudioNode { public init() {} }
-public final class AVAudioMixerNode: AVAudioNode { public var volume: Float = 1 }
-public final class AVAudioOutputNode: AVAudioNode {}
+
+public class AVAudioNode {
+    var nodeId: Int32 = -1
+    public init() {}
+    public var volume: Float = 1.0 {
+        didSet { if nodeId >= 0 { eng_node_set_volume(nodeId, volume) } }
+    }
+    public var pan: Float = 0 {
+        didSet { if nodeId >= 0 { eng_node_set_pan(nodeId, pan) } }
+    }
+}
+public final class AVAudioMixerNode: AVAudioNode {
+    public override init() { super.init(); self.nodeId = eng_mixer_create() }
+}
+public final class AVAudioOutputNode: AVAudioNode {
+    // Represents the engine destination. nodeId = -1 is a sentinel that
+    // eng_connect interprets as audioCtx.destination.
+    public override init() { super.init(); self.nodeId = -1 }
+}
 public final class AVAudioPlayerNode: AVAudioNode {
-    public var pan: Float = 0
-    public var volume: Float = 1
-    public func play() {}
-    public func play(at when: Any?) {}
-    public func stop() {}
-    public func pause() {}
-    public func scheduleBuffer(_ buffer: AnyObject, completionHandler h: (() -> Void)? = nil) { h?() }
-    public func scheduleBuffer(_ buffer: AnyObject, at when: Any?, options: Int, completionHandler h: (() -> Void)? = nil) { h?() }
-    public func scheduleFile(_ file: AnyObject, at when: Any?, completionHandler h: (() -> Void)? = nil) { h?() }
+    public override init() { super.init(); self.nodeId = eng_player_create() }
+    public func play() { if nodeId >= 0 { eng_player_play(nodeId) } }
+    public func play(at when: Any?) { play() }
+    public func stop() { if nodeId >= 0 { eng_player_stop(nodeId) } }
+    public func pause() { stop() }
+
+    // Schedule an AudioBuffer for playback. We accept either a raw sound
+    // handle (Int32) or an AVAudioPCMBuffer that already holds one.
+    public func scheduleBuffer(_ buffer: AnyObject, completionHandler h: (() -> Void)? = nil) {
+        let snd = (buffer as? AVAudioPCMBuffer)?.soundHandle ?? 0
+        if snd > 0, nodeId >= 0 { _ = eng_player_schedule_buffer(nodeId, snd, 0) }
+        h?()
+    }
+    public func scheduleBuffer(_ buffer: AnyObject, at when: Any?, options: Int, completionHandler h: (() -> Void)? = nil) {
+        scheduleBuffer(buffer, completionHandler: h)
+    }
+    public func scheduleFile(_ file: AnyObject, at when: Any?, completionHandler h: (() -> Void)? = nil) {
+        if let f = file as? AVAudioFile, f.soundHandle > 0, nodeId >= 0 {
+            _ = eng_player_schedule_buffer(nodeId, f.soundHandle, 0)
+        }
+        h?()
+    }
 }
 
 public final class AVAudioFile {
-    public init(forReading url: SKAudioURL) throws {}
+    public var soundHandle: Int32 = 0
+    public init(forReading url: SKAudioURL) throws {
+        self.soundHandle = withUTF8Ptr(url.lastPathComponent) { snd_by_name($0, $1) }
+    }
     public var length: Int64 = 0
     public var processingFormat: AVAudioFormat = AVAudioFormat()
-    public func read(into buffer: AVAudioPCMBuffer) throws {}
+    public func read(into buffer: AVAudioPCMBuffer) throws { buffer.soundHandle = self.soundHandle }
 }
 public final class AVAudioFormat {
     public init() {}
@@ -175,6 +224,7 @@ public final class AVAudioFormat {
 public final class AVAudioPCMBuffer {
     public var frameCapacity: UInt32 = 0
     public var frameLength: UInt32 = 0
+    public var soundHandle: Int32 = 0      // populated by AVAudioFile.read(into:)
     public init() {}
     public init(pcmFormat: AVAudioFormat, frameCapacity: UInt32) { self.frameCapacity = frameCapacity }
 }

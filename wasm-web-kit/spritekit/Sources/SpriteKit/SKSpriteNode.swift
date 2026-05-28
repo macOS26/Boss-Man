@@ -16,6 +16,11 @@ public final class SKSpriteNode: SKNode {
     public var shadowCastBitMask: UInt32 = 0
     public var shadowedBitMask: UInt32 = 0xFFFFFFFF
     public var shader: SKShader?
+    // SKWarpGeometry hook. When set, draw routes the texture through the
+    // mesh warp instead of the plain quad / 9-slice. Apple's SKAction.warp
+    // animates this field by lerping a target geometry into the current one.
+    public var warpGeometry: SKWarpGeometry?
+    public var subdivisionLevels: Int = 0
 
     public init(color: SKColor, size: CGSize) { self.color = color; self.size = size; super.init() }
     public init(texture: SKTexture?, size: CGSize) { self.texture = texture; self.size = size; super.init() }
@@ -51,6 +56,44 @@ public final class SKSpriteNode: SKNode {
         }
         // re-flip locally so the bitmap isn't drawn upside down
         gfx_save(); gfx_scale(1, -1)
+
+        // Shader path: when a SKShader is bound, route the texture through
+        // gfx_shader_draw (WebGL2 pass) instead of a plain image blit. The
+        // shader's u_texture is the sprite's main texture; u_color_mix is the
+        // sprite's tint, u_time is wall-clock seconds since the kit started.
+        if let sh = shader, sh.ensureCompiled() > 0 {
+            sh.bindUniforms()
+            let t0 = SKSpriteNode.kitClock()
+            gfx_shader_draw(sh.handle, t.handle,
+                            -w * ax, -h * (1 - ay), w, h, t0, color.rgba)
+            gfx_restore()
+            return
+        }
+
+        // Lighting path: when lightingBitMask matches an active SKLightNode,
+        // run the built-in lighting fragment so normal-mapped sprites shade.
+        if lightingBitMask != 0, let scene = self.scene,
+           let lightsBuf = SKSpriteNode.collectActiveLights(scene: scene,
+                                                            mask: lightingBitMask) {
+            lightsBuf.withUnsafeBufferPointer { ptr in
+                gfx_lighting_draw(t.handle,
+                                  normalTexture?.handle ?? 0,
+                                  ptr.baseAddress, Int32(ptr.count / 8),
+                                  -w * ax, -h * (1 - ay), w, h, color.rgba)
+            }
+            gfx_restore()
+            return
+        }
+
+        // Warp path: mesh-warp the sprite's texture through the SKWarpGeometry.
+        if let warp = warpGeometry as? SKWarpGeometryGrid {
+            warp.render(srcImg: t.handle,
+                        dstX: -w * ax, dstY: -h * (1 - ay), dstW: w, dstH: h,
+                        color: color.rgba)
+            gfx_restore()
+            return
+        }
+
         if centerRect == .zero {
             // Single-quad draw. Honor the texture's sub-region when set so
             // atlas slices (SKTexture(rect:in:)) render correctly.
@@ -67,6 +110,41 @@ public final class SKSpriteNode: SKNode {
             draw9Slice(t, dx: -w * ax, dy: -h * (1 - ay), dw: w, dh: h)
         }
         gfx_restore()
+    }
+
+    // Time source passed to u_time. Apple's SKShader sees seconds since the
+    // shader was attached; we use seconds since the first kit frame, which is
+    // close enough for the typical "ripple by time" patterns. KitClock is
+    // refreshed by SKView each frame.
+    nonisolated(unsafe) static var _kitTime: Float = 0
+    static func kitClock() -> Float { _kitTime }
+    public static func _setKitClock(_ t: Float) { _kitTime = t }
+
+    // Collect up to 8 lights matching `mask` and flatten them into a buffer of
+    // 8 floats per light (posX, posY, intensity, _, r, g, b, falloff) for
+    // gfx_lighting_draw. Returns nil when no light matches.
+    static func collectActiveLights(scene: SKScene, mask: UInt32) -> [Float]? {
+        var buf: [Float] = []
+        var count = 0
+        func walk(_ n: SKNode) {
+            guard count < 8 else { return }
+            if let l = n as? SKLightNode, l.isEnabled,
+               (l.categoryBitMask & mask) != 0 {
+                let p = l.absolutePosition()
+                buf.append(Float(p.x))
+                buf.append(Float(p.y))
+                buf.append(1.0)                                  // intensity
+                buf.append(0)                                    // padding
+                buf.append(Float(l.lightColor.r))
+                buf.append(Float(l.lightColor.g))
+                buf.append(Float(l.lightColor.b))
+                buf.append(Float(l.falloff))
+                count += 1
+            }
+            for c in n.children { walk(c) }
+        }
+        walk(scene)
+        return buf.isEmpty ? nil : buf
     }
 
     // 9-slice: split the source texture into corners/edges/center using the
