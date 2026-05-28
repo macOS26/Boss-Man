@@ -234,6 +234,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         if gameOver { return }
         if key == 36 {        // Escape
+            sound.stopAllAudio()
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
             view?.presentScene(title, transition: .fade(withDuration: 0.4))
@@ -552,7 +553,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         gameOver = true
         peteMover.dir = nil
         queued = nil
-        sound.stopMusic()
+        sound.stopAllAudio()
 
         // bossman-apple HUD.showGameOver: translucent dim, orange-bordered
         // central card, big red GAME OVER + pulsing prompt + "PRESS ESC".
@@ -610,6 +611,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func togglePause() {
         isUserPaused.toggle()
+        if isUserPaused { sound.pauseAudio() } else { sound.resumeAudio() }
         if isUserPaused {
             let dim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
             dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.45)
@@ -631,6 +633,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func returnToTitle() {
+        sound.stopAllAudio()
         let title = TitleScene(size: size)
         title.scaleMode = .aspectFit
         view?.presentScene(title, transition: .fade(withDuration: 0.5))

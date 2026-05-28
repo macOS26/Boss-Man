@@ -151,6 +151,29 @@ final class SoundManager {
         if musicVoice > 0 { snd_stop(musicVoice); musicVoice = 0 }
     }
 
+    // bossman-apple SoundManager.pauseAudio / resumeAudio: pause/resume music,
+    // effects and speech together when the game is paused. snd_pause_all
+    // suspends the whole Web Audio context (music + every effect voice); TTS
+    // runs on the separate Web Speech API so it's cancelled explicitly.
+    func pauseAudio() {
+        snd_pause_all()
+        tts_cancel()
+    }
+
+    func resumeAudio() {
+        snd_resume_all()
+    }
+
+    // bossman-apple stops the background music (and gold-disc bass) on game
+    // over and on exit to the title. We also cancel any in-flight speech and
+    // make sure the audio context isn't left suspended by a prior pause, so
+    // the next scene can play.
+    func stopAllAudio() {
+        snd_resume_all()
+        stopMusic()
+        tts_cancel()
+    }
+
     private func uploadPCM(_ samples: [Float]) -> Int32 {
         return samples.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return Int32(0) }
