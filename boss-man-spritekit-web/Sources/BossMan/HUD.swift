@@ -10,6 +10,7 @@ import SpriteKit
 final class HUD {
     static let panelHeight: CGFloat = 100
     static let maxLives = 5
+    static let startingLives = 3
 
     private let statusLabel  = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let tpsLabel     = SKLabelNode(fontNamed: Strings.Font.menloBold)
@@ -18,6 +19,9 @@ final class HUD {
     private let waterGunIcon = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let ammoDots     = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private var lifeIcons: [PixelPerson] = []
+    // Container for the upcoming-traveler emoji trail at the top-right.
+    private let levelEmojisContainer = SKNode()
+    private var lastTravelerKey: String? = nil
 
     private weak var scene: SKScene?
 
@@ -70,6 +74,10 @@ final class HUD {
             lifeIcons.append(icon)
         }
 
+        levelEmojisContainer.position = CGPoint(x: size.width - 30, y: size.height - 22)
+        levelEmojisContainer.zPosition = 21
+        scene.addChild(levelEmojisContainer)
+
         messageLabel.fontSize = 19
         messageLabel.horizontalAlignmentMode = .right
         messageLabel.verticalAlignmentMode = .center
@@ -121,6 +129,38 @@ final class HUD {
         } else {
             ammoDots.fontColor = red
             waterGunIcon.alpha = 0.5
+        }
+    }
+
+    // Upcoming-traveler emoji trail in the top-right corner. Identical
+    // layout to bossman-apple: right-to-left, ~26px spacing, with the
+    // current level's traveler at the rightmost position. Pass an empty
+    // array to clear.
+    func update(travelers: [LevelTraveler]) {
+        let key = travelers.map { $0.image ?? $0.emoji }.joined(separator: ",")
+        if key == lastTravelerKey { return }
+        lastTravelerKey = key
+        levelEmojisContainer.removeAllChildren()
+        let pointSize: CGFloat = 18
+        let spacing:   CGFloat = 26
+        let count = travelers.count
+        for (i, t) in travelers.enumerated() {
+            let node: SKNode
+            if let imgName = t.image, let tex = textureNamed(imgName) {
+                let sprite = SKSpriteNode(texture: tex)
+                let s = tex.size
+                let aspect = s.height > 0 ? s.width / s.height : 1
+                sprite.size = CGSize(width: pointSize * aspect * 0.8, height: pointSize)
+                node = sprite
+            } else {
+                let label = SKLabelNode(text: t.emoji)
+                label.fontSize = pointSize
+                label.verticalAlignmentMode = .center
+                label.horizontalAlignmentMode = .center
+                node = label
+            }
+            node.position = CGPoint(x: CGFloat(i - (count - 1)) * spacing, y: 0)
+            levelEmojisContainer.addChild(node)
         }
     }
 

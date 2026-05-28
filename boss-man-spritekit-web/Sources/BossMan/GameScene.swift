@@ -35,6 +35,9 @@ final class GameScene: SKScene {
     private var containerOriginX: CGFloat = 0
 
     private let hud = HUD()
+    private let sound = SoundManager()
+    private let state = RoundState()
+    private var travelerSpawner: TravelerSpawner!
     private var score = 0
     private var highScore = 0
     private var lives = 3
@@ -46,6 +49,7 @@ final class GameScene: SKScene {
 
     private var bosses: [BossController] = []
     private var contactCooldown: TimeInterval = 0     // brief grace after a hit
+    private var peteShielded: Bool = false             // bossman-apple's WorkerController.isShielded
     private var frightenSecondsLeft: TimeInterval = 0
     private let frightenDuration: TimeInterval = 6
     private let eatBossPoints = 500
@@ -107,6 +111,36 @@ final class GameScene: SKScene {
             bosses.append(boss)
             _ = index
         }
+
+        travelerSpawner = TravelerSpawner(scene: self,
+                                          gridMap: gridMap,
+                                          sound: sound,
+                                          containerOriginX: containerOriginX)
+        scheduleTravelerForCurrentLevel()
+        hud.update(travelers: upcomingTravelers())
+        sound.playLevelStart()
+    }
+
+    private func currentTraveler() -> LevelTraveler {
+        levelTravelers[levelIndex % levelTravelers.count]
+    }
+
+    private func upcomingTravelers() -> [LevelTraveler] {
+        // Show the next 5 levels' travelers in the HUD corner so the
+        // player knows what's coming, like bossman-apple's emoji trail.
+        var out: [LevelTraveler] = []
+        for offset in 0..<5 {
+            out.append(levelTravelers[(levelIndex + offset) % levelTravelers.count])
+        }
+        return out
+    }
+
+    private func scheduleTravelerForCurrentLevel() {
+        travelerSpawner.scheduleVisits(of: currentTraveler(),
+                                       whileActive: { [weak self] in
+                                           guard let self else { return false }
+                                           return !self.gameOver && !self.isUserPaused
+                                       })
     }
 
     private func firstWalkableCell() -> CGPoint {
@@ -169,6 +203,7 @@ final class GameScene: SKScene {
         drop.zPosition = 6
         addChild(drop)
         waterDroplets.append(drop)
+        sound.playWaterGunShoot()
         refreshHUD()
     }
 
@@ -225,9 +260,10 @@ final class GameScene: SKScene {
                 refreshHUD()
                 ScorePopup.show(eatBossPoints, at: b.sprite.position, in: self,
                                 color: SKColor(red: 0.3, green: 0.7, blue: 1, alpha: 1))
+                sound.playCaptureBoss()
                 b.returnHome()
                 contactCooldown = 0.4
-            } else {
+            } else if !peteShielded {
                 handlePeteHit()
             }
         }
@@ -237,11 +273,34 @@ final class GameScene: SKScene {
         let r = tileSize * 0.55
         let r2 = r * r
         for b in bosses {
+            if b.isImmobilized { continue }    // freezed-spawn bosses can't catch
             let dx = b.sprite.position.x - pete.position.x
             let dy = b.sprite.position.y - pete.position.y
             if dx * dx + dy * dy < r2 { return b }
         }
         return nil
+    }
+
+    // bossman-apple's WorkerController.applySpawnShield. Pete is invulnerable
+    // for ~3s after a respawn, with a fade-in-fade-out blink so the player
+    // sees the grace window.
+    private func applyPeteSpawnShield() {
+        peteShielded = true
+        pete.removeAction(forKey: Strings.ActionKey.spawnShield)
+        pete.removeAction(forKey: Strings.ActionKey.spawnShieldBlink)
+        pete.alpha = 1
+        let blinkCycle = SKAction.sequence([
+            .fadeAlpha(to: 0.35, duration: 0.6),
+            .fadeAlpha(to: 1.0,  duration: 0.6),
+        ])
+        pete.run(.sequence([
+            .repeat(blinkCycle, count: 2),
+            .run { [weak self] in self?.pete?.alpha = 1 }
+        ]), withKey: Strings.ActionKey.spawnShieldBlink)
+        pete.run(.sequence([
+            .wait(forDuration: 3.0),
+            .run { [weak self] in self?.peteShielded = false }
+        ]), withKey: Strings.ActionKey.spawnShield)
     }
 
     // Called by the TileMover when Pete snaps to a new tile centre — picks
@@ -252,6 +311,7 @@ final class GameScene: SKScene {
         if mazeBuilder.collectDot(at: grid) {
             score += dotPoints
             dotsRemaining = max(0, dotsRemaining - 1)
+            sound.playDotBlip()
             refreshHUD()
             if dotsRemaining == 0 { advanceLevel() }
         }
@@ -261,16 +321,26 @@ final class GameScene: SKScene {
             ScorePopup.show(goldPoints, at: peteMover.centre(of: grid), in: self)
             frightenSecondsLeft = frightenDuration
             for b in bosses { b.setFrightened(true) }
+            sound.playGoldDisc()
             hud.flash("FRIGHTEN!", duration: 1.2)
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
             waterAmmo += waterShotsPerPellet
+            sound.playWaterGunPickup()
             refreshHUD()
         }
         if mazeBuilder.collectWaterGun(at: grid) {
             waterAmmo += waterShotsPerGun
+            sound.playWaterGunPickup()
             refreshHUD()
             hud.flash("WATER GUN!", duration: 1.0)
+        }
+        if let catchInfo = travelerSpawner.tryCatch(at: grid) {
+            score += catchInfo.traveler.points
+            ScorePopup.show(catchInfo.traveler.points, at: catchInfo.position, in: self,
+                            color: SKColor(red: 1.0, green: 0.91, blue: 0.34, alpha: 1))
+            sound.playFishOrTreat()
+            refreshHUD()
         }
     }
 
@@ -287,6 +357,8 @@ final class GameScene: SKScene {
         // retake another hit; bosses keep their position.
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
+        applyPeteSpawnShield()
+        sound.playCaughtByBoss()
     }
 
     private func resetPete(to spawn: CGPoint) {
@@ -398,15 +470,19 @@ final class GameScene: SKScene {
     private func advanceLevel() {
         levelIndex = (levelIndex + 1) % max(1, Levels.officeMaps.count)
         hud.flash("LEVEL \(levelIndex + 1)!", duration: 1.4)
+        sound.playLevelStart()
 
         for boss in bosses { boss.sprite.removeFromParent() }
         bosses.removeAll()
         mazeRoot.removeAllChildren()
+        travelerSpawner.reset()
 
         let rows = Levels.officeMaps[levelIndex]
         gridMap.setRows(rows)
         dotsRemaining = mazeBuilder.build(in: mazeRoot)
         dotsTotal = dotsRemaining
+        scheduleTravelerForCurrentLevel()
+        hud.update(travelers: upcomingTravelers())
 
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
@@ -444,6 +520,8 @@ final class GameScene: SKScene {
                             score += waterHitPoints
                             ScorePopup.show(waterHitPoints, at: b.sprite.position, in: self,
                                             color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
+                            spawnWaterSplash(at: b.sprite.position)
+                            sound.playWaterGunSplash()
                             b.returnHome()
                             refreshHUD()
                             consumed = true
@@ -459,6 +537,39 @@ final class GameScene: SKScene {
             i -= 1
         }
     }
+    // Quick water-splash animation: six expanding droplets around the hit
+    // point, fading out over 0.4s. Matches bossman-apple's splash burst.
+    private func spawnWaterSplash(at p: CGPoint) {
+        let burst = SKNode()
+        burst.position = p
+        burst.zPosition = 8
+        addChild(burst)
+        let droplets = 6
+        let dist: CGFloat = tileSize * 0.45
+        // Hand-rolled (cos, sin) for the six directions so we don't drag in
+        // libm import on wasm. Six unit vectors spaced 60° apart.
+        let unit: [(CGFloat, CGFloat)] = [
+            ( 1.0,  0.0),
+            ( 0.5,  0.866025),
+            (-0.5,  0.866025),
+            (-1.0,  0.0),
+            (-0.5, -0.866025),
+            ( 0.5, -0.866025),
+        ]
+        for i in 0..<droplets {
+            let (ux, uy) = unit[i]
+            let dot = SKShapeNode(circleOfRadius: 3.5)
+            dot.fillColor = SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 0.9)
+            dot.strokeColor = .clear
+            burst.addChild(dot)
+            dot.run(.group([
+                .move(by: CGVector(dx: ux * dist, dy: uy * dist), duration: 0.35),
+                .fadeOut(withDuration: 0.4),
+            ]))
+        }
+        burst.run(.sequence([.wait(forDuration: 0.45), .removeFromParent()]))
+    }
+
     private func gridCellAtScenePoint(_ p: CGPoint) -> CGPoint {
         let localX = p.x - containerOriginX
         let col = Int((localX) / tileSize)

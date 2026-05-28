@@ -8,6 +8,16 @@ import SpriteKit
 // re-grounded on SKColor (no NSColor calibratedRed). Where the original
 // shipped a fully-detailed pixel body, the first wasm pass uses a simpler
 // stand-in; iterating only changes this file, not the call sites.
+// Helper: SpriteKit's macOS API has SKTexture(imageNamed:) returning an
+// always-valid (potentially placeholder) texture. We need a nil-returning
+// variant for code paths that want to fall back to an SKLabelNode when the
+// preloaded image isn't registered. img_by_name returns 0 when unknown,
+// so we sniff that via the texture's size (0x0 == not loaded).
+func textureNamed(_ name: String) -> SKTexture? {
+    let t = SKTexture(imageNamed: name)
+    return (t.size.width > 0 && t.size.height > 0) ? t : nil
+}
+
 enum SpriteFactory {
 
     static let bossShoeGoldColor = SKColor(red: 0.7, green: 0.5, blue: 0.0, alpha: 1)

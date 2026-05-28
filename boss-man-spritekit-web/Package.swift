@@ -21,6 +21,7 @@ let package = Package(
             name: "BossMan",
             dependencies: [
                 .product(name: "SpriteKit",      package: "spritekit"),
+                .product(name: "KitABI",         package: "spritekit"),
                 .product(name: "Box2DBridge",    package: "spritekit"),
                 .product(name: "AppKit",         package: "spritekit"),
                 .product(name: "GameKit",        package: "spritekit"),

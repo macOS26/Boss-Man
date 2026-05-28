@@ -6,7 +6,9 @@
   "fonts": [
     "fonts/JetBrainsMono-Bold.ttf",
     "fonts/MarkerFelt-Thin.ttf",
-    "fonts/MarkerFelt-Wide.ttf"
+    "fonts/MarkerFelt-Wide.ttf",
+    "fonts/Menlo-Regular.ttf",
+    "fonts/Menlo-Bold.ttf"
   ],
   "text": [
     "levels.json"

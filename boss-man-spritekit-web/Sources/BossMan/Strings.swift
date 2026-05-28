@@ -74,6 +74,25 @@ enum Strings {
         static let startFullscreen        = "BossMan.startFullscreen"
     }
 
+    // MARK: - Voice lines (spoken through tts_speak)
+    enum Speech {
+        static let bossCaptureLines = ["Aw, geez.", "Hey now.", "Whoaaa.", "Ouch."]
+        static let caughtLines = [
+            "TPS reports.", "Cover sheet please.", "Saturday's the day.",
+            "Memo, anyone?", "Did you see my shiny red stapler?",
+        ]
+        static let fishLines = ["Terrific.", "Fantastic.", "Swell.", "Niiice."]
+        static let tpsLines  = ["Atta boy.", "Well done.", "Excellent.", "Solid work."]
+        static let gameOverLines = [
+            "Please clear out your desk.",
+            "Security, escort him.",
+            "If you would work Saturday, that'd be great.",
+            "Did you see my shiny red stapler?",
+            "Please add a cover sheet for your TPS Report.",
+        ]
+        static let levelStartLines = ["Hi there.", "What's happening?", "New floor.", "Welcome back."]
+    }
+
     // MARK: - Leaderboard / username dialog strings
     enum Leaderboard {
         static let header              = "LEADERBOARD"
@@ -110,5 +129,11 @@ enum Strings {
         static let spawnFade        = "spawnFade"
         static let spawnUnfreeze    = "spawnUnfreeze"
         static let blink            = "blink"
+        static let travelerVisit1   = "travelerVisit1"
+        static let travelerVisit2   = "travelerVisit2"
+    }
+
+    enum NodeName {
+        static let travelerEmoji = "traveler.emoji"
     }
 }

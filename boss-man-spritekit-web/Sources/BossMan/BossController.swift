@@ -26,6 +26,10 @@ final class BossController {
     private var frightenedStep: TimeInterval { baseFrightenedStep / speed }
 
     private(set) var isFrightened: Bool = false
+    // Mirrors bossman-apple's BossController.Entity.isImmobilized — the
+    // boss is fading in from its spawn freeze and shouldn't pursue Pete
+    // until the freeze timer ends.
+    private(set) var isImmobilized: Bool = false
 
     var grid: CGPoint { mover.grid }
 
@@ -81,12 +85,38 @@ final class BossController {
         // BossAI.teleport semantics in bossman-apple's relocateToSpawn).
         ai.teleport(to: homeGrid)
         setFrightened(false)
+        applySpawnFreeze()
+    }
+
+    // bossman-apple's BossController.applySpawnFreeze: fades the sprite in
+    // over 1.5s, locks AI (isImmobilized) for 2.0s, then a short throb of
+    // 3 scale pulses. Pete cannot capture or be caught by the boss while
+    // immobilized — GameScene reads isImmobilized to skip contact checks.
+    func applySpawnFreeze() {
+        isImmobilized = true
+        sprite.removeAction(forKey: Strings.ActionKey.spawnFade)
+        sprite.removeAction(forKey: Strings.ActionKey.spawnUnfreeze)
+        sprite.alpha = 0
+        sprite.setScale(1.0)
+        sprite.run(.fadeIn(withDuration: 1.5), withKey: Strings.ActionKey.spawnFade)
+        sprite.run(.sequence([
+            .wait(forDuration: 2.0),
+            .run { [weak self] in self?.isImmobilized = false }
+        ]), withKey: Strings.ActionKey.spawnUnfreeze)
+        let pulse = SKAction.sequence([
+            .scale(to: 1.18, duration: 0.16),
+            .scale(to: 1.0,  duration: 0.17),
+        ])
+        sprite.run(.sequence([
+            .wait(forDuration: 2.0),
+            .repeat(pulse, count: 3),
+        ]))
     }
 
     func install(in scene: SKNode) { scene.addChild(sprite) }
 
     func step(dt: TimeInterval, peteGrid: CGPoint, peteDirection: MoveDirection?, blinkyGrid: CGPoint?) {
-        guard let map = map else { return }
+        guard let map = map, !isImmobilized else { return }
         let frightened = isFrightened
         let cols = map.columnCount
         let rows = map.rowCount
