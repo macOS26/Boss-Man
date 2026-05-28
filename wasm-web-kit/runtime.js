@@ -421,14 +421,35 @@ class Runtime {
         const c = this.ctx2d();
         const s = this.cstr(ptr, len);
         this.applyFont(c, font, sizePx, letterSpacing);
+        c.textAlign = 'left';
+        c.fillStyle = this.css(rgba);
         const mode = this._textBaselineMode | 0;
+        // Visual centring (mode 1): Canvas2D 'middle' uses the em-box
+        // geometric centre, but emoji glyphs sit a couple of pixels above
+        // the em centre, so they read as too-high. Compute the actual ink
+        // bounds via measureText and offset the alphabetic baseline so
+        // the visible-glyph centroid lands on the requested y.
+        if (mode === 1) {
+          c.textBaseline = 'alphabetic';
+          const m = c.measureText(s);
+          const ascent = m.actualBoundingBoxAscent || sizePx * 0.8;
+          const descent = m.actualBoundingBoxDescent || sizePx * 0.2;
+          const yb = y + (ascent - descent) / 2;
+          if (this.hasLetterSpacing || !letterSpacing) {
+            c.fillText(s, x, yb);
+          } else {
+            let cx = x;
+            for (const ch of s) {
+              c.fillText(ch, cx, yb);
+              cx += c.measureText(ch).width + letterSpacing;
+            }
+          }
+          return;
+        }
         c.textBaseline =
-          mode === 1 ? 'middle' :
           mode === 2 ? 'top' :
           mode === 3 ? 'bottom' :
           mode === 0 ? 'alphabetic' : 'top';
-        c.textAlign = 'left';
-        c.fillStyle = this.css(rgba);
         if (this.hasLetterSpacing || !letterSpacing) {
           c.fillText(s, x, y);
         } else {
