@@ -252,7 +252,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // bossman-apple disables the water gun while the gold-disc window
         // is active — players can't double-dip on power-ups.
         if frightenSecondsLeft > 0 {
-            hud.flash("NO WATER IN BLUE MODE", duration: 1.5)
+            hud.flash(Strings.Message.waterGunBlueMode, duration: 2)
             return
         }
         waterAmmo -= 1
@@ -389,7 +389,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             frightenSecondsLeft = frightenDuration
             for b in bosses { b.setFrightened(true) }
             sound.playGoldDisc()
-            hud.flash("GOLD DISC!", duration: 1.5)
+            hud.flash(Strings.Message.goldDiscActivated, duration: 3)
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
             waterAmmo += waterShotsPerPellet
@@ -400,7 +400,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             waterAmmo += waterShotsPerGun
             sound.playWaterGunPickup()
             refreshHUD()
-            hud.flash("WATER GUN!", duration: 1.0)
+            hud.flash(Strings.Message.waterGunActivated, duration: 3)
         }
         // Traveler catch is fired by SKPhysicsContactDelegate.didBegin now,
         // not by tile-arrival — the Box2D contact reports the instant
@@ -417,10 +417,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             sound.playMachine(named: machine.name)
             refreshHUD()
             if collectedReports.count == requiredReports.count {
-                hud.flash("TPS REPORT READY!", duration: 3.0)
+                hud.flash(Strings.Message.tpsReportReady, duration: 3)
             } else {
                 let display = Strings.Machine.displayName[machine.name] ?? machine.name
-                hud.flash("\(display) +\(pts)", duration: 1.5)
+                hud.flash(Strings.Message.reportItemCollected(name: display, points: pts), duration: 2)
             }
         }
         if let boxPos = mazeBuilder.touchedBrownBox(at: grid) {
@@ -464,7 +464,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             advanceLevel()
         } else if dotsDone {
             // Pete swept the floor but no TPS report yet — nudge them.
-            hud.flash("DELIVER A TPS REPORT", duration: 3)
+            hud.flash(Strings.Message.needTPSReport, duration: 3)
         }
     }
 
@@ -476,7 +476,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard collectedReports.count == requiredReports.count else {
             let missing = requiredReports.filter { !collectedReports.contains($0) }
             let names = missing.compactMap { Strings.Machine.displayName[$0] }.joined(separator: ", ")
-            hud.flash("STILL NEED: \(names)", duration: 2.5)
+            hud.flash(Strings.Message.tpsMissingItems(missing), duration: 3)
             sound.playTpsMissingItems(missing)
             return
         }
@@ -487,7 +487,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         collectedReports.removeAll()
         mazeBuilder.resetGrayedMachines()    // ready for the next round
         sound.playTpsDeliver()
-        hud.flash("TPS DELIVERED +\(pts)", duration: 2.5)
+        hud.flash(Strings.Message.tpsTurnedIn(points: pts), duration: 3)
         refreshHUD()
         // A delivered report can be the last thing keeping the level
         // from completing if Pete already swept the dots + discs.
@@ -501,7 +501,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             triggerGameOver()
             return
         }
-        hud.flash("OUCH!")
+        hud.flash(Strings.Message.bossCaughtYou(lives), duration: 3)
         contactCooldown = 1.2
         // bossman-apple bossCaughtWorker flow: every boss is sent home
         // and runs the full applySpawnFreeze sequence (1.5s fade-in +
@@ -623,7 +623,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func advanceLevel() {
         levelIndex = (levelIndex + 1) % max(1, Levels.officeMaps.count)
-        hud.flash("LEVEL \(levelIndex + 1)!", duration: 1.4)
+        hud.flash(Strings.Message.levelLoaded(levelIndex + 1), duration: 3)
         sound.startMusic(musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
 
