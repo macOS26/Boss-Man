@@ -67,10 +67,22 @@ enum Strings {
     // MARK: - localStorage keys for persistent state (mirror UserDefaults
     // keys from the original; the kit's store_get/store_set bridges them).
     enum DefaultsKey {
-        static let highScore        = "BossMan.highScore"
-        static let leaderboard      = "BossMan.leaderboard"
-        static let playerName       = "BossMan.playerName"
-        static let startFullscreen  = "BossMan.startFullscreen"
+        static let highScore              = "BossMan.highScore"
+        static let leaderboard            = "BossMan.leaderboard"
+        static let playerName             = "BossMan.playerName"
+        static let localLeaderboardUsername = "BossMan.username"
+        static let startFullscreen        = "BossMan.startFullscreen"
+    }
+
+    // MARK: - Leaderboard / username dialog strings
+    enum Leaderboard {
+        static let header              = "LEADERBOARD"
+        static let newHighScoreTitle   = "NEW HIGH SCORE!"
+        static let enterUsernamePrompt = "Enter your username:"
+        static let usernamePlaceholder = "Player"
+        static let saveButton          = "Save  (Enter)"
+        static let skipButton          = "Skip  (Esc)"
+        static let noScores            = "No local scores yet."
     }
 
     // MARK: - Emoji glyphs used as SKLabelNode text.

@@ -14,6 +14,16 @@ struct LocalHighScores {
 
     static let cap = 10
 
+    // Persisted username from the last "save" in the game-over dialog.
+    // bossman-apple keeps this in UserDefaults; we go through Persistence's
+    // localStorage bridge under the same conceptual key.
+    static var savedUsername: String? {
+        get { Persistence.string(forKey: Strings.DefaultsKey.localLeaderboardUsername) }
+        set {
+            if let v = newValue { Persistence.setString(v, forKey: Strings.DefaultsKey.localLeaderboardUsername) }
+        }
+    }
+
     // MARK: - Read
     static func load() -> [Entry] {
         guard let raw = Persistence.string(forKey: Strings.DefaultsKey.leaderboard),

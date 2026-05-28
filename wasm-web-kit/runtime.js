@@ -59,14 +59,22 @@ function rdpSimplify(points, epsilon) {
 }
 
 const SF_KEY = {
-  0: 'KeyA',  2: 'KeyC',  3: 'KeyD',  4: 'KeyE',  5: 'KeyF',
-  15: 'KeyP', 17: 'KeyR', 18: 'KeyS', 21: 'KeyV', 22: 'KeyW', 25: 'KeyZ',
-  36: 'Escape',
-  57: 'Space',
-  59: 'Backspace',
-  71: 'ArrowLeft', 72: 'ArrowRight', 73: 'ArrowUp', 74: 'ArrowDown',
+  // SFML enum order: A..Z = 0..25, Num0..Num9 = 26..35. Filling the map
+  // out fully so games can read full alphanumeric input (username entry,
+  // level editor letter palette, etc.) — partial map used to drop B/G/H/...
+  // and Return on the floor.
+  0: 'KeyA',  1: 'KeyB',  2: 'KeyC',  3: 'KeyD',  4: 'KeyE',  5: 'KeyF',
+  6: 'KeyG',  7: 'KeyH',  8: 'KeyI',  9: 'KeyJ', 10: 'KeyK', 11: 'KeyL',
+  12: 'KeyM', 13: 'KeyN', 14: 'KeyO', 15: 'KeyP', 16: 'KeyQ', 17: 'KeyR',
+  18: 'KeyS', 19: 'KeyT', 20: 'KeyU', 21: 'KeyV', 22: 'KeyW', 23: 'KeyX',
+  24: 'KeyY', 25: 'KeyZ',
   26: 'Digit0', 27: 'Digit1', 28: 'Digit2', 29: 'Digit3', 30: 'Digit4',
   31: 'Digit5', 32: 'Digit6', 33: 'Digit7', 34: 'Digit8', 35: 'Digit9',
+  36: 'Escape',
+  57: 'Space',
+  58: 'Enter',
+  59: 'Backspace',
+  71: 'ArrowLeft', 72: 'ArrowRight', 73: 'ArrowUp', 74: 'ArrowDown',
   75: 'Numpad0', 76: 'Numpad1', 77: 'Numpad2', 78: 'Numpad3', 79: 'Numpad4',
   80: 'Numpad5', 81: 'Numpad6', 82: 'Numpad7', 83: 'Numpad8',
 };

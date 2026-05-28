@@ -59,6 +59,7 @@ final class GameScene: SKScene {
     private var gameOver = false
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
+    private var usernameDialog: UsernameDialog? = nil
 
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
@@ -128,6 +129,13 @@ final class GameScene: SKScene {
     // MARK: - Input
 
     override func keyDown(_ key: Int) {
+        // Username dialog absorbs every key while open. Returning early
+        // also prevents Escape from bouncing us back to the title before
+        // the player has typed their name.
+        if let dialog = usernameDialog {
+            dialog.handleKey(key, shift: false)
+            return
+        }
         if gameOver { return }
         if key == 36 {        // Escape
             let title = TitleScene(size: size)
@@ -292,11 +300,6 @@ final class GameScene: SKScene {
         peteMover.dir = nil
         queued = nil
 
-        if score > 0 {
-            let playerName = Persistence.string(forKey: Strings.DefaultsKey.playerName) ?? "ANON"
-            LocalHighScores.submit(name: playerName, score: score)
-        }
-
         let overlay = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
         overlay.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.55)
         overlay.strokeColor = .clear
@@ -307,7 +310,7 @@ final class GameScene: SKScene {
         big.text = "GAME OVER"
         big.fontSize = 86
         big.fontColor = SKColor(red: 1.0, green: 0.85, blue: 0.34, alpha: 1)
-        big.position = CGPoint(x: size.width / 2, y: size.height * 0.55)
+        big.position = CGPoint(x: size.width / 2, y: size.height * 0.72)
         big.zPosition = 51
         addChild(big)
 
@@ -315,12 +318,48 @@ final class GameScene: SKScene {
         summary.text = "FINAL SCORE \(score)   HIGH \(highScore)"
         summary.fontSize = 22
         summary.fontColor = .white
-        summary.position = CGPoint(x: size.width / 2, y: size.height * 0.44)
+        summary.position = CGPoint(x: size.width / 2, y: size.height * 0.62)
         summary.zPosition = 51
         addChild(summary)
 
+        if score > 0 {
+            presentUsernameDialog()
+        } else {
+            scheduleReturnToTitle(delay: 3.0)
+        }
+    }
+
+    private func presentUsernameDialog() {
+        let dialog = UsernameDialog(
+            size: CGSize(width: 360, height: 220),
+            fontName: Strings.Font.menloBold,
+            onConfirm: { [weak self] name in
+                guard let self else { return }
+                LocalHighScores.submit(name: name, score: self.score)
+                self.dismissUsernameDialog()
+                self.scheduleReturnToTitle(delay: 1.2)
+            },
+            onSkip: { [weak self] in
+                guard let self else { return }
+                LocalHighScores.submit(name: "ANON", score: self.score)
+                self.dismissUsernameDialog()
+                self.scheduleReturnToTitle(delay: 1.2)
+            }
+        )
+        dialog.position = CGPoint(x: size.width / 2, y: size.height * 0.40)
+        dialog.zPosition = 200
+        addChild(dialog)
+        usernameDialog = dialog
+    }
+
+    private func dismissUsernameDialog() {
+        usernameDialog?.removeFromParent()
+        usernameDialog = nil
+    }
+
+    private func scheduleReturnToTitle(delay: TimeInterval) {
         run(SKAction.sequence([
-            SKAction.wait(forDuration: 3.0),
+            SKAction.wait(forDuration: delay),
             SKAction.run { [weak self] in self?.returnToTitle() },
         ]))
     }
