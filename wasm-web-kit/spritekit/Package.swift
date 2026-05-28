@@ -45,6 +45,12 @@ let package = Package(
                 .headerSearchPath("box2d-src/collision"),
                 .headerSearchPath("box2d-src/common"),
                 .headerSearchPath("box2d-src/rope"),
+                // Strip C++ exceptions so we don't leak __cxa_throw /
+                // __cxa_allocate_exception into the wasm import list. The
+                // runtime doesn't host a C++ unwinder and Box2D's hot paths
+                // don't actually throw — exceptions only sneak in through
+                // std::vector::push_back's bad_alloc edge case.
+                .unsafeFlags(["-fno-exceptions"]),
             ]
         ),
         .target(name: "KitABI"),

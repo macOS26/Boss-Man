@@ -266,6 +266,17 @@ class Runtime {
   // ==========================================================================
   envImports() {
     return {
+      // C++ exception runtime stubs. With -fno-exceptions on Box2DBridge
+      // these shouldn't be reached, but they keep wasm instantiation alive
+      // if a stray throw slips in (third-party C++ deps, etc.). __cxa_throw
+      // surfaces with a console error + JS throw so a real C++ throw still
+      // becomes visible in DevTools.
+      __cxa_allocate_exception: (_size) => 0,
+      __cxa_throw: (_ptr, _type, _dtor) => {
+        console.error('[boss] __cxa_throw reached — uncaught C++ exception in wasm');
+        throw new Error('uncaught C++ exception from wasm');
+      },
+
       // ---- logging ----
       js_log: (ptr, len) => {
         console.log('%c[boss] ' + this.cstr(ptr, len), 'color:#e6b800');
