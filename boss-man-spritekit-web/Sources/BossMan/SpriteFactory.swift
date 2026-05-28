@@ -11,6 +11,15 @@ import SpriteKit
 enum SpriteFactory {
 
     static let bossShoeGoldColor = SKColor(red: 0.7, green: 0.5, blue: 0.0, alpha: 1)
+    // Frighten-mode palette. bossman-apple computes these as
+    //   systemBlue.blended(0.20 of black)  for body
+    //   systemBlue.blended(0.50 of black)  for eyes
+    //   systemYellow                       for the tie
+    // We bake the same RGB values directly. Gold tie outline reuses
+    // bossShoeGoldColor.
+    static let fleeBodyColor = SKColor(red: 0.0,  green: 0.384, blue: 0.8, alpha: 1)
+    static let fleeTieColor  = SKColor(red: 1.0,  green: 0.8,   blue: 0.0, alpha: 1)
+    static let fleeEyeColor  = SKColor(red: 0.0,  green: 0.24,  blue: 0.5, alpha: 1)
     // Cubicle palette — `cubicleColor` is .systemBlue in the macOS edition;
     // the wall fill drops it to 0.55 alpha so the floor checker reads through.
     static let cubicleColor      = SKColor(red: 0.0,  green: 0.48, blue: 1.0,  alpha: 1)

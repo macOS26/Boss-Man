@@ -23,6 +23,12 @@ import SpriteKit
 //   Eye tracking: setLookDirection nudges both eye nodes + the tie by 1px
 //   in the heading direction. Cheap, but reads convincingly.
 final class PixelPerson: SKNode {
+    // Initial palette captured so the boss can restore its tie/body after
+    // frighten mode ends (bossman-apple mutates these on the same node and
+    // doesn't keep its own backup).
+    let baseBodyColor: SKColor
+    let baseTieColor:  SKColor
+
     private let bodyContainer = SKNode()
 
     private let torso: SKShapeNode
@@ -57,6 +63,8 @@ final class PixelPerson: SKNode {
          wearsSunglasses: Bool = false,
          headYOffset: CGFloat = 0) {
         self.walkExaggeration = walkExaggeration
+        self.baseBodyColor = bodyColor
+        self.baseTieColor  = tieColor
         let skin = SKColor(red: 0.96, green: 0.78, blue: 0.62, alpha: 1)
         let shoeColor = SKColor(red: 0.12, green: 0.08, blue: 0.05, alpha: 1)
 

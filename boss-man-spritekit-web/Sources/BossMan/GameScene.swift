@@ -68,7 +68,10 @@ final class GameScene: SKScene {
 
         let mazeHeight = CGFloat(gridMap.rowCount) * tileSize
         let mazeWidth  = CGFloat(gridMap.columnCount) * tileSize
-        gridMap.yOffset = max(40, (size.height - mazeHeight) / 2)
+        // Reserve the top HUD panel and centre the maze in what's left so
+        // labels never sit on top of cubicle tiles (bossman-apple parity).
+        let availableHeight = size.height - HUD.panelHeight
+        gridMap.yOffset = max(20, (availableHeight - mazeHeight) / 2)
         containerOriginX = max(0, (size.width - mazeWidth) / 2)
 
         mazeRoot.position = CGPoint(x: containerOriginX, y: 0)

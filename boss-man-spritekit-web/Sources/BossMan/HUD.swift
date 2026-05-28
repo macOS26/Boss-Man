@@ -12,6 +12,11 @@ import SpriteKit
 // All labels live on the SKScene directly so they ride above the maze
 // without needing a separate camera layer.
 final class HUD {
+    // Matches bossman-apple: the HUD reserves a 100px panel at the top of
+    // the scene. GameScene reads this and offsets the maze so the two
+    // never overlap.
+    static let panelHeight: CGFloat = 100
+
     private let statusLabel  = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let livesLabel   = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let ammoLabel    = SKLabelNode(fontNamed: Strings.Font.menloBold)
@@ -21,6 +26,13 @@ final class HUD {
     func install(in scene: SKScene) {
         self.scene = scene
         let size = scene.size
+
+        let panel = SKShapeNode(rect: CGRect(x: 0, y: size.height - HUD.panelHeight,
+                                             width: size.width, height: HUD.panelHeight))
+        panel.fillColor = SKColor(red: 0.03, green: 0.04, blue: 0.05, alpha: 0.92)
+        panel.strokeColor = .clear
+        panel.zPosition = 20
+        scene.addChild(panel)
 
         statusLabel.fontSize = 19
         statusLabel.horizontalAlignmentMode = .left

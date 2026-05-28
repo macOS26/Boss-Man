@@ -19,7 +19,6 @@ final class BossController {
     private let frightenedStep: TimeInterval = 0.22   // ~4.5 tiles/s
 
     private(set) var isFrightened: Bool = false
-    private var frightenedTint: SKShapeNode? = nil
 
     var grid: CGPoint { mover.grid }
 
@@ -35,20 +34,24 @@ final class BossController {
                                step: chaseStep, containerOriginX: containerOriginX)
     }
 
+    // Mirrors bossman-apple: mutate the body / tie / tie-outline / eye
+    // colors in place so the boss reads as the classic frightened-blue
+    // figure with a gold-trimmed yellow tie. Restores the per-blueprint
+    // base palette captured by PixelPerson at init when the timer ends.
     func setFrightened(_ on: Bool) {
         if on == isFrightened { return }
         isFrightened = on
         if on {
-            let tint = SKShapeNode(circleOfRadius: 9)
-            tint.fillColor = SKColor(red: 0.15, green: 0.35, blue: 0.95, alpha: 0.65)
-            tint.strokeColor = .clear
-            tint.zPosition = 1
-            sprite.addChild(tint)
-            frightenedTint = tint
+            sprite.setBodyColor(SpriteFactory.fleeBodyColor)
+            sprite.setTieColor(SpriteFactory.fleeTieColor)
+            sprite.setTieOutline(color: SpriteFactory.bossShoeGoldColor)
+            sprite.setEyeColor(SpriteFactory.fleeEyeColor)
             mover.step = frightenedStep
         } else {
-            frightenedTint?.removeFromParent()
-            frightenedTint = nil
+            sprite.setBodyColor(sprite.baseBodyColor)
+            sprite.setTieColor(sprite.baseTieColor)
+            sprite.setTieOutline(color: nil)
+            sprite.setEyeColor(.black)
             mover.step = chaseStep
         }
     }
