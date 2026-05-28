@@ -149,6 +149,61 @@ public final class SKAction {
         SKAction.customAction(withDuration: d) { node, _ in node.physicsBody?.charge += dc }
     }
 
+    // SKAction.reach — inverse-kinematics towards a point or node, rooted at
+    // `rootNode`. Real IK is heavy; we just lerp the rotation/position toward
+    // the target so the visual cue (the limb swings toward the target) is
+    // there. Games using full IK chains should keep their own solver.
+    public static func reach(to point: CGPoint, rootNode: SKNode, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, elapsed in
+            let p = CGFloat(min(elapsed / d, 1))
+            let dx = point.x - node.position.x, dy = point.y - node.position.y
+            node.zRotation = atan2c(dy, dx)
+            node.position.x += dx * p
+            node.position.y += dy * p
+        }
+    }
+    public static func reach(to point: CGPoint, rootNode: SKNode, velocity v: CGFloat) -> SKAction {
+        let dx = point.x - rootNode.position.x, dy = point.y - rootNode.position.y
+        let dist = (Double(dx*dx + dy*dy)).squareRoot()
+        let d = v > 0 ? TimeInterval(dist) / TimeInterval(v) : 0.1
+        return reach(to: point, rootNode: rootNode, duration: d)
+    }
+    public static func reach(to node: SKNode, rootNode: SKNode, duration d: TimeInterval) -> SKAction {
+        reach(to: node.absolutePosition(), rootNode: rootNode, duration: d)
+    }
+    public static func reach(to node: SKNode, rootNode: SKNode, velocity v: CGFloat) -> SKAction {
+        reach(to: node.absolutePosition(), rootNode: rootNode, velocity: v)
+    }
+
+    // SKAudioNode-targeted action extras. Stereo pan, playback rate, reverb,
+    // obstruction, occlusion — Apple's audio pipeline has per-source 3D
+    // attenuation; our snd_* ABI is mono-mix only, so these are recorded
+    // but not yet honored. Compile-only stubs.
+    public static func stereoPan(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func stereoPan(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changePlaybackRate(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changePlaybackRate(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changeReverb(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changeReverb(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changeObstruction(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changeObstruction(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changeOcclusion(to target: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+    public static func changeOcclusion(by delta: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.wait, d) }
+
+    // SKFieldNode-targeted action extras.
+    public static func strength(to target: Float, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in (node as? SKFieldNode)?.strength = target }
+    }
+    public static func strength(by delta: Float, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in (node as? SKFieldNode)?.strength += delta }
+    }
+    public static func falloff(to target: Float, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in (node as? SKFieldNode)?.falloff = target }
+    }
+    public static func falloff(by delta: Float, duration d: TimeInterval) -> SKAction {
+        SKAction.customAction(withDuration: d) { node, _ in (node as? SKFieldNode)?.falloff += delta }
+    }
+
     // SKAction.perform(_:onTarget:) — invokes an Objective-C selector. On wasm
     // we don't have ObjC; the action is recorded as a no-op so call sites
     // compile but nothing fires. Games doing this should migrate to run blocks.
