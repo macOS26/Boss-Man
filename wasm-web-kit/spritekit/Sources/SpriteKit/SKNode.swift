@@ -93,7 +93,13 @@ open class SKNode {
         var r = self.frame
         for c in children {
             let cf = c.calculateAccumulatedFrame()
-            let off = CGRect(x: cf.minX + c.position.x, y: cf.minY + c.position.y,
+            // c.calculateAccumulatedFrame() is already in SELF's coordinate
+            // space (it folds in c.position via c.frame). Lift it into our
+            // PARENT's space by adding OUR position — adding c.position here
+            // double-counted it, which collapsed/offset the frame for any
+            // subtree whose children sit far from the origin (e.g. baking the
+            // maze via SKView.texture(from:)).
+            let off = CGRect(x: cf.minX + position.x, y: cf.minY + position.y,
                              width: cf.width, height: cf.height)
             if r == .zero { r = off; continue }
             let minX = min(r.minX, off.minX), minY = min(r.minY, off.minY)
