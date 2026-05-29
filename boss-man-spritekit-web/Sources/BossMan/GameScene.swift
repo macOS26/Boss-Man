@@ -30,7 +30,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // Input buffer: pressing a direction sets `queued`; Pete adopts it the
     // next time the mover hits a tile centre and that direction is walkable.
     private var queued: MoveDirection? = nil
-    private var dpadButtons: [(rect: CGRect, dir: MoveDirection)] = []
+    private var swipeStart: CGPoint? = nil
+    private var swipeFired = false
+    private let swipeThreshold: CGFloat = 24
+    private var fireButtonCenter = CGPoint.zero
+    private let fireButtonRadius: CGFloat = 38
     private let peteStep: TimeInterval = 0.13   // ~7.7 tiles/s
     private let tileSize: CGFloat = 32
     private var containerOriginX: CGFloat = 0
@@ -185,55 +189,42 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // Every 12th level switches to the MIB ("Sunglasses At Night") theme.
         sound.startMusic(musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
-        installDirectionPad()
+        installFireButton()
     }
 
-    // MARK: - On-screen direction pad (mobile / touch)
+    // MARK: - Touch / trackpad controls (mobile)
 
-    // A translucent four-arrow cross in the bottom-right margin. Tapping an
-    // arrow sets `queued` exactly as an arrow-key press does, so it funnels
-    // through the same TileMover.decide path — no separate movement code.
-    private func installDirectionPad() {
-        let cx = size.width - 72
-        let cy: CGFloat = 100
-        let off: CGFloat = 46
-        let side: CGFloat = 48
-        let layout: [(MoveDirection, CGPoint)] = [
-            (.up,    CGPoint(x: cx,       y: cy + off)),
-            (.down,  CGPoint(x: cx,       y: cy - off)),
-            (.left,  CGPoint(x: cx - off, y: cy)),
-            (.right, CGPoint(x: cx + off, y: cy)),
-        ]
-        for (dir, c) in layout {
-            let btn = SKShapeNode(rect: CGRect(x: -side / 2, y: -side / 2, width: side, height: side),
-                                  cornerRadius: 8)
-            btn.position = c
-            btn.fillColor = SKColor(white: 1, alpha: 0.12)
-            btn.strokeColor = SKColor(white: 1, alpha: 0.5)
-            btn.lineWidth = 1.5
-            btn.zPosition = 50
-            let arrow = SKShapeNode(path: arrowPath(dir, 10))
-            arrow.fillColor = SKColor(white: 1, alpha: 0.85)
-            arrow.strokeColor = .clear
-            arrow.zPosition = 51
-            btn.addChild(arrow)
-            addChild(btn)
-            dpadButtons.append((rect: CGRect(x: c.x - side / 2, y: c.y - side / 2,
-                                             width: side, height: side), dir: dir))
-        }
+    // A round translucent fire button in the bottom-right. Tapping it fires the
+    // water gun; a swipe anywhere else steers Pete (see mouseDown/Moved/Up).
+    // A virtual joystick may join it on the left side later.
+    private func installFireButton() {
+        fireButtonCenter = CGPoint(x: size.width - 64, y: 72)
+        let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
+        ring.position = fireButtonCenter
+        ring.fillColor = SKColor(white: 1, alpha: 0.14)
+        ring.strokeColor = SKColor(white: 1, alpha: 0.5)
+        ring.lineWidth = 2
+        ring.zPosition = 50
+        let core = SKShapeNode(circleOfRadius: fireButtonRadius * 0.34)
+        core.fillColor = SKColor(red: 0.40, green: 0.70, blue: 1.0, alpha: 0.6)
+        core.strokeColor = .clear
+        core.zPosition = 51
+        ring.addChild(core)
+        addChild(ring)
     }
 
-    private func arrowPath(_ dir: MoveDirection, _ a: CGFloat) -> CGPath {
-        let pts: [CGPoint]
-        switch dir {
-        case .up:    pts = [CGPoint(x: 0, y: a),  CGPoint(x: -a, y: -a), CGPoint(x: a, y: -a)]
-        case .down:  pts = [CGPoint(x: 0, y: -a), CGPoint(x: -a, y: a),  CGPoint(x: a, y: a)]
-        case .left:  pts = [CGPoint(x: -a, y: 0), CGPoint(x: a, y: a),   CGPoint(x: a, y: -a)]
-        case .right: pts = [CGPoint(x: a, y: 0),  CGPoint(x: -a, y: a),  CGPoint(x: -a, y: -a)]
-        }
-        let p = CGMutablePath()
-        p.move(to: pts[0]); p.addLine(to: pts[1]); p.addLine(to: pts[2]); p.closeSubpath()
-        return p
+    // Convert a press-drag-release (trackpad) or touch swipe (mobile) into one
+    // cardinal direction once it clears the threshold, latched through the same
+    // `queued` path an arrow key uses. One direction per gesture.
+    private func applySwipe(from a: CGPoint, to b: CGPoint) {
+        let dx = b.x - a.x, dy = b.y - a.y
+        guard max(abs(dx), abs(dy)) >= swipeThreshold else { return }
+        let dir: MoveDirection = abs(dx) >= abs(dy)
+            ? (dx > 0 ? .right : .left)
+            : (dy > 0 ? .up : .down)        // scene is y-up: swipe up => +y
+        queued = dir
+        pete?.setFacing(dir)
+        swipeFired = true
     }
 
     // bossman-apple SoundManager: every 12th level uses the alternate
@@ -293,11 +284,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         if gameOver || isUserPaused { return }
-        for b in dpadButtons where b.rect.contains(p) {
-            queued = b.dir
-            pete?.setFacing(b.dir)
+        // Tap the round button => fire; press anywhere else begins a swipe.
+        if fireButtonCenter.distance(to: p) <= fireButtonRadius {
+            fireWater()
+            swipeStart = nil
             return
         }
+        swipeStart = p
+        swipeFired = false
+    }
+
+    override func mouseMoved(to p: CGPoint) {
+        guard let start = swipeStart, !swipeFired, !gameOver, !isUserPaused else { return }
+        applySwipe(from: start, to: p)
+    }
+
+    override func mouseUp(at p: CGPoint) {
+        if let start = swipeStart, !swipeFired, !gameOver, !isUserPaused {
+            applySwipe(from: start, to: p)
+        }
+        swipeStart = nil
     }
 
     override func keyDown(_ key: Int) {

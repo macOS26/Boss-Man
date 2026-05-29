@@ -1692,6 +1692,7 @@ void main() {
     const onResume = () => this.ensureAudio();
     addEventListener('keydown', onResume, { once: true });
     addEventListener('mousedown', onResume, { once: true });
+    addEventListener('touchstart', onResume, { once: true });
 
     addEventListener('keydown', (e) => {
       const sf = DOM_TO_SF.get(e.code);
@@ -1737,6 +1738,37 @@ void main() {
       this.events.push({ type: EVT.MouseMoved, a: p.x, b: p.y, c: 0, d: 0 });
     });
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Touch -> the same pointer events the app already consumes, so a touch
+    // tap behaves like a left click and a touch drag behaves like a press-drag
+    // (the app turns drags into swipes). touch-action:none stops the browser
+    // from scrolling/zooming the page out from under the gesture.
+    this.canvas.style.touchAction = 'none';
+    const touchAt = (t) => this.toLogical({ clientX: t.clientX, clientY: t.clientY });
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (!e.changedTouches.length) return;
+      this.mouseDown[0] = true;
+      const p = touchAt(e.changedTouches[0]);
+      this.mouseX = p.x; this.mouseY = p.y;
+      this.events.push({ type: EVT.MouseButtonPressed, a: 0, b: p.x, c: p.y, d: 0 });
+      e.preventDefault();
+    }, { passive: false });
+    this.canvas.addEventListener('touchmove', (e) => {
+      if (!e.touches.length) return;
+      const p = touchAt(e.touches[0]);
+      this.mouseX = p.x; this.mouseY = p.y;
+      this.events.push({ type: EVT.MouseMoved, a: p.x, b: p.y, c: 0, d: 0 });
+      e.preventDefault();
+    }, { passive: false });
+    const onTouchEnd = (e) => {
+      if (!e.changedTouches.length) return;
+      this.mouseDown[0] = false;
+      const p = touchAt(e.changedTouches[0]);
+      this.events.push({ type: EVT.MouseButtonReleased, a: 0, b: p.x, c: p.y, d: 0 });
+      e.preventDefault();
+    };
+    this.canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+    this.canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
 
     // Defer to the next frame: fullscreenchange/resize fire before the element
     // box is reflowed, so getBoundingClientRect would still report the old size.
