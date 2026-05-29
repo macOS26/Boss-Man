@@ -91,7 +91,7 @@ final class TitleScene: SKScene {
             hs.text = Strings.Title.highScore(high)
             hs.fontSize = 26
             hs.fontColor = .black
-            hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06 + 15)
+            hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06 + 12)
             addChild(hs)
         }
 
