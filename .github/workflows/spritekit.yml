@@ -5,13 +5,11 @@ on:
     paths:
       - 'wasm-web-kit/**'
       - 'boss-man-spritekit-web/**'
-      - 'boss-man-spritekit-web-simple/**'
       - '.github/workflows/spritekit.yml'
   pull_request:
     paths:
       - 'wasm-web-kit/**'
       - 'boss-man-spritekit-web/**'
-      - 'boss-man-spritekit-web-simple/**'
       - '.github/workflows/spritekit.yml'
   workflow_dispatch: {}
 
@@ -88,14 +86,6 @@ jobs:
           set -euo pipefail
           SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
 
-      - name: Build boss-man-spritekit-web-simple (legacy demo)
-        working-directory: boss-man-spritekit-web-simple
-        run: |
-          set -euo pipefail
-          TOOLCHAINS="$TOOLCHAINS" \
-            xcrun --toolchain "$TOOLCHAINS" swift build \
-            --swift-sdk "$WASM_SDK" -c release || true
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -105,6 +95,5 @@ jobs:
             wasm-web-kit/spritekit/Examples/Hello/.build/wasm32-unknown-wasip1/release/Hello.wasm
             boss-man-spritekit-web/.build/wasm32-unknown-wasip1/release/BossMan.wasm
             boss-man-spritekit-web/web/bossman.wasm
-            boss-man-spritekit-web-simple/.build/wasm32-unknown-wasip1/release/Demo.wasm
           if-no-files-found: warn
           retention-days: 30
