@@ -43,9 +43,10 @@ else
   echo "✓ Debug artifact published: web/bossman.wasm"
 fi
 
-# Regenerate the file:/// bundle so opening web/index.html directly works
+# Regenerate the file:/// bundle so opening web/local.html directly works
 # without a local server. Includes bossman.wasm + every manifest asset as
-# inline data: URLs (~25 MiB base64). Skip with NO_BUNDLE=1.
+# inline data: URLs (~25 MiB base64). server.html ships the bare wasm+assets
+# over HTTP and needs no bundle. Skip with NO_BUNDLE=1.
 KIT_BUNDLE="../wasm-web-kit/scripts/bundle.py"
 if [ -z "${NO_BUNDLE:-}" ] && [ -f "$KIT_BUNDLE" ]; then
   python3 "$KIT_BUNDLE" web bossman.wasm || echo "(bundle.js regeneration failed)"
