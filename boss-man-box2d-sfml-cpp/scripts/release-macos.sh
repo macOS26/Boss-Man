@@ -20,7 +20,9 @@
 #   scripts/release-macos.sh                 # full build -> signed, notarized zip
 #   SKIP_NOTARIZE=1 scripts/release-macos.sh # stop after signing + zip (local test)
 #
-# Overridable env: IDENTITY, NOTARY_PROFILE, BUILD_DIR, ZIP_OUT.
+# Overridable env: IDENTITY, NOTARY_PROFILE, BUILD_DIR, ZIP_OUT. CI may pass an
+# App Store Connect API key directly via NOTARY_KEY (.p8 path), NOTARY_KEY_ID,
+# NOTARY_ISSUER instead of a keychain profile.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -88,7 +90,14 @@ if [ "${SKIP_NOTARIZE:-0}" = "1" ]; then
 fi
 
 say "Notarizing (this waits for Apple)"
-xcrun notarytool submit "$ZIP_OUT" --keychain-profile "$NOTARY_PROFILE" --wait
+# CI passes an App Store Connect API key directly (NOTARY_KEY=.p8 path,
+# NOTARY_KEY_ID, NOTARY_ISSUER); local runs use the stored keychain profile.
+if [ -n "${NOTARY_KEY:-}" ]; then
+    xcrun notarytool submit "$ZIP_OUT" \
+        --key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
+else
+    xcrun notarytool submit "$ZIP_OUT" --keychain-profile "$NOTARY_PROFILE" --wait
+fi
 
 say "Stapling the ticket and re-zipping"
 xcrun stapler staple "$APP"

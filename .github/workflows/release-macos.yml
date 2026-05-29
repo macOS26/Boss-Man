@@ -1,0 +1,85 @@
+name: Release macOS (C++)
+
+# Builds the universal C++ SFML app, Developer ID signs + notarizes + staples it,
+# and publishes Boss-Man-macOS-universal.zip. Runs on version tags (e.g.
+# v1.0.0-pre) and on manual dispatch. Notarization is a real Apple round-trip,
+# so this is deliberately NOT wired to every push.
+#
+# Required repository secrets:
+#   MACOS_CERT_P12_BASE64    base64 of the exported "Developer ID Application"
+#                            identity as a .p12 (certificate + private key):
+#                              security export ... then: base64 -i devid.p12 | pbcopy
+#   MACOS_CERT_PASSWORD      the .p12 export password
+#   MACOS_KEYCHAIN_PASSWORD  any string; password for the throwaway CI keychain
+#   NOTARY_KEY_P8_BASE64     base64 of the App Store Connect API key (.p8)
+#   NOTARY_KEY_ID            the API key's Key ID
+#   NOTARY_ISSUER_ID         the App Store Connect issuer UUID
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: boss-man-box2d-sfml-cpp
+
+permissions:
+  contents: write   # create / upload GitHub Release assets
+
+jobs:
+  release:
+    name: Universal signed + notarized .app
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Import the Developer ID Application identity into a throwaway keychain so
+      # codesign can find it; set-key-partition-list keeps codesign non-interactive.
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT="$RUNNER_TEMP/devid.p12"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$CERT"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -P "$CERT_PASSWORD" -f pkcs12 -k "$KEYCHAIN" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      # Build universal, embed dylibs + codec frameworks, Developer ID sign with
+      # hardened runtime, notarize with the App Store Connect API key, staple, zip.
+      - name: Build, sign, notarize, staple, zip
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$NOTARY_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          NOTARY_KEY="$RUNNER_TEMP/AuthKey.p8" scripts/release-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boss-man-macos-universal
+          path: boss-man-box2d-sfml-cpp/Boss-Man-macOS-universal.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          PRE=""; [[ "$TAG" == *-* ]] && PRE="--prerelease"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "$TAG" --notes "macOS universal (signed + notarized)" $PRE
+          gh release upload "$TAG" Boss-Man-macOS-universal.zip --clobber
