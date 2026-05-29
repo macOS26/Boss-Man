@@ -65,14 +65,14 @@ final class TitleScene: SKScene {
         addChild(title)
 
         let stapler = makeStapler()
-        stapler.position = CGPoint(x: size.width / 2, y: size.height * 0.46 + 5)
+        stapler.position = CGPoint(x: size.width / 2, y: size.height * 0.46 + 8)
         stapler.zRotation = -0.06
         addChild(stapler)
 
         // Two title buttons: green "(P)lay" and blue "(E)ditor", white text on a
         // filled rounded rect. Centred as a pair; click/tap either, or press
         // P / E. Fixed sizes avoid layout-time text measurement (font-load race).
-        let promptY = size.height * 0.15 + 15
+        let promptY = size.height * 0.15 + 20
         let green = SKColor(red: 0.0,  green: 0.55, blue: 0.18, alpha: 1)
         let blue  = SKColor(red: 0.10, green: 0.35, blue: 0.85, alpha: 1)
         let bw: CGFloat = 180, bh: CGFloat = 52, gap: CGFloat = 28
