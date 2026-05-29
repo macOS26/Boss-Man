@@ -32,6 +32,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var queued: MoveDirection? = nil
     private var swipeStart: CGPoint? = nil
     private var swipeFired = false
+    private var moveAnchor: CGPoint? = nil
     private let swipeThreshold: CGFloat = 24
     private var fireButtonCenter = CGPoint.zero
     private let fireButtonRadius: CGFloat = 38
@@ -213,18 +214,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         addChild(ring)
     }
 
-    // Convert a press-drag-release (trackpad) or touch swipe (mobile) into one
-    // cardinal direction once it clears the threshold, latched through the same
-    // `queued` path an arrow key uses. One direction per gesture.
-    private func applySwipe(from a: CGPoint, to b: CGPoint) {
-        let dx = b.x - a.x, dy = b.y - a.y
-        guard max(abs(dx), abs(dy)) >= swipeThreshold else { return }
-        let dir: MoveDirection = abs(dx) >= abs(dy)
-            ? (dx > 0 ? .right : .left)
-            : (dy > 0 ? .up : .down)        // scene is y-up: swipe up => +y
+    // A swipe (touch / mouse click-drag) or a bare trackpad slide resolves to
+    // one cardinal direction once it clears the threshold. Latched through the
+    // same `queued` path an arrow key uses.
+    private func swipeDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
+        guard max(abs(dx), abs(dy)) >= swipeThreshold else { return nil }
+        if abs(dx) >= abs(dy) { return dx > 0 ? .right : .left }
+        return dy > 0 ? .up : .down            // scene is y-up: swipe up => +y
+    }
+
+    private func steer(_ dir: MoveDirection) {
         queued = dir
         pete?.setFacing(dir)
-        swipeFired = true
     }
 
     // bossman-apple SoundManager: every 12th level uses the alternate
@@ -284,6 +285,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         if gameOver || isUserPaused { return }
+        moveAnchor = p
         // Tap the round button => fire; press anywhere else begins a swipe.
         if fireButtonCenter.distance(to: p) <= fireButtonRadius {
             fireWater()
@@ -295,15 +297,29 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func mouseMoved(to p: CGPoint) {
-        guard let start = swipeStart, !swipeFired, !gameOver, !isUserPaused else { return }
-        applySwipe(from: start, to: p)
+        if gameOver || isUserPaused { moveAnchor = p; return }
+        // Button held (touch drag or mouse click-drag): resolve vs the press origin.
+        if let start = swipeStart {
+            if !swipeFired, let d = swipeDirection(p.x - start.x, p.y - start.y) {
+                steer(d); swipeFired = true
+            }
+            return
+        }
+        // Bare trackpad slide (no button down) steers toward sustained motion;
+        // re-anchor each time so a continued slide keeps issuing directions.
+        guard let anchor = moveAnchor else { moveAnchor = p; return }
+        if let d = swipeDirection(p.x - anchor.x, p.y - anchor.y) {
+            steer(d); moveAnchor = p
+        }
     }
 
     override func mouseUp(at p: CGPoint) {
-        if let start = swipeStart, !swipeFired, !gameOver, !isUserPaused {
-            applySwipe(from: start, to: p)
+        if let start = swipeStart, !swipeFired, !gameOver, !isUserPaused,
+           let d = swipeDirection(p.x - start.x, p.y - start.y) {
+            steer(d)
         }
         swipeStart = nil
+        moveAnchor = p
     }
 
     override func keyDown(_ key: Int) {

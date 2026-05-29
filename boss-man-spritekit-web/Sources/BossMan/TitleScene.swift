@@ -2,7 +2,7 @@ import SpriteKit
 import KitABI
 
 // Title screen, wasm port. Mirrors the macOS layout: BOSS-MAN wordmark
-// tilted slightly, red stapler illustration centered, blinking "P to Play"
+// tilted slightly, red stapler illustration centered, blinking "Press Play"
 // prompt, leaderboard panel docked left, controls hint at the bottom.
 //
 // Differences vs the macOS original:
@@ -17,6 +17,7 @@ final class TitleScene: SKScene {
     private var bossTracksLabel: SKLabelNode?
     private var levelEditorLabel: SKLabelNode?
     private var clickToPlayLabel: SKLabelNode?
+    private var promptLabel: SKLabelNode?
 
     private func bossTracksText() -> String {
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
@@ -53,6 +54,7 @@ final class TitleScene: SKScene {
             .fadeAlpha(to: 1.0,  duration: 0.6),
         ])))
         addChild(prompt)
+        promptLabel = prompt
 
         let high = Persistence.int(forKey: Strings.DefaultsKey.highScore)
         if high > 0 {
@@ -136,6 +138,17 @@ final class TitleScene: SKScene {
     override func mouseDown(at p: CGPoint) {
         if let play = clickToPlayLabel, labelHit(play, p) { startGame(); return }
         if let editor = levelEditorLabel, labelHit(editor, p) { startEditor(); return }
+        // Big blinking prompt: tapping the "Press Play" portion starts the game,
+        // the "E for Editor" portion opens the editor. Split measured at click
+        // time so it doesn't depend on font-load timing during layout.
+        if let prompt = promptLabel, labelHit(prompt, p) {
+            let leftEdge = prompt.position.x - prompt.measuredWidth() / 2
+            let measure = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+            measure.text = Strings.Title.pressPlay
+            measure.fontSize = prompt.fontSize
+            if p.x <= leftEdge + measure.measuredWidth() + 12 { startGame() } else { startEditor() }
+            return
+        }
         if let label = bossTracksLabel, labelHit(label, p) {
             let square = !Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
             Persistence.set(square, forKey: Strings.DefaultsKey.bossTracksSquare)
@@ -143,11 +156,18 @@ final class TitleScene: SKScene {
         }
     }
 
-    // Right-aligned label hit-test with a touch-friendly margin around the glyphs.
+    // Hit-test a label with a touch-friendly margin, honoring its horizontal
+    // alignment so centered/left/right labels all map to the right glyph box.
     private func labelHit(_ label: SKLabelNode, _ p: CGPoint) -> Bool {
         let w = label.measuredWidth()
-        let rect = CGRect(x: label.position.x - w - 10, y: label.position.y - 12,
-                          width: w + 20, height: 32)
+        let minX: CGFloat
+        switch label.horizontalAlignmentMode {
+        case .right:  minX = label.position.x - w
+        case .center: minX = label.position.x - w / 2
+        case .left:   minX = label.position.x
+        }
+        let h = max(34, label.fontSize * 1.4)
+        let rect = CGRect(x: minX - 12, y: label.position.y - h * 0.3, width: w + 24, height: h)
         return rect.contains(p)
     }
 
