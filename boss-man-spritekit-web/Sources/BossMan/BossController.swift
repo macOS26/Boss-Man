@@ -76,6 +76,7 @@ final class BossController {
             sprite.setTieOutline(color: nil)
             sprite.setEyeColor(SpriteFactory.fleeEyeColor)
             sprite.setSkinColor(SpriteFactory.fleeSkinColor)
+            sprite.setShirtOutlineColor(SKColor(white: 1, alpha: 0.75))
             mover.step = frightenedStep
         } else {
             sprite.setBodyColor(sprite.baseBodyColor)
@@ -83,6 +84,7 @@ final class BossController {
             sprite.setTieOutline(color: nil)
             sprite.setEyeColor(.black)
             sprite.setSkinColor(sprite.baseSkinColor)
+            sprite.setShirtOutlineColor(.white)
             mover.step = chaseStep
         }
     }

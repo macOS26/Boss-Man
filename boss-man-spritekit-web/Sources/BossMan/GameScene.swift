@@ -66,6 +66,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // + tpsReportsDelivered. Indexes into reportItemPoints award 10/25/50/100
     // per collected item; the brown box turns them in for level*100+100.
     private var collectedReports: Set<String> = []
+    // bossman-apple RoundState.currentReportScore: total value of items collected
+    // toward the current TPS report; forfeited (red popup) if a boss catches Pete.
+    private var currentReportScore = 0
     private var tpsReportsDelivered = 0
     private let requiredReports = Strings.Machine.required
     private let reportItemPoints = [10, 25, 50, 100]
@@ -450,6 +453,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let idx = collectedReports.count - 1
             let pts = idx < reportItemPoints.count ? reportItemPoints[idx] : 100
             score += pts
+            currentReportScore += pts
             ScorePopup.show(pts, at: machine.position, in: self)
             sound.playMachine(named: machine.name)
             refreshHUD()
@@ -525,6 +529,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         ScorePopup.show(pts, at: pos, in: self)
         tpsReportsDelivered += 1
         collectedReports.removeAll()
+        currentReportScore = 0
         mazeBuilder.resetGrayedMachines()    // ready for the next round
         // bossman-apple GameScene.collectTPSReport:350-351 — Pete is hired
         // an extra worker on delivery, capped at HUD.maxLives.
@@ -541,6 +546,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func handlePeteHit(catcher: BossController? = nil) {
         lives = max(0, lives - 1)
+        // bossman-apple bossCaughtWorker: a catch forfeits the in-progress TPS
+        // report — flash its value in red, clear the collected items, and
+        // re-enable the machines so they can be collected again.
+        if currentReportScore > 0 {
+            ScorePopup.show(-currentReportScore, at: pete.position, in: self,
+                            color: SKColor(red: 1, green: 0.23, blue: 0.19, alpha: 1))
+        }
+        currentReportScore = 0
+        collectedReports.removeAll()
+        mazeBuilder.resetGrayedMachines()
         refreshHUD()
         if lives == 0 {
             triggerGameOver()
