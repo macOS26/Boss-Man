@@ -11,7 +11,7 @@ import KitABI
 // =============================================================================
 
 public final class GKLocalPlayer {
-    public static let local = GKLocalPlayer()
+    nonisolated(unsafe) public static let local = GKLocalPlayer()
     public var isAuthenticated = false
     public var displayName = "Player"
     public var alias = "Player"
@@ -83,7 +83,7 @@ public final class GKAchievement {
 
 // =============================================================================
 public final class GKAccessPoint {
-    public static let shared = GKAccessPoint()
+    nonisolated(unsafe) public static let shared = GKAccessPoint()
     public var isActive = false
     public var location = 0
     public var showHighlights = false

@@ -7,10 +7,11 @@ import PackageDescription
 // macOS or iOS adds this package as a dependency, picks the modules it imports,
 // and compiles to wasm32-wasip1 unchanged.
 //
-// The shim modules deliberately compile under Swift 5 language mode — their
-// global singletons (UIScreen.main / NSScreen.main / GCController.current /
-// GKLocalPlayer.local) mirror Apple's framework shape, and on the single-
-// threaded wasm target there's no real concurrency to police.
+// Everything compiles under Swift 6 language mode. The Apple-mirror global
+// singletons (UIScreen.main / NSScreen.main / GKLocalPlayer.local / etc.) are
+// marked nonisolated(unsafe): the wasm target is single-threaded, so there is
+// no real concurrency to police, but the keyword is required for v6 to accept
+// the mutable shared globals.
 let package = Package(
     name: "SuperBox64SpriteKit",
     products: [
@@ -56,22 +57,22 @@ let package = Package(
         .target(name: "KitABI"),
         .target(name: "SpriteKit",      dependencies: ["KitABI"]),
         .target(name: "AppKit",         dependencies: ["SpriteKit"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "UIKit",          dependencies: ["SpriteKit", "AppKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "Cocoa",          dependencies: ["AppKit"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "GameKit",        dependencies: ["SpriteKit", "UIKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "GameplayKit",    dependencies: ["SpriteKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "GameController", dependencies: ["SpriteKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "AVFoundation",   dependencies: ["SpriteKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
-        .target(name: "AudioToolbox",   swiftSettings: [.swiftLanguageMode(.v5)]),
-        .target(name: "Combine",        swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
+        .target(name: "AudioToolbox",   swiftSettings: [.swiftLanguageMode(.v6)]),
+        .target(name: "Combine",        swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "SwiftUI",        dependencies: ["Combine", "SpriteKit"],
-                swiftSettings: [.swiftLanguageMode(.v5)]),
+                swiftSettings: [.swiftLanguageMode(.v6)]),
     ]
 )

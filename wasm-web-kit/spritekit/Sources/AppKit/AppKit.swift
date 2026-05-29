@@ -56,7 +56,7 @@ public struct NSEvent {
 // NSScreen / NSWindow stubs so module-level references compile. Games that
 // query window size should read SKScene.size instead.
 public final class NSScreen {
-    public static let main: NSScreen? = NSScreen()
+    nonisolated(unsafe) public static let main: NSScreen? = NSScreen()
     public var frame: CGRect = .zero
     public var backingScaleFactor: CGFloat = 1
 }

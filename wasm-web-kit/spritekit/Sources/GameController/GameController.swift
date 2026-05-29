@@ -40,7 +40,7 @@ public final class GCController {
     public static func stopWirelessControllerDiscovery() {}
 
     // Internal: enumerates pads connected this frame via gp_connected.
-    private static var cache: [Int: GCController] = [:]
+    nonisolated(unsafe) private static var cache: [Int: GCController] = [:]
     private static func all() -> [GCController] {
         var out: [GCController] = []
         for i in 0..<4 where gp_connected(Int32(i)) != 0 {

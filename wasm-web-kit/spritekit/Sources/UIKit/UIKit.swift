@@ -18,7 +18,7 @@ public typealias UIImage = NSImage
 
 // UIScreen.main.bounds backed by SKView size when available.
 public final class UIScreen {
-    public static let main = UIScreen()
+    nonisolated(unsafe) public static let main = UIScreen()
     public var bounds: CGRect { CGRect(x: 0, y: 0, width: CGFloat(win_width()), height: CGFloat(win_height())) }
     public var nativeBounds: CGRect { bounds }
     public var scale: CGFloat = 1
@@ -32,7 +32,7 @@ public protocol UIApplicationDelegate: AnyObject {}
 public protocol UISceneDelegate: AnyObject {}
 
 public final class UIApplication {
-    public static let shared = UIApplication()
+    nonisolated(unsafe) public static let shared = UIApplication()
     public weak var delegate: UIApplicationDelegate?
     public var isIdleTimerDisabled = false
     public func open(_ url: SKAudioURL, options: [String: Any] = [:], completionHandler: ((Bool) -> Void)? = nil) {
@@ -175,7 +175,7 @@ open class UIGestureRecognizer {
     open func locationOfTouch(_ i: Int, in v: UIView?) -> CGPoint { location(in: v) }
     public var numberOfTouches: Int { 0 }
 }
-public enum UIGestureRecognizerState: Int { case possible, began, changed, ended, cancelled, failed; public static let recognized = ended }
+public enum UIGestureRecognizerState: Int, Sendable { case possible, began, changed, ended, cancelled, failed; public static let recognized = ended }
 
 public final class UISwipeGestureRecognizer: UIGestureRecognizer {
     public struct Direction: OptionSet, Sendable {
@@ -220,7 +220,7 @@ public struct Selector { public let raw: String; public init(_ raw: String) { se
 // UIDevice — basic identity surface.
 // =============================================================================
 public final class UIDevice {
-    public static let current = UIDevice()
+    nonisolated(unsafe) public static let current = UIDevice()
     public var name: String = "web"
     public var systemName: String = "Web"
     public var systemVersion: String = "1.0"
