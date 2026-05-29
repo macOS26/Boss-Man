@@ -118,7 +118,7 @@ final class SoundManager {
     func playTpsMissingItems(_ items: [String]) {
         playEffect("tpsDeliver") { self.sequence(notes: [660, 880, 1320], perNote: 0.12, volume: 0.35) }
         guard !items.isEmpty else { return }
-        speak(text: "Still missing: \(items.joined(separator: ", ")).")
+        speak(text: "Still missing: \(items.joined(separator: ", ")).", priority: true)
     }
     func playMachine(named name: String) {
         switch name {
@@ -561,7 +561,15 @@ final class SoundManager {
 
     // MARK: - Speech
 
-    private enum SpeechKind { case bossCapture, caught, fish, tps, gameOver, levelStart }
+    private enum SpeechKind {
+        case bossCapture, caught, fish, tps, gameOver, levelStart
+        var priority: Bool {
+            switch self {
+            case .caught, .gameOver: return true
+            case .bossCapture, .fish, .tps, .levelStart: return false
+            }
+        }
+    }
 
     private func speak(_ kind: SpeechKind) {
         let lines: [String]
@@ -578,10 +586,11 @@ final class SoundManager {
         var idx = randIndex(in: lines.count)
         if lines.count > 1, idx == lastIndex[key] { idx = (idx + 1) % lines.count }
         lastIndex[key] = idx
-        speak(text: lines[idx])
+        speak(text: lines[idx], priority: kind.priority)
     }
 
-    private func speak(text: String) {
+    private func speak(text: String, priority: Bool = false) {
+        if priority { tts_cancel() }
         let bytes = Array(text.utf8)
         bytes.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
