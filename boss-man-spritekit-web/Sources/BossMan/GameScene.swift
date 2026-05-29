@@ -342,6 +342,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 frightenSecondsLeft = 0
                 for b in bosses { b.setFrightened(false) }
                 refreshBossTags()
+                sound.stopGoldDiscBass()
             }
         }
         if contactCooldown > 0 {
@@ -425,6 +426,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             for b in bosses { b.setFrightened(true) }
             refreshBossTags()
             sound.playGoldDisc()
+            sound.startGoldDiscBass()
             hud.flash(Strings.Message.goldDiscActivated, duration: 3)
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
@@ -576,6 +578,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             frightenSecondsLeft = 0
             for b in bosses { b.setFrightened(false) }
             captureStreak = 0
+            refreshBossTags()
+            sound.stopGoldDiscBass()
         }
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
