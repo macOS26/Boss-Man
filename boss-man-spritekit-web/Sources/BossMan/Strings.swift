@@ -74,6 +74,8 @@ enum Strings {
         static let localLeaderboardUsername = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
+        static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
+        static let editorLevelPrefix      = "BossMan.editorLevel."
     }
 
     // MARK: - In-game messages (transient HUD banners). Ported verbatim
@@ -214,6 +216,62 @@ enum Strings {
 
     enum NodeName {
         static let travelerEmoji = "traveler.emoji"
+        static let palettePrefix = "pal_"
+    }
+
+    // MARK: - Level editor copy. Button-label key hints describe the WEB
+    // shortcuts (bare letters / arrows) since the wasm runtime can't deliver
+    // the macOS Command-modifier combos the original used.
+    enum Editor {
+        static let title         = "LEVEL EDITOR"
+        static let prev          = "PREV  <"
+        static let next          = "NEXT  >"
+        static let undo          = "UNDO  Z"
+        static let redo          = "REDO  Y"
+        static let clear         = "CLEAR del"
+        static let save          = "SAVE  S"
+        static let revealFile    = "SHOW  R"
+        static let copy          = "COPY  C"
+        static let paste         = "PASTE V"
+        static let play          = "PLAY  P"
+        static let back          = "BACK  ESC"
+        static let copyToast     = "Copied"
+        static let pasteToast    = "Pasted"
+        static let nothingPaste  = "Nothing to paste"
+        static let nothingUndo   = "Nothing to undo"
+        static let nothingRedo   = "Nothing to redo"
+        static let undoToast     = "Undo"
+        static let redoToast     = "Redo"
+        static let savedToast    = "SAVED!"
+        static let clearedToast  = "Cleared (Z to undo)"
+        static let revealToast   = "Saved to browser storage"
+        static let autosaveToast = "AUTOSAVE 1 min"
+        static let tileWallInitial = "Tile: Wall"
+        static func tilePrefix(_ name: String) -> String { "Tile: \(name)" }
+        static func levelCounter(_ current: Int, of total: Int) -> String { "(\(current)/\(total))" }
+        enum Tile {
+            static let floor       = "Floor"
+            static let dot         = "Dot"
+            static let wall        = "Wall"
+            static let hideout     = "Hideout"
+            static let goldDisc    = "Gold Disc"
+            static let waterGun    = "Water Gun"
+            static let waterPellet = "Water Pellets"
+        }
+    }
+
+    enum EditorButton {
+        static let prev   = "btn_prev"
+        static let next   = "btn_next"
+        static let undo   = "btn_undo"
+        static let redo   = "btn_redo"
+        static let clear  = "btn_clear"
+        static let save   = "btn_save"
+        static let reveal = "btn_reveal"
+        static let copy   = "btn_copy"
+        static let paste  = "btn_paste"
+        static let play   = "btn_play"
+        static let back   = "btn_back"
     }
 
     enum Worker {

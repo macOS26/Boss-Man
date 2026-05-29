@@ -48,6 +48,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var highScore = 0
     private var lives = 3
     private var levelIndex = 0
+    // Set by the level editor's PLAY button: start on the edited level and
+    // don't persist the score. startingLevel is 1-based (matches the editor).
+    var practiceMode = false
+    var startingLevel = 1
     private var dotsRemaining = 0
     private var dotsTotal     = 0
     private let dotPoints = 10
@@ -107,7 +111,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
 
-        let rows = Levels.officeMaps.first ?? []
+        levelIndex = max(0, min(startingLevel - 1, Levels.names.count - 1))
+        let rows = LevelStore.loadLevel(index: levelIndex)
         gridMap = GridMap(tileSize: tileSize, rows: rows)
         pathfinder = Pathfinder(map: gridMap)
 
@@ -191,6 +196,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         sound.startMusic(musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
         installFireButton()
+        if practiceMode { hud.flash(Strings.Message.practiceMode, duration: 3) }
     }
 
     // MARK: - Touch / trackpad controls (mobile)
@@ -696,7 +702,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // bossman-apple does NOT auto-transition on game over: the dim GAME
         // OVER card sits on top of the still-live maze and every sprite stays
         // on the board until the player presses P (new game) or Esc (title).
-        if score > 0 {
+        if score > 0 && !practiceMode {
             presentUsernameDialog()
         }
     }
@@ -780,7 +786,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         mazeRoot.removeAllChildren()
         travelerSpawner.reset()
 
-        let rows = Levels.officeMaps[levelIndex]
+        let rows = LevelStore.loadLevel(index: levelIndex)
         gridMap.setRows(rows)
         mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[
             levelIndex % SpriteFactory.cubicleColors.count]
@@ -894,7 +900,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func refreshHUD() {
         if score > highScore {
             highScore = score
-            Persistence.set(highScore, forKey: Strings.DefaultsKey.highScore)
+            if !practiceMode {
+                Persistence.set(highScore, forKey: Strings.DefaultsKey.highScore)
+            }
         }
         hud.update(score: score, highScore: highScore,
                    level: levelIndex + 1, dotsLeft: dotsRemaining,
