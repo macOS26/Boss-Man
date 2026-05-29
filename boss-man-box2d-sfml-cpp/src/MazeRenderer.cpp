@@ -13,8 +13,9 @@ int MazeRenderer::build() {
     waterGunPositionsFromMap.clear();
     waterPelletPositionsFromMap.clear();
     pickups.clear();
-    dotShapes.clear();
-    dotGridToShapeIndex.clear();
+    dotVerts.clear();
+    dotVerts.setPrimitiveType(sf::Quads);
+    dotGridToQuad.clear();
 
     int cols = map.rows.empty() ? 0 : (int)map.rows[0].size();
     int rowCount = (int)map.rows.size();
@@ -37,11 +38,13 @@ int MazeRenderer::build() {
             if ((ch == Tile::dot || ch == Tile::hideout || isBossSpawn)) {
                 dotPresence[rowIndex][colIndex] = true;
                 dotCount++;
-                sf::RectangleShape dot(sf::Vector2f(6, 6));
-                dot.setFillColor(sf::Color(255, 231, 0)); // systemYellow
-                dot.setPosition(pos.x - 3, pos.y - 3);
-                dotGridToShapeIndex[rowIndex * 1000 + colIndex] = (int)dotShapes.size();
-                dotShapes.push_back(dot);
+                const sf::Color dotColor(255, 231, 0); // systemYellow
+                const float dx = pos.x - 3.f, dy = pos.y - 3.f;
+                dotGridToQuad[rowIndex * 1000 + colIndex] = (int)dotVerts.getVertexCount() / 4;
+                dotVerts.append(sf::Vertex(sf::Vector2f(dx,       dy),       dotColor));
+                dotVerts.append(sf::Vertex(sf::Vector2f(dx + 6.f, dy),       dotColor));
+                dotVerts.append(sf::Vertex(sf::Vector2f(dx + 6.f, dy + 6.f), dotColor));
+                dotVerts.append(sf::Vertex(sf::Vector2f(dx,       dy + 6.f), dotColor));
             }
 
             // Machines and pickups
@@ -188,9 +191,8 @@ void MazeRenderer::drawBackground(sf::RenderTarget& target) {
 }
 
 void MazeRenderer::drawDots(sf::RenderTarget& target, float dt) {
-    for (auto& dot : dotShapes) {
-        target.draw(dot);
-    }
+    (void)dt;
+    if (dotVerts.getVertexCount() > 0) target.draw(dotVerts);
 }
 
 void MazeRenderer::drawPickups(sf::RenderTarget& target, float dt) {
@@ -290,11 +292,15 @@ bool MazeRenderer::collectDot(int col, int row) {
 
     dotPresence[rowIndex][col] = false;
 
-    // Find and hide the corresponding dot shape
+    // Collapse the eaten dot's quad to a zero-area point so it stops drawing.
     int key = rowIndex * 1000 + col;
-    auto it = dotGridToShapeIndex.find(key);
-    if (it != dotGridToShapeIndex.end() && it->second < (int)dotShapes.size()) {
-        dotShapes[it->second].setPosition(-100, -100);
+    auto it = dotGridToQuad.find(key);
+    if (it != dotGridToQuad.end()) {
+        int base = it->second * 4;
+        if (base + 3 < (int)dotVerts.getVertexCount()) {
+            sf::Vector2f p = dotVerts[base].position;
+            for (int i = 0; i < 4; ++i) dotVerts[base + i].position = p;
+        }
     }
 
     return true;

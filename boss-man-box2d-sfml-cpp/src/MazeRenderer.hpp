@@ -37,8 +37,12 @@ public:
     sf::RenderTexture backgroundTexture;
     sf::Sprite backgroundSprite;
     sf::Clock animClock; // absolute-time source for pickup throb
-    std::vector<sf::RectangleShape> dotShapes;
-    std::unordered_map<int, int> dotGridToShapeIndex; // key: rowIndex*1000+col
+    // All pellet dots batched into ONE VertexArray -> a single draw call per
+    // frame (matches the apple master's single SKTileMapNode, vs the old
+    // per-dot sf::RectangleShape draw loop). Eaten dots collapse to a zero-area
+    // quad so they stop drawing entirely.
+    sf::VertexArray dotVerts{sf::Quads};
+    std::unordered_map<int, int> dotGridToQuad; // key: rowIndex*1000+col -> quad ordinal
 
     MazeRenderer(const GridMap& m) : map(m) {}
 
