@@ -99,10 +99,10 @@ final class BossAI {
 // Per-blueprint config matching bossman-apple's BossController.blueprints.
 // Indices 0..3 map to Bill / Dom / Bob / Stan with their personality + speed.
 enum BossBlueprint {
-    static let table: [(personality: BossPersonality, speed: Double)] = [
-        (.directChase,                                                          1.00),  // Bill
-        (.ambushAhead(tiles: 4),                                                0.85),  // Dom
-        (.flanker(pivotTiles: 2),                                               0.78),  // Bob
-        (.timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),         0.70),  // Stan
+    static let table: [(name: String, personality: BossPersonality, speed: Double)] = [
+        (Strings.Boss.bill, .directChase,                                                  1.00),
+        (Strings.Boss.dom,  .ambushAhead(tiles: 4),                                         0.85),
+        (Strings.Boss.bob,  .flanker(pivotTiles: 2),                                        0.78),
+        (Strings.Boss.stan, .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),  0.70),
     ]
 }

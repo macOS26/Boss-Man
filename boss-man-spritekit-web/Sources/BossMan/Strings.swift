@@ -213,4 +213,15 @@ enum Strings {
     enum NodeName {
         static let travelerEmoji = "traveler.emoji"
     }
+
+    enum Worker {
+        static let pete = "PETE"
+    }
+
+    enum Boss {
+        static let bill = "BILL"
+        static let dom  = "DOM"
+        static let bob  = "BOB"
+        static let stan = "STAN"
+    }
 }

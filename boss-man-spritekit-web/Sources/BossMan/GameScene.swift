@@ -129,6 +129,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         pete = SpriteFactory.petePerson()
         pete.zPosition = 5
+        // bossman-apple WorkerController: "PETE" name tag, Menlo-Bold 9, white,
+        // 24pt above center.
+        let peteTag = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        peteTag.text = Strings.Worker.pete
+        peteTag.fontSize = 9
+        peteTag.fontColor = .white
+        peteTag.position = CGPoint(x: 0, y: 24)
+        pete.addChild(peteTag)
         // Verbatim from bossman-apple WorkerController.configureNode
         // (lines 40-44): circle r=10, worker category, contact-test
         // against everything Pete interacts with, collision against
@@ -330,6 +338,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if frightenSecondsLeft <= 0 {
                 frightenSecondsLeft = 0
                 for b in bosses { b.setFrightened(false) }
+                refreshBossTags()
             }
         }
         if contactCooldown > 0 {
@@ -339,6 +348,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 // bossman-apple capture streak: each consecutive boss eaten
                 // during the same gold-disc window is worth 100 x streak.
                 captureStreak += 1
+                refreshBossTags()
                 let points = 100 * captureStreak
                 score += points
                 refreshHUD()
@@ -410,16 +420,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             ScorePopup.show(goldPoints, at: peteMover.centre(of: grid), in: self)
             frightenSecondsLeft = frightenDuration
             for b in bosses { b.setFrightened(true) }
+            refreshBossTags()
             sound.playGoldDisc()
             hud.flash(Strings.Message.goldDiscActivated, duration: 3)
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
             waterAmmo += waterShotsPerPellet
+            score += 50
+            ScorePopup.show(50, at: peteMover.centre(of: grid), in: self)
             sound.playWaterGunPickup()
             refreshHUD()
         }
         if mazeBuilder.collectWaterGun(at: grid) {
             waterAmmo += waterShotsPerGun
+            score += 75
+            ScorePopup.show(75, at: peteMover.centre(of: grid), in: self)
             sound.playWaterGunPickup()
             refreshHUD()
             hud.flash(Strings.Message.waterGunActivated, duration: 3)
@@ -789,5 +804,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         hud.update(lives: lives)
         hud.update(ammo: waterAmmo)
         hud.updateTPSChecklist(collected: collectedReports)
+    }
+
+    // bossman-apple refreshTags(goldDiscActive:): the next-capture value is
+    // 100 * (captureStreak + 1); each boss shows it (yellow) while frightened,
+    // else its name (white).
+    private func refreshBossTags() {
+        let next = 100 * (captureStreak + 1)
+        for b in bosses { b.refreshTag(nextPoints: next) }
     }
 }

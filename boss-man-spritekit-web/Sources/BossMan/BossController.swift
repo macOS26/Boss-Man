@@ -10,6 +10,7 @@ import SpriteKit
 // can't vibrate around tile centres the way the old glide loop did.
 final class BossController {
     let sprite: PixelPerson
+    let nameTag: SKLabelNode
     let blueprintIndex: Int
     let homeGrid: CGPoint
     private weak var map: GridMap?
@@ -45,6 +46,16 @@ final class BossController {
                          pathfinder: pathfinder, map: map)
         self.sprite = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
         self.sprite.zPosition = 4
+        // bossman-apple BossController: a Menlo-Bold 9 name tag floats 24pt
+        // above the boss (white name normally; the yellow capture-points value
+        // in gold-disc flee mode, set by refreshTag).
+        let tag = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        tag.text = blueprint.name
+        tag.fontSize = 9
+        tag.fontColor = .white
+        tag.position = CGPoint(x: 0, y: 24)
+        self.sprite.addChild(tag)
+        self.nameTag = tag
         _ = tileSize
         self.mover = TileMover(node: sprite, spawn: spawn, map: map,
                                step: baseChaseStep / blueprint.speed,
@@ -73,6 +84,18 @@ final class BossController {
             sprite.setEyeColor(.black)
             sprite.setSkinColor(sprite.baseSkinColor)
             mover.step = chaseStep
+        }
+    }
+
+    // bossman-apple refreshTags: show the next-capture value (yellow) above a
+    // boss while it's frightened in the gold-disc window, else its name (white).
+    func refreshTag(nextPoints: Int) {
+        if isFrightened {
+            nameTag.text = "\(nextPoints)"
+            nameTag.fontColor = .systemYellow
+        } else {
+            nameTag.text = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)].name
+            nameTag.fontColor = .white
         }
     }
 
