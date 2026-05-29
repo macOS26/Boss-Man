@@ -119,7 +119,7 @@ final class TitleScene: SKScene {
         escHint.fontSize = 16
         escHint.fontColor = .black
         escHint.horizontalAlignmentMode = .right
-        escHint.position = CGPoint(x: size.width - 20, y: 54)
+        escHint.position = CGPoint(x: size.width - 20, y: 59)
         addChild(escHint)
         escWindowLabel = escHint
 
@@ -131,7 +131,7 @@ final class TitleScene: SKScene {
         tracks.fontSize = 16
         tracks.fontColor = .black
         tracks.horizontalAlignmentMode = .right
-        tracks.position = CGPoint(x: size.width - 20, y: 90)
+        tracks.position = CGPoint(x: size.width - 20, y: 100)
         addChild(tracks)
         bossTracksLabel = tracks
 
@@ -144,7 +144,7 @@ final class TitleScene: SKScene {
         editorTap.fontSize = 16
         editorTap.fontColor = .black
         editorTap.horizontalAlignmentMode = .right
-        editorTap.position = CGPoint(x: size.width - 20, y: 126)
+        editorTap.position = CGPoint(x: size.width - 20, y: 141)
         addChild(editorTap)
         levelEditorLabel = editorTap
 
@@ -153,7 +153,7 @@ final class TitleScene: SKScene {
         playTap.fontSize = 16
         playTap.fontColor = .black
         playTap.horizontalAlignmentMode = .right
-        playTap.position = CGPoint(x: size.width - 20, y: 162)
+        playTap.position = CGPoint(x: size.width - 20, y: 182)
         addChild(playTap)
         clickToPlayLabel = playTap
 
