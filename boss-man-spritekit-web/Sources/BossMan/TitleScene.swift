@@ -17,12 +17,34 @@ final class TitleScene: SKScene {
     private var bossTracksLabel: SKLabelNode?
     private var levelEditorLabel: SKLabelNode?
     private var clickToPlayLabel: SKLabelNode?
-    private var promptPlayLabel: SKLabelNode?
-    private var promptEditorLabel: SKLabelNode?
+    private var playButtonRect = CGRect.zero
+    private var editorButtonRect = CGRect.zero
 
     private func bossTracksText() -> String {
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
         return "Boss Tracks: \(square ? "Square" : "Smooth")"
+    }
+
+    // A filled rounded-rect title button with centred white text. Returns its
+    // tap rect (scene coords) so mouseDown can hit-test the whole button.
+    private func makeTitleButton(text: String, color: SKColor, center: CGPoint, size s: CGSize) -> CGRect {
+        let bg = SKShapeNode(rect: CGRect(x: -s.width / 2, y: -s.height / 2, width: s.width, height: s.height),
+                             cornerRadius: 10)
+        bg.position = center
+        bg.fillColor = color
+        bg.strokeColor = .clear
+        bg.zPosition = 5
+        addChild(bg)
+        let label = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+        label.text = text
+        label.fontSize = 34
+        label.fontColor = .white
+        label.horizontalAlignmentMode = .center
+        label.verticalAlignmentMode = .center
+        label.zPosition = 6
+        bg.addChild(label)
+        return CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2,
+                      width: s.width, height: s.height)
     }
 
     override func didMove(to view: SKView) {
@@ -45,45 +67,21 @@ final class TitleScene: SKScene {
         stapler.zRotation = -0.06
         addChild(stapler)
 
-        // Split blinking prompt: green "[P]lay Game" and blue "Level [E]ditor"
-        // flanking a "*". Separator centred; the play label right-aligns to its
-        // left, the editor label left-aligns to its right, so no width
-        // measurement is needed at layout time (font may not be loaded yet).
+        // Two title buttons: green "(P)lay" and blue "(L)evel", white text on a
+        // filled rounded rect. Centred as a pair; click/tap either, or press
+        // P / L. Fixed sizes avoid layout-time text measurement (font-load race).
         let promptY = size.height * 0.15
-        let green = SKColor(red: 0.0,  green: 0.45, blue: 0.10, alpha: 1)
-        let blue  = SKColor(red: 0.05, green: 0.25, blue: 0.75, alpha: 1)
-        let blink = SKAction.repeatForever(.sequence([
-            .fadeAlpha(to: 0.25, duration: 0.6),
-            .fadeAlpha(to: 1.0,  duration: 0.6),
-        ]))
-
-        let sep = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
-        sep.text = Strings.Title.promptSep
-        sep.fontSize = 40
-        sep.fontColor = .black
-        sep.position = CGPoint(x: size.width / 2, y: promptY)
-        sep.run(blink)
-        addChild(sep)
-
-        let playGame = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
-        playGame.text = Strings.Title.playGame
-        playGame.fontSize = 40
-        playGame.fontColor = green
-        playGame.horizontalAlignmentMode = .right
-        playGame.position = CGPoint(x: size.width / 2 - 18, y: promptY)
-        playGame.run(blink)
-        addChild(playGame)
-        promptPlayLabel = playGame
-
-        let levelEditor = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
-        levelEditor.text = Strings.Title.levelEditor
-        levelEditor.fontSize = 40
-        levelEditor.fontColor = blue
-        levelEditor.horizontalAlignmentMode = .left
-        levelEditor.position = CGPoint(x: size.width / 2 + 18, y: promptY)
-        levelEditor.run(blink)
-        addChild(levelEditor)
-        promptEditorLabel = levelEditor
+        let green = SKColor(red: 0.0,  green: 0.55, blue: 0.18, alpha: 1)
+        let blue  = SKColor(red: 0.10, green: 0.35, blue: 0.85, alpha: 1)
+        let bw: CGFloat = 180, bh: CGFloat = 52, gap: CGFloat = 28
+        playButtonRect = makeTitleButton(
+            text: Strings.Title.playGame, color: green,
+            center: CGPoint(x: size.width / 2 - bw / 2 - gap / 2, y: promptY),
+            size: CGSize(width: bw, height: bh))
+        editorButtonRect = makeTitleButton(
+            text: Strings.Title.levelEditor, color: blue,
+            center: CGPoint(x: size.width / 2 + bw / 2 + gap / 2, y: promptY),
+            size: CGSize(width: bw, height: bh))
 
         let high = Persistence.int(forKey: Strings.DefaultsKey.highScore)
         if high > 0 {
@@ -157,7 +155,7 @@ final class TitleScene: SKScene {
     override func keyDown(_ key: Int) {
         switch key {
         case 15:  startGame()                    // P  → Play
-        case 4:   startEditor()                  // E  → Level editor
+        case 11:  startEditor()                  // L  → Level editor
         case 5:   win_request_fullscreen()       // F  → Fullscreen
         case 57:  startGame()                    // Space → Play (gamepad A button maps here)
         default: break
@@ -167,10 +165,10 @@ final class TitleScene: SKScene {
     override func mouseDown(at p: CGPoint) {
         if let play = clickToPlayLabel, labelHit(play, p) { startGame(); return }
         if let editor = levelEditorLabel, labelHit(editor, p) { startEditor(); return }
-        // Big blinking prompt: green "[P]lay Game" starts the game, blue
-        // "Level [E]ditor" opens the editor.
-        if let play = promptPlayLabel, labelHit(play, p) { startGame(); return }
-        if let editor = promptEditorLabel, labelHit(editor, p) { startEditor(); return }
+        // Title buttons: green "(P)lay" starts the game, blue "(L)evel" opens
+        // the editor. Whole button rect is the tap target.
+        if playButtonRect.contains(p)   { startGame();   return }
+        if editorButtonRect.contains(p) { startEditor(); return }
         if let label = bossTracksLabel, labelHit(label, p) {
             let square = !Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
             Persistence.set(square, forKey: Strings.DefaultsKey.bossTracksSquare)

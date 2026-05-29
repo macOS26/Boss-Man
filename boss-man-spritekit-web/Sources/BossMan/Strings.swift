@@ -59,9 +59,8 @@ enum Strings {
     // MARK: - Title screen copy
     enum Title {
         static let gameTitle = "BOSS-MAN"
-        static let playGame    = "[P]lay Game"
-        static let promptSep   = "*"
-        static let levelEditor = "Level [E]ditor"
+        static let playGame    = "(P)lay"
+        static let levelEditor = "(L)evel"
         static let controlsHint = "Cursor key to Move \u{00B7} Space to Fire Water Pistol"
         static func highScore(_ value: Int) -> String { "HIGH SCORE \(value)" }
     }
