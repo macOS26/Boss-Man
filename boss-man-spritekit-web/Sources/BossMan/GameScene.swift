@@ -131,7 +131,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // Per-level cubicle color rotation — bossman-apple GameScene:288.
         mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[
             levelIndex % SpriteFactory.cubicleColors.count]
-        dotsRemaining = mazeBuilder.build(in: mazeRoot)
+        dotsRemaining = mazeBuilder.build(in: mazeRoot, view: view)
         dotsTotal = dotsRemaining
         goldDiscsRemaining = mazeBuilder.goldDiscPositions.count
         goldDiscsTotal = goldDiscsRemaining
@@ -166,7 +166,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             PhysicsCategory.machine | PhysicsCategory.tpsBox |
             PhysicsCategory.goldDisc | PhysicsCategory.fish |
             PhysicsCategory.waterGun | PhysicsCategory.waterPellet
-        peteBody.collisionBitMask = PhysicsCategory.wall
+        // No collision resolution: Pete's tile stepper already keeps him out of
+        // walls, and letting Box2D push a directly-positioned dynamic body
+        // produced micro-jitter. Contacts still fire via contactTestBitMask.
+        peteBody.collisionBitMask = 0
         pete.physicsBody = peteBody
         addChild(pete)
         peteMover = TileMover(node: pete, spawn: spawn, map: gridMap,
@@ -791,7 +794,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         gridMap.setRows(rows)
         mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[
             levelIndex % SpriteFactory.cubicleColors.count]
-        dotsRemaining = mazeBuilder.build(in: mazeRoot)
+        dotsRemaining = mazeBuilder.build(in: mazeRoot, view: view)
         dotsTotal = dotsRemaining
         goldDiscsRemaining = mazeBuilder.goldDiscPositions.count
         goldDiscsTotal = goldDiscsRemaining

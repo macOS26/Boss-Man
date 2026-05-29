@@ -43,10 +43,15 @@ final class MazeBuilder {
     private(set) var machineNodes: [CGPoint: (name: String, node: SKNode)] = [:]
     private(set) var brownBoxNodes: [CGPoint: SKNode] = [:]
 
+    // One shared dot texture (color-invariant) baked once, reused for every
+    // pellet — mirrors bossman-apple's single pelletTexture. Cached across
+    // levels so we only pay the offscreen bake one time.
+    private var dotTexture: SKTexture?
+
     init(map: GridMap) { self.map = map }
 
     @discardableResult
-    func build(in scene: SKNode) -> Int {
+    func build(in scene: SKNode, view: SKView? = nil) -> Int {
         // Backdrop — solid dark fill behind the maze. The per-tile floor
         // checker sits at z=-9; walls and pickups go on top.
         let bg = SKShapeNode(rect: CGRect(x: 0, y: 0,
@@ -57,6 +62,19 @@ final class MazeBuilder {
         bg.position.y = map.yOffset
         bg.zPosition = -10
         scene.addChild(bg)
+
+        // Bake the single shared dot texture once (color-invariant yellow square).
+        if dotTexture == nil, let view {
+            dotTexture = view.texture(from: SpriteFactory.dotVisual())
+        }
+
+        // Floor checker + wall VISUALS are static for the level, so we collect
+        // them in a throwaway tree, bake it to one texture, and draw a single
+        // sprite each frame instead of ~1500 SKShapeNodes (the bossman-apple
+        // approach: a pre-rendered maze sheet). Wall PHYSICS stays as separate
+        // bodies-only nodes so collision is unchanged. Falls back to the live
+        // tree if no view is available to bake with.
+        let staticTree = SKNode()
 
         var dotCount = 0
 
@@ -72,11 +90,11 @@ final class MazeBuilder {
                 let floor = SpriteFactory.floorTile(size: map.tileSize, alternate: alt)
                 floor.position = position
                 floor.zPosition = -9
-                scene.addChild(floor)
+                staticTree.addChild(floor)
 
                 switch char {
                 case Strings.Tile.wallChar:
-                    addWall(at: position, in: scene)
+                    addWall(at: position, into: staticTree, scene: scene)
 
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     if let dot = addDot(at: position, in: scene) {
@@ -155,6 +173,19 @@ final class MazeBuilder {
             }
         }
 
+        // Collapse the static floor+wall tree into a single baked sprite.
+        if let view, let tex = view.texture(from: staticTree) {
+            let frame = staticTree.calculateAccumulatedFrame()
+            let sheet = SKSpriteNode(texture: tex, size: tex.size)
+            sheet.anchorPoint = .zero
+            sheet.position = CGPoint(x: frame.minX, y: frame.minY)
+            sheet.zPosition = -9
+            scene.addChild(sheet)
+        } else {
+            // No view to bake with: fall back to the live (slower) node tree.
+            for child in staticTree.children { child.removeFromParent(); scene.addChild(child) }
+        }
+
         return dotCount
     }
 
@@ -191,18 +222,26 @@ final class MazeBuilder {
 
     // MARK: - Helpers
 
-    private func addWall(at position: CGPoint, in scene: SKNode) {
+    // Wall VISUAL goes into the baked static sheet; the PHYSICS body rides on
+    // a separate, invisible bodies-only node added live to the scene so
+    // collision is identical to before (the body draws nothing, so it costs
+    // nothing per frame beyond the tree walk).
+    private func addWall(at position: CGPoint, into staticTree: SKNode, scene: SKNode) {
         let wall = SpriteFactory.wallTile(size: map.tileSize, color: cubicleColor)
         wall.position = position
         wall.zPosition = 0
+        staticTree.addChild(wall)
+
+        let bodyNode = SKNode()
+        bodyNode.position = position
         let body = SKPhysicsBody(rectangleOf: CGSize(width: map.tileSize,
                                                      height: map.tileSize))
         body.isDynamic = false
         body.categoryBitMask = PhysicsCategory.wall
         body.collisionBitMask = PhysicsCategory.worker | PhysicsCategory.boss
         body.contactTestBitMask = 0
-        wall.physicsBody = body
-        scene.addChild(wall)
+        bodyNode.physicsBody = body
+        scene.addChild(bodyNode)
     }
 
 
@@ -276,7 +315,12 @@ final class MazeBuilder {
     }
 
     private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {
-        let dot = SpriteFactory.dotVisual()
+        let dot: SKNode
+        if let tex = dotTexture {
+            dot = SKSpriteNode(texture: tex, size: tex.size)
+        } else {
+            dot = SpriteFactory.dotVisual()
+        }
         dot.position = position
         dot.zPosition = 1
         scene.addChild(dot)
