@@ -166,6 +166,15 @@ final class BossController {
         tag.position = CGPoint(x: 0, y: 24)
         node.addChild(tag)
 
+        // Boss Tracks setting (title screen). "Square" (default) is the classic
+        // glide-then-dwell cadence (0.36 interval / 0.22 glide => 0.14 dwell per
+        // tile). "Smooth" is a continuous glide with no centre dwell (matches the
+        // SuperBox64 / wasm port's Smooth mode). Absent key defaults to Square so
+        // existing behaviour is unchanged until the player opts into Smooth.
+        let square = (UserDefaults.standard.object(forKey: Strings.DefaultsKey.bossTracksSquare) as? Bool) ?? true
+        let entityInterval = (square ? moveInterval : 0.16) / blueprint.speed
+        let entityDuration = (square ? moveDuration : 0.16) / blueprint.speed
+
         let entity = Entity(
             name: blueprint.name,
             baseColor: blueprint.color,
@@ -175,8 +184,8 @@ final class BossController {
             ai: ai,
             node: node,
             tag: tag,
-            moveInterval: moveInterval / blueprint.speed,
-            moveDuration: moveDuration / blueprint.speed,
+            moveInterval: entityInterval,
+            moveDuration: entityDuration,
             lastMove: 0,
             blueprintIndex: blueprintIndex
         )

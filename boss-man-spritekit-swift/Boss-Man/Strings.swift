@@ -251,6 +251,8 @@ enum Strings {
         static let startFullscreen  = "Boss-Man.startFullscreen"
         static let localHighScores  = "Boss-Man.localHighScores"
         static let localLeaderboardUsername = "Boss-Man.localLeaderboardUsername"
+        static let bossTracksSquare = "Boss-Man.bossTracksSquare"
+        static let waterGunLeft     = "Boss-Man.waterGunLeft"
     }
 
     // MARK: - Game Center
