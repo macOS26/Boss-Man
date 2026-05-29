@@ -157,14 +157,8 @@ class Runtime {
     if (typeof speechSynthesis !== 'undefined') {
       // Kick the voice list — Chrome only populates on first access.
       speechSynthesis.getVoices();
-      // Console-log the full voice list (pick one to try) and expose
-      // window.bossmanVoices() / window.bossmanTry('name') for testing.
-      const logVoices = () => {
-        const vs = speechSynthesis.getVoices();
-        if (vs.length) console.log('[bossman] ' + vs.length + ' TTS voices:\n' +
-          vs.map((x, i) => i + ': ' + x.name + ' — ' + x.lang + (x.default ? ' (default)' : '')).join('\n'));
-      };
-      logVoices();
+      // Opt-in test helpers (no auto console output): window.bossmanVoices()
+      // lists voices on demand; window.bossmanTry('name') speaks a sample.
       window.bossmanVoices = () => speechSynthesis.getVoices().map((x) => ({ name: x.name, lang: x.lang, default: x.default }));
       window.bossmanTry = (frag, text) => {
         const x = speechSynthesis.getVoices().find((y) => (y.name || '').toLowerCase().includes((frag || '').toLowerCase()));
@@ -178,7 +172,6 @@ class Runtime {
       // flush any utterances that were queued while it was still empty.
       speechSynthesis.onvoiceschanged = () => {
         this._ttsVoice = null;
-        logVoices();
         const v = this._pickTTSVoice();
         if (!v || !this._ttsPending.length) return;
         const pending = this._ttsPending; this._ttsPending = [];
@@ -303,6 +296,13 @@ class Runtime {
       clock_time_get: (_id, _precision, timePtr) => {
         const ns = BigInt(Math.round(performance.now() * 1e6));
         this.dv().setBigUint64(timePtr, ns, true);
+        return 0;
+      },
+      // Clock resolution in nanoseconds. The Swift concurrency runtime (linked
+      // the moment any @MainActor executor code runs, e.g. MainActor.assumeIsolated)
+      // imports this; report performance.now()'s ~1us granularity.
+      clock_res_get: (_id, resPtr) => {
+        this.dv().setBigUint64(resPtr, 1000n, true);
         return 0;
       },
       random_get: (ptr, len) => {
