@@ -205,7 +205,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // water gun; a swipe anywhere else steers Pete (see mouseDown/Moved/Up).
     // A virtual joystick may join it on the left side later.
     private func installFireButton() {
-        fireButtonCenter = CGPoint(x: size.width - 64, y: 72)
+        let onLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        fireButtonCenter = CGPoint(x: onLeft ? 64 : size.width - 64, y: 72)
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter
         ring.fillColor = SKColor(white: 1, alpha: 0.14)

@@ -15,8 +15,7 @@ import KitABI
 //   - Input is a single Int keyCode (SF key index from runtime.js SF_KEY).
 final class TitleScene: SKScene {
     private var bossTracksLabel: SKLabelNode?
-    private var levelEditorLabel: SKLabelNode?
-    private var clickToPlayLabel: SKLabelNode?
+    private var waterGunLabel: SKLabelNode?
     private var fullscreenLabel: SKLabelNode?
     private var escWindowLabel: SKLabelNode?
     private var playButtonRect = CGRect.zero
@@ -25,6 +24,11 @@ final class TitleScene: SKScene {
     private func bossTracksText() -> String {
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
         return "Boss Tracks: \(square ? "Square" : "Smooth")"
+    }
+
+    private func waterGunText() -> String {
+        let left = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        return "Water Gun: \(left ? "Left" : "Right")"
     }
 
     // A filled rounded-rect title button with centred white text. Returns its
@@ -119,7 +123,7 @@ final class TitleScene: SKScene {
         escHint.fontSize = 16
         escHint.fontColor = .black
         escHint.horizontalAlignmentMode = .right
-        escHint.position = CGPoint(x: size.width - 20, y: 59)
+        escHint.position = CGPoint(x: size.width - 20, y: 69)
         addChild(escHint)
         escWindowLabel = escHint
 
@@ -131,31 +135,21 @@ final class TitleScene: SKScene {
         tracks.fontSize = 16
         tracks.fontColor = .black
         tracks.horizontalAlignmentMode = .right
-        tracks.position = CGPoint(x: size.width - 20, y: 100)
+        tracks.position = CGPoint(x: size.width - 20, y: 120)
         addChild(tracks)
         bossTracksLabel = tracks
 
-        // Mobile tap targets stacked above the Boss Tracks toggle, same
-        // right-aligned column: "Level Editor" (= E key) and "Click to Play"
-        // (= P key). Touch devices have no keyboard, so these give a tap path
-        // into the game and the editor.
-        let editorTap = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
-        editorTap.text = "Level Editor"
-        editorTap.fontSize = 16
-        editorTap.fontColor = .black
-        editorTap.horizontalAlignmentMode = .right
-        editorTap.position = CGPoint(x: size.width - 20, y: 141)
-        addChild(editorTap)
-        levelEditorLabel = editorTap
-
-        let playTap = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
-        playTap.text = "Click to Play"
-        playTap.fontSize = 16
-        playTap.fontColor = .black
-        playTap.horizontalAlignmentMode = .right
-        playTap.position = CGPoint(x: size.width - 20, y: 182)
-        addChild(playTap)
-        clickToPlayLabel = playTap
+        // Water Gun side toggle, above Boss Tracks. Switches which side the
+        // in-game fire button sits on (Right default; Left pairs with a future
+        // left-side joystick). Persists in localStorage.
+        let waterGun = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
+        waterGun.text = waterGunText()
+        waterGun.fontSize = 16
+        waterGun.fontColor = .black
+        waterGun.horizontalAlignmentMode = .right
+        waterGun.position = CGPoint(x: size.width - 20, y: 171)
+        addChild(waterGun)
+        waterGunLabel = waterGun
 
         let panel = LeaderboardPanel(size: CGSize(width: 320, height: 400))
         panel.position = CGPoint(x: 320 / 2 + 32, y: size.height * 0.5)
@@ -177,10 +171,14 @@ final class TitleScene: SKScene {
     }
 
     override func mouseDown(at p: CGPoint) {
-        if let play = clickToPlayLabel, labelHit(play, p) { startGame(); return }
-        if let editor = levelEditorLabel, labelHit(editor, p) { startEditor(); return }
         if let fs = fullscreenLabel, labelHit(fs, p) { win_request_fullscreen(); return }
         if let esc = escWindowLabel, labelHit(esc, p) { win_exit_fullscreen(); return }
+        if let wg = waterGunLabel, labelHit(wg, p) {
+            let left = !Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+            Persistence.set(left, forKey: Strings.DefaultsKey.waterGunLeft)
+            wg.text = waterGunText()
+            return
+        }
         // Title buttons: green "(P)lay" starts the game, blue "(E)ditor" opens
         // the editor. Whole button rect is the tap target.
         if playButtonRect.contains(p)   { startGame();   return }

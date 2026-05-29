@@ -74,6 +74,7 @@ enum Strings {
         static let localLeaderboardUsername = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
+        static let waterGunLeft           = "BossMan.waterGunLeft"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
         static let editorLevelPrefix      = "BossMan.editorLevel."
     }
