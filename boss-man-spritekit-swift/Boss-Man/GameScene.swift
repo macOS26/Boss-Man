@@ -74,6 +74,28 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
         inputController.hideCursor()
+        installFireButton()
+    }
+
+    // On-screen fire button (matches the SuperBox64 / wasm port). The cursor is
+    // hidden during play (mouse delta steers Pete), so it can't be aimed at a
+    // tiny target — a left-click fires the water gun and this round button is the
+    // visual affordance. Its side follows the Water Gun title-screen setting.
+    private func installFireButton() {
+        let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        let center = CGPoint(x: onLeft ? 64 : size.width - 64, y: 72)
+        let ring = SKShapeNode(circleOfRadius: 38)
+        ring.position = center
+        ring.fillColor = NSColor(white: 1, alpha: 0.14)
+        ring.strokeColor = NSColor(white: 1, alpha: 0.5)
+        ring.lineWidth = 2
+        ring.zPosition = 50
+        let core = SKShapeNode(circleOfRadius: 38 * 0.34)
+        core.fillColor = NSColor(calibratedRed: 0.4, green: 0.7, blue: 1.0, alpha: 0.6)
+        core.strokeColor = .clear
+        core.zPosition = 51
+        ring.addChild(core)
+        addChild(ring)
     }
 
     override func willMove(from view: SKView) {
@@ -121,6 +143,12 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             isPaused = true
             sound.pauseAudio()
         }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        // Left-click fires the water gun (the on-screen fire button is the cue).
+        guard !isPaused, !isGameOver else { return }
+        fireWaterGun()
     }
 
     override func mouseMoved(with event: NSEvent) {
