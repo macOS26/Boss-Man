@@ -233,6 +233,19 @@ void Game::processInput() {
             }
             continue;
         }
+        // In-game mouse/trackpad: moving steers Pete (swipe), left-click fires
+        // the water gun (the on-screen fire button is the visual affordance).
+        if (gameState == GameState::Playing) {
+            if (event.type == sf::Event::MouseMoved) {
+                input.handleMouseMove(event.mouseMove.x, event.mouseMove.y);
+                continue;
+            }
+            if (event.type == sf::Event::MouseButtonPressed
+                    && event.mouseButton.button == sf::Mouse::Left) {
+                input.fireRequested = true;
+                continue;
+            }
+        }
         input.handleEvent(event);
     }
 
@@ -536,6 +549,24 @@ void Game::render() {
 
         scorePopups.draw(window);
         hud.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+        // On-screen fire button (left-click fires; side per the Water Gun setting).
+        {
+            float cx = Settings::waterGunLeft() ? 64.f : (float)WINDOW_WIDTH - 64.f;
+            float cy = (float)WINDOW_HEIGHT - 72.f;
+            sf::CircleShape ring(38.f);
+            ring.setOrigin(38.f, 38.f);
+            ring.setPosition(cx, cy);
+            ring.setFillColor(sf::Color(255, 255, 255, 36));
+            ring.setOutlineThickness(2.f);
+            ring.setOutlineColor(sf::Color(255, 255, 255, 128));
+            window.draw(ring);
+            sf::CircleShape core(13.f);
+            core.setOrigin(13.f, 13.f);
+            core.setPosition(cx, cy);
+            core.setFillColor(sf::Color(102, 179, 255, 153));
+            window.draw(core);
+        }
     }
 
     window.display();

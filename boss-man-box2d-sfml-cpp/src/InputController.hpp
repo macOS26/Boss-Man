@@ -69,6 +69,28 @@ public:
         }
     }
 
+    // Mouse / trackpad swipe steering: accumulate motion between MouseMoved
+    // events and, once it clears a threshold, steer Pete that way (mirrors the
+    // apple InputController.handleMouseDelta and the wasm swipe). Pixel deltas
+    // are fine for direction; called only in the Playing state.
+    int lastMouseX = -1, lastMouseY = -1;
+    float mouseAccumX = 0.f, mouseAccumY = 0.f;
+
+    void handleMouseMove(int x, int y) {
+        if (lastMouseX < 0) { lastMouseX = x; lastMouseY = y; return; }
+        float dx = float(x - lastMouseX), dy = float(y - lastMouseY);
+        lastMouseX = x; lastMouseY = y;
+        if (dx * dx + dy * dy > 100.f * 100.f) { mouseAccumX = 0; mouseAccumY = 0; return; } // ignore warps
+        mouseAccumX += dx; mouseAccumY += dy;
+        float ax = mouseAccumX < 0 ? -mouseAccumX : mouseAccumX;
+        float ay = mouseAccumY < 0 ? -mouseAccumY : mouseAccumY;
+        const float threshold = 24.f;
+        if (ax < threshold && ay < threshold) return;
+        if (ax > ay) lastDirection = (mouseAccumX > 0) ? MoveDirection::Right : MoveDirection::Left;
+        else         lastDirection = (mouseAccumY > 0) ? MoveDirection::Down  : MoveDirection::Up;
+        mouseAccumX = 0; mouseAccumY = 0;
+    }
+
     void consume() {
         fireRequested = false;
         pauseRequested = false;
