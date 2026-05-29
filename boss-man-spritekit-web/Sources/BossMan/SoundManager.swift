@@ -25,7 +25,10 @@ final class SoundManager {
     // MARK: - Lifecycle
 
     init() {
-        let preferred = "rocko,alex,ralph,daniel,david,mark,fred,reed,grandpa,junior,google us english"
+        // Preference chain: Rocko -> Ralph -> Fred -> Daniel (the picker takes the
+        // first one actually present, so Chrome gets Rocko, Safari falls to Ralph
+        // since Rocko isn't exposed there). The rest are deeper safety fallbacks.
+        let preferred = "rocko,ralph,fred,daniel,alex,david,mark,reed,grandpa,junior,google us english"
         let robotic   = "bahh,bells,boing,bubbles,cellos,deranged,good news,hysterical,pipe organ,trinoids,whisper,zarvox,albert,eddy"
         let female    = "samantha,karen,tessa,moira,ava,susan,victoria,allison,veena,fiona,kate,kathy,sandy,whisper,paulina,monica,marie,zira,hazel,heather,jenny,aria,catherine,clara,linda,sara,google uk english female,google us english female"
         callCSV(preferred, tts_set_preferred_voices)
