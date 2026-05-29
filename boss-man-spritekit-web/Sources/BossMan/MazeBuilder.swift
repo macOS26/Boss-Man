@@ -176,9 +176,11 @@ final class MazeBuilder {
         // Collapse the static floor+wall tree into a single baked sprite.
         if let view, let tex = view.texture(from: staticTree) {
             let frame = staticTree.calculateAccumulatedFrame()
+            // Centre-anchored at the frame centre (the kit's default anchor,
+            // same as the dot sprites that already line up) — anchorPoint=.zero
+            // mis-placed the sheet vertically.
             let sheet = SKSpriteNode(texture: tex, size: tex.size)
-            sheet.anchorPoint = .zero
-            sheet.position = CGPoint(x: frame.minX, y: frame.minY)
+            sheet.position = CGPoint(x: frame.midX, y: frame.midY)
             sheet.zPosition = -9
             scene.addChild(sheet)
         } else {
