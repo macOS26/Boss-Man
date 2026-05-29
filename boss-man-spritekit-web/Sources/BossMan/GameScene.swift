@@ -96,6 +96,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // didBegin for every (categoryBitMask & contactTestBitMask) pair.
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
+        physicsWorld.showsPhysics = true
 
         let rows = Levels.officeMaps.first ?? []
         gridMap = GridMap(tileSize: tileSize, rows: rows)

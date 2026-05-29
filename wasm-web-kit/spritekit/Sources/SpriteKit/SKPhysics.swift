@@ -345,6 +345,7 @@ public final class SKPhysicsWorld {
         let rgba: UInt32 = 0x00FF00CC
         let t: Float = 1.5
         for (id, b) in SKPhysicsWorld.registry {
+            guard b.node?.scene != nil else { continue }
             var x: Float = 0, y: Float = 0
             cb_get_position(id, &x, &y)
             let angle = cb_get_angle(id)
