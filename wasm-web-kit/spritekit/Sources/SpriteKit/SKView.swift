@@ -49,9 +49,14 @@ public final class SKView {
         let frame = node.calculateAccumulatedFrame()
         let w = max(1, Int(frame.width)), h = max(1, Int(frame.height))
         let handle = gfx_offscreen_begin(Int32(w), Int32(h))
-        // Translate so the node's bottom-left sits at origin in the offscreen
-        // canvas (Canvas2D is y-down, but our scene-render path flips already).
+        // Replicate the main render's y-up -> y-down flip (SKView.render does
+        // translate(0,h)+scale(1,-1) before drawing the tree). Without it the
+        // baked bitmap is vertically mirrored — invisible on symmetric content
+        // (a dot) but it flips an asymmetric maze onto the wrong rows. Then
+        // translate so the node's frame origin maps to the offscreen origin.
         gfx_save()
+        gfx_translate(0, Float(h))
+        gfx_scale(1, -1)
         gfx_translate(Float(-frame.minX), Float(-frame.minY))
         node.renderTree(parentAlpha: 1)
         gfx_restore()
