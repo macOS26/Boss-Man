@@ -1657,8 +1657,8 @@ void main() {
   // ==========================================================================
   wireInput() {
     const onResume = () => this.ensureAudio();
-    addEventListener('keydown', onResume, { once: false });
-    addEventListener('mousedown', onResume, { once: false });
+    addEventListener('keydown', onResume, { once: true });
+    addEventListener('mousedown', onResume, { once: true });
 
     addEventListener('keydown', (e) => {
       const sf = DOM_TO_SF.get(e.code);

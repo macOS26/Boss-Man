@@ -578,10 +578,19 @@ public final class SKPhysicsWorld {
         // does, including bossman-apple) stays at its spawn position
         // in Box2D's world — and no contacts fire because the body
         // never goes anywhere as far as Box2D is concerned.
+        var orphaned: [Int32] = []
         for (id, b) in SKPhysicsWorld.registry {
-            guard let n = b.node else { continue }
+            guard let n = b.node else { orphaned.append(id); continue }
             cb_set_transform(id, Float(n.position.x), Float(n.position.y),
                              Float(n.zRotation))
+        }
+        // A registry body whose weak SKNode has left the scene is an orphan:
+        // Box2D keeps it colliding and the showsPhysics overlay keeps stroking
+        // it. Apple destroys a node's body when it leaves the scene; mirror that
+        // for any node removed by a path that bypassed teardownPhysics.
+        for id in orphaned {
+            cb_remove_body(id)
+            SKPhysicsWorld.registry.removeValue(forKey: id)
         }
         cb_step(Float(dt))
         // Read positions back for true dynamic bodies (so simulated
