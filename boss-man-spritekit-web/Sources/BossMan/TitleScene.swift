@@ -18,6 +18,7 @@ final class TitleScene: SKScene {
     private var levelEditorLabel: SKLabelNode?
     private var clickToPlayLabel: SKLabelNode?
     private var fullscreenLabel: SKLabelNode?
+    private var escWindowLabel: SKLabelNode?
     private var playButtonRect = CGRect.zero
     private var editorButtonRect = CGRect.zero
 
@@ -112,6 +113,16 @@ final class TitleScene: SKScene {
         addChild(fsHint)
         fullscreenLabel = fsHint
 
+        // ESC returns to a window (browsers also exit fullscreen on Esc natively).
+        let escHint = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
+        escHint.text = "ESC for Window"
+        escHint.fontSize = 16
+        escHint.fontColor = .black
+        escHint.horizontalAlignmentMode = .right
+        escHint.position = CGPoint(x: size.width - 20, y: 54)
+        addChild(escHint)
+        escWindowLabel = escHint
+
         // Boss Tracks toggle, just above the fullscreen hint. Click to switch
         // between "Smooth" (this port's continuous lerp) and "Square" (the
         // apple/C++ tile-by-tile cadence). Mode persists in localStorage.
@@ -120,7 +131,7 @@ final class TitleScene: SKScene {
         tracks.fontSize = 16
         tracks.fontColor = .black
         tracks.horizontalAlignmentMode = .right
-        tracks.position = CGPoint(x: size.width - 20, y: 54)
+        tracks.position = CGPoint(x: size.width - 20, y: 90)
         addChild(tracks)
         bossTracksLabel = tracks
 
@@ -133,7 +144,7 @@ final class TitleScene: SKScene {
         editorTap.fontSize = 16
         editorTap.fontColor = .black
         editorTap.horizontalAlignmentMode = .right
-        editorTap.position = CGPoint(x: size.width - 20, y: 90)
+        editorTap.position = CGPoint(x: size.width - 20, y: 126)
         addChild(editorTap)
         levelEditorLabel = editorTap
 
@@ -142,7 +153,7 @@ final class TitleScene: SKScene {
         playTap.fontSize = 16
         playTap.fontColor = .black
         playTap.horizontalAlignmentMode = .right
-        playTap.position = CGPoint(x: size.width - 20, y: 126)
+        playTap.position = CGPoint(x: size.width - 20, y: 162)
         addChild(playTap)
         clickToPlayLabel = playTap
 
@@ -159,6 +170,7 @@ final class TitleScene: SKScene {
         case 15:  startGame()                    // P  → Play
         case 4:   startEditor()                  // E  → Level editor
         case 5:   win_request_fullscreen()       // F  → Fullscreen
+        case 36:  win_exit_fullscreen()          // Esc → back to a window
         case 57:  startGame()                    // Space → Play (gamepad A button maps here)
         default: break
         }
@@ -168,6 +180,7 @@ final class TitleScene: SKScene {
         if let play = clickToPlayLabel, labelHit(play, p) { startGame(); return }
         if let editor = levelEditorLabel, labelHit(editor, p) { startEditor(); return }
         if let fs = fullscreenLabel, labelHit(fs, p) { win_request_fullscreen(); return }
+        if let esc = escWindowLabel, labelHit(esc, p) { win_exit_fullscreen(); return }
         // Title buttons: green "(P)lay" starts the game, blue "(E)ditor" opens
         // the editor. Whole button rect is the tap target.
         if playButtonRect.contains(p)   { startGame();   return }

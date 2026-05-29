@@ -1239,6 +1239,10 @@ class Runtime {
       win_request_fullscreen: () => {
         if (this.canvas.requestFullscreen) this.canvas.requestFullscreen().catch(() => {});
       },
+      win_exit_fullscreen: () => {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      },
 
       // ---- persistence (localStorage) ----
       store_get: (keyPtr, klen, bufPtr, cap) => {

@@ -115,6 +115,7 @@ WABI void win_set_title(const char* s, int len);
 WABI int  win_width();
 WABI int  win_height();
 WABI void win_request_fullscreen();
+WABI void win_exit_fullscreen();
 
 // ---- persistence (localStorage-backed; for high score / levels / leaderboard) ----
 // Reads up to cap bytes into buf; returns actual length (or -1 if absent).
