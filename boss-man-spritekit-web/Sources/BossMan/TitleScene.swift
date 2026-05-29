@@ -17,6 +17,7 @@ final class TitleScene: SKScene {
     private var bossTracksLabel: SKLabelNode?
     private var levelEditorLabel: SKLabelNode?
     private var clickToPlayLabel: SKLabelNode?
+    private var fullscreenLabel: SKLabelNode?
     private var playButtonRect = CGRect.zero
     private var editorButtonRect = CGRect.zero
 
@@ -63,13 +64,13 @@ final class TitleScene: SKScene {
         addChild(title)
 
         let stapler = makeStapler()
-        stapler.position = CGPoint(x: size.width / 2, y: size.height * 0.46)
+        stapler.position = CGPoint(x: size.width / 2, y: size.height * 0.46 + 5)
         stapler.zRotation = -0.06
         addChild(stapler)
 
-        // Two title buttons: green "(P)lay" and blue "(L)evel", white text on a
+        // Two title buttons: green "(P)lay" and blue "(E)ditor", white text on a
         // filled rounded rect. Centred as a pair; click/tap either, or press
-        // P / L. Fixed sizes avoid layout-time text measurement (font-load race).
+        // P / E. Fixed sizes avoid layout-time text measurement (font-load race).
         let promptY = size.height * 0.15 + 15
         let green = SKColor(red: 0.0,  green: 0.55, blue: 0.18, alpha: 1)
         let blue  = SKColor(red: 0.10, green: 0.35, blue: 0.85, alpha: 1)
@@ -109,6 +110,7 @@ final class TitleScene: SKScene {
         fsHint.horizontalAlignmentMode = .right
         fsHint.position = CGPoint(x: size.width - 20, y: 18)
         addChild(fsHint)
+        fullscreenLabel = fsHint
 
         // Boss Tracks toggle, just above the fullscreen hint. Click to switch
         // between "Smooth" (this port's continuous lerp) and "Square" (the
@@ -118,7 +120,7 @@ final class TitleScene: SKScene {
         tracks.fontSize = 16
         tracks.fontColor = .black
         tracks.horizontalAlignmentMode = .right
-        tracks.position = CGPoint(x: size.width - 20, y: 44)
+        tracks.position = CGPoint(x: size.width - 20, y: 54)
         addChild(tracks)
         bossTracksLabel = tracks
 
@@ -131,7 +133,7 @@ final class TitleScene: SKScene {
         editorTap.fontSize = 16
         editorTap.fontColor = .black
         editorTap.horizontalAlignmentMode = .right
-        editorTap.position = CGPoint(x: size.width - 20, y: 70)
+        editorTap.position = CGPoint(x: size.width - 20, y: 90)
         addChild(editorTap)
         levelEditorLabel = editorTap
 
@@ -140,7 +142,7 @@ final class TitleScene: SKScene {
         playTap.fontSize = 16
         playTap.fontColor = .black
         playTap.horizontalAlignmentMode = .right
-        playTap.position = CGPoint(x: size.width - 20, y: 96)
+        playTap.position = CGPoint(x: size.width - 20, y: 126)
         addChild(playTap)
         clickToPlayLabel = playTap
 
@@ -155,7 +157,7 @@ final class TitleScene: SKScene {
     override func keyDown(_ key: Int) {
         switch key {
         case 15:  startGame()                    // P  → Play
-        case 11:  startEditor()                  // L  → Level editor
+        case 4:   startEditor()                  // E  → Level editor
         case 5:   win_request_fullscreen()       // F  → Fullscreen
         case 57:  startGame()                    // Space → Play (gamepad A button maps here)
         default: break
@@ -165,7 +167,8 @@ final class TitleScene: SKScene {
     override func mouseDown(at p: CGPoint) {
         if let play = clickToPlayLabel, labelHit(play, p) { startGame(); return }
         if let editor = levelEditorLabel, labelHit(editor, p) { startEditor(); return }
-        // Title buttons: green "(P)lay" starts the game, blue "(L)evel" opens
+        if let fs = fullscreenLabel, labelHit(fs, p) { win_request_fullscreen(); return }
+        // Title buttons: green "(P)lay" starts the game, blue "(E)ditor" opens
         // the editor. Whole button rect is the tap target.
         if playButtonRect.contains(p)   { startGame();   return }
         if editorButtonRect.contains(p) { startEditor(); return }

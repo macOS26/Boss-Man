@@ -60,7 +60,7 @@ enum Strings {
     enum Title {
         static let gameTitle = "BOSS-MAN"
         static let playGame    = "(P)lay"
-        static let levelEditor = "(L)evel"
+        static let levelEditor = "(E)ditor"
         static let controlsHint = "Cursor key to Move \u{00B7} Space to Fire Water Pistol"
         static func highScore(_ value: Int) -> String { "HIGH SCORE \(value)" }
     }
