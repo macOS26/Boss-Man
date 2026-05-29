@@ -13,7 +13,7 @@ final class SoundManager {
 
     private let speechRate:   Float = 0.85
     private let speechPitch:  Float = 0.55
-    private let speechVolume: Float = 0.1
+    private let speechVolume: Float = 1.0   // full; the runtime ducks music/SFX while speaking
 
     private var lastIndex: [String: Int] = [:]
 

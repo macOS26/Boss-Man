@@ -157,10 +157,28 @@ class Runtime {
     if (typeof speechSynthesis !== 'undefined') {
       // Kick the voice list — Chrome only populates on first access.
       speechSynthesis.getVoices();
+      // Console-log the full voice list (pick one to try) and expose
+      // window.bossmanVoices() / window.bossmanTry('name') for testing.
+      const logVoices = () => {
+        const vs = speechSynthesis.getVoices();
+        if (vs.length) console.log('[bossman] ' + vs.length + ' TTS voices:\n' +
+          vs.map((x, i) => i + ': ' + x.name + ' — ' + x.lang + (x.default ? ' (default)' : '')).join('\n'));
+      };
+      logVoices();
+      window.bossmanVoices = () => speechSynthesis.getVoices().map((x) => ({ name: x.name, lang: x.lang, default: x.default }));
+      window.bossmanTry = (frag, text) => {
+        const x = speechSynthesis.getVoices().find((y) => (y.name || '').toLowerCase().includes((frag || '').toLowerCase()));
+        const u = new SpeechSynthesisUtterance(text || 'Did you get the memo about the TPS reports?');
+        if (x) u.voice = x;
+        u.rate = 0.85; u.pitch = 0.55;
+        speechSynthesis.speak(u);
+        return x ? x.name : '(no match — default voice)';
+      };
       // Voices populate asynchronously on every browser; reset cache and
       // flush any utterances that were queued while it was still empty.
       speechSynthesis.onvoiceschanged = () => {
         this._ttsVoice = null;
+        logVoices();
         const v = this._pickTTSVoice();
         if (!v || !this._ttsPending.length) return;
         const pending = this._ttsPending; this._ttsPending = [];
@@ -188,8 +206,9 @@ class Runtime {
 
     // ---- audio ----
     this.audioCtx = null;
-    this.voices = new Map();   // voice handle -> { source, gain, state }
+    this.voices = new Map();   // voice handle -> { source, gain, base, state }
     this.nextVoice = 1;
+    this.duckFactor = 1;       // 1 = normal; <1 ducks music/SFX while a TTS voice speaks
 
     // ---- input ----
     this.pressed = new Set();        // DOM codes currently down
@@ -593,10 +612,11 @@ class Runtime {
         src.buffer = buf;
         src.loop = !!loop;
         const gain = ctx.createGain();
-        gain.gain.value = Math.max(0, Math.min(1, volume / 100));
+        const base = Math.max(0, Math.min(1, volume / 100));
+        gain.gain.value = base * this.duckFactor;
         src.connect(gain).connect(ctx.destination);
         const handle = this.nextVoice++;
-        const voice = { source: src, gain, state: 1 };
+        const voice = { source: src, gain, base, state: 1 };
         this.voices.set(handle, voice);
         src.onended = () => {
           voice.state = 0;
@@ -615,8 +635,8 @@ class Runtime {
       snd_set_volume: (voice, volume) => {
         const v = this.voices.get(voice);
         if (!v || !this.audioCtx) return;
-        const g = Math.max(0, Math.min(1, volume / 100));
-        v.gain.gain.setTargetAtTime(g, this.audioCtx.currentTime, 0.02);
+        v.base = Math.max(0, Math.min(1, volume / 100));
+        v.gain.gain.setTargetAtTime(v.base * this.duckFactor, this.audioCtx.currentTime, 0.02);
       },
       snd_status: (voice) => {
         const v = this.voices.get(voice);
@@ -694,6 +714,9 @@ class Runtime {
         u.rate   = Math.max(0.1, Math.min(rate   || 1.0, 10));
         u.pitch  = Math.max(0,   Math.min(pitch  || 1.0, 2));
         u.volume = Math.max(0,   Math.min(volume || 1.0, 1));
+        u.onstart = () => this._setDuck(0.25);   // duck music/SFX while speaking
+        u.onend   = () => this._setDuck(1);
+        u.onerror = () => this._setDuck(1);
         const v = this._pickTTSVoice();
         if (v) {
           u.voice = v;
@@ -706,7 +729,7 @@ class Runtime {
         this._ttsPending.push(u);
         return 1;
       },
-      tts_cancel: () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
+      tts_cancel: () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); this._setDuck(1); },
 
       // ============================================================
       // WebGL2 shader pipeline (SKShader, SKLightNode, SKWarpGeometry,
@@ -1552,6 +1575,16 @@ void main() {
       best(femaleOnly);
     this._ttsVoice = v || null;
     return this._ttsVoice;
+  }
+
+  // Duck every active snd voice (music + SFX + gold-disc bass) to `factor` of
+  // its base gain; called with 0.25 while a TTS voice speaks and 1 when it ends.
+  _setDuck(factor) {
+    this.duckFactor = factor;
+    if (!this.audioCtx) return;
+    for (const v of this.voices.values()) {
+      if (v.gain) v.gain.gain.setTargetAtTime((v.base ?? 1) * factor, this.audioCtx.currentTime, 0.05);
+    }
   }
 
   ensureAudio() {
