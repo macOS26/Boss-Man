@@ -39,7 +39,8 @@ say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 say "Configuring + building universal Release (arm64 + x86_64)"
 cmake -S "$ROOT" -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+    -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET="13.5"
 cmake --build "$BUILD_DIR" -j"$(sysctl -n hw.ncpu)"
 [ -d "$APP" ] || { echo "error: $APP not found after build" >&2; exit 1; }
 

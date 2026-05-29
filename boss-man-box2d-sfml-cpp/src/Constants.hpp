@@ -43,6 +43,11 @@ constexpr int   GRID_COLS        = 37;
 constexpr int   GRID_ROWS        = 17;
 constexpr int   WINDOW_WIDTH     = 1184;
 constexpr int   WINDOW_HEIGHT    = 666;  // 16:9 to match SpriteKit scene 1183x665.44
+#ifdef __APPLE__
+const std::string WINDOW_TITLE = "BOSS-MAN MAC";
+#else
+const std::string WINDOW_TITLE = "BOSS-MAN PC";
+#endif
 constexpr int   HUD_HEIGHT       = 100;
 constexpr int   MAX_LIVES        = 5;
 constexpr int   STARTING_LIVES   = 3;

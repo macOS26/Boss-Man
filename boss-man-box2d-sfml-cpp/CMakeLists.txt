@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
+# Minimum macOS the universal build targets, so it runs on systems older than
+# the build SDK. Set before project() so SFML/Box2D (FetchContent) inherit it.
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.5" CACHE STRING "Minimum macOS version")
+endif()
 project(boss-man-pc VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)

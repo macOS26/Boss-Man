@@ -167,7 +167,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- High score ---
     if (highScore > 0) {
         drawText(target, fontThin_, "HIGH SCORE " + std::to_string(highScore), 26, ink,
-                 W / 2.f, H * 0.94f, 1);
+                 W / 2.f, H * 0.94f - 15.f, 1);
     }
 
     // --- Controls + fullscreen hints, bottom of screen, HUD mono font ---

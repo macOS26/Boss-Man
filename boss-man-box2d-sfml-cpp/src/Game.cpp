@@ -9,7 +9,7 @@
 namespace bm {
 
 Game::Game()
-    : window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BOSS-MAN PC",
+    : window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), WINDOW_TITLE,
              sf::Style::Titlebar | sf::Style::Close,
              sf::ContextSettings(0, 0, 8)),  // antialiasing for soft shape edges
       gridMap(TILE_SIZE) {
@@ -45,10 +45,10 @@ void Game::toggleFullscreen() {
     fullscreen = !fullscreen;
     sf::ContextSettings settings(0, 0, 8); // keep antialiasing
     if (fullscreen) {
-        window.create(sf::VideoMode::getDesktopMode(), "BOSS-MAN PC",
+        window.create(sf::VideoMode::getDesktopMode(), WINDOW_TITLE,
                       sf::Style::Fullscreen, settings);
     } else {
-        window.create(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BOSS-MAN PC",
+        window.create(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), WINDOW_TITLE,
                       sf::Style::Titlebar | sf::Style::Close, settings);
     }
     applyFramePacing();
