@@ -2,12 +2,13 @@
 """Generic wasm-web-kit asset bundler for file:/// playability.
 
 Walks a web/ directory and emits web/bundle.js, containing:
-  1. window.__BUNDLE__ — { path -> data: URL } for every shipped asset
-     (manifest.json, the wasm module, fonts/images/sounds/text from the
-     manifest). Each asset is keyed under all the spellings the runtime
-     might ask for: full relative path, bare basename, with/without an
-     "assets/" prefix.
-  2. A fetch() shim that intercepts requests for any bundled path and
+  1. window.__BUNDLE_DATA__ — { id -> data: URL }, each shipped asset's
+     payload inlined exactly once (the wasm module, fonts/images/sounds/
+     text from the manifest, and manifest.json itself).
+  2. window.__BUNDLE__ — { spelling -> id }, mapping every path spelling the
+     runtime might ask for (full relative path, bare basename, with/without
+     an "assets/" prefix) to its id, so all spellings share one stored copy.
+  3. A fetch() shim that intercepts requests for any bundled path and
      redirects them to the inline data URL. Browsers happily fetch data
      URLs from a file:// origin and honour the embedded MIME type, which
      is what WebAssembly.instantiateStreaming wants for the wasm module.
@@ -52,14 +53,19 @@ SHIM = """
   // request through the inline data URL. Browsers fetch data URLs from
   // any origin and honour the embedded MIME type, which is what
   // WebAssembly.instantiateStreaming wants for the .wasm.
+  // __BUNDLE__ maps a path spelling to a canonical id; __BUNDLE_DATA__ holds
+  // each payload once, so the spellings share one inlined copy.
   const origFetch = window.fetch.bind(window);
   function lookup(url) {
     const u = String(url);
-    if (window.__BUNDLE__[u]) return window.__BUNDLE__[u];
-    for (const k of Object.keys(window.__BUNDLE__)) {
-      if (u === k || u.endsWith('/' + k)) return window.__BUNDLE__[k];
+    const map = window.__BUNDLE__;
+    let id = map[u];
+    if (id === undefined) {
+      for (const k of Object.keys(map)) {
+        if (u === k || u.endsWith('/' + k)) { id = map[k]; break; }
+      }
     }
-    return null;
+    return id === undefined ? null : window.__BUNDLE_DATA__[id];
   }
   window.fetch = function (input, init) {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -134,30 +140,29 @@ def main(argv: list[str]) -> int:
         if wasm_path.exists():
             bare.append((wasm_path, wasm_name))
 
-    entries: dict[str, str] = {}
+    data: dict[str, str] = {}     # canonical id -> data URL, one copy per asset
+    alias: dict[str, str] = {}    # every path spelling -> canonical id
     used_logical: set[str] = set()
     for abs_path, logical in asset_candidates + bare:
         if not abs_path.exists() or logical in used_logical:
             continue
-        url = encode(abs_path)
+        data[logical] = encode(abs_path)
         used_logical.add(logical)
-        # Register under several spellings so any caller hits:
-        #   - the manifest path as-is
-        #   - that path prefixed with "assets/"
-        #   - the bare basename
-        entries[logical] = url
-        entries["assets/" + logical] = url
-        entries[logical.split("/")[-1]] = url
+        # Point every spelling a caller might use at the single stored copy:
+        # the manifest path, that path prefixed with "assets/", the basename.
+        for spelling in (logical, "assets/" + logical, logical.split("/")[-1]):
+            alias[spelling] = logical
 
     for raw in manifest_paths(manifest):
-        if raw not in entries:
+        if raw not in alias:
             print(f"warning: bundled asset not found: {raw}", file=sys.stderr)
 
-    body = "window.__BUNDLE__ = " + json.dumps(entries, separators=(",", ":")) + ";\n"
+    body = "window.__BUNDLE_DATA__ = " + json.dumps(data, separators=(",", ":")) + ";\n"
+    body += "window.__BUNDLE__ = " + json.dumps(alias, separators=(",", ":")) + ";\n"
     body += SHIM
     out.write_text(body)
-    total = sum(len(v) for v in entries.values())
-    print(f"{out}: {len(entries)} entries, {total // 1024} KiB base64 payload")
+    total = sum(len(v) for v in data.values())
+    print(f"{out}: {len(data)} assets, {len(alias)} aliases, {total // 1024} KiB base64 payload")
     return 0
 
 if __name__ == "__main__":
