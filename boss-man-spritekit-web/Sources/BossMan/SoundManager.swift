@@ -366,7 +366,9 @@ final class SoundManager {
             return h
         }()
         guard handle > 0 else { return }
-        musicVoice = snd_play(handle, normalMusicVolume, 1)   // loop=1
+        // bossman-apple themeMusicMultiplier: the MIB theme plays at 0.625x.
+        let vol = normalMusicVolume * (theme == .mib ? 0.625 : 1.0)
+        musicVoice = snd_play(handle, vol, 1)   // loop=1
     }
 
     func stopMusic() {
@@ -504,7 +506,39 @@ final class SoundManager {
             Ab4, 0, C5, 0, Eb5, 0, Ab5, 0,  G5, 0, F5, 0, Eb5, 0, C5, 0,
             Ab4, 0, C5, Eb5, 0, G5, Ab5, C6,  0, Ab5, G5, 0, Eb5, 0, C5, 0,
         ]
-        return synthesize(bass: bass, lead: lead, beat: sixteenth, decay: 5.5, bassGain: 0.12, leadGain: 0.06)
+        // Verbatim bossman-apple synthesis (NOT the generic sine `synthesize`):
+        // a 2nd-harmonic, tanh-saturated bass; a detuned dual-sawtooth lead; and
+        // a noise click on every 4th step. The note arrays match the master; only
+        // the timbre was wrong before (plain sine), so MIB levels (12/24) sounded
+        // off vs the Xcode version.
+        let steps = 64
+        let perFrames = Int(Double(sampleRate) * sixteenth)
+        var out = [Float](repeating: 0, count: perFrames * steps)
+        let clickFrames = Int(Double(sampleRate) * 0.012)
+        for idx in 0..<steps {
+            let bassF = bass[idx], leadF = lead[idx], start = idx * perFrames
+            for j in 0..<perFrames {
+                let t = Float(j) / Float(sampleRate)
+                let env = exp(-5.5 * t) * (t < 0.005 ? t / 0.005 : 1)
+                var v: Float = 0
+                if bassF > 0 {
+                    let s = sin(2 * .pi * bassF * t) + 0.45 * sin(2 * .pi * bassF * 2 * t)
+                    v += tanh(s * 1.2) * 0.14 * env
+                }
+                if leadF > 0 {
+                    let phase = leadF * t
+                    let saw1 = 2 * (phase - floor(phase + 0.5))
+                    let p2 = leadF * 1.005 * t
+                    let saw2 = 2 * (p2 - floor(p2 + 0.5))
+                    v += (saw1 + saw2) * 0.05 * env
+                }
+                if idx % 4 == 0 && j < clickFrames {
+                    v += Float.random(in: -1...1) * exp(-90 * t) * 0.06
+                }
+                out[start + j] = v
+            }
+        }
+        return out
     }
 
     private func synthesize(bass: [Float], lead: [Float], beat: Double, decay: Float,
