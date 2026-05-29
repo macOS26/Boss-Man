@@ -182,7 +182,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                                       pathfinder: pathfinder,
                                       tileSize: tileSize,
                                       containerOriginX: containerOriginX,
-                                      squareTracks: squareTracks)
+                                      squareTracks: squareTracks,
+                                      mib: (levelIndex + 1) % 12 == 0)
             boss.install(in: self)
             bosses.append(boss)
             _ = index
@@ -815,7 +816,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                                       pathfinder: pathfinder,
                                       tileSize: tileSize,
                                       containerOriginX: containerOriginX,
-                                      squareTracks: squareTracks)
+                                      squareTracks: squareTracks,
+                                      mib: (levelIndex + 1) % 12 == 0)
             boss.install(in: self)
             bosses.append(boss)
         }

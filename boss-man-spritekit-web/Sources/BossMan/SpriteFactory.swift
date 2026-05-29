@@ -195,17 +195,24 @@ enum SpriteFactory {
 
     // MARK: - Boss palette helpers
     // Each maze blueprint character (1..4) maps to one of these color schemes.
-    static func bossPersonForBlueprint(_ index: Int) -> PixelPerson {
+    // Boss visual for a blueprint index. Colors are verbatim from bossman-apple's
+    // blueprint table. On MIB levels (12, 24) `mib` is true and EVERY boss becomes
+    // an all-black suit + black tie with sunglasses (apple's themed() override +
+    // wearsSunglasses: isMIBLevel). Sunglasses appear ONLY on MIB levels — they
+    // are never a per-boss trait.
+    static func bossPersonForBlueprint(_ index: Int, mib: Bool = false) -> PixelPerson {
+        if mib {
+            return bossPerson(bodyColor: .black, tieColor: .black, wearsSunglasses: true)
+        }
         switch index {
-        case 0:  return bossPerson(bodyColor: SKColor(red: 0.95, green: 0.18, blue: 0.18, alpha: 1),
-                                   tieColor:  SKColor(red: 0.2,  green: 0.2,  blue: 0.2,  alpha: 1))
-        case 1:  return bossPerson(bodyColor: SKColor(red: 0.95, green: 0.55, blue: 0.18, alpha: 1),
-                                   tieColor:  SKColor(red: 0.45, green: 0.25, blue: 0.05, alpha: 1))
-        case 2:  return bossPerson(bodyColor: SKColor(red: 0.30, green: 0.60, blue: 0.95, alpha: 1),
-                                   tieColor:  SKColor(red: 0.05, green: 0.20, blue: 0.55, alpha: 1),
-                                   wearsSunglasses: true)
-        default: return bossPerson(bodyColor: SKColor(red: 0.55, green: 0.85, blue: 0.45, alpha: 1),
-                                   tieColor:  SKColor(red: 0.15, green: 0.40, blue: 0.10, alpha: 1))
+        case 0:  return bossPerson(bodyColor: SKColor(red: 1.00, green: 0.27, blue: 0.23, alpha: 1),     // systemRed
+                                   tieColor:  .black)
+        case 1:  return bossPerson(bodyColor: SKColor(red: 1.00, green: 0.18, blue: 0.33, alpha: 0.75),  // systemPink @0.75
+                                   tieColor:  SKColor(red: 0.414, green: 0.192, blue: 0.522, alpha: 1))  // systemPurple blended .40 black
+        case 2:  return bossPerson(bodyColor: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1),     // systemTeal
+                                   tieColor:  SKColor(red: 0.00, green: 0.384, blue: 0.80, alpha: 1))    // systemBlue blended .20 black
+        default: return bossPerson(bodyColor: SKColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1),     // systemOrange
+                                   tieColor:  SKColor(red: 0.90, green: 0.243, blue: 0.207, alpha: 1))   // systemRed blended .10 black
         }
     }
 }

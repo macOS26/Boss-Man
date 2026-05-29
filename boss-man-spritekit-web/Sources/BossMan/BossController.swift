@@ -42,7 +42,7 @@ final class BossController {
     var grid: CGPoint { mover.grid }
 
     init(blueprintIndex: Int, spawn: CGPoint, map: GridMap, pathfinder: Pathfinder,
-         tileSize: CGFloat, containerOriginX: CGFloat, squareTracks: Bool = false) {
+         tileSize: CGFloat, containerOriginX: CGFloat, squareTracks: Bool = false, mib: Bool = false) {
         self.blueprintIndex = blueprintIndex
         self.map = map
         self.homeGrid = spawn
@@ -52,7 +52,7 @@ final class BossController {
         self.ai = BossAI(homeGrid: spawn, detectionRange: 10,
                          personality: blueprint.personality,
                          pathfinder: pathfinder, map: map)
-        self.sprite = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
+        self.sprite = SpriteFactory.bossPersonForBlueprint(blueprintIndex, mib: mib)
         self.sprite.zPosition = 4
         // bossman-apple BossController: a Menlo-Bold 9 name tag floats 24pt
         // above the boss (white name normally; the yellow capture-points value
