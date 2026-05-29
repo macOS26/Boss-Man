@@ -35,6 +35,8 @@ open class SKScene: SKNode {
     open func mouseDown(at p: CGPoint) {}
     open func mouseUp(at p: CGPoint) {}
     open func mouseMoved(to p: CGPoint) {}
+    open func rightMouseDown(at p: CGPoint) {}
+    open func rightMouseUp(at p: CGPoint) {}
 }
 
 public typealias TimeInterval = Double

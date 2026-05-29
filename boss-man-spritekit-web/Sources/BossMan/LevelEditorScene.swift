@@ -16,8 +16,10 @@ import SpriteKit
 //   - DispatchQueue      -> keyed SKActions (the kit's clock is the action runner)
 //   - NSAlert confirm    -> immediate clear, undoable via the pushed snapshot
 //   - NSWorkspace reveal -> a "Saved to browser storage" toast
-//   - right-mouse / drag -> mouseMoved drag-paint; right-click toggle is a kit gap
+//   - mouseDragged       -> mouseMoved drag-paint (the kit has no drag event)
 //   - Cmd-modified keys  -> bare letters (the runtime drops modifier flags)
+// Right-click toggles wall<->dot (else paints a dot), matching the master, via
+// the kit's rightMouseDown hook (SKView routes the right button to it).
 
 // MARK: - Tile <-> Character mapping
 struct EditorTile: Equatable {
@@ -623,6 +625,22 @@ final class LevelEditorScene: SKScene {
 
     override func mouseUp(at p: CGPoint) {
         isPainting = false
+    }
+
+    // Right-click toggles the tile under the cursor (dot<->wall, else dot),
+    // matching the macOS master's quick eraser/toggle.
+    override func rightMouseDown(at p: CGPoint) {
+        let col = Int((p.x - gridOffsetX) / tileSize)
+        let row = gridRows - 1 - Int((p.y - gridOffsetY) / tileSize)
+        guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
+        let tile: EditorTile
+        switch charAt(row: row, col: col) {
+        case Strings.Tile.dotChar:  tile = .wall
+        case Strings.Tile.wallChar: tile = .dot
+        default:                    tile = .dot
+        }
+        pushUndoSnapshot()
+        paint(at: p, tile: tile)
     }
 
     private func handleUITap(_ p: CGPoint) -> Bool {
