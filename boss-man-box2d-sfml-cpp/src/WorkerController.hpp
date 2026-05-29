@@ -23,7 +23,7 @@ public:
     float moveTimer = 0.0f;
 
     WorkerController(GridPos spawn, const GridMap& map)
-        : grid(spawn), mapPtr(&map), renderer(PersonConfig{PETE_BODY, PETE_TIE, PETE_HAIR, PETE_SHOE_OUT, PETE_PANTS, 1.0f, false}) {
+        : grid(spawn), mapPtr(&map), renderer(PersonConfig{PETE_BODY, PETE_TIE, PETE_HAIR, PETE_SHOE_OUT, PETE_PANTS, SKIN_COLOR}) {
         pixelPos = map.pointFor(spawn);
     }
 
