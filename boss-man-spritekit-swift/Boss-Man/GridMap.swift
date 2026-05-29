@@ -82,4 +82,20 @@ final class GridMap {
         }
         return result
     }
+
+    // The side-to-side doorway: the row whose left and right edges are both
+    // open (walkable) straight across. Returns the right mouth (spawn) and the
+    // left mouth (exit), or nil if no row has an aligned horizontal tunnel.
+    func horizontalDoorway() -> (spawn: CGPoint, exit: CGPoint)? {
+        guard let first = rows.first, !first.isEmpty else { return nil }
+        let cols = first.count
+        guard cols > 1 else { return nil }
+        for y in 0..<rows.count {
+            let yf = CGFloat(y)
+            if isWalkable(CGPoint(x: 0, y: yf)) && isWalkable(CGPoint(x: CGFloat(cols - 1), y: yf)) {
+                return (CGPoint(x: CGFloat(cols - 1), y: yf), CGPoint(x: 0, y: yf))
+            }
+        }
+        return nil
+    }
 }

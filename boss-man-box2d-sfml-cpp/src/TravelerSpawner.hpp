@@ -41,8 +41,8 @@ public:
     static constexpr float MOVE_INTERVAL = 0.22f;
     static constexpr float FIRST_VISIT_DELAY = 10.0f;
     static constexpr float RESPAWN_DELAY = 30.0f;
-    static constexpr GridPos SPAWN_GRID = {36, 8};
-    static constexpr GridPos EXIT_GRID = {0, 8};
+    GridPos spawnGrid = {36, 8};
+    GridPos exitGrid = {0, 8};
 
     void scheduleVisits(int level, const Pathfinder& pf) {
         pathfinder = &pf;
@@ -118,10 +118,13 @@ public:
 private:
     void spawnNext(const GridMap& map) {
         auto& t = TRAVELERS[travelerIndex % TRAVELER_COUNT];
+        // The doorway can sit on any row, so resolve it from the current maze
+        // each spawn (a level may have moved the tunnel); defaults stand if none.
+        map.horizontalDoorway(spawnGrid, exitGrid);
         Traveler tr;
-        tr.grid = SPAWN_GRID;
+        tr.grid = spawnGrid;
         tr.previousGrid = {-1, -1};
-        tr.pixelPos = map.pointFor(SPAWN_GRID);
+        tr.pixelPos = map.pointFor(spawnGrid);
         tr.emoji = t.emoji;
         tr.points = t.points;
         tr.facesRight = t.facesRight;
@@ -136,7 +139,7 @@ private:
 
     void stepTraveler(Traveler& tr, const GridMap& map) {
         // Exit check
-        if (tr.grid == EXIT_GRID) {
+        if (tr.grid == exitGrid) {
             tr.active = false;
             visitTimer = RESPAWN_DELAY;
             return;
@@ -165,9 +168,9 @@ private:
         if (std::rand() % 10 < 6) {
             // Move toward exit (smallest Manhattan distance)
             GridPos best = candidates[0];
-            float bestDist = Pathfinder::manhattanDist(best, EXIT_GRID);
+            float bestDist = Pathfinder::manhattanDist(best, exitGrid);
             for (auto& c : candidates) {
-                float d = Pathfinder::manhattanDist(c, EXIT_GRID);
+                float d = Pathfinder::manhattanDist(c, exitGrid);
                 if (d < bestDist) { bestDist = d; best = c; }
             }
             next = best;

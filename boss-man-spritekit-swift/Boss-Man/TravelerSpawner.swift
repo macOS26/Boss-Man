@@ -6,8 +6,8 @@ final class TravelerSpawner {
     private weak var scene: SKScene?
     private let gridMap: GridMap
     private let sound: SoundManager
-    private let spawnGrid = CGPoint(x: 36, y: 8)
-    private let exitGrid = CGPoint(x: 0, y: 8)
+    private var spawnGrid = CGPoint(x: 36, y: 8)
+    private var exitGrid = CGPoint(x: 0, y: 8)
     private let moveInterval: TimeInterval = 0.22
 
     private var node: SKNode?
@@ -100,11 +100,22 @@ final class TravelerSpawner {
     }
 
     // MARK: - Private
+    // The doorway can sit on any row, so resolve it from the current maze each
+    // spawn (a level may have moved the tunnel). Right mouth spawns, left mouth
+    // is the exit; the (36,8)/(0,8) defaults stand if none is found.
+    private func resolveDoorway() {
+        if let doorway = gridMap.horizontalDoorway() {
+            spawnGrid = doorway.spawn
+            exitGrid  = doorway.exit
+        }
+    }
+
     private func spawn(_ traveler: LevelTraveler) {
         guard let scene else { return }
         node?.removeFromParent()
 
         let wrapper = SKNode()
+        resolveDoorway()
         grid = spawnGrid
         previousGrid = nil
         wrapper.position = gridMap.point(for: grid)

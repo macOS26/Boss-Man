@@ -16,10 +16,13 @@ import SpriteKit
 final class TravelerSpawner {
     private weak var scene: SKScene?
     private let gridMap: GridMap
+    private let pathfinder: Pathfinder
     private let sound: SoundManager
     private let containerOriginX: CGFloat
-    private let spawnGrid: CGPoint
-    private let exitGrid:  CGPoint
+    private let spawnOverride: CGPoint?
+    private let exitOverride:  CGPoint?
+    private var spawnGrid = CGPoint.zero
+    private var exitGrid  = CGPoint.zero
     private let moveInterval: TimeInterval = 0.22
 
     private(set) var node: SKNode?
@@ -37,16 +40,22 @@ final class TravelerSpawner {
          spawnGrid: CGPoint? = nil, exitGrid: CGPoint? = nil) {
         self.scene = scene
         self.gridMap = gridMap
+        self.pathfinder = Pathfinder(map: gridMap)
         self.sound = sound
         self.containerOriginX = containerOriginX
-        // bossman-apple defaults: right-mouth of the row-8 tunnel to the left-mouth.
-        // bossman-web's mazes use the row 9 tunnel; allow override.
+        self.spawnOverride = spawnGrid
+        self.exitOverride  = exitGrid
+        self.grid = .zero
+    }
+
+    // The doorway can sit on any row, so resolve it from the current maze each
+    // spawn (a level may have moved the tunnel). Right mouth spawns, left mouth
+    // is the exit; fall back to the row-8 mouths if none is found.
+    private func resolveDoorway() {
         let cols = gridMap.columnCount
-        let defaultSpawn = CGPoint(x: CGFloat(cols - 1), y: 9)
-        let defaultExit  = CGPoint(x: 0,                 y: 9)
-        self.spawnGrid = spawnGrid ?? defaultSpawn
-        self.exitGrid  = exitGrid  ?? defaultExit
-        self.grid      = self.spawnGrid
+        let doorway = gridMap.horizontalDoorway()
+        spawnGrid = spawnOverride ?? doorway?.spawn ?? CGPoint(x: CGFloat(cols - 1), y: 8)
+        exitGrid  = exitOverride  ?? doorway?.exit  ?? CGPoint(x: 0, y: 8)
     }
 
     var hasActive: Bool { node != nil }
@@ -131,6 +140,7 @@ final class TravelerSpawner {
         node?.removeFromParent()
 
         let wrapper = SKNode()
+        resolveDoorway()
         grid = spawnGrid
         previousGrid = nil
         wrapper.position = sceneCoord(forGrid: grid)
@@ -199,24 +209,11 @@ final class TravelerSpawner {
             scheduleNextSpawn(after: respawnDelay)
             return
         }
-        var neighbors: [CGPoint] = []
-        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-            let next = CGPoint(x: grid.x + CGFloat(dx), y: grid.y + CGFloat(dy))
-            if gridMap.isWalkable(next) { neighbors.append(next) }
-        }
-        var candidates = neighbors
-        if let prev = previousGrid, candidates.count > 1 {
-            candidates.removeAll { $0 == prev }
-        }
-        guard !candidates.isEmpty else { return }
-        let next: CGPoint
-        if Int.random(in: 0..<10) < 6, let towardExit = candidates.min(by: {
-            Pathfinder.manhattanDistance($0, exitGrid) < Pathfinder.manhattanDistance($1, exitGrid)
-        }) {
-            next = towardExit
-        } else {
-            next = candidates.randomElement()!
-        }
+        // Track home with the same BFS the bosses use (Pathfinder.shortestStep)
+        // so the traveler always reaches its exit doorway whatever the maze
+        // interior is, instead of random-walking until it stumbles out.
+        guard let next = pathfinder.shortestStep(from: grid, to: exitGrid) else { return }
+        let isWrap = abs(Int(next.x - grid.x)) > 1 || abs(Int(next.y - grid.y)) > 1
         let dx = next.x - grid.x
         if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {
             let facesRight = activeTraveler?.facesRight ?? false
@@ -228,9 +225,19 @@ final class TravelerSpawner {
         }
         previousGrid = grid
         grid = next
-        fish.run(.sequence([
-            .move(to: sceneCoord(forGrid: next), duration: moveInterval),
-            .run { [weak self] in self?.stepNode() },
-        ]))
+        if isWrap {
+            // A tunnel wrap returns a partner more than one tile away; snap
+            // across it like the boss/Pete movers rather than sliding the maze.
+            fish.position = sceneCoord(forGrid: next)
+            fish.run(.sequence([
+                .wait(forDuration: moveInterval),
+                .run { [weak self] in self?.stepNode() },
+            ]))
+        } else {
+            fish.run(.sequence([
+                .move(to: sceneCoord(forGrid: next), duration: moveInterval),
+                .run { [weak self] in self?.stepNode() },
+            ]))
+        }
     }
 }

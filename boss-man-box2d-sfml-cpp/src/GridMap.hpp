@@ -75,6 +75,24 @@ public:
         return result;
     }
 
+    // The side-to-side doorway: the row whose left and right edges are both
+    // open (walkable) straight across. Sets spawn (right mouth) and exit (left
+    // mouth) and returns true, or returns false if no aligned tunnel exists.
+    bool horizontalDoorway(GridPos& spawn, GridPos& exit) const {
+        if (rows.empty() || rows[0].empty()) return false;
+        int rowCount = (int)rows.size();
+        int cols = (int)rows[0].size();
+        if (cols < 2) return false;
+        for (int gridY = 0; gridY < rowCount; ++gridY) {
+            if (isWalkable({0, gridY}) && isWalkable({cols - 1, gridY})) {
+                spawn = {cols - 1, gridY};
+                exit  = {0, gridY};
+                return true;
+            }
+        }
+        return false;
+    }
+
 private:
     std::vector<std::pair<GridPos, GridPos>> tunnelPairs;
 
