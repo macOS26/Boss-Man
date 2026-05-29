@@ -32,8 +32,11 @@
   <!-- bundle.js inlines every asset + bossman.wasm as data: URLs and
        installs a fetch() shim that redirects asset paths to them, so
        opening this file directly from file:/// works without a server.
-       Regenerate it whenever assets or the wasm change:
-         python3 scripts/bundle.py                                    -->
-  <script src="bundle.js"></script>
+       It is a dev-only, git-ignored artifact: load it only under file://,
+       so an HTTP deploy ships just bossman.wasm + assets and never requests
+       a missing bundle. Regenerate via: python3 scripts/bundle.py          -->
+  <script>
+    if (location.protocol === 'file:') document.write('<script src="bundle.js"><\/script>');
+  </script>
   <script src="runtime.js"></script>
 </body></html>

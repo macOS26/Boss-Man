@@ -24,3 +24,6 @@ build/
 # runtime state
 highscore.txt
 leaderboard.txt
+
+# Generated web bundle (file:// dev convenience). Ship wasm + assets only.
+bundle.js
