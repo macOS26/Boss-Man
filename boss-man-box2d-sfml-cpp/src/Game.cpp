@@ -3,6 +3,7 @@
 #include "Assets.hpp"
 #include "MacWindow.hpp"
 #include "UiScale.hpp"
+#include "Settings.hpp"
 #include <algorithm>
 #include <cstdlib>
 
@@ -214,6 +215,24 @@ void Game::processInput() {
             editor.handleEvent(event, window);
             continue;
         }
+        // Title-screen clicks: the (P)lay/(E)ditor buttons and the bottom-right
+        // toggle column. Map the pixel to logical (letterboxed) coordinates and
+        // hit-test the rects set by the last titleScreen.draw().
+        if (gameState == GameState::Title && event.type == sf::Event::MouseButtonPressed
+                && event.mouseButton.button == sf::Mouse::Left) {
+            sf::Vector2f p = window.mapPixelToCoords(
+                sf::Vector2i(event.mouseButton.x, event.mouseButton.y));
+            switch (titleScreen.hitTest(p.x, p.y)) {
+            case TitleScreen::Hit::Play:       input.pRequested = true; break;
+            case TitleScreen::Hit::Editor:     input.eRequested = true; break;
+            case TitleScreen::Hit::BossTracks: Settings::setBossTracksSquare(!Settings::bossTracksSquare()); break;
+            case TitleScreen::Hit::WaterGun:   Settings::setWaterGunLeft(!Settings::waterGunLeft()); break;
+            case TitleScreen::Hit::Fullscreen:
+            case TitleScreen::Hit::Window:     input.fullscreenToggleRequested = true; break;
+            case TitleScreen::Hit::None:       break;
+            }
+            continue;
+        }
         input.handleEvent(event);
     }
 
@@ -250,7 +269,9 @@ void Game::processInput() {
             gameState = GameState::Editor;
             editor.open(editor.currentLevelIndex);
         }
-        if (input.escapeRequested) window.close();
+        // ESC on the title returns a fullscreen window to windowed ("ESC for
+        // Window"); it no longer quits (use the window close button to quit).
+        if (input.escapeRequested && fullscreen) toggleFullscreen();
     } else if (gameState == GameState::GameOver) {
         if (input.pRequested) restartGame();
         if (input.escapeRequested) returnToTitle();

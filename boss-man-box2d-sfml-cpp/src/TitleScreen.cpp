@@ -1,6 +1,7 @@
 #include "TitleScreen.hpp"
 #include "UiScale.hpp"
 #include "Assets.hpp"
+#include "Settings.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -10,7 +11,7 @@ namespace bm {
 namespace {
 // halign: 0=left, 1=center, 2=right. Always vertically centered at (x,y).
 // Rasterized at size*uiScale and counter-scaled so it stays crisp on Retina.
-void drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsigned size,
+sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsigned size,
               sf::Color color, float x, float y, int halign = 1,
               float rotationDeg = 0.f, uint8_t alpha = 255) {
     float dpi = uiScale();
@@ -30,6 +31,7 @@ void drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsi
     txt.setPosition(x, y);
     txt.setRotation(rotationDeg);
     t.draw(txt);
+    return txt.getGlobalBounds();
 }
 } // namespace
 
@@ -159,10 +161,20 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         target.draw(sp, sf::RenderStates(sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha)));
     }
 
-    // --- Blinking prompt ---
-    float t = blinkClock_.getElapsedTime().asSeconds();
-    uint8_t a = (uint8_t)((0.625f + 0.375f * std::sin(t * 5.24f)) * 255); // ~1.0<->0.25
-    drawText(target, fontThin_, "P to Play \xC2\xB7 E for Editor", 40, ink, W / 2.f, H * 0.85f, 1, 0.f, a);
+    // --- (P)lay / (E)ditor buttons (replace the old text prompt) ---
+    {
+        auto button = [&](float cx, sf::Color col, const char* label) -> sf::FloatRect {
+            sf::FloatRect r(cx - 90.f, H * 0.85f - 26.f, 180.f, 52.f);
+            sf::RectangleShape box(sf::Vector2f(r.width, r.height));
+            box.setPosition(r.left, r.top);
+            box.setFillColor(col);
+            target.draw(box);
+            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f + 12.f, 1);
+            return r;
+        };
+        playRect_   = button(W / 2.f - 104.f, sf::Color(0, 140, 46),  "(P)lay");
+        editorRect_ = button(W / 2.f + 104.f, sf::Color(26, 89, 217), "(E)ditor");
+    }
 
     // --- High score ---
     if (highScore > 0) {
@@ -173,7 +185,28 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Controls + fullscreen hints, bottom of screen, HUD mono font ---
     drawText(target, fontMono_, "Cursor key to Move \xC2\xB7 Space to Fire Water Pistol", 16, ink,
              W / 2.f, H - 18.f, 1);
-    drawText(target, fontMono_, "F for Fullscreen", 16, ink, W - 20.f, H - 18.f, 2);
+    // Bottom-right toggle column, 51px apart, anchored at "F for Fullscreen".
+    fullscreenRect_ = drawText(target, fontMono_, "F for Fullscreen", 16, ink, W - 20.f, H - 18.f, 2);
+    windowRect_     = drawText(target, fontMono_, "ESC for Window", 16, ink, W - 20.f, H - 69.f, 2);
+    bossTracksRect_ = drawText(target, fontMono_,
+        std::string("Boss Tracks: ") + (Settings::bossTracksSquare() ? "Square" : "Smooth"),
+        16, ink, W - 20.f, H - 120.f, 2);
+    waterGunRect_   = drawText(target, fontMono_,
+        std::string("Water Gun: ") + (Settings::waterGunLeft() ? "Left" : "Right"),
+        16, ink, W - 20.f, H - 171.f, 2);
+}
+
+TitleScreen::Hit TitleScreen::hitTest(float x, float y) const {
+    auto in = [&](const sf::FloatRect& r) {
+        return sf::FloatRect(r.left - 10.f, r.top - 8.f, r.width + 20.f, r.height + 16.f).contains(x, y);
+    };
+    if (in(playRect_))        return Hit::Play;
+    if (in(editorRect_))      return Hit::Editor;
+    if (in(bossTracksRect_))  return Hit::BossTracks;
+    if (in(waterGunRect_))    return Hit::WaterGun;
+    if (in(fullscreenRect_))  return Hit::Fullscreen;
+    if (in(windowRect_))      return Hit::Window;
+    return Hit::None;
 }
 
 } // namespace bm

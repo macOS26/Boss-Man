@@ -2,6 +2,7 @@
 #include "SoundManager.hpp"
 #include "TextLabel.hpp"
 #include "Assets.hpp"
+#include "Settings.hpp"
 #include <cstdlib>
 #include <algorithm>
 #include <cmath>
@@ -51,8 +52,12 @@ void BossController::spawn(int level, const GridMap& map, const Pathfinder& pf,
         ent.spawn = spawnPos;
         ent.ai = ai;
         ent.renderer = PixelPersonRenderer(cfg);
-        ent.moveInterval = BOSS_MOVE_INTERVAL / bp.speed;
-        ent.moveDuration = BOSS_MOVE_DURATION / bp.speed;
+        // Boss Tracks (title screen): "Square" (default) = classic glide-then-dwell
+        // (0.36 interval / 0.22 glide => 0.14 centre dwell); "Smooth" = continuous
+        // 0.16 glide with no dwell, matching the SuperBox64 / wasm Smooth mode.
+        const bool square = Settings::bossTracksSquare();
+        ent.moveInterval = (square ? BOSS_MOVE_INTERVAL : 0.16f) / bp.speed;
+        ent.moveDuration = (square ? BOSS_MOVE_DURATION : 0.16f) / bp.speed;
         ent.grid = spawnPos;
         ent.pixelPos = map.pointFor(spawnPos);
         ent.blueprintIndex = bpIdx;
