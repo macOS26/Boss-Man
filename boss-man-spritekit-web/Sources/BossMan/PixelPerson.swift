@@ -29,6 +29,7 @@ final class PixelPerson: SKNode {
     let baseBodyColor: SKColor
     let baseTieColor:  SKColor
     let baseSkinColor: SKColor
+    let baseTieOutlineColor: SKColor?
 
     private let bodyContainer = SKNode()
     private var head: SKShapeNode!
@@ -69,6 +70,7 @@ final class PixelPerson: SKNode {
         self.walkExaggeration = walkExaggeration
         self.baseBodyColor = bodyColor
         self.baseTieColor  = tieColor
+        self.baseTieOutlineColor = wearsSunglasses ? .white : nil
         let skin = SKColor(red: 0.96, green: 0.78, blue: 0.62, alpha: 1)
         self.baseSkinColor = skin
         let shoeColor = SKColor(red: 0.12, green: 0.08, blue: 0.05, alpha: 1)

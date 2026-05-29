@@ -99,7 +99,7 @@ final class BossController {
         } else {
             sprite.setBodyColor(sprite.baseBodyColor)
             sprite.setTieColor(sprite.baseTieColor)
-            sprite.setTieOutline(color: nil)
+            sprite.setTieOutline(color: sprite.baseTieOutlineColor)
             sprite.setEyeColor(.black)
             sprite.setSkinColor(sprite.baseSkinColor)
             sprite.setShirtOutlineColor(.white)
