@@ -280,6 +280,7 @@ final class LevelEditorScene: SKScene {
             (Strings.Editor.undo,       SKColor(white: 0.26, alpha: 1.0),                        Strings.EditorButton.undo),
             (Strings.Editor.redo,       SKColor(white: 0.18, alpha: 1.0),                        Strings.EditorButton.redo),
             (Strings.Editor.clear,      SKColor(red: 0.6,  green: 0.15, blue: 0.15, alpha: 1.0), Strings.EditorButton.clear),
+            (Strings.Editor.reset,      SKColor(red: 0.6,  green: 0.35, blue: 0.10, alpha: 1.0), Strings.EditorButton.reset),
             (Strings.Editor.save,       SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
             (Strings.Editor.copy,       SKColor(red: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
             (Strings.Editor.paste,      SKColor(red: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
@@ -604,6 +605,17 @@ final class LevelEditorScene: SKScene {
         statusLabel?.text = Strings.Editor.clearedToast
     }
 
+    // Discard edits and restore the built-in level (clears the localStorage
+    // override). Undoable via the pushed snapshot.
+    private func resetCurrentLevel() {
+        pushUndoSnapshot()
+        LevelStore.resetLevel(index: currentLevelIndex)
+        mapRows = LevelStore.loadLevel(index: currentLevelIndex)
+        rebuildGrid()
+        lastSavedHash = mapHash()
+        statusLabel?.text = Strings.Editor.resetToast
+    }
+
     private func revealStorage() {
         statusLabel?.text = Strings.Editor.revealToast
     }
@@ -687,6 +699,7 @@ final class LevelEditorScene: SKScene {
         case Strings.EditorButton.undo:   undo()
         case Strings.EditorButton.redo:   redo()
         case Strings.EditorButton.clear:  confirmClearLevel()
+        case Strings.EditorButton.reset:  resetCurrentLevel()
         case Strings.EditorButton.save:   saveCurrentLevel()
         case Strings.EditorButton.copy:   copyLevel()
         case Strings.EditorButton.paste:  pasteLevel()
@@ -780,7 +793,7 @@ final class LevelEditorScene: SKScene {
         case 21: flashButton(named: Strings.EditorButton.paste);  pasteLevel()         // V
         case 25: flashButton(named: Strings.EditorButton.undo);   undo()               // Z
         case 24: flashButton(named: Strings.EditorButton.redo);   redo()               // Y
-        case 17: flashButton(named: Strings.EditorButton.reveal); revealStorage()      // R
+        case 17: flashButton(named: Strings.EditorButton.reset);  resetCurrentLevel()  // R -> reset
         case 59: flashButton(named: Strings.EditorButton.clear);  confirmClearLevel()  // Backspace
         default: break
         }
