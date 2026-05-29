@@ -119,7 +119,7 @@ public final class SKMutableTexture: SKTexture {
     public func reload() { pushToRuntime() }
 
     private func pushToRuntime() {
-        pixelBuffer.withUnsafeBufferPointer { buf in
+        _ = pixelBuffer.withUnsafeBufferPointer { buf in
             gfx_upload_pixels(handle, Int32(pixelWidth), Int32(pixelHeight),
                               buf.baseAddress, Int32(buf.count))
         }

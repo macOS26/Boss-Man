@@ -97,7 +97,7 @@ public enum SKSceneLoader {
             let cap32 = Int32(p.count)
             return withUTF8Ptr(path) { kptr, kn in asset_text(kptr, kn, p.baseAddress, cap32) }
         }
-        return String(cString: buf)
+        return buf.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
     }
 
     // ---- Construction --------------------------------------------------------

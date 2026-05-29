@@ -516,7 +516,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func collectTPSReport(at pos: CGPoint) {
         guard collectedReports.count == requiredReports.count else {
             let missing = requiredReports.filter { !collectedReports.contains($0) }
-            let names = missing.compactMap { Strings.Machine.displayName[$0] }.joined(separator: ", ")
             hud.flash(Strings.Message.tpsMissingItems(missing), duration: 3)
             sound.playTpsMissingItems(missing)
             return

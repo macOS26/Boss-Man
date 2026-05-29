@@ -18,7 +18,7 @@ public func parseJSON(_ input: String) -> Any? {
 
 // JSON's `null` is mapped to a sentinel since Any can't hold real `nil`.
 public final class MiniJSONNull: @unchecked Sendable {
-    public nonisolated(unsafe) static let null = MiniJSONNull()
+    public static let null = MiniJSONNull()
     private init() {}
 }
 
