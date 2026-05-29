@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 // Boss-Man, SpriteKit edition, on wasm.
