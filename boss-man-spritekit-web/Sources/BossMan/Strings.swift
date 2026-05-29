@@ -72,6 +72,7 @@ enum Strings {
         static let playerName             = "BossMan.playerName"
         static let localLeaderboardUsername = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"
+        static let bossTracksSquare       = "BossMan.bossTracksSquare"
     }
 
     // MARK: - In-game messages (transient HUD banners). Ported verbatim

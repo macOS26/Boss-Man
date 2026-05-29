@@ -71,6 +71,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var currentReportScore = 0
     private var tpsReportsDelivered = 0
     private let requiredReports = Strings.Machine.required
+    private let squareTracks = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
     private let reportItemPoints = [10, 25, 50, 100]
 
     private var waterAmmo: Int = 0
@@ -166,7 +167,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                                       map: gridMap,
                                       pathfinder: pathfinder,
                                       tileSize: tileSize,
-                                      containerOriginX: containerOriginX)
+                                      containerOriginX: containerOriginX,
+                                      squareTracks: squareTracks)
             boss.install(in: self)
             bosses.append(boss)
             _ = index
@@ -724,7 +726,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                                       map: gridMap,
                                       pathfinder: pathfinder,
                                       tileSize: tileSize,
-                                      containerOriginX: containerOriginX)
+                                      containerOriginX: containerOriginX,
+                                      squareTracks: squareTracks)
             boss.install(in: self)
             bosses.append(boss)
         }

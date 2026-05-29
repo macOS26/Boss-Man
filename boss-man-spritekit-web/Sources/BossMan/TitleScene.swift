@@ -14,6 +14,13 @@ import KitABI
 //     helpers (Persistence.swift) → store_get/store_set.
 //   - Input is a single Int keyCode (SF key index from runtime.js SF_KEY).
 final class TitleScene: SKScene {
+    private var bossTracksLabel: SKLabelNode?
+
+    private func bossTracksText() -> String {
+        let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
+        return "Boss Tracks: \(square ? "Square" : "Smooth")"
+    }
+
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 1.0, green: 0.93, blue: 0.34, alpha: 1)
         anchorPoint = .zero
@@ -72,6 +79,18 @@ final class TitleScene: SKScene {
         fsHint.position = CGPoint(x: size.width - 20, y: 18)
         addChild(fsHint)
 
+        // Boss Tracks toggle, just above the fullscreen hint. Click to switch
+        // between "Smooth" (this port's continuous lerp) and "Square" (the
+        // apple/C++ tile-by-tile cadence). Mode persists in localStorage.
+        let tracks = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
+        tracks.text = bossTracksText()
+        tracks.fontSize = 16
+        tracks.fontColor = .black
+        tracks.horizontalAlignmentMode = .right
+        tracks.position = CGPoint(x: size.width - 20, y: 44)
+        addChild(tracks)
+        bossTracksLabel = tracks
+
         let panel = LeaderboardPanel(size: CGSize(width: 320, height: 400))
         panel.position = CGPoint(x: 320 / 2 + 32, y: size.height * 0.5)
         addChild(panel)
@@ -88,6 +107,17 @@ final class TitleScene: SKScene {
         case 57:  startGame()                    // Space → Play (gamepad A button maps here)
         default: break
         }
+    }
+
+    override func mouseDown(at p: CGPoint) {
+        guard let label = bossTracksLabel else { return }
+        let w = label.measuredWidth()
+        let hit = CGRect(x: label.position.x - w - 10, y: label.position.y - 12,
+                         width: w + 20, height: 32)
+        guard hit.contains(p) else { return }
+        let square = !Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
+        Persistence.set(square, forKey: Strings.DefaultsKey.bossTracksSquare)
+        label.text = bossTracksText()
     }
 
     private func startGame() {

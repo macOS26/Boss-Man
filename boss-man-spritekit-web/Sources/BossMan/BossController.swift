@@ -35,7 +35,7 @@ final class BossController {
     var grid: CGPoint { mover.grid }
 
     init(blueprintIndex: Int, spawn: CGPoint, map: GridMap, pathfinder: Pathfinder,
-         tileSize: CGFloat, containerOriginX: CGFloat) {
+         tileSize: CGFloat, containerOriginX: CGFloat, squareTracks: Bool = false) {
         self.blueprintIndex = blueprintIndex
         self.map = map
         self.homeGrid = spawn
@@ -61,6 +61,10 @@ final class BossController {
                                step: baseChaseStep / blueprint.speed,
                                containerOriginX: containerOriginX,
                                slowInTunnels: true)
+        // "Square" tracks (bossman-apple / C++ cadence): glide a tile, then pause
+        // a beat at its centre so the boss visibly steps square-by-square instead
+        // of gliding continuously. "Smooth" (default) leaves no pause.
+        if squareTracks { self.mover.holdTime = baseChaseStep / blueprint.speed }
     }
 
     // Mirrors bossman-apple: mutate the body / tie / tie-outline / eye

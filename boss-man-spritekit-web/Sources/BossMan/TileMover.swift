@@ -27,7 +27,10 @@ final class TileMover {
     let node: SKNode
     var step: TimeInterval
     var slowInTunnels: Bool
+    var holdTime: TimeInterval = 0   // > 0 = "square" tracks: pause at each tile centre
     private var moveDur: TimeInterval = 0
+    private var holding = false
+    private var holdT: TimeInterval = 0
     weak var map: GridMap?
     var containerOriginX: CGFloat
 
@@ -73,6 +76,13 @@ final class TileMover {
         var guardCount = 0
         while rem > 0 && guardCount < 8 {
             guardCount += 1
+            if holding {
+                let s = min(rem, holdT)
+                holdT -= s
+                rem  -= s
+                if holdT > 1e-6 { return }   // still paused at the tile centre
+                holding = false
+            }
             if !moving {
                 guard let d = decide(self) else {
                     dir = nil
@@ -116,6 +126,11 @@ final class TileMover {
                 node.position = toPos
                 moving = false
                 onArrive(self)
+                if holdTime > 0 {
+                    holding = true
+                    holdT = holdTime
+                    (node as? PixelPerson)?.stopWalking()   // idle pose during the beat
+                }
             }
         }
     }
