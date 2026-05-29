@@ -508,11 +508,23 @@ final class LevelEditorScene: SKScene {
         levelHeadingGlyph?.removeFromParent()
         guard let lbl = levelLabel else { return }
         let traveler = levelTravelers[currentLevelIndex % levelTravelers.count]
-        let glyph = SKLabelNode(fontNamed: Strings.Font.menlo)
-        glyph.text = traveler.emoji
-        glyph.fontSize = lbl.fontSize
-        glyph.verticalAlignmentMode = .center
-        glyph.horizontalAlignmentMode = .center
+        // Travelers with an image (the ✂️ -> stapler PNG) render as a sprite,
+        // mirroring TravelerGlyph in the apple master; others use the emoji.
+        let glyph: SKNode
+        if let imageName = traveler.image, let tex = textureNamed(imageName) {
+            let sprite = SKSpriteNode(texture: tex)
+            let aspect = tex.size.height > 0 ? tex.size.width / tex.size.height : 1
+            sprite.size = CGSize(width: lbl.fontSize * aspect * 0.8, height: lbl.fontSize)
+            sprite.xScale = -1
+            glyph = sprite
+        } else {
+            let label = SKLabelNode(fontNamed: Strings.Font.menlo)
+            label.text = traveler.emoji
+            label.fontSize = lbl.fontSize
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            glyph = label
+        }
         glyph.position = CGPoint(x: lbl.position.x + lbl.measuredWidth() / 2 + 14, y: lbl.position.y)
         glyph.zPosition = lbl.zPosition
         uiContainer.addChild(glyph)

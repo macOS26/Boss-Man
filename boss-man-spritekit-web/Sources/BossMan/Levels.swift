@@ -43,7 +43,7 @@ let levelTravelers: [LevelTraveler] = [
     LevelTraveler(emoji: "\u{1F964}", sound: .alienBleep,  points: 800),     // 🥤
     LevelTraveler(emoji: "\u{1F34E}", sound: .jelly,       points: 1000),    // 🍎
     LevelTraveler(emoji: "\u{2702}\u{FE0F}", sound: .crispTap,  points: 2000,
-                  image: "red-stapler", facesRight: true),                    // ✂
+                  image: "shinyredstapler-emoji", facesRight: true),          // ✂ -> dedicated stapler PNG
     LevelTraveler(emoji: "\u{1F349}", sound: .bellDing,    points: 3000),    // 🍉
     LevelTraveler(emoji: "\u{1F9C7}", sound: .radioStatic, points: 4000),    // 🧇
     LevelTraveler(emoji: "\u{1F366}", sound: .magicChime,  points: 5000),    // 🍦
