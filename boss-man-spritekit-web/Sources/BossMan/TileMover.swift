@@ -26,14 +26,18 @@ final class TileMover {
     var target  = CGPoint.zero
     let node: SKNode
     var step: TimeInterval
+    var slowInTunnels: Bool
+    private var moveDur: TimeInterval = 0
     weak var map: GridMap?
     var containerOriginX: CGFloat
 
-    init(node: SKNode, spawn: CGPoint, map: GridMap, step: TimeInterval, containerOriginX: CGFloat) {
+    init(node: SKNode, spawn: CGPoint, map: GridMap, step: TimeInterval,
+         containerOriginX: CGFloat, slowInTunnels: Bool = false) {
         self.node = node
         self.grid = spawn
         self.map = map
         self.step = step
+        self.slowInTunnels = slowInTunnels
         self.containerOriginX = containerOriginX
         self.node.position = centre(of: spawn)
     }
@@ -93,13 +97,18 @@ final class TileMover {
                 target = next
                 fromPos = centre(of: grid)
                 toPos   = centre(of: next)
-                moveT = step
+                // bossman-apple BossController: a step that touches a doorway
+                // takes 2x as long, so bosses crawl through the tunnels.
+                let touchesDoorway = map.tunnelPartner(of: grid) != nil
+                                  || map.tunnelPartner(of: next) != nil
+                moveDur = (slowInTunnels && touchesDoorway) ? step * 2 : step
+                moveT = moveDur
                 moving = true
             }
             let s = min(rem, moveT)
             moveT -= s
             rem -= s
-            let t = CGFloat(max(0, min(1, 1 - moveT / step)))
+            let t = CGFloat(max(0, min(1, 1 - moveT / moveDur)))
             node.position = CGPoint(x: fromPos.x + (toPos.x - fromPos.x) * t,
                                     y: fromPos.y + (toPos.y - fromPos.y) * t)
             if moveT <= 1e-6 {

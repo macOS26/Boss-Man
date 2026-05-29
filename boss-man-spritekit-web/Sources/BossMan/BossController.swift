@@ -48,7 +48,8 @@ final class BossController {
         _ = tileSize
         self.mover = TileMover(node: sprite, spawn: spawn, map: map,
                                step: baseChaseStep / blueprint.speed,
-                               containerOriginX: containerOriginX)
+                               containerOriginX: containerOriginX,
+                               slowInTunnels: true)
     }
 
     // Mirrors bossman-apple: mutate the body / tie / tie-outline / eye
