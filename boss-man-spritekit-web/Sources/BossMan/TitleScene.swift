@@ -17,7 +17,8 @@ final class TitleScene: SKScene {
     private var bossTracksLabel: SKLabelNode?
     private var levelEditorLabel: SKLabelNode?
     private var clickToPlayLabel: SKLabelNode?
-    private var promptLabel: SKLabelNode?
+    private var promptPlayLabel: SKLabelNode?
+    private var promptEditorLabel: SKLabelNode?
 
     private func bossTracksText() -> String {
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
@@ -44,17 +45,45 @@ final class TitleScene: SKScene {
         stapler.zRotation = -0.06
         addChild(stapler)
 
-        let prompt = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
-        prompt.text = Strings.Title.pressSpace
-        prompt.fontSize = 40
-        prompt.fontColor = .black
-        prompt.position = CGPoint(x: size.width / 2, y: size.height * 0.15)
-        prompt.run(.repeatForever(.sequence([
+        // Split blinking prompt: green "[P]lay Game" and blue "Level [E]ditor"
+        // flanking a "*". Separator centred; the play label right-aligns to its
+        // left, the editor label left-aligns to its right, so no width
+        // measurement is needed at layout time (font may not be loaded yet).
+        let promptY = size.height * 0.15
+        let green = SKColor(red: 0.0,  green: 0.45, blue: 0.10, alpha: 1)
+        let blue  = SKColor(red: 0.05, green: 0.25, blue: 0.75, alpha: 1)
+        let blink = SKAction.repeatForever(.sequence([
             .fadeAlpha(to: 0.25, duration: 0.6),
             .fadeAlpha(to: 1.0,  duration: 0.6),
-        ])))
-        addChild(prompt)
-        promptLabel = prompt
+        ]))
+
+        let sep = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+        sep.text = Strings.Title.promptSep
+        sep.fontSize = 40
+        sep.fontColor = .black
+        sep.position = CGPoint(x: size.width / 2, y: promptY)
+        sep.run(blink)
+        addChild(sep)
+
+        let playGame = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+        playGame.text = Strings.Title.playGame
+        playGame.fontSize = 40
+        playGame.fontColor = green
+        playGame.horizontalAlignmentMode = .right
+        playGame.position = CGPoint(x: size.width / 2 - 18, y: promptY)
+        playGame.run(blink)
+        addChild(playGame)
+        promptPlayLabel = playGame
+
+        let levelEditor = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+        levelEditor.text = Strings.Title.levelEditor
+        levelEditor.fontSize = 40
+        levelEditor.fontColor = blue
+        levelEditor.horizontalAlignmentMode = .left
+        levelEditor.position = CGPoint(x: size.width / 2 + 18, y: promptY)
+        levelEditor.run(blink)
+        addChild(levelEditor)
+        promptEditorLabel = levelEditor
 
         let high = Persistence.int(forKey: Strings.DefaultsKey.highScore)
         if high > 0 {
@@ -138,17 +167,10 @@ final class TitleScene: SKScene {
     override func mouseDown(at p: CGPoint) {
         if let play = clickToPlayLabel, labelHit(play, p) { startGame(); return }
         if let editor = levelEditorLabel, labelHit(editor, p) { startEditor(); return }
-        // Big blinking prompt: tapping the "Press Play" portion starts the game,
-        // the "E for Editor" portion opens the editor. Split measured at click
-        // time so it doesn't depend on font-load timing during layout.
-        if let prompt = promptLabel, labelHit(prompt, p) {
-            let leftEdge = prompt.position.x - prompt.measuredWidth() / 2
-            let measure = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
-            measure.text = Strings.Title.pressPlay
-            measure.fontSize = prompt.fontSize
-            if p.x <= leftEdge + measure.measuredWidth() + 12 { startGame() } else { startEditor() }
-            return
-        }
+        // Big blinking prompt: green "[P]lay Game" starts the game, blue
+        // "Level [E]ditor" opens the editor.
+        if let play = promptPlayLabel, labelHit(play, p) { startGame(); return }
+        if let editor = promptEditorLabel, labelHit(editor, p) { startEditor(); return }
         if let label = bossTracksLabel, labelHit(label, p) {
             let square = !Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
             Persistence.set(square, forKey: Strings.DefaultsKey.bossTracksSquare)
