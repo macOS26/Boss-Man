@@ -36,13 +36,13 @@ final class TitleScene: SKScene {
         addChild(title)
 
         let stapler = makeStapler()
-        stapler.position = CGPoint(x: size.width / 2, y: size.height * 0.46)
+        stapler.position = CGPoint(x: size.width / 2, y: size.height * 0.46 + 8)
         stapler.zRotation = -0.06
         addChild(stapler)
 
         // Two title buttons: green "(P)lay" and blue "(E)ditor", white text on a
-        // filled rounded rect, centred as a pair. Click/tap either, or press P / E.
-        let promptY = size.height * 0.15
+        // filled rect, centred as a pair. Click/tap either, or press P / E.
+        let promptY = size.height * 0.15 + 20
         let green = NSColor(calibratedRed: 0.0,  green: 0.55, blue: 0.18, alpha: 1)
         let blue  = NSColor(calibratedRed: 0.10, green: 0.35, blue: 0.85, alpha: 1)
         let bw: CGFloat = 180, bh: CGFloat = 52, gap: CGFloat = 28
@@ -61,7 +61,7 @@ final class TitleScene: SKScene {
             hs.text = Strings.Title.highScore(high)
             hs.fontSize = 26
             hs.fontColor = .black
-            hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06 + 15)
+            hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06 + 10)
             addChild(hs)
         }
 
@@ -113,7 +113,7 @@ final class TitleScene: SKScene {
     private func makeTitleButton(text: String, color: NSColor, font: String,
                                  center: CGPoint, size s: CGSize) -> CGRect {
         let bg = SKShapeNode(rect: CGRect(x: -s.width / 2, y: -s.height / 2, width: s.width, height: s.height),
-                             cornerRadius: 10)
+                             cornerRadius: 0)
         bg.position = center
         bg.fillColor = color
         bg.strokeColor = .clear
