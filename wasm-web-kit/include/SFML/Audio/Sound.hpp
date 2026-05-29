@@ -25,7 +25,7 @@ public:
         if (!m_buffer) return;
         int buf = m_buffer->handle();
         if (buf == 0) return;
-        m_voice = snd_play(buf, m_volume / 100.f, m_loop ? 1 : 0);
+        m_voice = snd_play(buf, m_volume, m_loop ? 1 : 0);
     }
 
     void stop() {
@@ -40,7 +40,7 @@ public:
 
     void setVolume(float volume) {
         m_volume = volume;
-        if (m_voice != 0) snd_set_volume(m_voice, m_volume / 100.f);
+        if (m_voice != 0) snd_set_volume(m_voice, m_volume);
     }
 
     Status getStatus() const {
