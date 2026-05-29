@@ -15,6 +15,8 @@ import KitABI
 //   - Input is a single Int keyCode (SF key index from runtime.js SF_KEY).
 final class TitleScene: SKScene {
     private var bossTracksLabel: SKLabelNode?
+    private var levelEditorLabel: SKLabelNode?
+    private var clickToPlayLabel: SKLabelNode?
 
     private func bossTracksText() -> String {
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
@@ -91,6 +93,28 @@ final class TitleScene: SKScene {
         addChild(tracks)
         bossTracksLabel = tracks
 
+        // Mobile tap targets stacked above the Boss Tracks toggle, same
+        // right-aligned column: "Level Editor" (= E key) and "Click to Play"
+        // (= P key). Touch devices have no keyboard, so these give a tap path
+        // into the game and the editor.
+        let editorTap = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
+        editorTap.text = "Level Editor"
+        editorTap.fontSize = 16
+        editorTap.fontColor = .black
+        editorTap.horizontalAlignmentMode = .right
+        editorTap.position = CGPoint(x: size.width - 20, y: 70)
+        addChild(editorTap)
+        levelEditorLabel = editorTap
+
+        let playTap = SKLabelNode(fontNamed: Strings.Font.jetBrainsMono)
+        playTap.text = "Click to Play"
+        playTap.fontSize = 16
+        playTap.fontColor = .black
+        playTap.horizontalAlignmentMode = .right
+        playTap.position = CGPoint(x: size.width - 20, y: 96)
+        addChild(playTap)
+        clickToPlayLabel = playTap
+
         let panel = LeaderboardPanel(size: CGSize(width: 320, height: 400))
         panel.position = CGPoint(x: 320 / 2 + 32, y: size.height * 0.5)
         addChild(panel)
@@ -110,14 +134,21 @@ final class TitleScene: SKScene {
     }
 
     override func mouseDown(at p: CGPoint) {
-        guard let label = bossTracksLabel else { return }
+        if let play = clickToPlayLabel, labelHit(play, p) { startGame(); return }
+        if let editor = levelEditorLabel, labelHit(editor, p) { startEditor(); return }
+        if let label = bossTracksLabel, labelHit(label, p) {
+            let square = !Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
+            Persistence.set(square, forKey: Strings.DefaultsKey.bossTracksSquare)
+            label.text = bossTracksText()
+        }
+    }
+
+    // Right-aligned label hit-test with a touch-friendly margin around the glyphs.
+    private func labelHit(_ label: SKLabelNode, _ p: CGPoint) -> Bool {
         let w = label.measuredWidth()
-        let hit = CGRect(x: label.position.x - w - 10, y: label.position.y - 12,
-                         width: w + 20, height: 32)
-        guard hit.contains(p) else { return }
-        let square = !Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
-        Persistence.set(square, forKey: Strings.DefaultsKey.bossTracksSquare)
-        label.text = bossTracksText()
+        let rect = CGRect(x: label.position.x - w - 10, y: label.position.y - 12,
+                          width: w + 20, height: 32)
+        return rect.contains(p)
     }
 
     private func startGame() {

@@ -30,6 +30,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // Input buffer: pressing a direction sets `queued`; Pete adopts it the
     // next time the mover hits a tile centre and that direction is walkable.
     private var queued: MoveDirection? = nil
+    private var dpadButtons: [(rect: CGRect, dir: MoveDirection)] = []
     private let peteStep: TimeInterval = 0.13   // ~7.7 tiles/s
     private let tileSize: CGFloat = 32
     private var containerOriginX: CGFloat = 0
@@ -184,6 +185,55 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // Every 12th level switches to the MIB ("Sunglasses At Night") theme.
         sound.startMusic(musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
+        installDirectionPad()
+    }
+
+    // MARK: - On-screen direction pad (mobile / touch)
+
+    // A translucent four-arrow cross in the bottom-right margin. Tapping an
+    // arrow sets `queued` exactly as an arrow-key press does, so it funnels
+    // through the same TileMover.decide path — no separate movement code.
+    private func installDirectionPad() {
+        let cx = size.width - 72
+        let cy: CGFloat = 100
+        let off: CGFloat = 46
+        let side: CGFloat = 48
+        let layout: [(MoveDirection, CGPoint)] = [
+            (.up,    CGPoint(x: cx,       y: cy + off)),
+            (.down,  CGPoint(x: cx,       y: cy - off)),
+            (.left,  CGPoint(x: cx - off, y: cy)),
+            (.right, CGPoint(x: cx + off, y: cy)),
+        ]
+        for (dir, c) in layout {
+            let btn = SKShapeNode(rect: CGRect(x: -side / 2, y: -side / 2, width: side, height: side),
+                                  cornerRadius: 8)
+            btn.position = c
+            btn.fillColor = SKColor(white: 1, alpha: 0.12)
+            btn.strokeColor = SKColor(white: 1, alpha: 0.5)
+            btn.lineWidth = 1.5
+            btn.zPosition = 50
+            let arrow = SKShapeNode(path: arrowPath(dir, 10))
+            arrow.fillColor = SKColor(white: 1, alpha: 0.85)
+            arrow.strokeColor = .clear
+            arrow.zPosition = 51
+            btn.addChild(arrow)
+            addChild(btn)
+            dpadButtons.append((rect: CGRect(x: c.x - side / 2, y: c.y - side / 2,
+                                             width: side, height: side), dir: dir))
+        }
+    }
+
+    private func arrowPath(_ dir: MoveDirection, _ a: CGFloat) -> CGPath {
+        let pts: [CGPoint]
+        switch dir {
+        case .up:    pts = [CGPoint(x: 0, y: a),  CGPoint(x: -a, y: -a), CGPoint(x: a, y: -a)]
+        case .down:  pts = [CGPoint(x: 0, y: -a), CGPoint(x: -a, y: a),  CGPoint(x: a, y: a)]
+        case .left:  pts = [CGPoint(x: -a, y: 0), CGPoint(x: a, y: a),   CGPoint(x: a, y: -a)]
+        case .right: pts = [CGPoint(x: a, y: 0),  CGPoint(x: -a, y: a),  CGPoint(x: -a, y: -a)]
+        }
+        let p = CGMutablePath()
+        p.move(to: pts[0]); p.addLine(to: pts[1]); p.addLine(to: pts[2]); p.closeSubpath()
+        return p
     }
 
     // bossman-apple SoundManager: every 12th level uses the alternate
@@ -240,6 +290,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // Skip buttons fire even though the rest of the scene is paused.
         if let dialog = usernameDialog {
             dialog.handleMouseDown(at: p)
+            return
+        }
+        if gameOver || isUserPaused { return }
+        for b in dpadButtons where b.rect.contains(p) {
+            queued = b.dir
+            pete?.setFacing(b.dir)
             return
         }
     }
