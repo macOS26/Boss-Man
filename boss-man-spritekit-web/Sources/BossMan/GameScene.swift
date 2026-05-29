@@ -30,6 +30,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // Input buffer: pressing a direction sets `queued`; Pete adopts it the
     // next time the mover hits a tile centre and that direction is walkable.
     private var queued: MoveDirection? = nil
+    // Pete's last committed heading, latched (apple's WorkerController.direction
+    // is not cleared on a wall hit). Fed to the bosses so ambush/flanker keep
+    // projecting ahead when Pete is blocked. Reset on respawn.
+    private var lastPeteDir: MoveDirection? = nil
     private var swipeStart: CGPoint? = nil
     private var swipeFired = false
     private var moveAnchor: CGPoint? = nil
@@ -412,15 +416,19 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if let d = e.dir { self.pete?.setFacing(d) }
         }
         peteMover.advance(dt, decide: decide, onArrive: onArrive)
+        // bossman-apple latches workerDirection: it is NOT cleared when Pete is
+        // held against a wall, so Dom (ambush) and Bob (flanker) keep projecting
+        // along Pete's last heading instead of collapsing to direct chase.
+        if let d = peteMover.dir { lastPeteDir = d }
 
-        // Bill (blueprint 0) is the BLINKY anchor that Bob's flanker
-        // personality reflects through. If Bill isn't on the level we
-        // pass nil and Bob falls back to direct chase.
-        let blinky = bosses.first(where: { $0.blueprintIndex == 0 })?.grid
+        // BLINKY anchor for Bob's flanker reflection = the FIRST-SPAWNED boss
+        // (bossman-apple's entities.first), in maze scan order — NOT necessarily
+        // Bill. bosses[] is built in bossSpawns scan order, so bosses.first matches.
+        let blinky = bosses.first?.grid
         for boss in bosses {
             boss.step(dt: dt,
                       peteGrid: peteMover.grid,
-                      peteDirection: peteMover.dir,
+                      peteDirection: lastPeteDir,
                       blinkyGrid: blinky)
         }
 
@@ -680,6 +688,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func resetPete(to spawn: CGPoint) {
         peteMover.grid = spawn
         peteMover.dir = nil
+        lastPeteDir = nil
         peteMover.moving = false
         peteMover.moveT = 0
         pete.position = peteMover.centre(of: spawn)
@@ -689,6 +698,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func triggerGameOver() {
         gameOver = true
         peteMover.dir = nil
+        lastPeteDir = nil
         queued = nil
         sound.stopAllAudio()
 
