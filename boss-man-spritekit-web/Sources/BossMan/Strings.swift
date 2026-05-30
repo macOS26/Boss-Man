@@ -70,6 +70,7 @@ enum Strings {
     enum DefaultsKey {
         static let highScore              = "BossMan.highScore"
         static let leaderboard            = "BossMan.leaderboard"
+        static let localHighScores        = "BossMan.leaderboard"   // shared LocalHighScores key (same store as `leaderboard`)
         static let playerName             = "BossMan.playerName"
         static let localLeaderboardUsername = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"

@@ -1,65 +1,135 @@
-import Foundation
-
+// Local high-score leaderboard, shared verbatim by the apple and wasm builds.
+// Storage goes through Persistence (UserDefaults on apple, localStorage on web);
+// the payload is hand-rolled JSON ([{"n":NAME,"s":SCORE}, ...]) because
+// Foundation's JSONEncoder/Codable isn't available on the WASI toolchain.
+//
+// Game-Center-style local rules: ONE entry per unique name; a submission only
+// overwrites that name's entry when it beats their own best (otherwise it is not
+// recorded, so the same name is never logged twice); sorted, top-10.
 struct LocalHighScores {
-    struct Entry: Codable {
+    struct Entry: Equatable {
         let name: String
         let score: Int
-        let date: Date
     }
 
-    static let storeKey = Strings.DefaultsKey.localHighScores
     static let maxEntries = 10
+    private static let storeKey = Strings.DefaultsKey.localHighScores
+    private static let usernameKey = Strings.DefaultsKey.localLeaderboardUsername
 
-    static func load() -> [Entry] {
-        guard let data = UserDefaults.standard.data(forKey: storeKey),
-              let entries = try? JSONDecoder().decode([Entry].self, from: data) else {
-            return []
-        }
-        return entries
+    // MARK: - Username
+    static var savedUsername: String? {
+        get { Persistence.string(forKey: usernameKey) }
+        set { if let v = newValue { Persistence.setString(v, forKey: usernameKey) } }
     }
 
+    // MARK: - Read
+    static func load() -> [Entry] {
+        guard let raw = Persistence.string(forKey: storeKey), !raw.isEmpty else { return [] }
+        return decode(raw)
+    }
+
+    // MARK: - Write (per-name best)
     @discardableResult
     static func record(name: String, score: Int) -> Int? {
-        guard score > 0 else {
-            return nil
-        }
+        guard score > 0 else { return nil }
         var all = load()
-
-        if let existing = all.firstIndex(where: { $0.name == name }) {
-            guard score > all[existing].score else {
-                return nil
-            }
-            all.remove(at: existing)
+        if let i = all.firstIndex(where: { $0.name == name }) {
+            guard score > all[i].score else { return nil }
+            all.remove(at: i)
         }
-
-        let entry = Entry(name: name, score: score, date: Date())
-        all.append(entry)
+        all.append(Entry(name: name, score: score))
         all.sort { $0.score > $1.score }
-        let trimmed = Array(all.prefix(maxEntries))
-        guard let data = try? JSONEncoder().encode(trimmed) else {
-            return nil
-        }
-        UserDefaults.standard.set(data, forKey: storeKey)
-        UserDefaults.standard.synchronize()
-        let rank = trimmed.firstIndex(where: { $0.date == entry.date }).map { $0 + 1 }
-        return rank
+        all = Array(all.prefix(maxEntries))
+        Persistence.setString(encode(all), forKey: storeKey)
+        return all.firstIndex(where: { $0.name == name && $0.score == score }).map { $0 + 1 }
     }
 
     static func qualifies(name: String, score: Int) -> Bool {
         guard score > 0 else { return false }
         let all = load()
-        if let existing = all.first(where: { $0.name == name }) {
-            return score > existing.score
-        }
+        if let existing = all.first(where: { $0.name == name }) { return score > existing.score }
         return all.count < maxEntries || score > (all.last?.score ?? 0)
     }
 
-    // MARK: - Username persistence
+    @discardableResult
+    static func submit(name: String, score: Int) -> [Entry] {
+        record(name: name, score: score)
+        return load()
+    }
 
-    static let usernameKey = Strings.DefaultsKey.localLeaderboardUsername
+    static func clear() {
+        Persistence.setString("", forKey: storeKey)
+    }
 
-    static var savedUsername: String? {
-        get { UserDefaults.standard.string(forKey: usernameKey) }
-        set { UserDefaults.standard.set(newValue, forKey: usernameKey) }
+    // MARK: - Hand-rolled JSON (no Codable; runs on apple + WASI)
+    private static func encode(_ entries: [Entry]) -> String {
+        var out = "["
+        for (i, e) in entries.enumerated() {
+            if i > 0 { out += "," }
+            out += "{\"n\":\"\(escape(e.name))\",\"s\":\(e.score)}"
+        }
+        return out + "]"
+    }
+
+    private static func decode(_ raw: String) -> [Entry] {
+        var out: [Entry] = []
+        let a = Array(raw)
+        let n = a.count
+        var i = 0
+        while out.count < maxEntries {
+            guard let ns = indexAfter(a, n, from: i, of: "\"n\":\"") else { break }
+            var k = ns
+            var name = ""
+            while k < n, a[k] != "\"" {
+                if a[k] == "\\", k + 1 < n {
+                    switch a[k + 1] {
+                    case "n": name.append("\n")
+                    case "t": name.append("\t")
+                    case "r": name.append("\r")
+                    default:  name.append(a[k + 1])
+                    }
+                    k += 2
+                } else {
+                    name.append(a[k]); k += 1
+                }
+            }
+            guard let ss = indexAfter(a, n, from: k, of: "\"s\":") else { break }
+            var j = ss
+            var num = ""
+            while j < n, a[j].isNumber || a[j] == "-" { num.append(a[j]); j += 1 }
+            guard let s = Int(num) else { break }
+            out.append(Entry(name: name, score: s))
+            i = j
+        }
+        return out
+    }
+
+    private static func indexAfter(_ a: [Character], _ n: Int, from: Int, of token: String) -> Int? {
+        let t = Array(token)
+        let tn = t.count
+        guard tn > 0 else { return from }
+        var i = from
+        while i + tn <= n {
+            var match = true
+            for x in 0..<tn where a[i + x] != t[x] { match = false; break }
+            if match { return i + tn }
+            i += 1
+        }
+        return nil
+    }
+
+    private static func escape(_ s: String) -> String {
+        var out = ""
+        for ch in s {
+            switch ch {
+            case "\"": out += "\\\""
+            case "\\": out += "\\\\"
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
+            default:   out.append(ch)
+            }
+        }
+        return out
     }
 }

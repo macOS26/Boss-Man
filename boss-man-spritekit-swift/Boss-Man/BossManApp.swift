@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         alert.addButton(withTitle: Strings.App.resetButton)
         alert.addButton(withTitle: Strings.App.cancelButton)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        UserDefaults.standard.removeObject(forKey: LocalHighScores.storeKey)
+        LocalHighScores.clear()
         UserDefaults.standard.removeObject(forKey: RoundState.highScoreKey)
     }
 
