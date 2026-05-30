@@ -1620,7 +1620,24 @@ void main() {
   ensureAudio() {
     if (!this.audioCtx) {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) this.audioCtx = new AC();
+      if (AC) {
+        try {
+          this.audioCtx = new AC();
+          // Chrome caps a tab at 6 AudioContexts and does NOT release them on
+          // page reload. Without an explicit close() each reload (every dev
+          // iteration) leaks one until Web Audio stops producing sound — while
+          // SpeechSynthesis/voice keeps working, since it's a separate
+          // subsystem — and only a full browser restart recovers. Closing on
+          // unload frees this page's context so reloads no longer accumulate.
+          const closeCtx = () => { try { this.audioCtx && this.audioCtx.close(); } catch (_e) {} };
+          window.addEventListener('pagehide', closeCtx);
+          window.addEventListener('beforeunload', closeCtx);
+        } catch (e) {
+          // Limit already hit from prior reloads: don't throw, just warn.
+          console.error('AudioContext construction failed — Chrome hardware-context limit (6) likely reached from earlier reloads. Quit and reopen the browser to reset it.', e);
+          this.audioCtx = null;
+        }
+      }
     }
     if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
     return this.audioCtx;
