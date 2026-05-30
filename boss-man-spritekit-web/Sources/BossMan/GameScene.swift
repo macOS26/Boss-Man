@@ -19,28 +19,20 @@ import SpriteKit
 //     all queued for the next pass.
 //
 // Escape returns to the title screen.
-final class GameScene: SKScene, SKPhysicsContactDelegate {
+final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelegate {
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
     private var mazeBuilder: MazeBuilder!
-    private var pete: PixelPerson!
-    private var peteMover: TileMover!
+    private var pete: PixelPerson!            // == worker.node (set in didMove)
+    private var worker: WorkerController!
     private let mazeRoot = SKNode()
 
-    // Input buffer: pressing a direction sets `queued`; Pete adopts it the
-    // next time the mover hits a tile centre and that direction is walkable.
-    private var queued: MoveDirection? = nil
-    // Pete's last committed heading, latched (apple's WorkerController.direction
-    // is not cleared on a wall hit). Fed to the bosses so ambush/flanker keep
-    // projecting ahead when Pete is blocked. Reset on respawn.
-    private var lastPeteDir: MoveDirection? = nil
     private var swipeStart: CGPoint? = nil
     private var swipeFired = false
     private var moveAnchor: CGPoint? = nil
     private let swipeThreshold: CGFloat = 24
     private var fireButtonCenter = CGPoint.zero
     private let fireButtonRadius: CGFloat = 38
-    private let peteStep: TimeInterval = 0.13   // ~7.7 tiles/s
     private let tileSize: CGFloat = 32
     private var containerOriginX: CGFloat = 0
 
@@ -63,7 +55,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private var bosses: [BossController] = []
     private var contactCooldown: TimeInterval = 0     // brief grace after a hit
-    private var peteShielded: Bool = false             // bossman-apple's WorkerController.isShielded
     // Gold-disc (frighten) window — bossman-apple uses 20s.
     private var frightenSecondsLeft: TimeInterval = 0
     private let frightenDuration: TimeInterval = 20
@@ -96,6 +87,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let waterHitPoints = 100
 
     private var gameOver = false
+    // MARK: - WorkerControllerDelegate
+    var isGameOver: Bool { gameOver }
+    func workerDidEnterTile(_ grid: CGPoint) { handlePeteArrival(at: grid) }
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     private var usernameDialog: UsernameDialog? = nil
@@ -149,39 +143,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         refreshHUD()
 
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
-        pete = SpriteFactory.petePerson()
-        pete.zPosition = 5
-        // bossman-apple WorkerController: "PETE" name tag, Menlo-Bold 9, white,
-        // 24pt above center.
-        let peteTag = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        peteTag.text = Strings.Worker.pete
-        peteTag.fontSize = 9
-        peteTag.fontColor = .white
-        peteTag.position = CGPoint(x: 0, y: 24)
-        pete.addChild(peteTag)
-        // Verbatim from bossman-apple WorkerController.configureNode
-        // (lines 40-44): circle r=10, worker category, contact-test
-        // against everything Pete interacts with, collision against
-        // walls. The body is plain dynamic (default) — no sensor flag,
-        // no kinematic gymnastics. SuperBox64 SpriteKit auto-syncs
-        // node.position into Box2D each frame, so the TileMover-driven
-        // position drives the body's world location.
-        let peteBody = SKPhysicsBody(circleOfRadius: 10)
-        peteBody.allowsRotation = false
-        peteBody.categoryBitMask = PhysicsCategory.worker
-        peteBody.contactTestBitMask =
-            PhysicsCategory.dot | PhysicsCategory.boss |
-            PhysicsCategory.machine | PhysicsCategory.tpsBox |
-            PhysicsCategory.goldDisc | PhysicsCategory.fish |
-            PhysicsCategory.waterGun | PhysicsCategory.waterPellet
-        // No collision resolution: Pete's tile stepper already keeps him out of
-        // walls, and letting Box2D push a directly-positioned dynamic body
-        // produced micro-jitter. Contacts still fire via contactTestBitMask.
-        peteBody.collisionBitMask = 0
-        pete.physicsBody = peteBody
+        // Drive Pete through the shared WorkerController (same file as the apple
+        // master): it builds the PixelPerson + "PETE" tag + physics body and
+        // self-steps via SKAction over gridMap.point(for:) (centred via xOffset).
+        worker = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
+        worker.delegate = self
+        pete = worker.node
+        // WorkerController sets collisionBitMask = .wall (apple model); zero it on
+        // web so the kit's Box2D doesn't push the directly-positioned (SKAction-
+        // moved) body into micro-jitter. Contacts still fire via contactTest.
+        pete.physicsBody?.collisionBitMask = 0
         addChild(pete)
-        peteMover = TileMover(node: pete, spawn: spawn, map: gridMap,
-                              step: peteStep, containerOriginX: containerOriginX)
 
         for (index, bossSpawn) in mazeBuilder.bossSpawns.enumerated() {
             let boss = BossController(blueprintIndex: bossSpawn.index,
@@ -243,7 +215,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func steer(_ dir: MoveDirection) {
-        queued = dir
+        worker.queueDirection(dir)
         pete?.setFacing(dir)
     }
 
@@ -372,13 +344,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         if let dir = MoveDirection(keyCode: key) {
-            queued = dir
+            worker.queueDirection(dir)
             pete?.setFacing(dir)
         }
     }
 
     private func fireWater() {
-        guard waterAmmo > 0, let h = peteMover.dir ?? queued else { return }
+        guard waterAmmo > 0, let h = worker.direction ?? worker.queuedDirection else { return }
         // bossman-apple disables the water gun while the gold-disc window
         // is active — players can't double-dip on power-ups.
         if frightenSecondsLeft > 0 {
@@ -398,31 +370,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Update loop
 
     override func update(_ currentTime: TimeInterval) {
-        guard pete != nil, peteMover != nil else { return }
+        guard worker != nil else { return }
         if gameOver || isUserPaused { return }
         let dt: TimeInterval = 1.0 / 60.0
 
-        // Time-based tile stepper: when Pete reaches a tile centre, decide()
-        // picks the next direction (queued > current); the mover lerps to the
-        // next tile over `peteStep` seconds with the lerp parameter clamped
-        // 0..1 — so overshoot vibration is impossible. onArrive runs the
-        // pickup/level/respawn bookkeeping in scene coords.
-        let decide: (TileMover) -> MoveDirection? = { [weak self] e in
-            guard let self else { return nil }
-            if let q = self.queued, e.canStep(q) { return q }
-            if let d = e.dir, e.canStep(d) { return d }
-            return nil
-        }
-        let onArrive: (TileMover) -> Void = { [weak self] e in
-            guard let self else { return }
-            self.handlePeteArrival(at: e.grid)
-            if let d = e.dir { self.pete?.setFacing(d) }
-        }
-        peteMover.advance(dt, decide: decide, onArrive: onArrive)
-        // bossman-apple latches workerDirection: it is NOT cleared when Pete is
-        // held against a wall, so Dom (ambush) and Bob (flanker) keep projecting
-        // along Pete's last heading instead of collapsing to direct chase.
-        if let d = peteMover.dir { lastPeteDir = d }
+        // Pete self-drives through WorkerController (SKAction move + arrival
+        // callback via workerDidEnterTile); nothing to advance per frame here.
+        // bossman-apple latches WorkerController.direction (NOT cleared when Pete
+        // is held against a wall) so Dom (ambush) and Bob (flanker) keep
+        // projecting along Pete's last heading instead of collapsing to direct chase.
 
         // BLINKY anchor for Bob's flanker reflection = the FIRST-SPAWNED boss
         // (bossman-apple's entities.first), in maze scan order — NOT necessarily
@@ -430,8 +386,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let blinky = bosses.first?.grid
         for boss in bosses {
             boss.step(dt: dt,
-                      peteGrid: peteMover.grid,
-                      peteDirection: lastPeteDir,
+                      peteGrid: worker.grid,
+                      peteDirection: worker.direction,
                       blinkyGrid: blinky)
         }
 
@@ -463,7 +419,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 // Scale-up + fade-out, snap home, scale-down + fade-in.
                 b.capture()
                 contactCooldown = 0.4
-            } else if !peteShielded {
+            } else if !worker.isShielded {
                 handlePeteHit(catcher: b)
             }
         }
@@ -481,26 +437,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         return nil
     }
 
-    // bossman-apple's WorkerController.applySpawnShield. Pete is invulnerable
-    // for ~3s after a respawn, with a fade-in-fade-out blink so the player
-    // sees the grace window.
+    // Spawn-invulnerability grace + blink now lives in the shared
+    // WorkerController.applySpawnShield (worker.isShielded gates the boss hit).
     private func applyPeteSpawnShield() {
-        peteShielded = true
-        pete.removeAction(forKey: Strings.ActionKey.spawnShield)
-        pete.removeAction(forKey: Strings.ActionKey.spawnShieldBlink)
-        pete.alpha = 1
-        let blinkCycle = SKAction.sequence([
-            .fadeAlpha(to: 0.35, duration: 0.6),
-            .fadeAlpha(to: 1.0,  duration: 0.6),
-        ])
-        pete.run(.sequence([
-            .repeat(blinkCycle, count: 2),
-            .run { [weak self] in self?.pete?.alpha = 1 }
-        ]), withKey: Strings.ActionKey.spawnShieldBlink)
-        pete.run(.sequence([
-            .wait(forDuration: 3.0),
-            .run { [weak self] in self?.peteShielded = false }
-        ]), withKey: Strings.ActionKey.spawnShield)
+        worker.applySpawnShield()
     }
 
     // Called by the TileMover when Pete snaps to a new tile centre — picks
@@ -522,7 +462,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             // window opens, so the first eaten boss is worth 100 again.
             captureStreak = 0
             refreshHUD()
-            ScorePopup.show(goldPoints, at: peteMover.centre(of: grid), in: self)
+            ScorePopup.show(goldPoints, at: gridMap.point(for: grid), in: self)
             frightenSecondsLeft = frightenDuration
             for b in bosses { b.setFrightened(true) }
             refreshBossTags()
@@ -533,14 +473,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if mazeBuilder.collectWaterPellet(at: grid) {
             waterAmmo += waterShotsPerPellet
             score += 50
-            ScorePopup.show(50, at: peteMover.centre(of: grid), in: self)
+            ScorePopup.show(50, at: gridMap.point(for: grid), in: self)
             sound.playWaterGunPickup()
             refreshHUD()
         }
         if mazeBuilder.collectWaterGun(at: grid) {
             waterAmmo += waterShotsPerGun
             score += 75
-            ScorePopup.show(75, at: peteMover.centre(of: grid), in: self)
+            ScorePopup.show(75, at: gridMap.point(for: grid), in: self)
             sound.playWaterGunPickup()
             refreshHUD()
             hud.flash(Strings.Message.waterGunActivated, duration: 3)
@@ -689,20 +629,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func resetPete(to spawn: CGPoint) {
-        peteMover.grid = spawn
-        peteMover.dir = nil
-        lastPeteDir = nil
-        peteMover.moving = false
-        peteMover.moveT = 0
-        pete.position = peteMover.centre(of: spawn)
-        queued = nil
+        worker.resetMotion()
+        worker.teleport(to: spawn)
     }
 
     private func triggerGameOver() {
         gameOver = true
-        peteMover.dir = nil
-        lastPeteDir = nil
-        queued = nil
+        worker.resetMotion()
         sound.stopAllAudio()
 
         // bossman-apple HUD.showGameOver: translucent dim, orange-bordered
