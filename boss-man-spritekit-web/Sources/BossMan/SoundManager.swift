@@ -84,18 +84,15 @@ final class SoundManager {
     func playWaterGunShoot()  { playEffect("waterGunShoot")  { self.sweep(from: 880, to: 440,  duration: 0.08, volume: 0.25) } }
     func playWaterGunSplash() { playEffect("waterGunSplash") { self.sweep(from: 660, to: 220,  duration: 0.3,  volume: 0.35) } }
     func playFootstep()       { playEffect("footstep")       { self.tone(frequency: 140, duration: 0.025, volume: 0.07, decay: 60) } }
-    private var teleportGate = false
+    // One teleport per frame: a batch of simultaneous boss spawns plays a
+    // single teleport, and the gate is cleared each frame by GameScene.update
+    // so it can never stick (see FrameGate — Task.sleep never fires on WASI).
+    private let teleportGate = FrameGate()
     func playTeleport() {
-        if teleportGate { return }
-        teleportGate = true
+        guard teleportGate.passOnce() else { return }
         playEffect("teleport") { self.buildTeleport() }
     }
-    // Cleared once per frame by GameScene.update so a batch of simultaneous boss
-    // spawns plays ONE teleport, yet the gate can never stick. The old
-    // Task.sleep reset never fired on single-threaded WASI, so after the first
-    // teleport the gate stayed set and silenced every later one (e.g. the boss
-    // respawn after a boss catches Pete).
-    func clearTeleportGate() { teleportGate = false }
+    func clearTeleportGate() { teleportGate.clear() }
 
     func playLevelStart() {
         playEffect("levelStart") { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.30) }
