@@ -3,45 +3,6 @@ import Foundation
 enum Strings {
     static let empty = String()
 
-    // MARK: - Level char tokens (the level-file grammar)
-    enum Tile {
-        static let floor      = " "
-        static let dot        = "."
-        static let wall       = "#"
-        static let hideout    = "H"
-        static let printer    = "P"
-        static let fax        = "F"
-        static let coverSheet = "C"
-        static let bookBinder = "M"
-        static let brownBox   = "D"
-        static let goldDisc   = "O"
-        static let worker     = "W"
-        static let boss1      = "1"
-        static let boss2      = "2"
-        static let boss3      = "3"
-        static let boss4      = "4"
-        static let waterGun    = "G"
-        static let waterPellet = "A"
-
-        static let floorChar         = Character(floor)
-        static let dotChar           = Character(dot)
-        static let wallChar          = Character(wall)
-        static let hideoutChar       = Character(hideout)
-        static let printerChar       = Character(printer)
-        static let faxChar           = Character(fax)
-        static let coverSheetChar    = Character(coverSheet)
-        static let bookBinderChar    = Character(bookBinder)
-        static let brownBoxChar      = Character(brownBox)
-        static let goldDiscChar      = Character(goldDisc)
-        static let workerChar        = Character(worker)
-        static let boss1Char         = Character(boss1)
-        static let boss2Char         = Character(boss2)
-        static let boss3Char         = Character(boss3)
-        static let boss4Char         = Character(boss4)
-        static let waterGunChar      = Character(waterGun)
-        static let waterPelletChar   = Character(waterPellet)
-    }
-
     // MARK: - macOS standard menu item titles
     enum Menu {
         static let hideOthers = "Hide Others"
@@ -144,19 +105,6 @@ enum Strings {
         static let travelerStaplerFile      = "shinyredstapler-emoji"
         static let travelerStaplerExtension = "png"
         static let quarantineAttribute = "com.apple.quarantine"
-    }
-
-    // MARK: - Machine icons (emoji)
-    enum Emoji {
-        static let printer    = "🖨️"
-        static let fax        = "📠"
-        static let coverSheet = "📄"
-        static let bookBinder = "📚"
-        static let brownBox   = "📦"
-        static let checked    = "✅"
-        static let unchecked  = "❌"
-        static let sunglasses = "🕶️"
-        static let waterGun   = "🔫"
     }
 
     // MARK: - Level Editor copy / labels
@@ -368,22 +316,6 @@ enum Strings {
             coverSheet: "Cover Sheet",
             bookBinder: "Book Binder"
         ]
-    }
-
-    // MARK: - Worker (PETE) names
-    enum Worker {
-        static let pete = "PETE"
-        static let hero = "HERO"
-
-    }
-
-    // MARK: - Boss display names
-    enum Boss {
-        static let bill = "BILL"
-        static let dom  = "DOM"
-        static let bob  = "BOB"
-        static let stan = "STAN"
-        static let boss = "BOSS"
     }
 
     // MARK: - HUD persistent labels
