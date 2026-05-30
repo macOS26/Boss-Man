@@ -64,36 +64,6 @@ enum Strings {
         static let markerFeltWide  = "Marker Felt Wide"
     }
 
-    // MARK: - SKAction keys (the per-scope "name" passed to run(_:withKey:))
-    enum ActionKey {
-        static let walk             = "walk"
-        static let spawnShield      = "spawnShield"
-        static let spawnShieldBlink = "spawnShieldBlink"
-        static let machineCooldown  = "machineCooldown"
-        static let goldDiscExpiry   = "goldDiscExpiry"
-        static let bossMove         = "bossMove"
-        static let workerMove       = "workerMove"
-        static let bossStepper      = "bossStepper"
-        static let travelerStepper  = "travelerStepper"
-        static let travelerVisit1   = "travelerVisit1"
-        static let travelerVisit2   = "travelerVisit2"
-        static let spawnFade        = "spawnFade"
-        static let spawnUnfreeze    = "spawnUnfreeze"
-        static let spawnThrob       = "spawnThrob"
-        static let fleeThaw         = "fleeThaw"
-        static let waterGunExpiry   = "waterGunExpiry"
-        static let waterDropletMove = "waterDropletMove"
-        static let clear            = "clear"
-    }
-
-    // MARK: - SKNode names (used by hit-testing / find-by-name)
-    enum NodeName {
-        static let signInLink     = "leaderboard.signin_link"
-        static let palettePrefix  = "pal_"
-        static let travelerEmoji  = "traveler.emoji"
-        static let waterPellet    = "waterPellet"
-    }
-
     // MARK: - Bundle resources (filename + extension passed to Bundle.url)
     enum Resource {
         static let levelsFile        = "levels"
@@ -162,17 +132,6 @@ enum Strings {
         static let saveButton = "Save"
         static let skipButton = "Skip"
         static let noScores = "No local scores yet."
-    }
-
-    // MARK: - Score popup
-    enum Score {
-        static func popup(_ points: Int) -> String { points >= 0 ? "+\(points)" : "\(points)" }
-    }
-
-    // MARK: - CoreImage / system framework constants
-    enum CoreImage {
-        static let gaussianBlur      = "CIGaussianBlur"
-        static let inputRadiusKey    = "inputRadius"
     }
 
     // MARK: - Editor button identifiers (used as SKNode.name + click dispatch)

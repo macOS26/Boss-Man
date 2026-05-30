@@ -180,4 +180,46 @@ extension Strings {
             "Welcome back."
         ]
     }
+
+    // MARK: - CoreImage / system framework constants
+    enum CoreImage {
+        static let gaussianBlur   = "CIGaussianBlur"
+        static let inputRadiusKey = "inputRadius"
+    }
+
+    // MARK: - Score popup
+    enum Score {
+        static func popup(_ points: Int) -> String { points >= 0 ? "+\(points)" : "\(points)" }
+    }
+
+    // MARK: - SKNode names (hit-testing / find-by-name)
+    enum NodeName {
+        static let signInLink     = "leaderboard.signin_link"
+        static let palettePrefix  = "pal_"
+        static let travelerEmoji  = "traveler.emoji"
+        static let waterPellet    = "waterPellet"
+    }
+
+    // MARK: - SKAction keys (union of both ports; unused keys are harmless)
+    enum ActionKey {
+        static let walk             = "walk"
+        static let spawnShield      = "spawnShield"
+        static let spawnShieldBlink = "spawnShieldBlink"
+        static let machineCooldown  = "machineCooldown"
+        static let goldDiscExpiry   = "goldDiscExpiry"
+        static let bossMove         = "bossMove"
+        static let workerMove       = "workerMove"
+        static let bossStepper      = "bossStepper"
+        static let travelerStepper  = "travelerStepper"
+        static let travelerVisit1   = "travelerVisit1"
+        static let travelerVisit2   = "travelerVisit2"
+        static let spawnFade        = "spawnFade"
+        static let spawnUnfreeze    = "spawnUnfreeze"
+        static let blink            = "blink"
+        static let spawnThrob       = "spawnThrob"
+        static let fleeThaw         = "fleeThaw"
+        static let waterGunExpiry   = "waterGunExpiry"
+        static let waterDropletMove = "waterDropletMove"
+        static let clear            = "clear"
+    }
 }

@@ -41,12 +41,6 @@ enum Strings {
         static let editorLevelPrefix      = "BossMan.editorLevel."
     }
 
-    // MARK: - CoreImage / system framework constants
-    enum CoreImage {
-        static let gaussianBlur   = "CIGaussianBlur"
-        static let inputRadiusKey = "inputRadius"
-    }
-
     enum App {
         static let loading = "Loading…"
     }
@@ -57,10 +51,6 @@ enum Strings {
 
     enum System {
         static let initCoderUnsupported = "init(coder:) is not supported"
-    }
-
-    enum Score {
-        static func popup(_ points: Int) -> String { points >= 0 ? "+\(points)" : "\(points)" }
     }
 
     enum Resource {
@@ -92,30 +82,6 @@ enum Strings {
         static let noScores            = "No local scores yet."
         static func rankLabel(_ rank: Int) -> String { "\(rank)." }
         static func scoreLabel(_ score: Int) -> String { "\(score)" }
-    }
-
-    // MARK: - SKAction keys (the per-scope "name" passed to run(_:withKey:))
-    enum ActionKey {
-        static let walk             = "walk"
-        static let spawnShield      = "spawnShield"
-        static let spawnShieldBlink = "spawnShieldBlink"
-        static let machineCooldown  = "machineCooldown"
-        static let goldDiscExpiry   = "goldDiscExpiry"
-        static let bossMove         = "bossMove"
-        static let workerMove       = "workerMove"
-        static let bossStepper      = "bossStepper"
-        static let travelerStepper  = "travelerStepper"
-        static let spawnFade        = "spawnFade"
-        static let spawnUnfreeze    = "spawnUnfreeze"
-        static let blink            = "blink"
-        static let travelerVisit1   = "travelerVisit1"
-        static let travelerVisit2   = "travelerVisit2"
-    }
-
-    enum NodeName {
-        static let travelerEmoji = "traveler.emoji"
-        static let palettePrefix = "pal_"
-        static let signInLink    = "leaderboard.signin_link"
     }
 
     // MARK: - Level editor copy. Button-label key hints describe the WEB
