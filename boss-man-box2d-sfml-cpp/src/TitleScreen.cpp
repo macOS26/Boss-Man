@@ -57,9 +57,9 @@ void TitleScreen::ensureLoaded() {
     if (staplerLoaded_) stapler_.setSmooth(true);
 
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
-    // falloff (a cheap Gaussian-like blur). Panel is 320x400. Matches the Xcode
-    // SpriteKit shadow: alpha 0.24, blur radius 12.5, rect expanded 2px (insetBy -2).
-    const float feather = 26.f, baseAlpha = 61.f, radius = 12.f;
+    // falloff (a cheap Gaussian-like blur). Panel is 320x400. Tuned light + wide to read
+    // like the wasm/Xcode soft shadow (0.24 black, CIGaussianBlur 12.5 + framework softening).
+    const float feather = 50.f, baseAlpha = 36.f, radius = 12.f;
     const float halfW = 162.f, halfH = 202.f;
     int texW = (int)(halfW * 2 + feather * 2);
     int texH = (int)(halfH * 2 + feather * 2);
@@ -127,7 +127,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
 
     // Entries (or a placeholder when empty)
     if (board.empty()) {
-        drawText(target, fontThin_, "NO SCORES YET", 18, sf::Color(0, 0, 0, 178),
+        drawText(target, fontThin_, "No local scores yet.", 18, sf::Color(0, 0, 0, 178),
                  panelCX, panelCY, 1);
     } else {
         float startY = headerY + 42.f;
@@ -165,12 +165,12 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- (P)lay / (E)ditor buttons (replace the old text prompt) ---
     {
         auto button = [&](float cx, sf::Color col, const char* label) -> sf::FloatRect {
-            sf::FloatRect r(cx - 90.f, H * 0.85f - 26.f, 180.f, 52.f);
+            sf::FloatRect r(cx - 90.f, H * 0.85f - 46.f, 180.f, 52.f);
             sf::RectangleShape box(sf::Vector2f(r.width, r.height));
             box.setPosition(r.left, r.top);
             box.setFillColor(col);
             target.draw(box);
-            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f + 12.f, 1);
+            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f - 8.f, 1);
             return r;
         };
         playRect_   = button(W / 2.f - 104.f, sf::Color(0, 140, 46),  "(P)lay");
@@ -180,7 +180,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- High score ---
     if (highScore > 0) {
         drawText(target, fontThin_, "HIGH SCORE " + std::to_string(highScore), 26, ink,
-                 W / 2.f, H * 0.94f - 15.f, 1);
+                 W / 2.f, H * 0.94f - 10.f, 1);
     }
 
     // --- Controls + fullscreen hints, bottom of screen, HUD mono font ---
