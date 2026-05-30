@@ -810,6 +810,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         utterance.voice = voice
         utterance.pitchMultiplier = 0.55
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+        utterance.volume = 1.0
         if priority { speech.stopSpeaking(at: .immediate) }
         speech.speak(utterance)
     }
