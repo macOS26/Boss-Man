@@ -12,6 +12,7 @@ enum MoveDirection {
         }
     }
 
+#if os(macOS)
     init?(keyCode: UInt16) {
         switch keyCode {
         case 123, 0:  self = .left
@@ -21,4 +22,15 @@ enum MoveDirection {
         default: return nil
         }
     }
+#elseif os(WASI)
+    init?(keyCode: Int) {
+        switch keyCode {
+        case 71, 0:  self = .left
+        case 72, 3:  self = .right
+        case 74, 18: self = .down
+        case 73, 22: self = .up
+        default: return nil
+        }
+    }
+#endif
 }
