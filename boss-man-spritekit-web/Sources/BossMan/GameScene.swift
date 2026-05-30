@@ -503,7 +503,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             if collectedReports.count == requiredReports.count {
                 hud.flash(Strings.Message.tpsReportReady, duration: 3)
             } else {
-                let display = Strings.Machine.displayName[machine.name] ?? machine.name
+                let display = Strings.Machine.displayNames[machine.name] ?? machine.name
                 hud.flash(Strings.Message.reportItemCollected(name: display, points: pts), duration: 2)
             }
         }

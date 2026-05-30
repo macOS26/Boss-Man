@@ -71,4 +71,71 @@ extension Strings {
         static let stan = "STAN"
         static let boss = "BOSS"
     }
+
+    // MARK: - Machines / TPS report items
+    enum Machine {
+        static let printer    = "TPS Printer"
+        static let fax        = "TPS Fax Machine"
+        static let coverSheet = "TPS Cover Sheet"
+        static let bookBinder = "TPS Book Binder"
+        static let brownBox   = "TPS Delivery Box"
+
+        static let required: [String] = [printer, fax, coverSheet, bookBinder]
+
+        static let displayNames: [String: String] = [
+            printer:    "Printer",
+            fax:        "Fax",
+            coverSheet: "Cover Sheet",
+            bookBinder: "Book Binder"
+        ]
+    }
+
+    // MARK: - In-game messages (transient HUD banners)
+    enum Message {
+        static let intro              = "Collect office dots and finish the TPS report!"
+        static let practiceMode       = "PRACTICE MODE — score not saved"
+        static let paused             = "Paused — press P to resume"
+        static let needTPSReport      = "Turn in at least 1 TPS report to complete the level!"
+        static let brownBoxHint       = "Brown boxes collect finished TPS reports."
+        static let tpsReportReady     = "TPS report complete! Deliver it to a brown box."
+        static let newGame            = "New game! Collect dots and TPS reports."
+        static let goldDiscActivated  = "Gold disc! Capture the bosses for 20 seconds."
+        static let goldDiscEnded      = "Gold disc mode ended."
+        static let waterGunActivated  = "Water gun! Shoot the bosses."
+        static let waterGunEnded      = "Water gun empty."
+        static let waterGunExpired    = "Water gun time expired."
+        static let waterGunBlueMode   = "Water pistol unavailable in blue boss mode."
+        static let bossSplashed       = "SPLASH!"
+
+        static func bossCaughtYou(_ livesLeft: Int) -> String {
+            "A boss caught you! \(livesLeft) workers left."
+        }
+
+        static func levelLoaded(_ level: Int) -> String {
+            "Level \(level)! New office floor loaded."
+        }
+
+        static func bossCaptured(name: String, points: Int) -> String {
+            "\(name) captured! +\(points)"
+        }
+
+        static func travelerCaught(emoji: String, points: Int) -> String {
+            "Caught \(emoji)! +\(points)"
+        }
+
+        static func reportItemCollected(name: String, points: Int) -> String {
+            "Collected \(name) page for TPS report +\(points)"
+        }
+
+        static func tpsMissingItems(_ items: [String]) -> String {
+            let names = items.map { Machine.displayNames[$0] ?? $0 }
+            return "The TPS report is missing \(names.joined(separator: ", "))."
+        }
+
+        static func tpsTurnedIn(points: Int, gainedLife: Bool) -> String {
+            gainedLife
+                ? "TPS report turned in! +\(points), extra worker hired."
+                : "TPS report turned in! +\(points), workers at max."
+        }
+    }
 }
