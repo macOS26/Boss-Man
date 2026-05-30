@@ -72,7 +72,7 @@ final class TitleScene: SKScene {
         let panelSize = CGSize(width: 320, height: 400)
         let panel = LeaderboardPanel(
             size: panelSize,
-            titleFont: Strings.Font.markerFeltWide,
+            titleFont: Strings.Font.markerFeltThin,
             bodyFont: Strings.Font.menloBold
         )
         panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5)
