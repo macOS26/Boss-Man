@@ -114,13 +114,14 @@ public final class SKView {
         s.physicsWorld.step(dt, scene: s)
         s.didSimulatePhysics()
         s.didFinishUpdate()
-        // Throttle rendering to preferredFramesPerSecond. The title screen sets
-        // this to 1: nothing on it animates, so re-rasterizing it (incl. the
-        // leaderboard blur) 60x/s is wasted work + canvas churn. Input forces an
-        // immediate redraw so clicks/toggles still feel instant.
-        let interval = 1.0 / Double(max(1, preferredFramesPerSecond))
+        // Render every frame at the display rate (>= 60) so motion stays smooth —
+        // throttling there drops frames unevenly on ProMotion / variable-refresh
+        // displays and makes Pete + bosses jitter. Only sub-60 scenes (the static
+        // 1fps title, the 30fps editor) gate rendering; input forces a redraw so
+        // clicks/toggles stay instant.
+        let fps = max(1, preferredFramesPerSecond)
         renderAccum += dt
-        if hadInput || renderAccum >= interval {
+        if hadInput || fps >= 60 || renderAccum + 1e-9 >= 1.0 / Double(fps) {
             renderAccum = 0
             render(s)
         }
