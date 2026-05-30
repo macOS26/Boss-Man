@@ -43,10 +43,10 @@
 		EA14DCBA2FC22B75002E8617 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				EA14DC762FC16F42002E8617 /* Assets.xcassets */,
 				EA14DC752FC16F42002E8617 /* AppIcon.icon */,
 				EA14DCC02FC22B34002E8617 /* shinyredstapler-emoji.png */,
 				EA14DCB42FC221DA002E8617 /* red-stapler.png */,
+				EA14DC762FC16F42002E8617 /* Assets.xcassets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
