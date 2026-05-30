@@ -47,11 +47,11 @@ final class BossController {
              pants: .darkGray, spawn: .zero, personality: bp.personality, speed: bp.speed)
         }
 
-    // Pete on apple uses SKAction.move with a ~1-frame chain gap per tile, so his
-    // effective per-tile time is ~0.16 (not the 0.14 move duration). Match that so
-    // the fastest boss (speed 1.0) == Pete. (wasm is 0.14: there Pete is a gapless
-    // TileMover.) Raise to slow bosses.
-    private let moveInterval: TimeInterval = 0.16
+    // Pete on apple uses SKAction.move with a small chain gap per tile, so his
+    // effective per-tile time is a touch over 0.14 (0.14 ran Bill faster than
+    // Pete, 0.16 ran him slower). 0.15 matches the fastest boss (speed 1.0) to
+    // Pete. (wasm is 0.14: there Pete is a gapless TileMover.) Raise to slow bosses.
+    private let moveInterval: TimeInterval = 0.15
     private let moveDuration: TimeInterval = 0.10   // square glide per tile (dwell = moveInterval - this)
     private let detectionRange: CGFloat = 10
 
