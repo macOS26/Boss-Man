@@ -88,9 +88,9 @@ final class SoundManager {
     func playTeleport() {
         if teleportGate { return }
         teleportGate = true
-        playEffect("teleport") { self.sweep(from: 200, to: 1200, duration: 0.18, volume: 0.20) }
+        playEffect("teleport") { self.buildTeleport() }
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
             self.teleportGate = false
         }
     }
@@ -199,6 +199,31 @@ final class SoundManager {
             let t = Float(i) * dt
             let release: Float = totalT - t < 0.04 ? max(0, (totalT - t) / 0.04) : 1
             out[i] = sin(phase) * volume * env * release
+        }
+        return out
+    }
+
+    // bossman-apple buildTeleport: a prominent 1.75s teleport — dual exp sweep
+    // (220->1400 ascending + 1400->220 descending) + shimmer, sine envelope.
+    private func buildTeleport() -> [Float] {
+        let duration: TimeInterval = 1.75
+        let frames = Int(Double(sampleRate) * duration)
+        var out = [Float](repeating: 0, count: frames)
+        let durF = Float(duration)
+        let ascStart: Float = 220, ascEnd: Float = 1400
+        let descStart: Float = 1400, descEnd: Float = 220
+        var phaseAsc: Float = 0, phaseDesc: Float = 0
+        let dt: Float = 1.0 / Float(sampleRate)
+        for i in 0..<frames {
+            let t = Float(i) / Float(sampleRate)
+            let progress = t / durF
+            let ascFreq = ascStart * pow(ascEnd / ascStart, progress)
+            let descFreq = descStart * pow(descEnd / descStart, progress)
+            phaseAsc += 2 * .pi * ascFreq * dt
+            phaseDesc += 2 * .pi * descFreq * dt
+            let env = sin(.pi * progress)
+            let shimmer = Float.random(in: -1...1) * 0.06
+            out[i] = (sin(phaseAsc) * 0.20 + sin(phaseDesc) * 0.15 + shimmer) * env
         }
         return out
     }
