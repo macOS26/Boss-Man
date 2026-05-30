@@ -71,10 +71,10 @@ void TitleScreen::ensureLoaded() {
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
     // falloff (a cheap Gaussian-like blur). Panel is 320x400. Tuned light + wide to read
     // like the wasm/Xcode soft shadow (0.24 black, CIGaussianBlur 12.5 + framework softening).
-    const float feather = 18.f, baseAlpha = 36.f, radius = 12.f;
-    // Inset ~6px inside the 320x400 panel so the feathered halo tucks behind the
+    const float feather = 19.f, baseAlpha = 36.f, radius = 12.f;
+    // Inset ~5px inside the 320x400 panel so the feathered halo tucks behind the
     // post-it on the sides/top; the 5px-down draw offset lets it read as a drop shadow.
-    const float halfW = 154.f, halfH = 194.f;
+    const float halfW = 155.f, halfH = 195.f;
     int texW = (int)(halfW * 2 + feather * 2);
     int texH = (int)(halfH * 2 + feather * 2);
     sf::Image img;
