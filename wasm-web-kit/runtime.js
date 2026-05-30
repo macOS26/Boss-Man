@@ -1059,8 +1059,17 @@ class Runtime {
         // Register the offscreen as a synthetic image asset so gfx_draw_image
         // can route to it. Match the {source, width, height} shape the rest
         // of the runtime expects from this.images.
-        const imgId = this.images.length;
-        this.images.push({ source: t.canvas, width: t.canvas.width, height: t.canvas.height });
+        const rec = { source: t.canvas, width: t.canvas.width, height: t.canvas.height };
+        // Reuse a slot freed by gfx_free_image so per-frame bakes (SKEffectNode
+        // blur, SKCropNode) don't grow this.images without bound.
+        let imgId;
+        if (this.freeImageSlots && this.freeImageSlots.length) {
+          imgId = this.freeImageSlots.pop();
+          this.images[imgId] = rec;
+        } else {
+          imgId = this.images.length;
+          this.images.push(rec);
+        }
         if (handle === this.targets.length - 1) this.targets.pop();
         else this.targets[handle] = null;
         return imgId;
@@ -1078,7 +1087,10 @@ class Runtime {
       // canvas every level until the tab is killed for memory. Never call this
       // on a preloaded/atlas image that other textures still share.
       gfx_free_image: (img) => {
-        if (img > 0 && this.images && this.images[img]) this.images[img] = null;
+        if (img > 0 && this.images && this.images[img]) {
+          this.images[img] = null;
+          (this.freeImageSlots || (this.freeImageSlots = [])).push(img);
+        }
       },
       // Blit an offscreen image as a SOFT drop shadow only: draw it far off
       // canvas with a compensating shadowOffset so just its ctx.shadowBlur

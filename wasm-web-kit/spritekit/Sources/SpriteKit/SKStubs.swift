@@ -309,6 +309,7 @@ public class SKEffectNode: SKNode {
                 if img > 0 {
                     gfx_draw_shadow_image(img, Float(bounds.minX), Float(bounds.minY),
                                           Float(w), Float(h), Float(cf.inputRadius), 0x000000FF)
+                    gfx_free_image(img)   // per-frame bake; release so this.images can't grow unbounded
                 }
             }
             gfx_restore()
@@ -365,6 +366,7 @@ public class SKEffectNode: SKNode {
                     gfx_draw_image(img, 0, 0, -1, -1,
                                    Float(bounds.minX - pad), Float(bounds.minY - pad),
                                    Float(w), Float(h), 0xFFFFFFFF)
+                    gfx_free_image(img)   // per-frame bake; release so this.images can't grow unbounded
                 }
             }
         } else {
@@ -423,6 +425,7 @@ public final class SKCropNode: SKEffectNode {
             gfx_draw_image(img, 0, 0, Float(w), Float(h),
                            Float(frame.minX), Float(frame.minY),
                            Float(w), Float(h), 0xFFFFFFFF)
+            gfx_free_image(img)   // per-frame bake; release so this.images can't grow unbounded
         }
         gfx_restore()
     }
