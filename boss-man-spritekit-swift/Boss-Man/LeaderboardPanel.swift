@@ -54,14 +54,14 @@ final class LeaderboardPanel: SKNode {
             height: panelSize.height
         )
 
-        let shadow = SKShapeNode(rect: rect.offsetBy(dx: 6, dy: -8).insetBy(dx: -2, dy: -2))
-        shadow.fillColor = NSColor(calibratedWhite: 0, alpha: 0.14)
+        let shadow = SKShapeNode(rect: rect.offsetBy(dx: 1, dy: -3).insetBy(dx: -2, dy: -2))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.24)
         shadow.strokeColor = .clear
         shadow.zPosition = -1
         let blur = SKEffectNode()
         blur.shouldEnableEffects = true
         blur.filter = CIFilter(name: Strings.CoreImage.gaussianBlur,
-                               parameters: [Strings.CoreImage.inputRadiusKey: 6])
+                               parameters: [Strings.CoreImage.inputRadiusKey: 12.5])
         blur.addChild(shadow)
         addChild(blur)
 

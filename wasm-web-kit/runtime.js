@@ -1069,6 +1069,32 @@ class Runtime {
         if (handle === this.targets.length - 1) this.targets.pop();
         else this.targets[handle] = null;
       },
+      // Blit an offscreen image as a SOFT drop shadow only: draw it far off
+      // canvas with a compensating shadowOffset so just its ctx.shadowBlur
+      // halo lands at (x,y,w,h). Done in device space (identity transform) so
+      // shadowOffset — which Canvas2D does NOT transform — cancels exactly at
+      // any devicePixelRatio. blur is logical px, scaled to device here.
+      gfx_draw_shadow_image: (h, x, y, w, hh, blur, rgba) => {
+        const img = this.images[h];
+        if (!img || !img.source) return;
+        const ctx = this.ctx2d();
+        const m = ctx.getTransform();
+        const dpr = window.devicePixelRatio || 1;
+        const big = 100000;
+        const devX = m.a * x + m.c * y + m.e;
+        const devY = m.b * x + m.d * y + m.f;
+        const devW = w * m.a, devH = hh * m.d;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.shadowColor   = this.css(rgba);
+        // +25px framework softening so CIGaussianBlur(radius) reads as soft on
+        // Canvas2D as it does from Core Image on Apple.
+        ctx.shadowBlur    = blur * dpr + 25;
+        ctx.shadowOffsetX = devX + big;
+        ctx.shadowOffsetY = devY;
+        ctx.drawImage(img.source, -big, 0, devW, devH);
+        ctx.restore();
+      },
 
       // ============================================================
       // Canvas2D filter + composite ops (SKEffectNode + SKCropNode).

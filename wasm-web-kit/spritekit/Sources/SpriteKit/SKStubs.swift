@@ -238,6 +238,23 @@ public final class SKTextureAtlas {
 // render call. Apple's CIFilter is non-portable; games passing CIFilter
 // instances see no effect, but games that adopt our SKFilter helper or set
 // `filterString` directly get real ctx.filter rendering.
+// Minimal CIFilter shim. SKEffectNode.filter is a CIFilter on Apple; we
+// recognize CIGaussianBlur + its inputRadius and render it as a soft Canvas2D
+// drop shadow (ctx.shadowBlur), so Apple's SKEffectNode + CIFilter shadow idiom
+// is common code and looks good on web.
+public final class CIFilter {
+    public let name: String
+    public var inputRadius: CGFloat = 0
+    public init?(name: String, parameters: [String: Any]? = nil) {
+        self.name = name
+        if let v = parameters?["inputRadius"] {
+            if let r = v as? CGFloat     { inputRadius = r }
+            else if let r = v as? Double { inputRadius = CGFloat(r) }
+            else if let r = v as? Int    { inputRadius = CGFloat(r) }
+        }
+    }
+}
+
 public class SKEffectNode: SKNode {
     public var shouldEnableEffects: Bool = false
     public var shouldRasterize: Bool = false
@@ -266,6 +283,37 @@ public class SKEffectNode: SKNode {
         gfx_translate(Float(position.x), Float(position.y))
         if zRotation != 0 { gfx_rotate(Float(zRotation * 180.0 / Double.pi)) }
         if xScale != 1 || yScale != 1 { gfx_scale(Float(xScale), Float(yScale)) }
+
+        // CIGaussianBlur drop-shadow path: render children sharp into a tight
+        // offscreen, then blit it back as a soft Canvas2D shadow (ctx.shadowBlur
+        // via gfx_draw_shadow_image). This is the nice halo Apple's
+        // SKEffectNode + CIFilter idiom gets from a CIGaussianBlur — the same
+        // common code, the prettier primitive under the hood.
+        if shouldEnableEffects, let cf = filter as? CIFilter,
+           cf.name.hasSuffix("GaussianBlur"), cf.inputRadius > 0, !children.isEmpty {
+            var bounds = CGRect.zero
+            for c in children where !c.isHidden {
+                let cf2 = c.frame
+                bounds = (bounds == .zero) ? cf2 : bounds.union(cf2)
+            }
+            let w = Int(bounds.width), h = Int(bounds.height)
+            if w > 0 && h > 0 {
+                let handle = gfx_offscreen_begin(Int32(w), Int32(h))
+                gfx_save()
+                gfx_translate(Float(-bounds.minX), Float(-bounds.minY))
+                for c in children.sorted(by: { $0.zPosition < $1.zPosition }) {
+                    c.renderTree(parentAlpha: eff)
+                }
+                gfx_restore()
+                let img = gfx_offscreen_end_to_image(handle)
+                if img > 0 {
+                    gfx_draw_shadow_image(img, Float(bounds.minX), Float(bounds.minY),
+                                          Float(w), Float(h), Float(cf.inputRadius), 0x000000FF)
+                }
+            }
+            gfx_restore()
+            return
+        }
 
         // Filter path: render children into an offscreen canvas at their
         // natural sharpness, then drawImage that bitmap back onto the main

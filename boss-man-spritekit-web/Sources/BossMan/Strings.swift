@@ -80,6 +80,12 @@ enum Strings {
         static let editorLevelPrefix      = "BossMan.editorLevel."
     }
 
+    // MARK: - CoreImage / system framework constants
+    enum CoreImage {
+        static let gaussianBlur   = "CIGaussianBlur"
+        static let inputRadiusKey = "inputRadius"
+    }
+
     // MARK: - In-game messages (transient HUD banners). Ported verbatim
     // from bossman-apple's Strings.Message so the wasm port displays the
     // same wording on every event.

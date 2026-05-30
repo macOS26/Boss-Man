@@ -59,6 +59,12 @@ WABI int   gfx_offscreen_begin(int w, int h);
 WABI int   gfx_offscreen_end_to_image(int handle);   /* returns img handle */
 WABI void  gfx_offscreen_end_discard(int handle);
 
+/* gfx_draw_shadow_image: blit an offscreen image as a SOFT drop shadow ONLY   */
+/* (Canvas2D ctx.shadowBlur). The image body is drawn far off-canvas; only its */
+/* blurred shadow lands at (x,y) sized (w,h) in the current transform. The dpr */
+/* offset math is handled in the runtime so it is correct on retina.           */
+WABI void  gfx_draw_shadow_image(int img, float x, float y, float w, float h, float blur, uint32_t rgba);
+
 /* Canvas2D filter string (CSS filter syntax: 'blur(8px) saturate(150%)'). */
 /* gfx_set_filter applies to all subsequent draws until gfx_clear_filter. */
 WABI void  gfx_set_filter(const char* utf8, int len);
