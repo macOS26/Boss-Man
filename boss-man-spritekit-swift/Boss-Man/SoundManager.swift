@@ -92,7 +92,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let normalEffectsVolume: Float = 1.0
     private let duckedEffectsVolume: Float = 0.25
     private let normalMusicVolume: Float = 1.0
-    private let duckedMusicVolume: Float = 0.18
+    private let duckedMusicVolume: Float = 0.25   // match the wasm duck factor (0.25)
 
     override init() {
         format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
