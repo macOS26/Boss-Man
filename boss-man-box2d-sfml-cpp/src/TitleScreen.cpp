@@ -72,7 +72,9 @@ void TitleScreen::ensureLoaded() {
     // falloff (a cheap Gaussian-like blur). Panel is 320x400. Tuned light + wide to read
     // like the wasm/Xcode soft shadow (0.24 black, CIGaussianBlur 12.5 + framework softening).
     const float feather = 15.f, baseAlpha = 36.f, radius = 12.f;
-    const float halfW = 162.f, halfH = 202.f;
+    // Inset ~10px inside the 320x400 panel so the feathered halo tucks behind the
+    // post-it on the sides/top; the 5px-down draw offset lets it read as a drop shadow.
+    const float halfW = 150.f, halfH = 190.f;
     int texW = (int)(halfW * 2 + feather * 2);
     int texH = (int)(halfH * 2 + feather * 2);
     sf::Image img;
@@ -113,7 +115,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sf::Sprite sh(panelShadow_);
         auto ss = panelShadow_.getSize();
         sh.setOrigin(ss.x / 2.f, ss.y / 2.f);
-        sh.setPosition(panelCX, panelCY);
+        sh.setPosition(panelCX, panelCY + 5.f);
         target.draw(sh);
     }
 
