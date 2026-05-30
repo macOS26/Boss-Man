@@ -55,7 +55,7 @@ final class TitleScene: SKScene {
     }
 
     override func didMove(to view: SKView) {
-        backgroundColor = SKColor(red: 1.0, green: 0.93, blue: 0.34, alpha: 1)
+        backgroundColor = SKColor(calibratedRed: 1.0, green: 0.93, blue: 0.34, alpha: 1)
         anchorPoint = .zero
 
         let title = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)

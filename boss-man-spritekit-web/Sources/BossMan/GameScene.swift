@@ -102,7 +102,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     }
 
     override func didMove(to view: SKView) {
-        backgroundColor = SKColor(red: 0.04, green: 0.04, blue: 0.07, alpha: 1)
+        backgroundColor = SKColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
         anchorPoint = .zero
         // Top-down maze — no gravity. SKPhysicsWorld.contactDelegate gets
         // didBegin for every (categoryBitMask & contactTestBitMask) pair.
