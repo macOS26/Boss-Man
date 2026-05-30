@@ -359,7 +359,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         state.bumpScore(by: caught.traveler.points)
         sound.playFishOrTreat()
         refreshHUD()
-        hud.showMessage(Strings.Message.travelerCaught(emoji: caught.emoji, points: caught.traveler.points), duration: 2)
+        hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
         ScorePopup.show(caught.traveler.points, at: caught.position, in: self)
     }
 

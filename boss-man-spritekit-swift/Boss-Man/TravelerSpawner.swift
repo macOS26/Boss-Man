@@ -1,30 +1,43 @@
-import AppKit
 import SpriteKit
+#if os(macOS)
+import AppKit
+#endif
 
+// One spawner per game: owns the active traveler node, the spawn/exit grid
+// coords, and the self-chaining stepper that walks the traveler tile-by-tile
+// toward the exit. After firstVisitDelay (or respawnDelay after one exits/is
+// caught) the next traveler from the level table walks across the floor.
+// Shared by both ports; the only platform branch is loading the traveler image.
 @MainActor
 final class TravelerSpawner {
     private weak var scene: SKScene?
     private let gridMap: GridMap
     private let sound: SoundManager
-    private var spawnGrid = CGPoint(x: 36, y: 8)
-    private var exitGrid = CGPoint(x: 0, y: 8)
+    private let containerOriginX: CGFloat
+    private let spawnOverride: CGPoint?
+    private let exitOverride:  CGPoint?
+    private var spawnGrid = CGPoint.zero
+    private var exitGrid  = CGPoint.zero
     private let moveInterval: TimeInterval = 0.22
 
-    private var node: SKNode?
-    private var grid = CGPoint(x: 36, y: 8)
+    private(set) var node: SKNode?
+    private(set) var grid = CGPoint.zero
     private var previousGrid: CGPoint?
-    private var activeTraveler: LevelTraveler?
+    private(set) var activeTraveler: LevelTraveler?
 
-    // MARK: - Continuous spawn chain
     private var pendingTraveler: LevelTraveler?
     private var keepSpawning: (() -> Bool)?
     private let firstVisitDelay: TimeInterval = 10
     private let respawnDelay:    TimeInterval = 30
 
-    init(scene: SKScene, gridMap: GridMap, sound: SoundManager) {
+    init(scene: SKScene, gridMap: GridMap, sound: SoundManager,
+         containerOriginX: CGFloat = 0, spawnGrid: CGPoint? = nil, exitGrid: CGPoint? = nil) {
         self.scene = scene
         self.gridMap = gridMap
         self.sound = sound
+        self.containerOriginX = containerOriginX
+        self.spawnOverride = spawnGrid
+        self.exitOverride  = exitGrid
     }
 
     var hasActive: Bool { node != nil }
@@ -53,7 +66,7 @@ final class TravelerSpawner {
         scene.run(.sequence([
             .wait(forDuration: delay),
             .run { [weak self] in
-                guard let self = self,
+                guard let self,
                       let traveler = self.pendingTraveler,
                       self.keepSpawning?() == true,
                       self.node == nil
@@ -63,51 +76,55 @@ final class TravelerSpawner {
         ]), withKey: Strings.ActionKey.travelerVisit1)
     }
 
-    private func scheduleStepper(on traveler: SKNode) {
-        let stepper = SKAction.repeatForever(.sequence([
-            .wait(forDuration: moveInterval),
-            .run { [weak self] in self?.stepNode() }
-        ]))
-        traveler.run(stepper, withKey: Strings.ActionKey.travelerStepper)
-    }
-
-    func tryCatch(_ candidate: SKNode?) -> (traveler: LevelTraveler, position: CGPoint, emoji: String)? {
+    // MARK: - Catch
+    // Physics-contact catch (the contacted node is the candidate).
+    func tryCatch(_ candidate: SKNode?) -> (traveler: LevelTraveler, position: CGPoint)? {
         guard let fish = node, fish === candidate, let traveler = activeTraveler else { return nil }
+        return consumeCatch(fish: fish, traveler: traveler)
+    }
+    // Tile-overlap catch (Pete snapped to the traveler's tile).
+    func tryCatch(at peteGrid: CGPoint) -> (traveler: LevelTraveler, position: CGPoint)? {
+        guard let fish = node, let traveler = activeTraveler, grid == peteGrid else { return nil }
+        return consumeCatch(fish: fish, traveler: traveler)
+    }
+    // Position-overlap catch (Pete ran THROUGH a moving traveler between tiles).
+    func tryCatchByOverlap(petePosition: CGPoint, radius: CGFloat) -> (traveler: LevelTraveler, position: CGPoint)? {
+        guard let fish = node, let traveler = activeTraveler else { return nil }
+        let dx = fish.position.x - petePosition.x
+        let dy = fish.position.y - petePosition.y
+        guard dx * dx + dy * dy < radius * radius else { return nil }
+        return consumeCatch(fish: fish, traveler: traveler)
+    }
+    @discardableResult
+    func consumeCatch(fish: SKNode, traveler: LevelTraveler) -> (traveler: LevelTraveler, position: CGPoint) {
         let pos = fish.position
+        fish.removeAllActions()
         fish.physicsBody = nil
         fish.run(.sequence([
-            .group([
-                .scale(to: 1.6, duration: 0.25),
-                .fadeOut(withDuration: 0.25)
-            ]),
-            .removeFromParent()
+            .group([.scale(to: 1.6, duration: 0.25), .fadeOut(withDuration: 0.25)]),
+            .removeFromParent(),
         ]))
         node = nil
         activeTraveler = nil
         scheduleNextSpawn(after: respawnDelay)
-        return (traveler, pos, traveler.emoji)
+        return (traveler, pos)
     }
 
-    private func loadBundleImage(named name: String) -> NSImage? {
-        for ext in [Strings.Resource.redStaplerExtension,
-                    Strings.Resource.travelerStaplerExtension] {
-            if let url = Bundle.main.url(forResource: name, withExtension: ext),
-               let img = NSImage(contentsOf: url) {
-                return img
-            }
-        }
-        return nil
-    }
-
-    // MARK: - Private
-    // The doorway can sit on any row, so resolve it from the current maze each
-    // spawn (a level may have moved the tunnel). Right mouth spawns, left mouth
-    // is the exit; the (36,8)/(0,8) defaults stand if none is found.
+    // MARK: - Spawn + walk
+    // The doorway can sit on any row; resolve it from the current maze each
+    // spawn. Right mouth spawns, left mouth exits; fall back to the row-8 mouths.
     private func resolveDoorway() {
-        if let doorway = gridMap.horizontalDoorway() {
-            spawnGrid = doorway.spawn
-            exitGrid  = doorway.exit
-        }
+        let cols = gridMap.columnCount
+        let doorway = gridMap.horizontalDoorway()
+        spawnGrid = spawnOverride ?? doorway?.spawn ?? CGPoint(x: CGFloat(cols - 1), y: 8)
+        exitGrid  = exitOverride  ?? doorway?.exit  ?? CGPoint(x: 0, y: 8)
+    }
+
+    // gridMap.point(for:) already includes the maze offset; containerOriginX is
+    // 0 on apple and the legacy origin on wasm.
+    private func sceneCoord(forGrid g: CGPoint) -> CGPoint {
+        let local = gridMap.point(for: g)
+        return CGPoint(x: local.x + containerOriginX, y: local.y)
     }
 
     private func spawn(_ traveler: LevelTraveler) {
@@ -118,33 +135,19 @@ final class TravelerSpawner {
         resolveDoorway()
         grid = spawnGrid
         previousGrid = nil
-        wrapper.position = gridMap.point(for: grid)
+        wrapper.position = sceneCoord(forGrid: grid)
         wrapper.zPosition = 9
-        wrapper.physicsBody = SKPhysicsBody(circleOfRadius: 10)
-        wrapper.physicsBody?.isDynamic = true
-        wrapper.physicsBody?.categoryBitMask = PhysicsCategory.fish
-        wrapper.physicsBody?.contactTestBitMask = PhysicsCategory.worker
-        wrapper.physicsBody?.collisionBitMask = 0
+        // Static circle (r=10), category=fish, contact-test against worker. The
+        // fish is the dynamic side so Box2D emits the contact even though Pete's
+        // body is non-dynamic on wasm (and it is harmless on apple).
+        let body = SKPhysicsBody(circleOfRadius: 10)
+        body.isDynamic = true
+        body.categoryBitMask = PhysicsCategory.fish
+        body.contactTestBitMask = PhysicsCategory.worker
+        body.collisionBitMask = 0
+        wrapper.physicsBody = body
 
-        let visual: SKNode
-        if let imageName = traveler.image,
-           let nsImage = NSImage(named: imageName) ?? loadBundleImage(named: imageName) {
-            let sprite = SKSpriteNode(texture: SKTexture(image: nsImage))
-            let targetHeight: CGFloat = 36 * 0.75
-            let aspect = nsImage.size.width / nsImage.size.height
-            sprite.size = CGSize(width: targetHeight * aspect, height: targetHeight)
-            visual = sprite
-        } else {
-            let label = SKLabelNode()
-            label.text = traveler.emoji
-            label.fontSize = 36
-            label.verticalAlignmentMode = .center
-            label.horizontalAlignmentMode = .center
-            if traveler.emoji == "✂️" {
-                label.zRotation = -.pi / 2
-            }
-            visual = label
-        }
+        let visual = travelerVisual(for: traveler)
         visual.name = Strings.NodeName.travelerEmoji
         wrapper.addChild(visual)
 
@@ -160,10 +163,61 @@ final class TravelerSpawner {
         scene.addChild(wrapper)
         node = wrapper
         activeTraveler = traveler
-        scheduleStepper(on: wrapper)
         sound.playTravelerArrive(traveler.sound)
+        stepNode()
     }
 
+    // Traveler glyph: an aspect-correct image sprite when the asset is loaded,
+    // otherwise the emoji label (scissors stand upright). Image loading is the
+    // one platform branch.
+    private func travelerVisual(for traveler: LevelTraveler) -> SKNode {
+        let targetHeight: CGFloat = 36 * 0.75
+        if let imageName = traveler.image, let sprite = imageSprite(named: imageName, height: targetHeight) {
+            return sprite
+        }
+        let label = SKLabelNode()
+        label.text = traveler.emoji
+        label.fontSize = 36
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        if traveler.emoji == "\u{2702}\u{FE0F}" { label.zRotation = -.pi / 2 }
+        return label
+    }
+
+    private func imageSprite(named name: String, height: CGFloat) -> SKSpriteNode? {
+        #if os(macOS)
+        guard let img = NSImage(named: name) ?? loadBundleImage(named: name) else { return nil }
+        let sprite = SKSpriteNode(texture: SKTexture(image: img))
+        let aspect = img.size.width / img.size.height
+        sprite.size = CGSize(width: height * aspect, height: height)
+        return sprite
+        #elseif os(WASI)
+        guard let tex = textureNamed(name) else { return nil }
+        let sprite = SKSpriteNode(texture: tex)
+        let s = tex.size
+        let aspect = s.height > 0 ? s.width / s.height : 1
+        sprite.size = CGSize(width: height * aspect, height: height)
+        return sprite
+        #endif
+    }
+
+    #if os(macOS)
+    private func loadBundleImage(named name: String) -> NSImage? {
+        for ext in [Strings.Resource.redStaplerExtension,
+                    Strings.Resource.travelerStaplerExtension] {
+            if let url = Bundle.main.url(forResource: name, withExtension: ext),
+               let img = NSImage(contentsOf: url) {
+                return img
+            }
+        }
+        return nil
+    }
+    #endif
+
+    // Self-chaining walk: pick the next tile, animate one move, re-fire at
+    // completion — no inter-tile gap. Biased random walk over 4-dir walkable
+    // neighbours, 60% toward the exit by Manhattan distance, never backtracking
+    // when an alternative exists (ignores the side-tunnel wrap).
     private func stepNode() {
         guard let fish = node else { return }
         if grid == exitGrid {
@@ -194,14 +248,13 @@ final class TravelerSpawner {
         let dx = next.x - grid.x
         if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {
             let facesRight = activeTraveler?.facesRight ?? false
-            if facesRight {
-                emoji.xScale = dx < 0 ? -1 : 1
-            } else {
-                emoji.xScale = dx < 0 ? 1 : -1
-            }
+            emoji.xScale = facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1)
         }
         previousGrid = grid
         grid = next
-        fish.run(.move(to: gridMap.point(for: next), duration: moveInterval))
+        fish.run(.sequence([
+            .move(to: sceneCoord(forGrid: next), duration: moveInterval),
+            .run { [weak self] in self?.stepNode() },
+        ]))
     }
 }
