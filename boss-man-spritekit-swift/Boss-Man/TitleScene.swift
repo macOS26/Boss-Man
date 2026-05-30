@@ -35,7 +35,7 @@ final class TitleScene: SKScene {
         credit.text = "Game Design by Todd Bruss"
         credit.fontSize = 24
         credit.fontColor = .black
-        credit.position = CGPoint(x: size.width / 2, y: size.height * 0.95)
+        credit.position = CGPoint(x: size.width / 2, y: size.height * 0.95 - 10)
         credit.zPosition = 10
         addChild(credit)
 
