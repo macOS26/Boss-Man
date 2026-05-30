@@ -2,6 +2,11 @@ import AppKit
 import SpriteKit
 
 final class PixelPerson: SKNode {
+    let baseBodyColor: NSColor
+    let baseTieColor:  NSColor
+    let baseSkinColor: NSColor
+    let baseTieOutlineColor: NSColor?
+
     private let bodyContainer = SKNode()
 
     private let torso: SKShapeNode
@@ -27,6 +32,8 @@ final class PixelPerson: SKNode {
     private var walkActionsAttached: Bool { leftLeg.action(forKey: Strings.ActionKey.walk) != nil }
     var isWalking: Bool { walkActionsAttached && !walkingPaused }
 
+    private var facingRight: Bool = true
+
     init(bodyColor: NSColor,
          tieColor: NSColor,
          hairColor: NSColor,
@@ -36,7 +43,11 @@ final class PixelPerson: SKNode {
          wearsSunglasses: Bool = false,
          headYOffset: CGFloat = 0) {
         self.walkExaggeration = walkExaggeration
+        self.baseBodyColor = bodyColor
+        self.baseTieColor  = tieColor
+        self.baseTieOutlineColor = wearsSunglasses ? .white : nil
         let skin = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
+        self.baseSkinColor = skin
         let shoeColor = NSColor(calibratedRed: 0.12, green: 0.08, blue: 0.05, alpha: 1)
 
         leftLeg = SKShapeNode(rectOf: CGSize(width: 6, height: 8))
@@ -234,6 +245,16 @@ final class PixelPerson: SKNode {
 
     func face(left: Bool) {
         bodyContainer.xScale = left ? -1 : 1
+        facingRight = !left
+    }
+
+    func setFacing(_ direction: MoveDirection) {
+        switch direction {
+        case .left:  face(left: true)
+        case .right: face(left: false)
+        case .up, .down: break
+        }
+        setLookDirection(direction)
     }
 
     // MARK: - Eye tracking
