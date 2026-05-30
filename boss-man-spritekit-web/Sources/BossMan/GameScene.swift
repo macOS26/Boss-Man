@@ -650,22 +650,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // bossman-apple does NOT auto-transition on game over: the dim GAME
         // OVER card sits on top of the still-live maze and every sprite stays
         // on the board until the player presses P (new game) or Esc (title).
-        if score > 0 && !practiceMode {
-            presentUsernameDialog()
+        if !practiceMode {
+            let defaultName = LocalHighScores.savedUsername ?? ""
+            if LocalHighScores.qualifies(name: defaultName, score: score) {
+                presentUsernameDialog(defaultName: defaultName)
+            } else {
+                LocalHighScores.record(name: defaultName, score: score)
+            }
         }
     }
 
-    private func presentUsernameDialog() {
+    private func presentUsernameDialog(defaultName: String) {
         let dialog = UsernameDialog(
             size: CGSize(width: 360, height: 220),
             fontName: Strings.Font.menloBold,
             onConfirm: { [weak self] name in
                 guard let self else { return }
-                LocalHighScores.submit(name: name, score: self.score)
+                LocalHighScores.record(name: name, score: self.score)
                 self.dismissUsernameDialog()
             },
             onSkip: { [weak self] in
                 guard let self else { return }
+                LocalHighScores.record(name: defaultName, score: self.score)
                 self.dismissUsernameDialog()
             }
         )
