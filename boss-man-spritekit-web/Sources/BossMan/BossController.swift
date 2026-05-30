@@ -16,6 +16,7 @@ final class BossController {
     private weak var map: GridMap?
     let mover: TileMover
     let ai: BossAI
+    private let sound: SoundManager
 
     // bossman-apple BossController uses TWO constants: moveInterval (0.36, the
     // total wall-clock time per tile = decision cadence) and moveDuration (0.22,
@@ -42,9 +43,11 @@ final class BossController {
     var grid: CGPoint { mover.grid }
 
     init(blueprintIndex: Int, spawn: CGPoint, map: GridMap, pathfinder: Pathfinder,
-         tileSize: CGFloat, containerOriginX: CGFloat, squareTracks: Bool = false, mib: Bool = false) {
+         tileSize: CGFloat, containerOriginX: CGFloat, sound: SoundManager,
+         squareTracks: Bool = false, mib: Bool = false) {
         self.blueprintIndex = blueprintIndex
         self.map = map
+        self.sound = sound
         self.homeGrid = spawn
         let blueprint = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)]
         self.speed = blueprint.speed
@@ -235,6 +238,7 @@ final class BossController {
     // immobilized — GameScene reads isImmobilized to skip contact checks.
     func applySpawnFreeze() {
         isImmobilized = true
+        sound.playTeleport()
         sprite.removeAction(forKey: Strings.ActionKey.spawnFade)
         sprite.removeAction(forKey: Strings.ActionKey.spawnUnfreeze)
         sprite.removeAction(forKey: "spawnThrob")
@@ -256,6 +260,27 @@ final class BossController {
             .scale(to: 1.0,  duration: 0.22),
         ])
         sprite.run(.repeat(pulse, count: 5), withKey: "spawnThrob")
+    }
+
+    // bossman-apple applyFleeThawTransition: when gold-disc mode ends, play the
+    // teleport sound and blink the boss in place (immobilized during the blink),
+    // then resume chase. Restores the base palette via setFrightened(false).
+    func applyFleeThaw() {
+        setFrightened(false)
+        sound.playTeleport()
+        isImmobilized = true
+        sprite.removeAction(forKey: Strings.ActionKey.fleeThaw)
+        let blink = SKAction.sequence([
+            .fadeAlpha(to: 0.3, duration: 0.3),
+            .fadeAlpha(to: 1.0, duration: 0.3)
+        ])
+        sprite.run(.sequence([
+            .repeat(blink, count: 5),
+            .run { [weak self] in
+                self?.isImmobilized = false
+                self?.sprite.alpha = 1
+            }
+        ]), withKey: Strings.ActionKey.fleeThaw)
     }
 
     func install(in scene: SKNode) { scene.addChild(sprite) }

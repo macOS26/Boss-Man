@@ -84,7 +84,16 @@ final class SoundManager {
     func playWaterGunShoot()  { playEffect("waterGunShoot")  { self.sweep(from: 880, to: 440,  duration: 0.08, volume: 0.25) } }
     func playWaterGunSplash() { playEffect("waterGunSplash") { self.sweep(from: 660, to: 220,  duration: 0.3,  volume: 0.35) } }
     func playFootstep()       { playEffect("footstep")       { self.tone(frequency: 140, duration: 0.025, volume: 0.07, decay: 60) } }
-    func playTeleport()       { playEffect("teleport")       { self.sweep(from: 200, to: 1200, duration: 0.18, volume: 0.20) } }
+    private var teleportGate = false
+    func playTeleport() {
+        if teleportGate { return }
+        teleportGate = true
+        playEffect("teleport") { self.sweep(from: 200, to: 1200, duration: 0.18, volume: 0.20) }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            self.teleportGate = false
+        }
+    }
 
     func playLevelStart() {
         playEffect("levelStart") { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.30) }
