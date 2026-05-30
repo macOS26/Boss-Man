@@ -41,7 +41,7 @@ final class WorkerController {
         node.physicsBody?.allowsRotation = false
 #if os(macOS)
         node.physicsBody?.isDynamic = true
-#else
+#elseif os(WASI)
         node.physicsBody?.isDynamic = false
 #endif
         node.physicsBody?.affectedByGravity = false
