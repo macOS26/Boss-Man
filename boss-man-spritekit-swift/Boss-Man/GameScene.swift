@@ -99,7 +99,29 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     }
 
     // MARK: - Input
+    private var usernameDialog: UsernameDialog?
+
+    // Translate a macOS key event into the shared UsernameDialog's code scheme
+    // (wasm is the master). Anything unmapped returns -1 and the dialog swallows it.
+    private func usernameKeyCode(for event: NSEvent) -> Int {
+        switch event.keyCode {
+        case 36, 76: return 58              // Return / keypad Enter
+        case 53:     return 36              // Escape
+        case 51:     return 59              // Delete (backspace)
+        case 49:     return 57              // Space
+        default:
+            guard let u = (event.charactersIgnoringModifiers ?? "").uppercased().unicodeScalars.first else { return -1 }
+            if u.value >= 65, u.value <= 90 { return Int(u.value) - 65 }       // A-Z
+            if u.value >= 48, u.value <= 57 { return 26 + Int(u.value) - 48 }  // 0-9
+            return -1
+        }
+    }
+
     override func keyDown(with event: NSEvent) {
+        if let dialog = usernameDialog {
+            dialog.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
+            return
+        }
         if isGameOver {
             switch event.keyCode {
             case 35: restartGame()
@@ -142,6 +164,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     }
 
     override func mouseDown(with event: NSEvent) {
+        if let dialog = usernameDialog {
+            dialog.handleMouseDown(at: event.location(in: self))
+            return
+        }
         // Left-click fires the water gun (the on-screen fire button is the cue).
         guard !isPaused, !isGameOver else { return }
         fireWaterGun()
@@ -153,22 +179,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     override func mouseDragged(with event: NSEvent) {
         inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard isGameOver else { return }
-        let loc = convert(event.location(in: self), from: self)
-        let hitNames = nodes(at: loc).compactMap { $0.name }
-
-        if hitNames.contains(UsernameDialog.confirmButtonName),
-           let dialog = childNode(withName: UsernameDialog.nodeName) as? UsernameDialog {
-            dialog.handleConfirm()
-            dialog.removeFromParent()
-        } else if hitNames.contains(UsernameDialog.skipButtonName),
-                  let dialog = childNode(withName: UsernameDialog.nodeName) as? UsernameDialog {
-            dialog.handleSkip()
-            dialog.removeFromParent()
-        }
     }
 
     var isGameOverForInput: Bool { isGameOver }
@@ -412,13 +422,19 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         if !state.practiceMode {
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
 
-            let defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
             if GKLocalPlayer.local.isAuthenticated {
-                LocalHighScores.record(name: defaultName, score: state.score)
-            } else if LocalHighScores.qualifies(name: defaultName, score: state.score) {
-                showUsernameDialog(defaultName: defaultName)
+                // Game Center is the live board — record its name, no manual entry.
+                let name = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
+                LocalHighScores.record(name: name, score: state.score)
             } else {
-                LocalHighScores.record(name: defaultName, score: state.score)
+                // Local leaderboard is on — follow the wasm master: manual
+                // username entry when the score qualifies, otherwise just record.
+                let defaultName = LocalHighScores.savedUsername ?? ""
+                if LocalHighScores.qualifies(name: defaultName, score: state.score) {
+                    showUsernameDialog(defaultName: defaultName)
+                } else {
+                    LocalHighScores.record(name: defaultName, score: state.score)
+                }
             }
         }
         sound.stopGoldDiscBass()
@@ -436,16 +452,23 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             onConfirm: { [weak self] name in
                 guard let self else { return }
                 LocalHighScores.record(name: name, score: self.state.score)
+                self.dismissUsernameDialog()
             },
             onSkip: { [weak self] in
                 guard let self else { return }
                 LocalHighScores.record(name: defaultName, score: self.state.score)
+                self.dismissUsernameDialog()
             }
         )
         dialog.position = CGPoint(x: frame.midX, y: frame.midY)
         dialog.zPosition = 2000
         addChild(dialog)
-        dialog.attachFieldToView()
+        usernameDialog = dialog
+    }
+
+    private func dismissUsernameDialog() {
+        usernameDialog?.removeFromParent()
+        usernameDialog = nil
     }
 
     private func resetSceneAndBuild() {

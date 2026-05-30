@@ -1,8 +1,9 @@
+import AppKit
 import SpriteKit
 
-// Game-over username entry dialog. Same visual + flow as bossman-apple's
-// UsernameDialog, but typed in pure SpriteKit because we don't have
-// NSTextField on wasm:
+// Game-over username entry dialog, shared by both ports (wasm is the master for
+// the leaderboard / initials flow). Pure SpriteKit — no NSTextField — so it
+// renders and types identically on macOS and wasm:
 //
 //   - White panel with a blue Save button + outlined Skip button.
 //   - SKLabelNode shows the typed username with a blinking caret.
@@ -13,6 +14,7 @@ import SpriteKit
 //
 // The dialog absorbs all input while open; GameScene checks the active
 // dialog before routing keys to the gameplay handler.
+@MainActor
 final class UsernameDialog: SKNode {
 
     static let nodeName = "usernameDialog"
@@ -38,6 +40,8 @@ final class UsernameDialog: SKNode {
         buildUI()
         refreshInput()
     }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func buildUI() {
         let overlay = SKShapeNode(rect: CGRect(x: -2000, y: -2000, width: 4000, height: 4000))
@@ -187,11 +191,10 @@ final class UsernameDialog: SKNode {
 
     private func refreshInput() {
         inputLabel.text = typed
-        // Real glyph-run measurement via SuperBox64's SKLabelNode.measuredWidth.
-        // The hand-rolled fontSize * 0.6 advance was overshooting Menlo
-        // Bold by enough to leave a visible gap between the last char and
-        // the caret — fixed.
-        let w = inputLabel.measuredWidth()
+        // frame.width is the measured glyph-run width on both ports (real
+        // SKLabelNode on macOS; the kit's measured frame on wasm), so the caret
+        // sits flush after the last character.
+        let w = inputLabel.frame.width
         caretLabel.position = CGPoint(x: inputLabel.position.x + w + 2,
                                       y: inputLabel.position.y)
     }
