@@ -151,7 +151,11 @@ final class TitleScene: SKScene {
         addChild(waterGun)
         waterGunLabel = waterGun
 
-        let panel = LeaderboardPanel(size: CGSize(width: 320, height: 400))
+        let panel = LeaderboardPanel(
+            size: CGSize(width: 320, height: 400),
+            titleFont: Strings.Font.markerFeltWide,
+            bodyFont: Strings.Font.menloBold
+        )
         panel.position = CGPoint(x: 320 / 2 + 32, y: size.height * 0.5)
         addChild(panel)
     }

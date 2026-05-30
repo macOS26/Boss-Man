@@ -86,6 +86,18 @@ enum Strings {
         static let inputRadiusKey = "inputRadius"
     }
 
+    enum App {
+        static let loading = "Loading…"
+    }
+
+    enum GameCenter {
+        static let leaderboardID = "BossManLeaderBoard0001"
+    }
+
+    enum System {
+        static let initCoderUnsupported = "init(coder:) is not supported"
+    }
+
     // MARK: - In-game messages (transient HUD banners). Ported verbatim
     // from bossman-apple's Strings.Message so the wasm port displays the
     // same wording on every event.
@@ -172,6 +184,8 @@ enum Strings {
         static let saveButton          = "Save  (Enter)"
         static let skipButton          = "Skip  (Esc)"
         static let noScores            = "No local scores yet."
+        static func rankLabel(_ rank: Int) -> String { "\(rank)." }
+        static func scoreLabel(_ score: Int) -> String { "\(score)" }
     }
 
     // MARK: - TPS report machines. The name strings double as the keys
@@ -225,6 +239,7 @@ enum Strings {
     enum NodeName {
         static let travelerEmoji = "traveler.emoji"
         static let palettePrefix = "pal_"
+        static let signInLink    = "leaderboard.signin_link"
     }
 
     // MARK: - Level editor copy. Button-label key hints describe the WEB

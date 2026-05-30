@@ -22,25 +22,30 @@ final class LeaderboardPanel: SKNode {
         self.bodyFontName = bodyFont
         super.init()
         buildShell()
-        showStatus(Strings.App.loading)
         load()
+#if canImport(ObjectiveC)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(authStateChanged),
             name: .GKPlayerAuthenticationDidChangeNotificationName,
             object: nil
         )
+#endif
     }
 
     deinit {
+#if canImport(ObjectiveC)
         NotificationCenter.default.removeObserver(self)
+#endif
     }
 
+#if canImport(ObjectiveC)
     @objc private func authStateChanged() {
         if GKLocalPlayer.local.isAuthenticated {
             fetchEntries()
         }
     }
+#endif
 
     required init?(coder: NSCoder) {
         fatalError(Strings.System.initCoderUnsupported)
@@ -147,9 +152,11 @@ final class LeaderboardPanel: SKNode {
     }
 
     private func load() {
-        showStatus(Strings.App.loading)
         if GKLocalPlayer.local.isAuthenticated {
+            showStatus(Strings.App.loading)
             fetchEntries()
+        } else {
+            renderLocalFallback()
         }
     }
 

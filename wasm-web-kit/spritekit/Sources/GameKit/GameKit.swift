@@ -47,6 +47,13 @@ public final class GKScore {
 public final class GKLeaderboard {
     public enum PlayerScope: Int { case global, friendsOnly }
     public enum TimeScope: Int { case today, week, allTime }
+    public final class Entry {
+        public var player = GKPlayer()
+        public var rank = 0
+        public var score = 0
+        public var formattedScore = ""
+        public init() {}
+    }
     public var identifier: String?
     public var playerScope: PlayerScope = .global
     public var timeScope: TimeScope = .allTime
@@ -55,10 +62,28 @@ public final class GKLeaderboard {
     public init(players: [GKPlayer]) {}
     public func loadScores(completionHandler h: @escaping ([GKScore]?, Error?) -> Void) { h([], nil) }
     public static func loadLeaderboards(IDs: [String]?, completionHandler h: @escaping ([GKLeaderboard]?, Error?) -> Void) { h([], nil) }
+    public static func loadLeaderboards(IDs: [String]?) async throws -> [GKLeaderboard] { [] }
     public func loadEntries(for players: [GKPlayer], timeScope: TimeScope,
                             completionHandler h: @escaping (GKLeaderboardEntry?, [GKLeaderboardEntry]?, Error?) -> Void) {
         h(nil, [], nil)
     }
+    public func loadEntries(for playerScope: PlayerScope, timeScope: TimeScope,
+                            range: NSRange) async throws -> (Entry?, [Entry], Int) {
+        (nil, [], 0)
+    }
+}
+
+public struct NSRange {
+    public var location: Int
+    public var length: Int
+    public init(location: Int, length: Int) { self.location = location; self.length = length }
+}
+
+// NSCoder drives NSCoding archiving on Apple; the web port never archives, so
+// this name-only stub lets shared `required init?(coder: NSCoder)` signatures
+// compile. Those inits all trap with fatalError and are never reached.
+public final class NSCoder {
+    public init() {}
 }
 
 public final class GKLeaderboardEntry {
