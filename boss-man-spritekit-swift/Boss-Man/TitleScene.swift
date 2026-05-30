@@ -49,7 +49,7 @@ final class TitleScene: SKScene {
         playButtonRect = makeTitleButton(
             text: "(P)lay", color: green, font: titleFont,
             center: CGPoint(x: size.width / 2 - bw / 2 - gap / 2, y: promptY),
-            size: CGSize(width: bw, height: bh))
+            size: CGSize(width: bw, height: bh), textDY: -2)
         editorButtonRect = makeTitleButton(
             text: "(E)ditor", color: blue, font: titleFont,
             center: CGPoint(x: size.width / 2 + bw / 2 + gap / 2, y: promptY),
@@ -111,7 +111,7 @@ final class TitleScene: SKScene {
 
     @discardableResult
     private func makeTitleButton(text: String, color: NSColor, font: String,
-                                 center: CGPoint, size s: CGSize) -> CGRect {
+                                 center: CGPoint, size s: CGSize, textDY: CGFloat = 0) -> CGRect {
         let bg = SKShapeNode(rect: CGRect(x: -s.width / 2, y: -s.height / 2, width: s.width, height: s.height),
                              cornerRadius: 0)
         bg.position = center
@@ -125,6 +125,7 @@ final class TitleScene: SKScene {
         label.fontColor = .white
         label.horizontalAlignmentMode = .center
         label.verticalAlignmentMode = .center
+        label.position = CGPoint(x: 0, y: textDY)
         label.zPosition = 6
         bg.addChild(label)
         return CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2, width: s.width, height: s.height)
