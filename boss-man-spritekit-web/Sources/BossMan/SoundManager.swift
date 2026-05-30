@@ -89,11 +89,13 @@ final class SoundManager {
         if teleportGate { return }
         teleportGate = true
         playEffect("teleport") { self.buildTeleport() }
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_800_000_000)
-            self.teleportGate = false
-        }
     }
+    // Cleared once per frame by GameScene.update so a batch of simultaneous boss
+    // spawns plays ONE teleport, yet the gate can never stick. The old
+    // Task.sleep reset never fired on single-threaded WASI, so after the first
+    // teleport the gate stayed set and silenced every later one (e.g. the boss
+    // respawn after a boss catches Pete).
+    func clearTeleportGate() { teleportGate = false }
 
     func playLevelStart() {
         playEffect("levelStart") { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.30) }

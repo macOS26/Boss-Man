@@ -34,8 +34,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         skView.showsFPS = false
         skView.showsNodeCount = false
         skView.showsPhysics = false
-        skView.disableDepthStencilBuffer = false
-        
         skView.allowsTransparency = true
 
         let scene = TitleScene(size: sceneSize)

@@ -79,11 +79,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private let squareTracks = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
     private let reportItemPoints = [10, 25, 50, 100]
 
-    private var waterAmmo: Int = 0
+    private let waterGun = WaterGunState()
     private var waterGunPickedUp = false
     private var waterDroplets: [WaterDroplet] = []
-    private let waterShotsPerPellet = 5
-    private let waterShotsPerGun    = 10
     private let waterDropletSpeed: CGFloat = 12 * 32     // 12 tiles/s
     private let waterHitPoints = 100
 
@@ -348,14 +346,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     }
 
     private func fireWater() {
-        guard waterAmmo > 0, let h = worker.direction ?? worker.queuedDirection else { return }
+        guard waterGun.isActive else { return }
         // bossman-apple disables the water gun while the gold-disc window
         // is active — players can't double-dip on power-ups.
         if frightenSecondsLeft > 0 {
             hud.showMessage(Strings.Message.waterGunBlueMode, duration: 2)
             return
         }
-        waterAmmo -= 1
+        guard let h = worker.direction ?? worker.queuedDirection else { return }
+        guard waterGun.consumePellet() else { return }
         let drop = WaterDroplet(direction: h, speed: waterDropletSpeed)
         drop.position = pete.position
         drop.zPosition = 6
@@ -369,6 +368,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
 
     override func update(_ currentTime: TimeInterval) {
         guard worker != nil else { return }
+        sound.clearTeleportGate()
         if gameOver || isUserPaused { return }
         let dt: TimeInterval = 1.0 / 60.0
 
@@ -469,16 +469,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
-            waterAmmo += waterShotsPerPellet
-            waterGunPickedUp = true
             score += 50
             ScorePopup.show(50, at: gridMap.point(for: grid), in: self)
-            sound.playWaterGunPickup()
+            if waterGunPickedUp {
+                waterGun.reloadPellets(8)
+                sound.playWaterGunPickup()
+            }
             refreshHUD()
         }
         if mazeBuilder.collectWaterGun(at: grid) {
-            waterAmmo += waterShotsPerGun
             waterGunPickedUp = true
+            waterGun.activate()
             score += 75
             ScorePopup.show(75, at: gridMap.point(for: grid), in: self)
             sound.playWaterGunPickup()
@@ -867,8 +868,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
                          level: levelIndex + 1, dots: dotsTotal - dotsRemaining,
                          total: dotsTotal, reports: tpsReportsDelivered, items: collectedReports)
         hud.updateLives(lives)
-        hud.updateWaterGun(active: waterAmmo > 0,
-                           pellets: waterGunPickedUp ? waterAmmo : -1,
+        hud.updateWaterGun(active: waterGun.isActive,
+                           pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1,
                            blueMode: frightenSecondsLeft > 0)
         hud.updateLevelEmojis(unlockedTravelers())
     }
