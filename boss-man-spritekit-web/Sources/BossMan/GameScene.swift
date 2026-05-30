@@ -146,7 +146,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // Drive Pete through the shared WorkerController (same file as the apple
         // master): it builds the PixelPerson + "PETE" tag + physics body and
         // self-steps via SKAction over gridMap.point(for:) (centred via xOffset).
-        worker = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
+        worker = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound,
+                                  containerOriginX: containerOriginX)
         worker.delegate = self
         pete = worker.node
         addChild(pete)
@@ -372,11 +373,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         if gameOver || isUserPaused { return }
         let dt: TimeInterval = 1.0 / 60.0
 
-        // Pete self-drives through WorkerController (SKAction move + arrival
-        // callback via workerDidEnterTile); nothing to advance per frame here.
-        // bossman-apple latches WorkerController.direction (NOT cleared when Pete
-        // is held against a wall) so Dom (ambush) and Bob (flanker) keep
-        // projecting along Pete's last heading instead of collapsing to direct chase.
+        // Pete steps through his continuous TileMover (gap-free, no stutter).
+        // WorkerController.direction is latched (NOT cleared at a wall) so Dom
+        // (ambush) and Bob (flanker) keep projecting along Pete's last heading
+        // instead of collapsing to direct chase.
+        worker.advance(dt)
 
         // BLINKY anchor for Bob's flanker reflection = the FIRST-SPAWNED boss
         // (bossman-apple's entities.first), in maze scan order — NOT necessarily

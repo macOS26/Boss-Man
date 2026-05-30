@@ -19,13 +19,24 @@ final class WorkerController {
     private let sound: SoundManager
     private let moveDuration: TimeInterval = 0.14
     private var isMoving = false
+    #if os(WASI)
+    // Pete moves through the kit's continuous TileMover (same stepper the bosses
+    // use), so there's no per-tile SKAction restart gap — that gap is what made
+    // him stutter. apple keeps the SKAction path below (smooth on real
+    // SpriteKit). Driven per frame by GameScene.update -> advance(_:).
+    private var mover: TileMover<MoveDirection>!
+    #endif
 
-    init(spawnGrid: CGPoint, gridMap: GridMap, sound: SoundManager) {
+    init(spawnGrid: CGPoint, gridMap: GridMap, sound: SoundManager, containerOriginX: CGFloat = 0) {
         self.grid = spawnGrid
         self.gridMap = gridMap
         self.sound = sound
         self.node = SpriteFactory.petePerson(walkExaggeration: 1)
         configureNode()
+        #if os(WASI)
+        mover = TileMover<MoveDirection>(node: node, spawn: spawnGrid, map: gridMap,
+                                         step: moveDuration, containerOriginX: containerOriginX)
+        #endif
     }
 
     private func configureNode() {
@@ -55,21 +66,60 @@ final class WorkerController {
     func queueDirection(_ direction: MoveDirection) {
         queuedDirection = direction
         if self.direction == nil { self.direction = direction }
+        #if os(macOS)
         if !isMoving { attemptStep() }
+        #endif
+        // wasm: the per-frame advance(_:) picks up queuedDirection; no kickoff.
     }
+
+    #if os(WASI)
+    // Per-frame continuous stepper (restored from the pre-WorkerController
+    // peteMover). decide latches queued > current direction when walkable;
+    // onArrive does the tile bookkeeping. No per-tile SKAction => gap-free,
+    // exactly like the bosses.
+    func advance(_ dt: TimeInterval) {
+        mover.advance(dt, decide: { [weak self] e in
+            guard let self else { return nil }
+            if let q = self.queuedDirection, e.canStep(q) { return q }
+            if let d = self.direction,       e.canStep(d) { return d }
+            return nil
+        }, onArrive: { [weak self] e in
+            guard let self else { return }
+            self.grid = e.grid
+            if let d = e.dir { self.node.setFacing(d) }
+            self.sound.playFootstep()
+            self.delegate?.workerDidEnterTile(e.grid)
+        })
+        self.grid = mover.grid
+        self.direction = mover.dir
+    }
+    #endif
 
     func resetMotion() {
         direction = nil
         queuedDirection = nil
+        node.stopWalking()
+        #if os(macOS)
         isMoving = false
         node.removeAction(forKey: Strings.ActionKey.workerMove)
-        node.stopWalking()
+        #elseif os(WASI)
+        mover.dir = nil
+        mover.moving = false
+        mover.moveT = 0
+        #endif
     }
 
     func teleport(to grid: CGPoint) {
         self.grid = grid
         node.position = gridMap.point(for: grid)
+        #if os(macOS)
         node.run(SKAction.move(to: gridMap.point(for: grid), duration: 0.2))
+        #elseif os(WASI)
+        mover.grid = grid
+        mover.dir = nil
+        mover.moving = false
+        mover.moveT = 0
+        #endif
     }
 
     func flashColor(_ color: NSColor, restoringTo restoreColor: NSColor, after seconds: TimeInterval) {
