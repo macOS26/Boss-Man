@@ -1,20 +1,19 @@
 import SpriteKit
 import KitABI
 
-// Reactor-mode wasm entry. The runtime loads us with WASI mode `reactor` so
+// Reactor-mode wasm entry. The runtime loads us in WASI `reactor` mode, so
 // _initialize() runs once (libc/libc++ ctors + Swift runtime setup), then
-// `boot` is called once to bring the SKView + first scene up, and `frame`
-// fires every animation frame with the dt in milliseconds.
+// `boot` brings the SKView and first scene up, and `frame` fires once per
+// animation frame with the elapsed dt in milliseconds.
 //
-// SpriteKit games written for macOS/iOS don't have explicit boot/frame
-// entrypoints — they use @main App or NSApplicationDelegate. On wasm the kit
-// drives the frame loop directly, so we expose those two exports and stash
-// the SKView in a nonisolated(unsafe) global. The single-threaded wasm event
-// loop makes the !-marked global safe.
+// macOS/iOS SpriteKit games have no explicit boot/frame entry (they use @main
+// App or NSApplicationDelegate). On wasm the kit drives the loop, so we export
+// just those two functions and keep the SKView in a nonisolated(unsafe) global;
+// the single-threaded wasm event loop makes that unsynchronised global safe.
 //
-// Logical render size matches the original macOS Boss-Man: 1183 x 665.44. We
-// round up to 1184 x 666 so it lines up on integer pixels at devicePixelRatio
-// 1 and 2; the kit's letterbox handles the actual display scale.
+// The logical render size matches the original macOS Boss-Man, rounded up to
+// whole pixels so it lands on integer coordinates at any devicePixelRatio; the
+// kit's letterbox handles the actual display scale.
 
 nonisolated(unsafe) var view: SKView? = nil
 
@@ -23,7 +22,7 @@ public nonisolated func boot() {
     MainActor.assumeIsolated {
         let size = CGSize(width: 1184, height: 666)
         let v = SKView()
-        v.showsFPS = false
+        v.showsFPS = true
         v.shouldCullNonVisibleNodes = true
         v.preferredFramesPerSecond = 60
         v.ignoresSiblingOrder = true
@@ -40,3 +39,11 @@ public nonisolated func boot() {
 public nonisolated func frame(_ dtMs: Double) {
     MainActor.assumeIsolated { view?.tick(dtMs) }
 }
+
+// MARK: - TileMover conformances
+// The kit's tile-movement protocols are wasm-only and this game's grid types
+// already satisfy them, so these conformances are empty. They live here rather
+// than in the common type files to stay out of the apple build.
+extension GridMap: TileMap {}
+extension MoveDirection: TileDirection {}
+extension PixelPerson: TileWalkAnimating {}
