@@ -108,7 +108,7 @@ final class HUD {
     }
 
     func update(score: Int, highScore: Int, level: Int, dotsLeft: Int, totalDots: Int, reports: Int = 0) {
-        statusLabel.text = Strings.HUDText.statusLine(
+        statusLabel.text = Strings.HUD.statusLine(
             score: score, highScore: highScore, level: level,
             dots: dotsLeft, total: totalDots, reports: reports)
     }
@@ -149,7 +149,7 @@ final class HUD {
                                                       : Strings.Emoji.unchecked
             return "\(check)\(item.emoji)"
         }
-        tpsLabel.text = "\(Strings.HUDText.tpsPrefix) " + parts.joined(separator: "  ")
+        tpsLabel.text = "\(Strings.HUD.tpsPrefix) " + parts.joined(separator: "  ")
     }
 
     // bossman-apple's HUD.showGameOver — translucent dim, orange-bordered
@@ -179,7 +179,7 @@ final class HUD {
         overlay.addChild(frame)
 
         let big = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        big.text = Strings.HUDText.gameOver
+        big.text = Strings.HUD.gameOver
         big.fontSize = 56
         big.fontColor = SKColor(red: 1.0, green: 0.27, blue: 0.23, alpha: 1)
         big.position = CGPoint(x: s.width / 2, y: s.height / 2 + 20)
@@ -187,7 +187,7 @@ final class HUD {
         overlay.addChild(big)
 
         let prompt = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        prompt.text = Strings.HUDText.promptNewGame
+        prompt.text = Strings.HUD.promptNewGame
         prompt.fontSize = 18
         prompt.fontColor = SKColor(red: 1.0, green: 0.91, blue: 0.34, alpha: 1)
         prompt.position = CGPoint(x: s.width / 2, y: s.height / 2 - 40)
@@ -199,7 +199,7 @@ final class HUD {
         overlay.addChild(prompt)
 
         let exit = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        exit.text = Strings.HUDText.promptTitle
+        exit.text = Strings.HUD.promptTitle
         exit.fontSize = 14
         exit.fontColor = SKColor(white: 0.75, alpha: 1)
         exit.position = CGPoint(x: s.width / 2, y: s.height / 2 - 72)

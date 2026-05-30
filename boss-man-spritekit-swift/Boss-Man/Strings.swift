@@ -55,16 +55,25 @@ enum Strings {
         static let initCoderUnsupported = "init(coder:) is not supported"
     }
 
-    // MARK: - Font names (PostScript IDs passed to SKLabelNode / NSFont)
+    // MARK: - Font names. The runtime's font preloader registers each .ttf by
+    // its filename basename on wasm; on macOS the same logical fonts resolve to
+    // their PostScript / family names — hence the per-platform Marker Felt spelling.
     enum Font {
         static let menloBold       = "Menlo-Bold"
         static let menlo           = "Menlo"
         static let helveticaBold   = "Helvetica-Bold"
+        static let jetBrainsMono   = "JetBrainsMono-Bold"
+#if os(macOS)
         static let markerFeltThin  = "Marker Felt Thin"
         static let markerFeltWide  = "Marker Felt Wide"
+#elseif os(WASI)
+        static let markerFeltThin  = "MarkerFelt-Thin"
+        static let markerFeltWide  = "MarkerFelt-Wide"
+#endif
     }
 
-    // MARK: - Bundle resources (filename + extension passed to Bundle.url)
+    // MARK: - Bundle resources (filename + extension passed to Bundle.url on
+    // macOS; the wasm asset preloader registers names directly).
     enum Resource {
         static let levelsFile        = "levels"
         static let levelsExtension   = "json"
@@ -72,9 +81,13 @@ enum Strings {
         static let emptyJSON         = "{}"
         static let redStaplerFile    = "red-stapler"
         static let redStaplerExtension = "png"
-        static let travelerStaplerFile      = "shinyredstapler-emoji"
         static let travelerStaplerExtension = "png"
         static let quarantineAttribute = "com.apple.quarantine"
+#if os(macOS)
+        static let travelerStaplerFile = "shinyredstapler-emoji"
+#elseif os(WASI)
+        static let travelerStaplerFile = "shinyredstapler-emoji-160x244"
+#endif
     }
 
     // MARK: - Level Editor copy / labels
@@ -105,6 +118,9 @@ enum Strings {
         static let undoToast     = "Undo"
         static let redoToast     = "Redo"
         static let savedToast    = "SAVED!"
+        static let clearedToast  = "Cleared (Z to undo)"
+        static let revealToast   = "Saved to browser storage"
+        static let autosaveToast = "AUTOSAVE 1 min"
         static func tilePrefix(_ name: String) -> String { "Tile: \(name)" }
         static func levelCounter(_ current: Int, of total: Int) -> String { "(\(current)/\(total))" }
         static func tileNodeName(row: Int, col: Int) -> String { "tile_\(row)_\(col)" }
@@ -129,9 +145,14 @@ enum Strings {
         static let newHighScoreTitle = "NEW HIGH SCORE!"
         static let enterUsernamePrompt = "Enter your username:"
         static let usernamePlaceholder = "Player"
+        static let noScores = "No local scores yet."
+#if os(macOS)
         static let saveButton = "Save"
         static let skipButton = "Skip"
-        static let noScores = "No local scores yet."
+#elseif os(WASI)
+        static let saveButton = "Save  (Enter)"
+        static let skipButton = "Skip  (Esc)"
+#endif
     }
 
     // MARK: - Editor button identifiers (used as SKNode.name + click dispatch)
@@ -155,14 +176,28 @@ enum Strings {
         static let unknownTag = "Player"
     }
 
-    // MARK: - UserDefaults keys
+    // MARK: - Persistence keys (UserDefaults on macOS, localStorage on wasm).
+    // Per-platform on purpose: changing a key re-keys persisted data.
     enum DefaultsKey {
+#if os(macOS)
         static let highScore        = "Boss-Man.highScore"
         static let startFullscreen  = "Boss-Man.startFullscreen"
         static let localHighScores  = "Boss-Man.localHighScores"
         static let localLeaderboardUsername = "Boss-Man.localLeaderboardUsername"
         static let bossTracksSquare = "Boss-Man.bossTracksSquare"
         static let waterGunLeft     = "Boss-Man.waterGunLeft"
+#elseif os(WASI)
+        static let highScore              = "BossMan.highScore"
+        static let leaderboard            = "BossMan.leaderboard"
+        static let localHighScores        = "BossMan.leaderboard"
+        static let playerName             = "BossMan.playerName"
+        static let localLeaderboardUsername = "BossMan.username"
+        static let startFullscreen        = "BossMan.startFullscreen"
+        static let bossTracksSquare       = "BossMan.bossTracksSquare"
+        static let waterGunLeft           = "BossMan.waterGunLeft"
+        static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
+        static let editorLevelPrefix      = "BossMan.editorLevel."
+#endif
     }
 
     // MARK: - Game Center
@@ -216,6 +251,9 @@ enum Strings {
     enum Title {
         static let gameTitle      = "BOSS-MAN"
         static let pressSpace     = "P to Play · E for Editor"
+        static let playGame       = "(P)lay"
+        static let levelEditor    = "(E)ditor"
+        static let controlsHint   = "Cursor key to Move \u{00B7} Space to Fire Water Pistol"
         static func highScore(_ value: Int) -> String { "HIGH SCORE \(value)" }
     }
 
@@ -242,6 +280,7 @@ enum Strings {
     }
 }
 
+#if os(macOS)
 // macOS-only NSSpeechSynthesizer voice-picker infra; the shared spoken-line
 // pools live in Strings+Shared. Web has no synthesizer voice selection.
 extension Strings.Speech {
@@ -262,3 +301,4 @@ extension Strings.Speech {
     static let tpsFallback      = "Sounds great."
     static let gameOverFallback = "yeah right!"
 }
+#endif
