@@ -1632,7 +1632,10 @@ void main() {
           // SpeechSynthesis/voice keeps working, since it's a separate
           // subsystem — and only a full browser restart recovers. Closing on
           // unload frees this page's context so reloads no longer accumulate.
-          const closeCtx = () => { try { this.audioCtx && this.audioCtx.close(); } catch (_e) {} };
+          // Null it out too: if the page is later restored from Safari's
+          // back-forward cache, ensureAudio() then builds a fresh context
+          // instead of returning the dead closed one.
+          const closeCtx = () => { try { this.audioCtx && this.audioCtx.close(); } catch (_e) {} this.audioCtx = null; };
           window.addEventListener('pagehide', closeCtx);
           window.addEventListener('beforeunload', closeCtx);
         } catch (e) {
