@@ -133,7 +133,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
 
     // Header + underline
     float headerY = panelCY - 140.f;
-    drawText(target, fontThin_, "LEADERBOARD", 24, sf::Color(46, 26, 10), panelCX, headerY, 1);
+    drawText(target, fontWide_, "LEADERBOARD", 24, sf::Color(46, 26, 10), panelCX, headerY + 2.f, 1);
     sf::RectangleShape underline(sf::Vector2f(panelW - 44.f, 2.f));
     underline.setFillColor(sf::Color(0, 0, 0, 102)); // alpha 0.40
     underline.setPosition(panelLeft + 22.f, headerY + 14.f);

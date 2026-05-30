@@ -89,7 +89,7 @@ final class LeaderboardPanel: SKNode {
 
         let titleBaselineY = panelSize.height / 2 - adhesiveHeight - adhesiveToTitleGap - 18
 
-        titleLabel.fontName = titleFontName
+        titleLabel.fontName = Strings.Font.markerFeltWide
         titleLabel.text = Strings.Leaderboard.header
         titleLabel.fontSize = 24
         titleLabel.fontColor = NSColor(calibratedRed: 0.18, green: 0.10, blue: 0.04, alpha: 1)
