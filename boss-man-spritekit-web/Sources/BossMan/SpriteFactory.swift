@@ -204,15 +204,7 @@ enum SpriteFactory {
         if mib {
             return bossPerson(bodyColor: .black, tieColor: .black, wearsSunglasses: true)
         }
-        switch index {
-        case 0:  return bossPerson(bodyColor: SKColor(red: 1.00, green: 0.27, blue: 0.23, alpha: 1),     // systemRed
-                                   tieColor:  .black)
-        case 1:  return bossPerson(bodyColor: SKColor(red: 1.00, green: 0.18, blue: 0.33, alpha: 0.75),  // systemPink @0.75
-                                   tieColor:  SKColor(red: 0.414, green: 0.192, blue: 0.522, alpha: 1))  // systemPurple blended .40 black
-        case 2:  return bossPerson(bodyColor: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1),     // systemTeal
-                                   tieColor:  SKColor(red: 0.00, green: 0.384, blue: 0.80, alpha: 1))    // systemBlue blended .20 black
-        default: return bossPerson(bodyColor: SKColor(red: 1.00, green: 0.58, blue: 0.00, alpha: 1),     // systemOrange
-                                   tieColor:  SKColor(red: 0.90, green: 0.243, blue: 0.207, alpha: 1))   // systemRed blended .10 black
-        }
+        let c = BossBlueprint.colors[min(max(index, 0), BossBlueprint.colors.count - 1)]
+        return bossPerson(bodyColor: c.body, tieColor: c.tie)
     }
 }

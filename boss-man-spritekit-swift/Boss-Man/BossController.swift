@@ -38,18 +38,12 @@ final class BossController {
     // because the override writes the real position into it before each entity is
     // built. (A hardcoded home here once let a tile-less level spawn Bill at a
     // fixed corner.)
-    // Per-boss body/tie colors (Bill/Dom/Bob/Stan). name/personality/speed come
-    // from the shared BossBlueprint.table so that slim config stays common with
-    // the wasm port; apple layers its NSColor palette + spawn slot on top.
-    private static let blueprintColors: [(color: NSColor, tie: NSColor)] = [
-        (.systemRed,    .black),
-        (NSColor.systemPink.withAlphaComponent(0.75), NSColor.systemPurple.blended(withFraction: 0.40, of: .black) ?? .systemPurple),
-        (.systemTeal,   NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue),
-        (.systemOrange, NSColor.systemRed.blended(withFraction: 0.10, of: .black) ?? .systemRed)
-    ]
+    // name/personality/speed + the body/tie palette come from the shared
+    // BossBlueprint (common with the wasm port); apple layers the pants color +
+    // spawn slot on top.
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] =
         BossBlueprint.table.enumerated().map { i, bp in
-            (name: bp.name, color: blueprintColors[i].color, tie: blueprintColors[i].tie,
+            (name: bp.name, color: BossBlueprint.colors[i].body, tie: BossBlueprint.colors[i].tie,
              pants: .darkGray, spawn: .zero, personality: bp.personality, speed: bp.speed)
         }
 
