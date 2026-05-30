@@ -36,7 +36,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private let tileSize: CGFloat = 32
     private var containerOriginX: CGFloat = 0
 
-    private let hud = HUD()
+    private let hud = HUD(requiredItems: Strings.Machine.required)
     private let sound = SoundManager()
     private let state = RoundState()
     private var travelerSpawner: TravelerSpawner!
@@ -80,6 +80,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private let reportItemPoints = [10, 25, 50, 100]
 
     private var waterAmmo: Int = 0
+    private var waterGunPickedUp = false
     private var waterDroplets: [WaterDroplet] = []
     private let waterShotsPerPellet = 5
     private let waterShotsPerGun    = 10
@@ -172,12 +173,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
                                           sound: sound,
                                           containerOriginX: containerOriginX)
         scheduleTravelerForCurrentLevel()
-        hud.update(travelers: unlockedTravelers())
+        hud.updateLevelEmojis(unlockedTravelers())
         // bossman-apple: startBackgroundMusic(theme:) on level load.
         // Every 12th level switches to the MIB ("Sunglasses At Night") theme.
         sound.startMusic(musicTheme(for: levelIndex + 1))
         installFireButton()
-        if practiceMode { hud.flash(Strings.Message.practiceMode, duration: 3) }
+        if practiceMode { hud.showMessage(Strings.Message.practiceMode, duration: 3) }
     }
 
     // MARK: - Touch / trackpad controls (mobile)
@@ -351,7 +352,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // bossman-apple disables the water gun while the gold-disc window
         // is active — players can't double-dip on power-ups.
         if frightenSecondsLeft > 0 {
-            hud.flash(Strings.Message.waterGunBlueMode, duration: 2)
+            hud.showMessage(Strings.Message.waterGunBlueMode, duration: 2)
             return
         }
         waterAmmo -= 1
@@ -465,10 +466,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             refreshBossTags()
             sound.playGoldDisc()
             sound.startGoldDiscBass()
-            hud.flash(Strings.Message.goldDiscActivated, duration: 3)
+            hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
             waterAmmo += waterShotsPerPellet
+            waterGunPickedUp = true
             score += 50
             ScorePopup.show(50, at: gridMap.point(for: grid), in: self)
             sound.playWaterGunPickup()
@@ -476,11 +478,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         }
         if mazeBuilder.collectWaterGun(at: grid) {
             waterAmmo += waterShotsPerGun
+            waterGunPickedUp = true
             score += 75
             ScorePopup.show(75, at: gridMap.point(for: grid), in: self)
             sound.playWaterGunPickup()
             refreshHUD()
-            hud.flash(Strings.Message.waterGunActivated, duration: 3)
+            hud.showMessage(Strings.Message.waterGunActivated, duration: 3)
         }
         // Traveler catch is fired by SKPhysicsContactDelegate.didBegin now,
         // not by tile-arrival — the Box2D contact reports the instant
@@ -498,10 +501,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             sound.playMachine(named: machine.name)
             refreshHUD()
             if collectedReports.count == requiredReports.count {
-                hud.flash(Strings.Message.tpsReportReady, duration: 3)
+                hud.showMessage(Strings.Message.tpsReportReady, duration: 3)
             } else {
                 let display = Strings.Machine.displayNames[machine.name] ?? machine.name
-                hud.flash(Strings.Message.reportItemCollected(name: display, points: pts), duration: 2)
+                hud.showMessage(Strings.Message.reportItemCollected(name: display, points: pts), duration: 2)
             }
         }
         if let boxPos = mazeBuilder.touchedBrownBox(at: grid) {
@@ -545,7 +548,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             advanceLevel()
         } else if dotsDone {
             // Pete swept the floor but no TPS report yet — nudge them.
-            hud.flash(Strings.Message.needTPSReport, duration: 3)
+            hud.showMessage(Strings.Message.needTPSReport, duration: 3)
         }
     }
 
@@ -556,7 +559,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private func collectTPSReport(at pos: CGPoint) {
         guard collectedReports.count == requiredReports.count else {
             let missing = requiredReports.filter { !collectedReports.contains($0) }
-            hud.flash(Strings.Message.tpsMissingItems(missing), duration: 3)
+            hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 3)
             sound.playTpsMissingItems(missing)
             return
         }
@@ -575,7 +578,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         let gainedLife = lives < HUD.maxLives
         if gainedLife { lives += 1 }
         sound.playTpsDeliver()
-        hud.flash(Strings.Message.tpsTurnedIn(points: pts, gainedLife: gainedLife),
+        hud.showMessage(Strings.Message.tpsTurnedIn(points: pts, gainedLife: gainedLife),
                   duration: 3)
         refreshHUD()
         // A delivered report can be the last thing keeping the level
@@ -600,7 +603,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             triggerGameOver()
             return
         }
-        hud.flash(Strings.Message.bossCaughtYou(lives), duration: 3)
+        hud.showMessage(Strings.Message.bossCaughtYou(lives), duration: 3)
         contactCooldown = 1.2
         // bossman-apple bossCaughtWorker flow: every boss is sent home
         // and runs the full applySpawnFreeze sequence (1.5s fade-in +
@@ -730,7 +733,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
 
     private func advanceLevel() {
         levelIndex = (levelIndex + 1) % max(1, Levels.officeMaps.count)
-        hud.flash(Strings.Message.levelLoaded(levelIndex + 1), duration: 3)
+        hud.showMessage(Strings.Message.levelLoaded(levelIndex + 1), duration: 3)
         sound.startMusic(musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
 
@@ -752,7 +755,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // RoundState.advanceLevel reset.
         collectedReports.removeAll()
         scheduleTravelerForCurrentLevel()
-        hud.update(travelers: unlockedTravelers())
+        hud.updateLevelEmojis(unlockedTravelers())
 
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
@@ -860,12 +863,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
                 Persistence.set(highScore, forKey: Strings.DefaultsKey.highScore)
             }
         }
-        hud.update(score: score, highScore: highScore,
-                   level: levelIndex + 1, dotsLeft: dotsRemaining,
-                   totalDots: dotsTotal, reports: tpsReportsDelivered)
-        hud.update(lives: lives)
-        hud.update(ammo: waterAmmo)
-        hud.updateTPSChecklist(collected: collectedReports)
+        hud.updateStatus(score: score, highScore: highScore,
+                         level: levelIndex + 1, dots: dotsTotal - dotsRemaining,
+                         total: dotsTotal, reports: tpsReportsDelivered, items: collectedReports)
+        hud.updateLives(lives)
+        hud.updateWaterGun(active: waterAmmo > 0,
+                           pellets: waterGunPickedUp ? waterAmmo : -1,
+                           blueMode: frightenSecondsLeft > 0)
+        hud.updateLevelEmojis(unlockedTravelers())
     }
 
     // bossman-apple refreshTags(goldDiscActive:): the next-capture value is

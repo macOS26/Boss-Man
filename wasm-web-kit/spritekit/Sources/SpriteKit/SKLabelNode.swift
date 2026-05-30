@@ -40,6 +40,29 @@ public final class SKLabelNode: SKNode {
         return h
     }
 
+    // Measured bounding box in the PARENT's coordinate space, honoring the
+    // alignment modes the way SpriteKit does (draw() uses the same -w/2 / 0 / -w
+    // rule). Consumers position sibling nodes off a label's frame (the HUD's
+    // water-gun ammo dots + crop overlay), so the zero-size rect SKNode returns
+    // would stack them on top of the label.
+    public override var frame: CGRect {
+        let w = measuredWidth()
+        let h = fontSize
+        let minX: CGFloat
+        switch horizontalAlignmentMode {
+        case .center: minX = position.x - w / 2
+        case .left:   minX = position.x
+        case .right:  minX = position.x - w
+        }
+        let minY: CGFloat
+        switch verticalAlignmentMode {
+        case .center:            minY = position.y - h / 2
+        case .top:               minY = position.y - h
+        case .bottom, .baseline: minY = position.y
+        }
+        return CGRect(x: minX, y: minY, width: w, height: h)
+    }
+
     // Public glyph-run width measurement so consumers can position a
     // sibling node (caret, divider, etc.) at the end of the text without
     // duplicating the txt_width call.

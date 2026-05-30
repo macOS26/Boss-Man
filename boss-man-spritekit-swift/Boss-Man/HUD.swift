@@ -5,6 +5,7 @@ import SpriteKit
 final class HUD {
     static let startingLives = 3
     static let maxLives = 5
+    static let panelHeight: CGFloat = 100
 
     private let statusLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let tpsLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
@@ -31,7 +32,7 @@ final class HUD {
 
     func install(in scene: SKScene) {
         let size = scene.size
-        let panelHeight: CGFloat = 100
+        let panelHeight = HUD.panelHeight
 
         let panel = SKShapeNode(rect: CGRect(x: 0, y: size.height - panelHeight, width: size.width, height: panelHeight))
         panel.fillColor = NSColor(calibratedRed: 0.03, green: 0.04, blue: 0.05, alpha: 0.92)
