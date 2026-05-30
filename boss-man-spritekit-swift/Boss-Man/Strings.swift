@@ -292,9 +292,11 @@ extension Strings.Speech {
         "cellos", "deranged", "good news", "hysterical",
         "pipe organ", "trinoids", "whisper", "zarvox", "albert", "eddy"
     ]
+    // Voice selection mirrors the wasm master (wasm is the source of truth for
+    // voice): Ralph leads since Rocko isn't exposed in Safari; Daniel is last.
     static let preferredVoiceNames = [
-        "rocko", "ralph", "fred", "reed", "grandpa", "junior",
-        "daniel"
+        "ralph", "rocko", "fred", "alex", "david", "mark",
+        "reed", "grandpa", "junior", "google us english", "daniel"
     ]
     static let caughtFallback   = "Ohh, yeah."
     static let fishFallback     = "Mmm, yeah."
