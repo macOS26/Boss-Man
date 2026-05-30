@@ -14,7 +14,7 @@ final class RoundState {
     var tpsReportsDelivered = 0
     var reportItems: Set<String> = []
     var currentReportScore = 0
-    private(set) var highScore = UserDefaults.standard.integer(forKey: RoundState.highScoreKey)
+    private(set) var highScore = Persistence.int(forKey: RoundState.highScoreKey)
     var practiceMode = false
 
     func bumpScore(by points: Int) {
@@ -22,7 +22,7 @@ final class RoundState {
         guard !practiceMode else { return }
         if score > highScore {
             highScore = score
-            UserDefaults.standard.set(highScore, forKey: Self.highScoreKey)
+            Persistence.set(highScore, forKey: Self.highScoreKey)
         }
     }
 
