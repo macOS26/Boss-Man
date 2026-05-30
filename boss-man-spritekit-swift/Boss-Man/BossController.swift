@@ -51,14 +51,6 @@ final class BossController {
     private let moveDuration: TimeInterval = 0.22
     private let detectionRange: CGFloat = 10
 
-    static let fleeBodyColor: NSColor = NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
-    static let fleeEyeColor:  NSColor = NSColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
-    // Frighten-mode skin AND tie use the same blue tint: R and B swapped
-    // from the base skin (0.96, 0.78, 0.62) so per-channel brightness is
-    // preserved. The tie just inherits the skin color so the figure reads
-    // as monochromatic blue from the chest up.
-    static let fleeSkinColor: NSColor = NSColor(calibratedRed: 0.62, green: 0.78, blue: 0.96, alpha: 1)
-    static let fleeTieColor:  NSColor = fleeSkinColor
     static let baseSkinColor: NSColor = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
     static var bossShoeGoldColor: NSColor { SpriteFactory.bossShoeGoldColor }
 
@@ -122,13 +114,13 @@ final class BossController {
         if goldDiscActive {
             entities[index].isInFleeMode = true
             let node = entities[index].node
-            node.setBodyColor(Self.fleeBodyColor)
-            node.setTieColor(Self.fleeTieColor)
+            node.setBodyColor(SpriteFactory.fleeBodyColor)
+            node.setTieColor(SpriteFactory.fleeTieColor)
             node.setTieOutline(color: nil)
             node.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
             node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            node.setEyeColor(Self.fleeEyeColor)
-            node.setSkinColor(Self.fleeSkinColor)
+            node.setEyeColor(SpriteFactory.fleeEyeColor)
+            node.setSkinColor(SpriteFactory.fleeSkinColor)
         }
         scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
@@ -286,13 +278,13 @@ final class BossController {
         for i in entities.indices {
             entities[i].captureCount = 0
             entities[i].isInFleeMode = active
-            entities[i].node.setBodyColor(active ? Self.fleeBodyColor : entities[i].baseColor)
-            entities[i].node.setTieColor(active ? Self.fleeTieColor : entities[i].tieColor)
+            entities[i].node.setBodyColor(active ? SpriteFactory.fleeBodyColor : entities[i].baseColor)
+            entities[i].node.setTieColor(active ? SpriteFactory.fleeTieColor : entities[i].tieColor)
             entities[i].node.setTieOutline(color: nil)
             entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            entities[i].node.setEyeColor(active ? Self.fleeEyeColor : .black)
-            entities[i].node.setSkinColor(active ? Self.fleeSkinColor : Self.baseSkinColor)
+            entities[i].node.setEyeColor(active ? SpriteFactory.fleeEyeColor : .black)
+            entities[i].node.setSkinColor(active ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
         }
         refreshTags(goldDiscActive: active)
         if !active { applyFleeThawTransition() }
@@ -482,13 +474,13 @@ final class BossController {
                     .fadeIn(withDuration: 0.2)
                 ])
             ]))
-            boss.node.setBodyColor(powerActive ? Self.fleeBodyColor : boss.baseColor)
-            boss.node.setTieColor(powerActive ? Self.fleeTieColor : boss.tieColor)
+            boss.node.setBodyColor(powerActive ? SpriteFactory.fleeBodyColor : boss.baseColor)
+            boss.node.setTieColor(powerActive ? SpriteFactory.fleeTieColor : boss.tieColor)
             boss.node.setTieOutline(color: nil)
             boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
             boss.node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            boss.node.setEyeColor(powerActive ? Self.fleeEyeColor : .black)
-            boss.node.setSkinColor(powerActive ? Self.fleeSkinColor : Self.baseSkinColor)
+            boss.node.setEyeColor(powerActive ? SpriteFactory.fleeEyeColor : .black)
+            boss.node.setSkinColor(powerActive ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
         }
         refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)

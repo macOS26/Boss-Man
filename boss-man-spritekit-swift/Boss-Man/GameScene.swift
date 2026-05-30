@@ -19,10 +19,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
         CGPoint(x: 2, y: 1),  CGPoint(x: 33, y: 1)
     ]
-    private let cubicleColors: [NSColor] = [
-        .systemBlue,   .systemTeal, .systemIndigo, .systemGreen,  .systemPink, .systemBrown,
-        .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray
-    ]
 
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
@@ -54,7 +50,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     // MARK: - Lifecycle
     override func didMove(to view: SKView) {
-        backgroundColor = NSColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
+        backgroundColor = SpriteFactory.mazeBackground
         anchorPoint = CGPoint(x: 0, y: 0)
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = contactRouter
@@ -313,7 +309,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private func buildLevel() {
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
         gridMap.setRows(currentLevelRows())
-        mazeBuilder.cubicleColor = cubicleColors[(state.level - 1) % cubicleColors.count]
+        mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
         state.dotCount = mazeBuilder.build(in: self)
         state.goldDiscCount = mazeBuilder.placedGoldDiscs
         hud.install(in: self)

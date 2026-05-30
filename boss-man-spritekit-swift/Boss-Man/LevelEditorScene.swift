@@ -142,10 +142,6 @@ class LevelEditorScene: SKScene {
         "\(paletteNamePrefix)\(char)"
     }
 
-    private static let cubicleColors: [NSColor] = [
-        .systemBlue,   .systemTeal, .systemIndigo, .systemGreen,  .systemPink, .systemBrown,
-        .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray
-    ]
     var uiContainer = SKNode()
     var levelLabel: SKLabelNode!
     var levelSubLabel: SKLabelNode!
@@ -422,7 +418,7 @@ class LevelEditorScene: SKScene {
 
     // MARK: - Real game-style rendering (matches MazeBuilder visuals)
     private var currentCubicleColor: NSColor {
-        Self.cubicleColors[currentLevelIndex % Self.cubicleColors.count]
+        SpriteFactory.cubicleColors[currentLevelIndex % SpriteFactory.cubicleColors.count]
     }
 
     private func floorColor(forParity parity: Int) -> NSColor {

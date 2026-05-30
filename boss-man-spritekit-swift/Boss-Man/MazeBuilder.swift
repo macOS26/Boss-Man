@@ -178,12 +178,10 @@ final class MazeBuilder {
                                       y: CGFloat(rowIndex) * tile,
                                       width: tile, height: tile)
                     let alternate = (rowIndex + columnIndex).isMultiple(of: 2)
-                    let floorColor: NSColor = alternate
-                        ? NSColor(calibratedRed: 0.11, green: 0.12, blue: 0.13, alpha: 1)
-                        : NSColor(calibratedRed: 0.09, green: 0.10, blue: 0.11, alpha: 1)
+                    let floorColor = alternate ? SpriteFactory.floorTileA : SpriteFactory.floorTileB
                     floorColor.setFill()
                     NSBezierPath(rect: rect).fill()
-                    NSColor(calibratedWhite: 0.16, alpha: 1).setStroke()
+                    SpriteFactory.floorTileStroke.setStroke()
                     let edge = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
                     edge.lineWidth = 1
                     edge.stroke()
@@ -195,7 +193,7 @@ final class MazeBuilder {
                         let strokePath = NSBezierPath(rect: fillRect.insetBy(dx: 1, dy: 1))
                         strokePath.lineWidth = 2
                         strokePath.stroke()
-                        NSColor.systemGray.setFill()
+                        SpriteFactory.wallTrimColor.setFill()
                         let trimRect = CGRect(x: rect.minX + 5, y: rect.minY + tile / 2 + 6,
                                               width: tile - 10, height: 4)
                         NSBezierPath(rect: trimRect).fill()
