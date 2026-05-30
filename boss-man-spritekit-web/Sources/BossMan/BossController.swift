@@ -146,7 +146,6 @@ final class BossController {
         isImmobilized = true
         sprite.removeAllActions()
         let homePoint = mover.centre(of: homeGrid)
-        let returnFlee = isFrightened
         sprite.run(.sequence([
             .group([
                 .scale(to: 1.6, duration: 0.25),
@@ -164,11 +163,14 @@ final class BossController {
             .run { [weak self] in
                 guard let self else { return }
                 self.isImmobilized = false
-                // Re-apply flee colors if the gold-disc window is still
-                // active so the captured boss keeps reading as frightened.
-                if returnFlee {
+                // Re-apply the flee palette only if the gold-disc window is
+                // STILL active. If it ended during the capture animation, the
+                // thaw already cleared isFrightened + set base colors, so the
+                // boss respawns red instead of stuck as a ghost. (apple checks
+                // the live delegate.isGoldDiscMode the same way.)
+                if self.isFrightened {
                     self.setFrightened(false)        // clear cached state
-                    self.setFrightened(true)         // and re-apply palette
+                    self.setFrightened(true)         // and re-apply flee palette
                 }
             },
         ]))
