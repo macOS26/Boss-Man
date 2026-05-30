@@ -71,7 +71,7 @@ void TitleScreen::ensureLoaded() {
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
     // falloff (a cheap Gaussian-like blur). Panel is 320x400. Tuned light + wide to read
     // like the wasm/Xcode soft shadow (0.24 black, CIGaussianBlur 12.5 + framework softening).
-    const float feather = 24.f, baseAlpha = 36.f, radius = 12.f;
+    const float feather = 12.f, baseAlpha = 36.f, radius = 12.f;
     const float halfW = 162.f, halfH = 202.f;
     int texW = (int)(halfW * 2 + feather * 2);
     int texH = (int)(halfH * 2 + feather * 2);
@@ -182,7 +182,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
             box.setPosition(r.left, r.top);
             box.setFillColor(col);
             target.draw(box);
-            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f - 8.f, 1, 0.f, 255, true);
+            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f - 5.f, 1, 0.f, 255, true);
             return r;
         };
         playRect_   = button(W / 2.f - 104.f, sf::Color(0, 140, 46),  "(P)lay");
