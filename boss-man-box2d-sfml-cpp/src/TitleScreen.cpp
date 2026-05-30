@@ -71,7 +71,7 @@ void TitleScreen::ensureLoaded() {
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
     // falloff (a cheap Gaussian-like blur). Panel is 320x400. Tuned light + wide to read
     // like the wasm/Xcode soft shadow (0.24 black, CIGaussianBlur 12.5 + framework softening).
-    const float feather = 10.f, baseAlpha = 36.f, radius = 12.f;
+    const float feather = 15.f, baseAlpha = 36.f, radius = 12.f;
     const float halfW = 162.f, halfH = 202.f;
     int texW = (int)(halfW * 2 + feather * 2);
     int texH = (int)(halfH * 2 + feather * 2);
@@ -113,7 +113,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sf::Sprite sh(panelShadow_);
         auto ss = panelShadow_.getSize();
         sh.setOrigin(ss.x / 2.f, ss.y / 2.f);
-        sh.setPosition(panelCX, panelCY + 5.f);
+        sh.setPosition(panelCX, panelCY);
         target.draw(sh);
     }
 
