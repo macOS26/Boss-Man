@@ -44,11 +44,13 @@ final class HelloScene: SKScene {
 nonisolated(unsafe) var view: SKView?
 
 @_cdecl("boot")
-public func boot() {
-    let v = SKView()
-    v.presentScene(HelloScene(size: HelloScene.logical))
-    view = v
+public nonisolated func boot() {
+    MainActor.assumeIsolated {
+        let v = SKView()
+        v.presentScene(HelloScene(size: HelloScene.logical))
+        view = v
+    }
 }
 
 @_cdecl("frame")
-public func frame(_ ms: Double) { view?.tick(ms) }
+public nonisolated func frame(_ ms: Double) { MainActor.assumeIsolated { view?.tick(ms) } }

@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.2
 import PackageDescription
 
 // SuperBox64 SpriteKit — a Swift WebAssembly reimplementation of Apple's
@@ -55,24 +55,25 @@ let package = Package(
             ]
         ),
         .target(name: "KitABI"),
-        .target(name: "SpriteKit",      dependencies: ["KitABI"]),
+        .target(name: "SpriteKit",      dependencies: ["KitABI"],
+                swiftSettings: [.defaultIsolation(MainActor.self)]),
         .target(name: "AppKit",         dependencies: ["SpriteKit"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
         .target(name: "UIKit",          dependencies: ["SpriteKit", "AppKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
         .target(name: "Cocoa",          dependencies: ["AppKit"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
         .target(name: "GameKit",        dependencies: ["SpriteKit", "UIKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
         .target(name: "GameplayKit",    dependencies: ["SpriteKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
         .target(name: "GameController", dependencies: ["SpriteKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
         .target(name: "AVFoundation",   dependencies: ["SpriteKit", "KitABI"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
-        .target(name: "AudioToolbox",   swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
+        .target(name: "AudioToolbox",   swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
         .target(name: "Combine",        swiftSettings: [.swiftLanguageMode(.v6)]),
         .target(name: "SwiftUI",        dependencies: ["Combine", "SpriteKit"],
-                swiftSettings: [.swiftLanguageMode(.v6)]),
+                swiftSettings: [.swiftLanguageMode(.v6), .defaultIsolation(MainActor.self)]),
     ]
 )

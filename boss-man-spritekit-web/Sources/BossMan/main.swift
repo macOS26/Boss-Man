@@ -19,22 +19,24 @@ import KitABI
 nonisolated(unsafe) var view: SKView? = nil
 
 @_cdecl("boot")
-public func boot() {
-    let size = CGSize(width: 1184, height: 666)
-    let v = SKView()
-    v.showsFPS = false
-    v.shouldCullNonVisibleNodes = true
-    v.preferredFramesPerSecond = 60
-    v.ignoresSiblingOrder = true
-    v.allowsTransparency = true
+public nonisolated func boot() {
+    MainActor.assumeIsolated {
+        let size = CGSize(width: 1184, height: 666)
+        let v = SKView()
+        v.showsFPS = false
+        v.shouldCullNonVisibleNodes = true
+        v.preferredFramesPerSecond = 60
+        v.ignoresSiblingOrder = true
+        v.allowsTransparency = true
 
-    let title = TitleScene(size: size)
-    title.scaleMode = .aspectFit
-    v.presentScene(title)
-    view = v
+        let title = TitleScene(size: size)
+        title.scaleMode = .aspectFit
+        v.presentScene(title)
+        view = v
+    }
 }
 
 @_cdecl("frame")
-public func frame(_ dtMs: Double) {
-    view?.tick(dtMs)
+public nonisolated func frame(_ dtMs: Double) {
+    MainActor.assumeIsolated { view?.tick(dtMs) }
 }

@@ -18,7 +18,7 @@ public typealias UIImage = NSImage
 
 // UIScreen.main.bounds backed by SKView size when available.
 public final class UIScreen {
-    nonisolated(unsafe) public static let main = UIScreen()
+    public static let main = UIScreen()
     public var bounds: CGRect { CGRect(x: 0, y: 0, width: CGFloat(win_width()), height: CGFloat(win_height())) }
     public var nativeBounds: CGRect { bounds }
     public var scale: CGFloat = 1
@@ -32,7 +32,7 @@ public protocol UIApplicationDelegate: AnyObject {}
 public protocol UISceneDelegate: AnyObject {}
 
 public final class UIApplication {
-    nonisolated(unsafe) public static let shared = UIApplication()
+    public static let shared = UIApplication()
     public weak var delegate: UIApplicationDelegate?
     public var isIdleTimerDisabled = false
     public func open(_ url: SKAudioURL, options: [String: Any] = [:], completionHandler: ((Bool) -> Void)? = nil) {
@@ -220,7 +220,7 @@ public struct Selector { public let raw: String; public init(_ raw: String) { se
 // UIDevice — basic identity surface.
 // =============================================================================
 public final class UIDevice {
-    nonisolated(unsafe) public static let current = UIDevice()
+    public static let current = UIDevice()
     public var name: String = "web"
     public var systemName: String = "Web"
     public var systemVersion: String = "1.0"

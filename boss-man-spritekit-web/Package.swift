@@ -28,6 +28,13 @@ let package = Package(
                 .product(name: "GameController", package: "spritekit"),
                 .product(name: "AVFoundation",   package: "spritekit"),
             ],
+            swiftSettings: [
+                // Match Apple's implicit model: the game is @MainActor by
+                // default, so apple source (which is @MainActor) compiles
+                // unchanged. The @_cdecl boot/frame entry points opt out with
+                // `nonisolated` and bridge in via MainActor.assumeIsolated.
+                .defaultIsolation(MainActor.self),
+            ],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xclang-linker", "-mexec-model=reactor",

@@ -19,7 +19,7 @@ public protocol GKRandom {
 public class GKRandomSource: GKRandom {
     public init() {}
     public init(seed: UInt64) {}
-    nonisolated(unsafe) public static let sharedRandom = GKRandomSource()
+    public static let sharedRandom = GKRandomSource()
     public func nextInt() -> Int { Int(sb64_rand()) }
     public func nextInt(upperBound u: Int) -> Int { u <= 0 ? 0 : abs(nextInt()) % u }
     public func nextUniform() -> Float { Float(nextInt(upperBound: 0x10000)) / 65535.0 }

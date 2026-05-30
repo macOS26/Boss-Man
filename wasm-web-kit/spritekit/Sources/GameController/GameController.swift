@@ -117,6 +117,7 @@ public class GCControllerElement {
     public var isAnalog: Bool = true
     public var collection: GCControllerElement?
     public var aliases: Set<String> = []
+    public init() {}
 }
 
 public final class GCControllerButtonInput: GCControllerElement {

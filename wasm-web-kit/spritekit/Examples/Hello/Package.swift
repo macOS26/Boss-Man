@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.2
 import PackageDescription
 
 // Smallest possible SuperBox64 SpriteKit consumer. Builds to wasm32-wasip1
@@ -15,6 +15,7 @@ let package = Package(
                 .product(name: "SpriteKit",   package: "spritekit"),
                 .product(name: "Box2DBridge", package: "spritekit"),
             ],
+            swiftSettings: [.defaultIsolation(MainActor.self)],
             linkerSettings: [.unsafeFlags([
                 "-Xclang-linker", "-mexec-model=reactor",
                 "-Xlinker", "--export=boot",
