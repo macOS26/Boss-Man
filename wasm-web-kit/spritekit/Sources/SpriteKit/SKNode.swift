@@ -187,9 +187,25 @@ open class SKNode {
     final func stepActions(_ dt: CGFloat) {
         if isPaused { return }                       // halt this subtree
         let scaled = dt * speed                      // SKNode.speed scales time per subtree
+        // Step every action ONCE this frame, including actions started mid-frame
+        // by a .run block (e.g. WorkerController's chained tile move via
+        // run(_:withKey:), which removeAll's the finishing action and appends a
+        // new one). Stepping the new action the same frame avoids a 1-frame
+        // stall per tile (which would slow a self-chaining mover to boss speed).
+        // `stepped` bounds each action to one step/frame; finished actions are
+        // removed BY IDENTITY since the array can mutate during a step.
+        var stepped = Set<ObjectIdentifier>()
         var i = 0
         while i < runningActions.count {
-            if runningActions[i].step(scaled, node: self) { runningActions.remove(at: i) } else { i += 1 }
+            let ra = runningActions[i]
+            guard stepped.insert(ObjectIdentifier(ra)).inserted else { i += 1; continue }
+            if ra.step(scaled, node: self) {
+                if let idx = runningActions.firstIndex(where: { $0 === ra }) {
+                    runningActions.remove(at: idx)
+                }
+            } else {
+                i += 1
+            }
         }
         tickSelf(TimeInterval(scaled))
         if let cs = constraints {                    // post-action constraint pass
