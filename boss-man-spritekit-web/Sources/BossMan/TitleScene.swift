@@ -229,16 +229,14 @@ final class TitleScene: SKScene {
     // render a stylized vector stand-in so the title screen never goes blank.
     private func makeStapler() -> SKNode {
         let maxSize = CGSize(width: 380, height: 290)
-        let tex = SKTexture(imageNamed: "red-stapler")
-        if tex.isLoaded, tex.size.width > 0, tex.size.height > 0 {
-            // Use the texture's actual natural dimensions so the sprite keeps
-            // its aspect ratio — no more guessing 600x440 and stretching the
-            // image when the source is something else (the asset is 1002x1002).
-            let scale = min(maxSize.width / tex.size.width, maxSize.height / tex.size.height)
-            let fitted = CGSize(width: tex.size.width * scale, height: tex.size.height * scale)
-            return SKSpriteNode(texture: tex, size: fitted)
-        }
-        return makeFallbackStapler()
+        // textureNamed (kit) returns nil until the asset is registered, so we
+        // fall back to the vector stand-in and never render blank.
+        guard let tex = textureNamed("red-stapler") else { return makeFallbackStapler() }
+        // Use the texture's actual natural dimensions so the sprite keeps its
+        // aspect ratio instead of stretching to a guessed size.
+        let scale = min(maxSize.width / tex.size.width, maxSize.height / tex.size.height)
+        let fitted = CGSize(width: tex.size.width * scale, height: tex.size.height * scale)
+        return SKSpriteNode(texture: tex, size: fitted)
     }
 
     private func makeFallbackStapler() -> SKNode {
