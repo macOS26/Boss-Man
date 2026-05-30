@@ -19,6 +19,10 @@ final class TitleScene: SKScene {
     private var escWindowLabel: SKLabelNode?
 
     override func didMove(to view: SKView) {
+        // The title is static, so render it at 1 fps: no animation, and it avoids
+        // re-rasterizing the leaderboard blur every frame. Game/editor scenes
+        // restore 60 fps on the way out (startGame / startEditor).
+        view.preferredFramesPerSecond = 1
         backgroundColor = SKColor(calibratedRed: 1.0, green: 0.93, blue: 0.34, alpha: 1)
         anchorPoint = .zero
 
@@ -140,12 +144,14 @@ final class TitleScene: SKScene {
 
     // MARK: - Actions (shared)
     private func startGame() {
+        view?.preferredFramesPerSecond = 60
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit
         view?.presentScene(game, transition: .fade(withDuration: 0.5))
     }
 
     private func startEditor() {
+        view?.preferredFramesPerSecond = 60
         let editor = LevelEditorScene(size: size)
         editor.scaleMode = .aspectFit
         view?.presentScene(editor, transition: .fade(withDuration: 0.3))

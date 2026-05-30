@@ -28,6 +28,10 @@ func _kitDrainAudioCompletions() {
 public final class SKView {
     public private(set) var scene: SKScene?
     private var elapsed: TimeInterval = 0
+    // Wall-clock accrued toward the next render. Seeded large so the first tick
+    // after presentScene always draws; reset on each render. Lets the title
+    // screen idle at 1 fps (preferredFramesPerSecond) without skipping startup.
+    private var renderAccum: Double = 1e9
 
     // No-op rendering knobs (so SpriteKit games drop in unchanged). The kit always
     // renders top-down via Canvas2D and doesn't expose these debug overlays.
@@ -54,6 +58,7 @@ public final class SKView {
         // the Swift object, so the next scene's music stacks on top of it.
         if let old = self.scene, old !== scene { old.willMove(from: self); old.view = nil }
         self.scene = scene
+        renderAccum = 1e9   // draw the incoming scene on the very next tick
         if let s = scene { s.view = self; s.didMove(to: self) }
     }
 
@@ -103,18 +108,30 @@ public final class SKView {
         elapsed += dt
         SKSpriteNode._setKitClock(Float(elapsed))    // u_time for SKShader binds
         _kitDrainAudioCompletions()
-        pollEvents(s)
+        let hadInput = pollEvents(s)
         s.stepActions(dt)
         s.update(elapsed)
         s.physicsWorld.step(dt, scene: s)
         s.didSimulatePhysics()
         s.didFinishUpdate()
-        render(s)
+        // Throttle rendering to preferredFramesPerSecond. The title screen sets
+        // this to 1: nothing on it animates, so re-rasterizing it (incl. the
+        // leaderboard blur) 60x/s is wasted work + canvas churn. Input forces an
+        // immediate redraw so clicks/toggles still feel instant.
+        let interval = 1.0 / Double(max(1, preferredFramesPerSecond))
+        renderAccum += dt
+        if hadInput || renderAccum >= interval {
+            renderAccum = 0
+            render(s)
+        }
     }
 
-    private func pollEvents(_ s: SKScene) {
+    @discardableResult
+    private func pollEvents(_ s: SKScene) -> Bool {
         var type: Int32 = 0, a: Int32 = 0, b: Int32 = 0, c: Int32 = 0, d: Int32 = 0
+        var handled = false
         while evt_poll(&type, &a, &b, &c, &d) != 0 {
+            handled = true
             switch type {
             case 5:  s.keyDown(Int(a))
             case 6:  s.keyUp(Int(a))
@@ -124,6 +141,7 @@ public final class SKView {
             default: break
             }
         }
+        return handled
     }
 
     private func scenePoint(_ x: Int32, _ y: Int32, _ s: SKScene) -> CGPoint {
