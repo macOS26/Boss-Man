@@ -52,6 +52,21 @@ final class MazeBuilder {
 
     @discardableResult
     func build(in scene: SKNode, view: SKView? = nil) -> Int {
+        // Reset every map-derived collection so a level rebuild starts clean
+        // instead of accumulating the previous level's spawns / pickups / stale
+        // node handles (bossman-apple resets these at the top of build()).
+        workerSpawn = nil
+        bossSpawns = []
+        goldDiscPositions = []
+        waterGunPositions = []
+        waterPelletPositions = []
+        dotNodes = [:]
+        goldNodes = [:]
+        waterPelletNodes = [:]
+        waterGunNodes = [:]
+        machineNodes = [:]
+        brownBoxNodes = [:]
+
         // Backdrop — solid dark fill behind the maze. The per-tile floor
         // checker sits at z=-9; walls and pickups go on top.
         let bg = SKShapeNode(rect: CGRect(x: 0, y: 0,

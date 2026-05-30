@@ -174,7 +174,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // bossman-apple: startBackgroundMusic(theme:) on level load.
         // Every 12th level switches to the MIB ("Sunglasses At Night") theme.
         sound.startMusic(musicTheme(for: levelIndex + 1))
-        sound.playLevelStart()
+        // Match Xcode: bosses spawning play the teleport sound; the initial
+        // level start has no jingle/voice (apple only plays playLevelStart on
+        // level advance, not on the first level / new game).
+        sound.playTeleport()
         installFireButton()
         if practiceMode { hud.flash(Strings.Message.practiceMode, duration: 3) }
     }
@@ -609,6 +612,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // same contact frame.
         catcher?.relocateAfterCatch()
         for b in bosses { b.respawnAfterPeteCaught() }
+        sound.playTeleport()
         // Apple also ends a gold-disc window early on a catch and
         // bails out of any in-progress capture streak.
         if frightenSecondsLeft > 0 {
@@ -763,6 +767,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             boss.install(in: self)
             bosses.append(boss)
         }
+        sound.playTeleport()
 
         refreshHUD()
     }
