@@ -646,7 +646,10 @@ class Runtime {
         if (this.audioCtx && this.audioCtx.state === 'running') this.audioCtx.suspend();
       },
       snd_resume_all: () => {
-        if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        // suspended OR Safari 'interrupted'; not 'closed' (would throw).
+        if (this.audioCtx && this.audioCtx.state !== 'running' && this.audioCtx.state !== 'closed') {
+          this.audioCtx.resume();
+        }
       },
 
       // ---- input ----
@@ -1639,7 +1642,13 @@ void main() {
         }
       }
     }
-    if (this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    // Resume on ANY non-running state: 'suspended' (autoplay gate) and Safari's
+    // 'interrupted' (window backgrounded/minimized) both need a resume; skip
+    // 'closed' (resume would throw). Safari's lower context cap (~4) makes the
+    // close-on-unload above mandatory.
+    if (this.audioCtx && this.audioCtx.state !== 'running' && this.audioCtx.state !== 'closed') {
+      this.audioCtx.resume();
+    }
     return this.audioCtx;
   }
 
