@@ -280,9 +280,9 @@ enum Strings {
     }
 }
 
-#if os(macOS)
-// macOS-only NSSpeechSynthesizer voice-picker infra; the shared spoken-line
-// pools live in Strings+Shared. Web has no synthesizer voice selection.
+// Voice-picker data. apple ranks these in-process (NSSpeechSynthesizer);
+// wasm forwards them to the runtime as CSVs (tts_set_*). The shared spoken-line
+// pools live in Strings+Shared.
 extension Strings.Speech {
     static let fallback = "Yeah."
     static let usEnglish = "en-US"
@@ -298,9 +298,16 @@ extension Strings.Speech {
         "ralph", "rocko", "fred", "alex", "david", "mark",
         "reed", "grandpa", "junior", "google us english", "daniel"
     ]
+    // Ranked last on apple; sent to the wasm runtime so it can deprioritize them.
+    static let femaleVoiceNames = [
+        "samantha", "karen", "tessa", "moira", "ava", "susan", "victoria",
+        "allison", "veena", "fiona", "kate", "kathy", "sandy", "whisper",
+        "paulina", "monica", "marie", "zira", "hazel", "heather", "jenny",
+        "aria", "catherine", "clara", "linda", "sara",
+        "google uk english female", "google us english female"
+    ]
     static let caughtFallback   = "Ohh, yeah."
     static let fishFallback     = "Mmm, yeah."
     static let tpsFallback      = "Sounds great."
     static let gameOverFallback = "yeah right!"
 }
-#endif

@@ -1,5 +1,27 @@
 import KitABI
 
+// Per-frame completion callbacks for one-shot audio. Web Audio finishes a
+// buffer source asynchronously with no callback into wasm, so the AVFoundation
+// shim registers a snd_play voice + handler here and tick() polls snd_status
+// each frame, firing the handler once the voice goes idle. This lets
+// AVAudioPlayerNode.scheduleBuffer's completionHandler behave like the apple
+// engine (e.g. BossMan's teleport one-shot guard).
+nonisolated(unsafe) var _kitAudioCompletions: [(voice: Int32, handler: () -> Void)] = []
+
+public func _kitRegisterAudioCompletion(_ voice: Int32, _ handler: @escaping () -> Void) {
+    _kitAudioCompletions.append((voice, handler))
+}
+
+func _kitDrainAudioCompletions() {
+    guard !_kitAudioCompletions.isEmpty else { return }
+    var pending: [(voice: Int32, handler: () -> Void)] = []
+    for entry in _kitAudioCompletions {
+        if snd_status(entry.voice) == 0 { entry.handler() }
+        else { pending.append(entry) }
+    }
+    _kitAudioCompletions = pending
+}
+
 // Drives a presented SKScene from the kit's frame(dtMs): advances actions,
 // calls scene.update, steps physics, renders the tree (flipping y-up to the
 // Canvas y-down surface).
@@ -80,6 +102,7 @@ public final class SKView {
         let dt = min(dtMs / 1000.0, 1.0 / 60.0)
         elapsed += dt
         SKSpriteNode._setKitClock(Float(elapsed))    // u_time for SKShader binds
+        _kitDrainAudioCompletions()
         pollEvents(s)
         s.stepActions(dt)
         s.update(elapsed)

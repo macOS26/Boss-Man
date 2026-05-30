@@ -122,7 +122,7 @@ public final class SKSpriteNode: SKNode {
     // close enough for the typical "ripple by time" patterns. KitClock is
     // refreshed by SKView each frame.
     nonisolated(unsafe) static var _kitTime: Float = 0
-    static func kitClock() -> Float { _kitTime }
+    public static func kitClock() -> Float { _kitTime }
     public static func _setKitClock(_ t: Float) { _kitTime = t }
 
     // Collect up to 8 lights matching `mask` and flatten them into a buffer of

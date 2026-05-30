@@ -175,7 +175,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         hud.updateLevelEmojis(unlockedTravelers())
         // bossman-apple: startBackgroundMusic(theme:) on level load.
         // Every 12th level switches to the MIB ("Sunglasses At Night") theme.
-        sound.startMusic(musicTheme(for: levelIndex + 1))
+        sound.startBackgroundMusic(theme: musicTheme(for: levelIndex + 1))
         installFireButton()
         if practiceMode { hud.showMessage(Strings.Message.practiceMode, duration: 3) }
     }
@@ -218,7 +218,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
 
     // bossman-apple SoundManager: every 12th level uses the alternate
     // MIB theme. level here is 1-indexed (the displayed level number).
-    private func musicTheme(for level: Int) -> SoundManager.MusicTheme {
+    private func musicTheme(for level: Int) -> MusicTheme {
         level % 12 == 0 ? .mib : .normal
     }
 
@@ -369,7 +369,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
 
     override func update(_ currentTime: TimeInterval) {
         guard worker != nil else { return }
-        sound.clearTeleportGate()
         if gameOver || isUserPaused { return }
         let dt: TimeInterval = 1.0 / 60.0
 
@@ -736,7 +735,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private func advanceLevel() {
         levelIndex = (levelIndex + 1) % max(1, Levels.officeMaps.count)
         hud.showMessage(Strings.Message.levelLoaded(levelIndex + 1), duration: 3)
-        sound.startMusic(musicTheme(for: levelIndex + 1))
+        sound.startBackgroundMusic(theme: musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
 
         for boss in bosses { boss.sprite.removeFromParent() }

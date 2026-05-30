@@ -1,5 +1,8 @@
 import AVFoundation
 import Foundation
+#if os(WASI)
+import KitABI
+#endif
 
 enum MusicTheme {
     case normal
@@ -7,7 +10,7 @@ enum MusicTheme {
 }
 
 @MainActor
-final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
+final class SoundManager {
     private let engine = AVAudioEngine()
     private let effectsPlayer = AVAudioPlayerNode()
     private let musicPlayer = AVAudioPlayerNode()
@@ -16,8 +19,23 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private var mibGoldDiscBeatBuffer: AVAudioPCMBuffer?
     private var bufferCache: [String: AVAudioPCMBuffer] = [:]
     private let speech = AVSpeechSynthesizer()
+    #if os(macOS)
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
+    #else
+    // The runtime picks the voice on web (see applyWebVoicePreferences); no
+    // in-process selection, so we skip pickBossVoice entirely. That matters
+    // because its `.lowercased()` calls would link ICU's ~30MB Unicode tables.
+    private let voice: AVSpeechSynthesisVoice? = nil
+    #endif
+    #if os(macOS)
+    // Speech ducking rides AVSpeechSynthesizer's @objc delegate, which requires
+    // an NSObject. Keeping that on a small helper (not on SoundManager itself)
+    // keeps SoundManager free of NSObject, so the wasm build doesn't pull all of
+    // Foundation in and balloon the binary.
+    private let speechDuck = SpeechDuckDelegate()
+    #endif
 
+    #if os(macOS)
     // Voice priority. Gender is NOT a filter — female voices are ranked last, not
     // excluded. We walk Strings.Speech.preferredVoiceNames in order (list order =
     // priority), preferring en-US over other English variants. The robotic /
@@ -54,6 +72,7 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
             ?? pool.first(where: { $0.quality == .enhanced })
             ?? pool.first
     }
+    #endif
 
     private var bossCaptureLines: [String] { Strings.Speech.bossCaptureLines }
     private var caughtLines:      [String] { Strings.Speech.caughtLines }
@@ -94,9 +113,8 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
     private let normalMusicVolume: Float = 1.0
     private let duckedMusicVolume: Float = 0.25   // match the wasm duck factor (0.25)
 
-    override init() {
+    init() {
         format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
-        super.init()
         engine.attach(effectsPlayer)
         engine.attach(musicPlayer)
         engine.attach(bassPlayer)
@@ -107,17 +125,40 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         engine.mainMixerNode.outputVolume = 0.55
         effectsPlayer.volume = normalEffectsVolume
         musicPlayer.volume = normalMusicVolume
-        speech.delegate = self
+        #if os(macOS)
+        speechDuck.owner = self
+        speech.delegate = speechDuck
+        #endif
         let outputAU = engine.outputNode.auAudioUnit
         outputAU.maximumFramesToRender = max(outputAU.maximumFramesToRender, 4096)
         do {
             try engine.start()
         } catch {
         }
+        #if os(WASI)
+        SoundManager.applyWebVoicePreferences()
+        #endif
     }
 
+    #if os(WASI)
+    // apple ranks voices in pickBossVoice; on web the runtime owns selection, so
+    // hand it the same name lists as CSVs (priority, robotic-excluded, female-last).
+    private static func applyWebVoicePreferences() {
+        sendCSV(Strings.Speech.preferredVoiceNames.joined(separator: ","), tts_set_preferred_voices)
+        sendCSV(Strings.Speech.roboticVoiceNames.joined(separator: ","),   tts_set_robotic_voices)
+        sendCSV(Strings.Speech.femaleVoiceNames.joined(separator: ","),    tts_set_female_voices)
+    }
+    private static func sendCSV(_ s: String, _ f: (UnsafePointer<CChar>?, Int32) -> Void) {
+        let bytes = Array(s.utf8)
+        bytes.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            base.withMemoryRebound(to: CChar.self, capacity: buf.count) { f($0, Int32(buf.count)) }
+        }
+    }
+    #endif
+
     // MARK: - Speech ducking
-    private func setDucked(_ ducked: Bool) {
+    fileprivate func setDucked(_ ducked: Bool) {
         effectsPlayer.volume = ducked ? duckedEffectsVolume : normalEffectsVolume
         let base = ducked ? duckedMusicVolume : normalMusicVolume
         musicPlayer.volume = base * themeMusicMultiplier(currentMusicTheme)
@@ -128,18 +169,6 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         case .normal: return 1.0
         case .mib:    return 0.625
         }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.setDucked(true) }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.setDucked(false) }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.setDucked(false) }
     }
 
     // MARK: - Public events
@@ -340,6 +369,13 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         musicPlayer.stop()
     }
 
+    func stopAllAudio() {
+        stopBackgroundMusic()
+        stopGoldDiscBass()
+        effectsPlayer.stop()
+        speech.stopSpeaking(at: .immediate)
+    }
+
     func pauseAudio() {
         if musicPlayer.isPlaying { musicPlayer.pause() }
         if effectsPlayer.isPlaying { effectsPlayer.pause() }
@@ -463,7 +499,11 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         teleportPlaying = true
         let buffer = cached(Strings.SoundCache.teleport) { self.buildTeleport() }
         effectsPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
+            #if os(WASI)
+            self?.teleportPlaying = false
+            #else
             DispatchQueue.main.async { self?.teleportPlaying = false }
+            #endif
         }
         if !effectsPlayer.isPlaying { effectsPlayer.play() }
     }
@@ -815,3 +855,21 @@ final class SoundManager: NSObject, AVSpeechSynthesizerDelegate {
         speech.speak(utterance)
     }
 }
+
+#if os(macOS)
+// NSObject conformer for AVSpeechSynthesizer's @objc delegate, kept off
+// SoundManager so the wasm build stays NSObject-free. Forwards speech
+// start/stop to the owner's ducking on the main actor.
+private final class SpeechDuckDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    weak var owner: SoundManager?
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        Task { @MainActor in owner?.setDucked(true) }
+    }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in owner?.setDucked(false) }
+    }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in owner?.setDucked(false) }
+    }
+}
+#endif

@@ -2,16 +2,21 @@ import SpriteKit
 import KitABI
 
 // =============================================================================
-// AVFoundation shim — covers the two surfaces game code hits in practice:
-//   1. AVAudioPlayer (FrogMan, AsteroidZ): wraps snd_play with volume/loops.
-//   2. AVSpeechSynthesizer (FidgetX, Space-Bar): wraps the kit's tts_speak ABI,
-//      backed by window.speechSynthesis in runtime.js.
+// AVFoundation shim — presents the AVFoundation surface that game code uses,
+// backed by the kit's audio ABI (snd_*/tts_* in runtime.js). Nothing here owns
+// an audio backend; it forwards to the runtime's Web Audio + Web Speech graph.
 //
-// AVAudioEngine + its node graph (FrogMan) is too large for a useful stub
-// without dragging the actual mixer in; we re-export a flat node list whose
-// methods no-op so games compile, and recommend they migrate FX hits to the
-// simpler AVAudioPlayer path on web.
+// Two playback surfaces are covered:
+//   1. AVAudioPlayer (FrogMan, AsteroidZ): file-backed, wraps snd_play.
+//   2. AVAudioEngine + AVAudioPlayerNode (BossMan): synthesized PCM buffers
+//      played through snd_play so the runtime's TTS duck (which scales every
+//      snd voice) covers music and SFX automatically. AVSpeechSynthesizer maps
+//      to tts_*; the runtime picks the voice and ducks while it speaks.
 // =============================================================================
+
+// The mixer's outputVolume folds into every player voice's gain so the apple
+// mix (player.volume x mainMixer.outputVolume) reproduces on web.
+nonisolated(unsafe) var _avMasterVolume: Float = 1.0
 
 // ---- AVAudioPlayerDelegate ------------------------------------------------
 public protocol AVAudioPlayerDelegate: AnyObject {
@@ -87,8 +92,33 @@ public final class AVAudioSession {
 }
 
 // ---- AVSpeechSynthesizer --------------------------------------------------
+// The runtime owns voice selection (tts_set_preferred_voices) and ducking
+// (tts_speak's onstart/onend scale every snd voice). The delegate exists so
+// apple's delegate-driven ducking compiles; the shim never invokes it because
+// the runtime ducks on its own.
+public enum AVSpeechBoundary: Int, Sendable { case immediate = 0, word = 1 }
+
+public protocol AVSpeechSynthesizerDelegate: AnyObject {
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didPause utterance: AVSpeechUtterance)
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didContinue utterance: AVSpeechUtterance)
+}
+public extension AVSpeechSynthesizerDelegate {
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {}
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {}
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {}
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didPause utterance: AVSpeechUtterance) {}
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didContinue utterance: AVSpeechUtterance) {}
+}
+
+public let AVSpeechUtteranceDefaultSpeechRate: Float = 1.0
+public let AVSpeechUtteranceMinimumSpeechRate: Float = 0.0
+public let AVSpeechUtteranceMaximumSpeechRate: Float = 1.0
+
 public final class AVSpeechSynthesizer {
-    public var delegate: AnyObject?
+    public weak var delegate: AVSpeechSynthesizerDelegate?
     public var isSpeaking = false
     public var isPaused = false
 
@@ -100,8 +130,12 @@ public final class AVSpeechSynthesizer {
             _ = tts_speak(p, n, utterance.rate, utterance.pitchMultiplier, utterance.volume)
         }
     }
-    @discardableResult public func stopSpeaking(at boundary: Int = 0) -> Bool { tts_cancel(); isSpeaking = false; return true }
-    @discardableResult public func pauseSpeaking(at boundary: Int = 0) -> Bool { isPaused = true; return true }
+    @discardableResult public func stopSpeaking(at boundary: AVSpeechBoundary = .immediate) -> Bool {
+        tts_cancel(); isSpeaking = false; isPaused = false; return true
+    }
+    @discardableResult public func pauseSpeaking(at boundary: AVSpeechBoundary = .word) -> Bool {
+        tts_cancel(); isPaused = true; return true
+    }
     @discardableResult public func continueSpeaking() -> Bool { isPaused = false; return true }
 }
 
@@ -117,23 +151,32 @@ public final class AVSpeechUtterance {
     public init(attributedString: String) { self.speechString = attributedString }
 }
 
+public enum AVSpeechSynthesisVoiceGender: Int, Sendable { case unspecified = 0, male = 1, female = 2 }
+public enum AVSpeechSynthesisVoiceQuality: Int, Sendable { case `default` = 1, enhanced = 2, premium = 3 }
+
 public final class AVSpeechSynthesisVoice {
     public let language: String
     public let identifier: String
     public let name: String
+    public var gender: AVSpeechSynthesisVoiceGender = .unspecified
+    public var quality: AVSpeechSynthesisVoiceQuality = .default
     public init?(language: String) { self.language = language; self.identifier = language; self.name = language }
     public init(identifier: String) { self.identifier = identifier; self.language = identifier; self.name = identifier }
     public static func currentLanguageCode() -> String { "en-US" }
+    // The runtime enumerates and picks voices itself; Swift-side selection is a
+    // no-op on web, so the pool is empty and callers fall back to a default.
     public static func speechVoices() -> [AVSpeechSynthesisVoice] { [] }
 }
 
+// ---- QuartzCore -----------------------------------------------------------
+// Monotonic media clock, fed by the kit's per-frame elapsed time.
+public func CACurrentMediaTime() -> Double { Double(SKSpriteNode.kitClock()) }
+
 // =============================================================================
-// AVAudioEngine — compile-only no-op graph so games compile. Audio doesn't play
-// through this path on web; consumers should layer AVAudioPlayer on top.
+// AVAudioEngine — node graph that forwards structure through eng_* while actual
+// playback goes through snd_play (so ducking covers it). The graph wiring is
+// kept so engine.start()/connect() are harmless and the audio context resumes.
 // =============================================================================
-// AVAudioEngine — wraps the kit's Web Audio graph. Nodes (players + mixers)
-// live in the runtime; the Swift objects hold the integer node id and
-// forward attach/connect/play through the eng_* ABI.
 public final class AVAudioEngine {
     public let mainMixerNode: AVAudioMixerNode
     public let outputNode = AVAudioOutputNode()
@@ -141,14 +184,11 @@ public final class AVAudioEngine {
 
     public init() {
         self.mainMixerNode = AVAudioMixerNode()
-        // Wire main mixer → output (engine destination) by default.
         eng_connect(self.mainMixerNode.nodeId, -1)
     }
-    public func attach(_ node: AnyObject) {}     // creation already attaches in our model
+    public func attach(_ node: AnyObject) {}
     public func detach(_ node: AnyObject) {
-        if let n = node as? AVAudioNode, n.nodeId >= 0 {
-            eng_player_release(n.nodeId); n.nodeId = -1
-        }
+        if let n = node as? AVAudioNode, n.nodeId >= 0 { eng_player_release(n.nodeId); n.nodeId = -1 }
     }
     public func connect(_ src: AnyObject, to dst: AnyObject, format: Any?) {
         guard let s = src as? AVAudioNode, let d = dst as? AVAudioNode else { return }
@@ -168,44 +208,70 @@ public final class AVAudioEngine {
 public class AVAudioNode {
     var nodeId: Int32 = -1
     public init() {}
-    public var volume: Float = 1.0 {
-        didSet { if nodeId >= 0 { eng_node_set_volume(nodeId, volume) } }
-    }
-    public var pan: Float = 0 {
-        didSet { if nodeId >= 0 { eng_node_set_pan(nodeId, pan) } }
-    }
+    public var volume: Float = 1.0 { didSet { applyVolume() } }
+    public var pan: Float = 0 { didSet { applyPan() } }
+    func applyVolume() { if nodeId >= 0 { eng_node_set_volume(nodeId, volume) } }
+    func applyPan() { if nodeId >= 0 { eng_node_set_pan(nodeId, pan) } }
 }
+
 public final class AVAudioMixerNode: AVAudioNode {
     public override init() { super.init(); self.nodeId = eng_mixer_create() }
+    public var outputVolume: Float = 1.0 { didSet { _avMasterVolume = outputVolume } }
+}
+
+public final class AUAudioUnit {
+    public var maximumFramesToRender: AVAudioFrameCount = 4096
+    public init() {}
 }
 public final class AVAudioOutputNode: AVAudioNode {
-    // Represents the engine destination. nodeId = -1 is a sentinel that
-    // eng_connect interprets as audioCtx.destination.
-    public override init() { super.init(); self.nodeId = -1 }
+    public let auAudioUnit = AUAudioUnit()
+    public override init() { super.init(); self.nodeId = -1 }   // -1 => audioCtx.destination
 }
-public final class AVAudioPlayerNode: AVAudioNode {
-    public override init() { super.init(); self.nodeId = eng_player_create() }
-    public func play() { if nodeId >= 0 { eng_player_play(nodeId) } }
-    public func play(at when: Any?) { play() }
-    public func stop() { if nodeId >= 0 { eng_player_stop(nodeId) } }
-    public func pause() { stop() }
 
-    // Schedule an AudioBuffer for playback. We accept either a raw sound
-    // handle (Int32) or an AVAudioPCMBuffer that already holds one.
-    public func scheduleBuffer(_ buffer: AnyObject, completionHandler h: (() -> Void)? = nil) {
-        let snd = (buffer as? AVAudioPCMBuffer)?.soundHandle ?? 0
-        if snd > 0, nodeId >= 0 { _ = eng_player_schedule_buffer(nodeId, snd, 0) }
-        h?()
-    }
-    public func scheduleBuffer(_ buffer: AnyObject, at when: Any?, options: Int, completionHandler h: (() -> Void)? = nil) {
-        scheduleBuffer(buffer, completionHandler: h)
-    }
-    public func scheduleFile(_ file: AnyObject, at when: Any?, completionHandler h: (() -> Void)? = nil) {
-        if let f = file as? AVAudioFile, f.soundHandle > 0, nodeId >= 0 {
-            _ = eng_player_schedule_buffer(nodeId, f.soundHandle, 0)
+public struct AVAudioPlayerNodeBufferOptions: OptionSet, Sendable {
+    public let rawValue: UInt; public init(rawValue: UInt) { self.rawValue = rawValue }
+    public static let loops = AVAudioPlayerNodeBufferOptions(rawValue: 1 << 0)
+    public static let interrupts = AVAudioPlayerNodeBufferOptions(rawValue: 1 << 1)
+    public static let interruptsAtLoop = AVAudioPlayerNodeBufferOptions(rawValue: 1 << 2)
+}
+public final class AVAudioTime { public init() {} }
+
+public final class AVAudioPlayerNode: AVAudioNode {
+    private var currentVoice: Int32 = -1
+
+    public override init() { super.init(); self.nodeId = eng_player_create() }
+
+    public var isPlaying: Bool { currentVoice >= 0 && snd_status(currentVoice) == 1 }
+
+    // Synthesized PCM played through snd_play. A non-nil completion handler is
+    // registered for per-frame snd_status polling (drives BossMan's teleport
+    // one-shot guard, where AVAudioPlayerNode would fire it natively on apple).
+    public func scheduleBuffer(_ buffer: AVAudioPCMBuffer, at when: AVAudioTime? = nil,
+                               options: AVAudioPlayerNodeBufferOptions = [],
+                               completionHandler h: (() -> Void)? = nil) {
+        let handle = buffer.uploadedHandle()
+        guard handle > 0 else { h?(); return }
+        let v = snd_play(handle, effectiveVolume(), options.contains(.loops) ? 1 : 0)
+        currentVoice = v
+        if let h = h {
+            if v >= 0 { _kitRegisterAudioCompletion(v, h) } else { h() }
         }
-        h?()
     }
+    public func scheduleFile(_ file: AVAudioFile, at when: AVAudioTime? = nil, completionHandler h: (() -> Void)? = nil) {
+        if file.soundHandle > 0 {
+            currentVoice = snd_play(file.soundHandle, effectiveVolume(), 0)
+            if let h = h { if currentVoice >= 0 { _kitRegisterAudioCompletion(currentVoice, h) } else { h() } }
+        } else { h?() }
+    }
+
+    public func play() { snd_resume_all() }
+    public func play(at when: AVAudioTime?) { play() }
+    public func stop() { if currentVoice >= 0 { snd_stop(currentVoice); currentVoice = -1 } }
+    public func pause() { snd_pause_all() }
+
+    override func applyVolume() { if currentVoice >= 0 { snd_set_volume(currentVoice, effectiveVolume()) } }
+
+    private func effectiveVolume() -> Float { max(0, min(100, volume * _avMasterVolume * 100)) }
 }
 
 public final class AVAudioFile {
@@ -217,15 +283,58 @@ public final class AVAudioFile {
     public var processingFormat: AVAudioFormat = AVAudioFormat()
     public func read(into buffer: AVAudioPCMBuffer) throws { buffer.soundHandle = self.soundHandle }
 }
+
 public final class AVAudioFormat {
+    public var sampleRate: Double = 44100
+    public var channelCount: UInt32 = 1
     public init() {}
-    public init(standardFormatWithSampleRate r: Double, channels: UInt32) {}
+    public init?(standardFormatWithSampleRate r: Double, channels: UInt32) {
+        self.sampleRate = r; self.channelCount = channels
+    }
 }
-public final class AVAudioPCMBuffer {
-    public var frameCapacity: UInt32 = 0
-    public var frameLength: UInt32 = 0
-    public var soundHandle: Int32 = 0      // populated by AVAudioFile.read(into:)
-    public init() {}
-    public init(pcmFormat: AVAudioFormat, frameCapacity: UInt32) { self.frameCapacity = frameCapacity }
-}
+
 public typealias AVAudioFrameCount = UInt32
+
+// Mono float PCM buffer. Synthesis writes through floatChannelData[0]; the
+// first play uploads frameLength frames to the runtime (snd_create_pcm) and
+// caches the resulting reusable sound handle.
+public final class AVAudioPCMBuffer {
+    public var frameCapacity: AVAudioFrameCount = 0
+    public var frameLength: AVAudioFrameCount = 0
+    public var soundHandle: Int32 = 0      // file-backed (AVAudioFile.read(into:))
+
+    var sampleRate: Double = 44100
+    private var samples: UnsafeMutablePointer<Float>?
+    private var channelPtrs: UnsafeMutablePointer<UnsafeMutablePointer<Float>>?
+    private var uploaded: Int32 = 0
+
+    public init() {}
+    public init?(pcmFormat: AVAudioFormat, frameCapacity: AVAudioFrameCount) {
+        self.frameCapacity = frameCapacity
+        self.sampleRate = pcmFormat.sampleRate
+        let n = max(1, Int(frameCapacity))
+        let buf = UnsafeMutablePointer<Float>.allocate(capacity: n)
+        buf.initialize(repeating: 0, count: n)
+        self.samples = buf
+        let cp = UnsafeMutablePointer<UnsafeMutablePointer<Float>>.allocate(capacity: 1)
+        cp.initialize(to: buf)
+        self.channelPtrs = cp
+    }
+
+    public var floatChannelData: UnsafeMutablePointer<UnsafeMutablePointer<Float>>? { channelPtrs }
+
+    // snd_create_pcm copies the samples into a Web Audio buffer synchronously,
+    // so once uploaded the Swift-side backing is freed; the cached handle is
+    // reused on every replay (floatChannelData is only written pre-upload).
+    func uploadedHandle() -> Int32 {
+        if uploaded > 0 { return uploaded }
+        if soundHandle > 0 { uploaded = soundHandle; return uploaded }
+        guard let s = samples, frameLength > 0 else { return 0 }
+        uploaded = snd_create_pcm(s, Int32(frameLength), Int32(sampleRate))
+        if uploaded > 0 {
+            samples?.deallocate(); samples = nil
+            channelPtrs?.deallocate(); channelPtrs = nil
+        }
+        return uploaded
+    }
+}
