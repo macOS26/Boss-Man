@@ -151,7 +151,7 @@ final class TitleScene: SKScene {
     }
 
     private func startEditor() {
-        view?.preferredFramesPerSecond = 60
+        view?.preferredFramesPerSecond = 30
         let editor = LevelEditorScene(size: size)
         editor.scaleMode = .aspectFit
         view?.presentScene(editor, transition: .fade(withDuration: 0.3))
