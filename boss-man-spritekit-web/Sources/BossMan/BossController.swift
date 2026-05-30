@@ -27,6 +27,7 @@ final class BossController {
     private static let baseFrightenedStep: TimeInterval = 0.22   // square flee glide
     private static let moveInterval: TimeInterval       = 0.36   // total wall-clock per tile
     private static let moveDuration: TimeInterval       = 0.22   // square glide per tile
+    private static let speedScale: Double               = 1.15   // global: bosses 15% faster than base
     private let speed: Double
     private let squareTracks: Bool
 
@@ -51,7 +52,7 @@ final class BossController {
         self.sound = sound
         self.homeGrid = spawn
         let blueprint = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)]
-        self.speed = blueprint.speed
+        self.speed = blueprint.speed * Self.speedScale
         self.squareTracks = squareTracks
         self.ai = BossAI(homeGrid: spawn, detectionRange: 10,
                          personality: blueprint.personality,
@@ -71,7 +72,7 @@ final class BossController {
         _ = tileSize
         // Square glides for moveDuration then dwells; smooth glides the full
         // moveInterval. Both scale by the per-boss speed multiplier.
-        let chaseGlide = (squareTracks ? Self.moveDuration : Self.moveInterval) / blueprint.speed
+        let chaseGlide = (squareTracks ? Self.moveDuration : Self.moveInterval) / speed
         self.mover = TileMover<MoveDirection>(node: sprite, spawn: spawn, map: map,
                                step: chaseGlide,
                                containerOriginX: containerOriginX,
@@ -81,7 +82,7 @@ final class BossController {
         // 1.0) at its centre. That 0.22/0.14 split per 0.36 tile is what gives the
         // square-by-square step feel. "Smooth" (default) leaves no pause.
         if squareTracks {
-            self.mover.holdTime = (Self.moveInterval - Self.moveDuration) / blueprint.speed
+            self.mover.holdTime = (Self.moveInterval - Self.moveDuration) / speed
         }
     }
 
