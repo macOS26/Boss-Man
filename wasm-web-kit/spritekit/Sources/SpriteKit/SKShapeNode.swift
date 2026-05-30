@@ -32,9 +32,24 @@ public final class SKShapeNode: SKNode {
 
     public override init() { kind = .rect(0, 0, 0, 0); super.init() }
     public init(rectOf size: CGSize) { kind = .rect(-size.width/2, -size.height/2, size.width, size.height); super.init() }
-    public init(rectOf size: CGSize, cornerRadius: CGFloat) { kind = .rect(-size.width/2, -size.height/2, size.width, size.height); super.init() }
+    public init(rectOf size: CGSize, cornerRadius: CGFloat) {
+        let rect = CGRect(x: -size.width/2, y: -size.height/2, width: size.width, height: size.height)
+        if cornerRadius > 0 {
+            let p = CGMutablePath(); p.addRoundedRect(in: rect, cornerRadius: cornerRadius)
+            kind = .path; super.init(); self.path = p
+        } else {
+            kind = .rect(rect.minX, rect.minY, rect.width, rect.height); super.init()
+        }
+    }
     public init(rect: CGRect) { kind = .rect(rect.minX, rect.minY, rect.width, rect.height); super.init() }
-    public init(rect: CGRect, cornerRadius: CGFloat) { kind = .rect(rect.minX, rect.minY, rect.width, rect.height); super.init() }
+    public init(rect: CGRect, cornerRadius: CGFloat) {
+        if cornerRadius > 0 {
+            let p = CGMutablePath(); p.addRoundedRect(in: rect, cornerRadius: cornerRadius)
+            kind = .path; super.init(); self.path = p
+        } else {
+            kind = .rect(rect.minX, rect.minY, rect.width, rect.height); super.init()
+        }
+    }
     public init(circleOfRadius r: CGFloat) { kind = .circle(r); super.init() }
     public init(ellipseIn rect: CGRect) {
         let p = CGMutablePath(); p.addEllipse(in: rect)

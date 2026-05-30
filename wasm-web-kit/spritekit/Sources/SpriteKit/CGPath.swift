@@ -37,6 +37,30 @@ public final class CGMutablePath {
         }
         if current.isEmpty { current = pts } else { current.append(contentsOf: pts) }
     }
+    // Rounded rectangle as a single closed polygon: four quarter-arcs whose
+    // endpoints the fill/stroke poly connects with the straight edges. Coarse
+    // (few segments per corner) since the radii are small; clamps the radius to
+    // half the shorter side and falls back to a plain rect at radius 0.
+    public func addRoundedRect(in r: CGRect, cornerRadius cr: CGFloat) {
+        let rad = max(0, min(cr, min(r.width, r.height) / 2))
+        if rad <= 0 { addRect(r); return }
+        let seg = 4
+        var pts: [CGPoint] = []
+        func corner(_ cx: CGFloat, _ cy: CGFloat, from: Double, to: Double) {
+            for i in 0...seg {
+                let a = from + (to - from) * Double(i) / Double(seg)
+                let (co, si) = sincos(a)
+                pts.append(CGPoint(x: cx + CGFloat(co) * rad, y: cy + CGFloat(si) * rad))
+            }
+        }
+        let q = Double.pi / 2
+        corner(r.maxX - rad, r.minY + rad, from: q * 3, to: q * 4)   // bottom-right
+        corner(r.maxX - rad, r.maxY - rad, from: 0,     to: q)       // top-right
+        corner(r.minX + rad, r.maxY - rad, from: q,     to: q * 2)   // top-left
+        corner(r.minX + rad, r.minY + rad, from: q * 2, to: q * 3)   // bottom-left
+        flush()
+        subpaths.append(pts)
+    }
     public func closeSubpath() { flush() }
     func flush() { if !current.isEmpty { subpaths.append(current); current = [] } }
     var resolved: [[CGPoint]] { var s = subpaths; if !current.isEmpty { s.append(current) }; return s }
