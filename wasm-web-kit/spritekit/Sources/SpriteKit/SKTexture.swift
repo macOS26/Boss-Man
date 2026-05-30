@@ -2,6 +2,17 @@ import KitABI
 
 public enum SKTextureFilteringMode { case nearest, linear }
 
+// Nil-returning variant of SKTexture(imageNamed:). The base initializer always
+// hands back a texture (handle 0 / placeholder) so an SKSpriteNode can retry
+// once a preload finishes; call sites that instead want to FALL BACK when an
+// image isn't registered (e.g. draw an emoji label instead of a sprite) need
+// this. Reusable by any ported game, so the texture-presence workaround lives
+// here in the framework rather than each game.
+public func textureNamed(_ name: String) -> SKTexture? {
+    let t = SKTexture(imageNamed: name)
+    return (t.isLoaded && t.size.width > 0 && t.size.height > 0) ? t : nil
+}
+
 public class SKTexture {
     public internal(set) var handle: Int32
     // The asset name we were constructed with — if any. Stored so that when
