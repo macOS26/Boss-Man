@@ -1649,7 +1649,7 @@ void main() {
     // 'interrupted' (window backgrounded/minimized) both need a resume; skip
     // 'closed' (resume would throw). Safari's lower context cap (~4) makes the
     // close-on-unload above mandatory.
-    if (this.audioCtx && this.audioCtx.state !== 'running' && this.audioCtx.state !== 'closed') {
+    if (this.audioCtx && this.audioCtx.state !== 'running' && this.audioCtx.state !== 'closed' && !document.hidden) {
       this.audioCtx.resume();
     }
     return this.audioCtx;
@@ -1752,6 +1752,17 @@ void main() {
     addEventListener('keydown', onResume, { once: true });
     addEventListener('mousedown', onResume, { once: true });
     addEventListener('touchstart', onResume, { once: true });
+
+    // Go silent + idle while the tab is backgrounded: a tab that keeps a
+    // looping AudioContext audible in the background is far more likely to be
+    // reclaimed and auto-reloaded by Safari. Suspend on hide, resume on return.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (this.audioCtx && this.audioCtx.state === 'running') this.audioCtx.suspend();
+      } else {
+        this.ensureAudio();
+      }
+    });
 
     addEventListener('keydown', (e) => {
       const sf = DOM_TO_SF.get(e.code);
