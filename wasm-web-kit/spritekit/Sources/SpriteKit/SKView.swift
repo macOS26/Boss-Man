@@ -70,14 +70,14 @@ public final class SKView {
 
     public func tick(_ dtMs: Double) {
         guard let s = scene else { return }
-        // Clamp the frame delta. On the web a dropped frame, GC pause, or
-        // tab refocus hands us a large delta that makes SKAction-driven
-        // movement (e.g. Pete) lurch forward a step, while fixed-timestep game
-        // logic (the bosses) does not — so only the hero appears to skip. Real
-        // SpriteKit never sees this because the macOS display link delivers a
-        // steady vsync delta; cap it here so action + physics stepping stays
-        // smooth across a hitch instead of catching up in one jump.
-        let dt = min(dtMs / 1000.0, 1.0 / 30.0)
+        // Clamp the frame delta to one 60 Hz step. On the web a dropped frame,
+        // GC pause, or tab refocus hands us a large delta that makes
+        // SKAction-driven movement (Pete) lurch forward more than a step, while
+        // the fixed-1/60 game logic (the bosses) does not — so only the hero
+        // skips. Capping at 1/60 means Pete advances at most one frame per
+        // render: real-time on a steady 60 Hz+ display, degrading to slow-mo
+        // (never a jump) under sustained drops, in lockstep with the bosses.
+        let dt = min(dtMs / 1000.0, 1.0 / 60.0)
         elapsed += dt
         SKSpriteNode._setKitClock(Float(elapsed))    // u_time for SKShader binds
         pollEvents(s)
