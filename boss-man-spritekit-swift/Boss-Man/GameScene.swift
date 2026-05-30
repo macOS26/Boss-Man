@@ -212,7 +212,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             startWaterGunMode()
             refreshHUD()
         }
-        if let machine = mazeBuilder.collectMachine(at: grid) {
+        if let machine = mazeBuilder.collectMachine(at: grid, shouldCollect: {
+               requiredItems.contains($0) && !state.reportItems.contains($0)
+           }) {
             handleMachine(name: machine.name, at: machine.position)
         }
         if mazeBuilder.touchedBrownBox(at: grid) != nil {

@@ -490,9 +490,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // not by tile-arrival — the Box2D contact reports the instant
         // Pete's worker body overlaps the fish body, regardless of which
         // tile either one is animating between.
-        if let machine = mazeBuilder.collectMachine(at: grid),
-           requiredReports.contains(machine.name),
-           !collectedReports.contains(machine.name) {
+        if let machine = mazeBuilder.collectMachine(at: grid, shouldCollect: {
+               requiredReports.contains($0) && !collectedReports.contains($0)
+           }) {
             collectedReports.insert(machine.name)
             let idx = collectedReports.count - 1
             let pts = idx < reportItemPoints.count ? reportItemPoints[idx] : 100

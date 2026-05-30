@@ -22,15 +22,15 @@ final class MazeBuilder {
 
     // Sprite handles by grid coord, so the game can collect pellets/dots
     // later without re-walking the whole tree.
-    private var dotNodes: [CGPoint: SKNode] = [:]
-    private var goldNodes: [CGPoint: SKNode] = [:]
-    private var waterPelletNodes: [CGPoint: SKNode] = [:]
-    private var waterGunNodes: [CGPoint: SKNode] = [:]
+    private var dotNodes: [Int: SKNode] = [:]
+    private var goldNodes: [Int: SKNode] = [:]
+    private var waterPelletNodes: [Int: SKNode] = [:]
+    private var waterGunNodes: [Int: SKNode] = [:]
     // Machine name (Strings.Machine.*) + scene node, indexed by tile.
     // bossman-apple stores these in a [String: SKNode] via the node's
     // SKNode.name; we go by grid so handlePeteArrival can look up by tile.
-    private(set) var machineNodes: [CGPoint: (name: String, node: SKNode)] = [:]
-    private(set) var brownBoxNodes: [CGPoint: SKNode] = [:]
+    private(set) var machineNodes: [Int: (name: String, node: SKNode)] = [:]
+    private(set) var brownBoxNodes: [Int: SKNode] = [:]
 
     // One shared dot texture (color-invariant) baked once, reused for every
     // pellet — mirrors bossman-apple's single pelletTexture. Cached across
@@ -119,7 +119,7 @@ final class MazeBuilder {
 
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     if let dot = addDot(at: position, in: scene) {
-                        dotNodes[grid] = dot; dotCount += 1
+                        dotNodes[tileKey(grid)] = dot; dotCount += 1
                     }
 
                 case Strings.Tile.goldDiscChar:
@@ -132,7 +132,7 @@ final class MazeBuilder {
                         .scale(to: 1.0,  duration: 0.35),
                     ])))
                     scene.addChild(gold)
-                    goldNodes[grid] = gold
+                    goldNodes[tileKey(grid)] = gold
 
                 case Strings.Tile.waterGunChar:
                     waterGunPositions.append(grid)
@@ -147,7 +147,7 @@ final class MazeBuilder {
                         .scale(to: 1.0,  duration: 0.35),
                     ])))
                     scene.addChild(gun)
-                    waterGunNodes[grid] = gun
+                    waterGunNodes[tileKey(grid)] = gun
 
                 case Strings.Tile.waterPelletChar:
                     waterPelletPositions.append(grid)
@@ -159,29 +159,29 @@ final class MazeBuilder {
                         .scale(to: 1.0, duration: 0.4),
                     ])))
                     scene.addChild(pellet)
-                    waterPelletNodes[grid] = pellet
+                    waterPelletNodes[tileKey(grid)] = pellet
 
                 case Strings.Tile.printerChar:
                     let n = addMachineEmoji(Strings.Emoji.printer, at: position, in: scene)
-                    machineNodes[grid] = (Strings.Machine.printer, n)
+                    machineNodes[tileKey(grid)] = (Strings.Machine.printer, n)
                 case Strings.Tile.faxChar:
                     let n = addMachineEmoji(Strings.Emoji.fax, at: position, in: scene)
-                    machineNodes[grid] = (Strings.Machine.fax, n)
+                    machineNodes[tileKey(grid)] = (Strings.Machine.fax, n)
                 case Strings.Tile.coverSheetChar:
                     let n = addMachineEmoji(Strings.Emoji.coverSheet, at: position, in: scene)
-                    machineNodes[grid] = (Strings.Machine.coverSheet, n)
+                    machineNodes[tileKey(grid)] = (Strings.Machine.coverSheet, n)
                 case Strings.Tile.bookBinderChar:
                     let n = addMachineEmoji(Strings.Emoji.bookBinder, at: position, in: scene)
-                    machineNodes[grid] = (Strings.Machine.bookBinder, n)
+                    machineNodes[tileKey(grid)] = (Strings.Machine.bookBinder, n)
                 case Strings.Tile.brownBoxChar:
                     let n = addBrownBoxEmoji(Strings.Emoji.brownBox, at: position, in: scene)
-                    brownBoxNodes[grid] = n
+                    brownBoxNodes[tileKey(grid)] = n
 
                 case Strings.Tile.workerChar:
                     workerSpawn = grid
                     // Worker tile is walkable + has a dot underneath.
                     if let dot = addDot(at: position, in: scene) {
-                        dotNodes[grid] = dot; dotCount += 1
+                        dotNodes[tileKey(grid)] = dot; dotCount += 1
                     }
 
                 case Strings.Tile.boss1Char: bossSpawns.append((0, grid))
@@ -219,30 +219,30 @@ final class MazeBuilder {
     // true if a dot was actually consumed.
     @discardableResult
     func collectDot(at grid: CGPoint) -> Bool {
-        guard let node = dotNodes[grid] else { return false }
+        guard let node = dotNodes[tileKey(grid)] else { return false }
         node.removeFromParent()
-        dotNodes.removeValue(forKey: grid)
+        dotNodes.removeValue(forKey: tileKey(grid))
         return true
     }
     @discardableResult
     func collectGold(at grid: CGPoint) -> Bool {
-        guard let node = goldNodes[grid] else { return false }
+        guard let node = goldNodes[tileKey(grid)] else { return false }
         node.removeFromParent()
-        goldNodes.removeValue(forKey: grid)
+        goldNodes.removeValue(forKey: tileKey(grid))
         return true
     }
     @discardableResult
     func collectWaterPellet(at grid: CGPoint) -> Bool {
-        guard let node = waterPelletNodes[grid] else { return false }
+        guard let node = waterPelletNodes[tileKey(grid)] else { return false }
         node.removeFromParent()
-        waterPelletNodes.removeValue(forKey: grid)
+        waterPelletNodes.removeValue(forKey: tileKey(grid))
         return true
     }
     @discardableResult
     func collectWaterGun(at grid: CGPoint) -> Bool {
-        guard let node = waterGunNodes[grid] else { return false }
+        guard let node = waterGunNodes[tileKey(grid)] else { return false }
         node.removeFromParent()
-        waterGunNodes.removeValue(forKey: grid)
+        waterGunNodes.removeValue(forKey: tileKey(grid))
         return true
     }
 
@@ -329,23 +329,32 @@ final class MazeBuilder {
     // Tracks which machine tiles are currently grayed (in cooldown).
     // bossman-apple drops the contactTestBitMask while grayed; we just
     // skip the collectable flag here.
-    private var grayedMachines: Set<CGPoint> = []
+    private var grayedMachines: Set<Int> = []
+
+    // CGPoint isn't Hashable before macOS 15, so key per-tile lookups by an
+    // integer grid coordinate (row-major), which is Hashable on every OS.
+    private func tileKey(_ grid: CGPoint) -> Int { Int(grid.y) * 100_000 + Int(grid.x) }
 
     // bossman-apple's grayOutMachine + collectable test rolled into one.
     // Returns the machine name + position if it's collectable on this
     // tile right now (not currently grayed). 15s after the call the
     // machine fades back to alpha 1 and re-enters the collectable pool.
     @discardableResult
-    func collectMachine(at grid: CGPoint, cooldown: TimeInterval = 15) -> (name: String, position: CGPoint)? {
-        guard let m = machineNodes[grid], !grayedMachines.contains(grid) else { return nil }
-        grayedMachines.insert(grid)
+    func collectMachine(at grid: CGPoint, cooldown: TimeInterval = 15,
+                        shouldCollect: (String) -> Bool) -> (name: String, position: CGPoint)? {
+        // Only dim/collect when the caller actually wants this item (not already
+        // in the report) — touching a machine you've collected leaves it bright.
+        let k = tileKey(grid)
+        guard let m = machineNodes[k], !grayedMachines.contains(k),
+              shouldCollect(m.name) else { return nil }
+        grayedMachines.insert(k)
         m.node.alpha = 0.55
         m.node.removeAction(forKey: Strings.ActionKey.machineCooldown)
         m.node.run(.sequence([
             .wait(forDuration: cooldown),
             .run { [weak self, weak n = m.node] in
                 n?.alpha = 1
-                self?.grayedMachines.remove(grid)
+                self?.grayedMachines.remove(k)
             }
         ]), withKey: Strings.ActionKey.machineCooldown)
         return (m.name, m.node.position)
@@ -355,8 +364,8 @@ final class MazeBuilder {
     // resetGrayedMachines after a TPS report is delivered so Pete can
     // start a fresh round on the same level.
     func resetGrayedMachines() {
-        for grid in grayedMachines {
-            guard let m = machineNodes[grid] else { continue }
+        for k in grayedMachines {
+            guard let m = machineNodes[k] else { continue }
             m.node.removeAction(forKey: Strings.ActionKey.machineCooldown)
             m.node.alpha = 1
         }
@@ -365,7 +374,7 @@ final class MazeBuilder {
 
     // Returns the scene position of the brown box at this grid, or nil.
     func touchedBrownBox(at grid: CGPoint) -> CGPoint? {
-        guard let n = brownBoxNodes[grid] else { return nil }
+        guard let n = brownBoxNodes[tileKey(grid)] else { return nil }
         return n.position
     }
 
