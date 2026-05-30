@@ -20,8 +20,12 @@ enum Persistence {
         guard let s = Backend.string(forKey: key), let v = Double(s) else { return 0 }
         return v
     }
-    static func bool(forKey key: String) -> Bool {
-        switch Backend.string(forKey: key) ?? "" {
+    static func bool(forKey key: String) -> Bool { bool(forKey: key, default: false) }
+    // Returns `def` when the key was never written, so callers can default a
+    // toggle to true (e.g. Boss Tracks defaults to Square).
+    static func bool(forKey key: String, default def: Bool) -> Bool {
+        guard let s = Backend.string(forKey: key), !s.isEmpty else { return def }
+        switch s {
         case "1", "true", "yes": return true
         default: return false
         }
