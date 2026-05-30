@@ -310,6 +310,7 @@ class LevelEditorScene: SKScene {
             (Strings.Editor.undo,     NSColor(white: 0.26, alpha: 1.0),              Strings.EditorButton.undo),
             (Strings.Editor.redo,     NSColor(white: 0.18, alpha: 1.0),              Strings.EditorButton.redo),
             (Strings.Editor.clear,      NSColor(calibratedRed: 0.6, green: 0.15, blue: 0.15, alpha: 1.0), Strings.EditorButton.clear),
+            (Strings.Editor.reset,      NSColor(calibratedRed: 0.6, green: 0.35, blue: 0.10, alpha: 1.0), Strings.EditorButton.reset),
             (Strings.Editor.save,  NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
             (Strings.Editor.copy,  NSColor(calibratedRed: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
             (Strings.Editor.paste, NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
@@ -719,6 +720,16 @@ class LevelEditorScene: SKScene {
         rebuildGrid()
     }
 
+    // Revert this level to its built-in layout (undoable with Z). Mirrors the
+    // wasm editor master's resetCurrentLevel.
+    private func resetCurrentLevel() {
+        pushUndoSnapshot()
+        LevelStore.shared.resetLevel(name: Levels.levelNames[currentLevelIndex])
+        mapRows = LevelStore.shared.loadLevel(index: currentLevelIndex)
+        rebuildGrid()
+        statusLabel?.text = Strings.Editor.resetToast
+    }
+
     override func mouseDown(with event: NSEvent) {
         pushUndoSnapshot()
         handleInput(event.location(in: self), begin: true)
@@ -796,6 +807,9 @@ class LevelEditorScene: SKScene {
             case Strings.EditorButton.clear:
                 confirmClearLevel()
                 return
+            case Strings.EditorButton.reset:
+                resetCurrentLevel()
+                return
             case Strings.EditorButton.save:
                 saveCurrentLevel()
                 return
@@ -867,32 +881,36 @@ class LevelEditorScene: SKScene {
     // MARK: - Keyboard
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 53:
+        case 53:                                   // Escape -> back to title
             autosaveIfDirty()
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
             view?.presentScene(title, transition: .fade(withDuration: 0.3))
-        case 123:
+            return
+        case 123:                                  // ArrowLeft -> prev
             autosaveIfDirty()
             let count = Levels.levelNames.count
             currentLevelIndex = (currentLevelIndex - 1 + count) % count
             pendingFlashName = Strings.EditorButton.prev
             loadCurrentLevel()
             return
-        case 124:
+        case 124:                                  // ArrowRight -> next
             autosaveIfDirty()
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
             return
-        case 51 where event.modifierFlags.contains(.command):
+        case 51:                                   // Delete -> clear (bare, no Cmd)
             flashButton(named: Strings.EditorButton.clear)
             confirmClearLevel()
             return
         default: break
         }
-        
-        if let chars = event.characters {
+
+        // Bare-key shortcuts (no Command). The wasm editor master dropped the
+        // Cmd modifier because browsers reserve Cmd/Ctrl combos; apple matches
+        // it so the editor controls are identical cross-platform.
+        if let chars = event.characters?.lowercased() {
             switch chars {
             case Strings.Key.digit1: selectedTile = .wall
             case Strings.Key.digit2: selectedTile = .dot
@@ -903,30 +921,13 @@ class LevelEditorScene: SKScene {
             case Strings.Key.digit7: selectedTile = .collator
             case Strings.Key.digit8: selectedTile = .brownBox
             case Strings.Key.digit0: selectedTile = .empty
-            case Strings.KeyEquivalent.save where event.modifierFlags.contains(.command):
-                flashButton(named: Strings.EditorButton.save)
-                saveCurrentLevel()
-            case Strings.KeyEquivalent.play where event.modifierFlags.contains(.command):
-                flashButton(named: Strings.EditorButton.play)
-                playCurrentLevel()
-            case Strings.KeyEquivalent.reveal where event.modifierFlags.contains(.command):
-                flashButton(named: Strings.EditorButton.reveal)
-                LevelStore.shared.revealInFinder()
-            case Strings.KeyEquivalent.copy where event.modifierFlags.contains(.command):
-                flashButton(named: Strings.EditorButton.copy)
-                copyLevel()
-            case Strings.KeyEquivalent.paste where event.modifierFlags.contains(.command):
-                flashButton(named: Strings.EditorButton.paste)
-                pasteLevel()
-            case Strings.KeyEquivalent.undo where event.modifierFlags.contains([.command, .shift]):
-                flashButton(named: Strings.EditorButton.redo)
-                redo()
-            case Strings.KeyEquivalent.undo where event.modifierFlags.contains(.command):
-                flashButton(named: Strings.EditorButton.undo)
-                undo()
-            case Strings.KeyEquivalent.undoShift where event.modifierFlags.contains(.command):
-                flashButton(named: Strings.EditorButton.redo)
-                redo()
+            case "s": flashButton(named: Strings.EditorButton.save);  saveCurrentLevel()
+            case "p": flashButton(named: Strings.EditorButton.play);  playCurrentLevel()
+            case "c": flashButton(named: Strings.EditorButton.copy);  copyLevel()
+            case "v": flashButton(named: Strings.EditorButton.paste); pasteLevel()
+            case "z": flashButton(named: Strings.EditorButton.undo);  undo()
+            case "y": flashButton(named: Strings.EditorButton.redo);  redo()
+            case "r": flashButton(named: Strings.EditorButton.reset); resetCurrentLevel()
             default: break
             }
         }
