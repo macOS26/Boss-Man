@@ -8,17 +8,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let goldDiscDuration: TimeInterval = 20
 
     private let requiredItems = Strings.Machine.required
-    private let machineNames: [Character: String] = [
-        Strings.Tile.printerChar: Strings.Machine.printer,
-        Strings.Tile.faxChar: Strings.Machine.fax,
-        Strings.Tile.coverSheetChar: Strings.Machine.coverSheet,
-        Strings.Tile.bookBinderChar: Strings.Machine.bookBinder,
-        Strings.Tile.brownBoxChar: Strings.Machine.brownBox
-    ]
-    private let goldDiscPositions = [
-        CGPoint(x: 2, y: 15), CGPoint(x: 33, y: 15),
-        CGPoint(x: 2, y: 1),  CGPoint(x: 33, y: 1)
-    ]
 
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
@@ -58,7 +47,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         gridMap.yOffset = 0
         pathfinder = Pathfinder(map: gridMap)
-        mazeBuilder = MazeBuilder(map: gridMap, goldDiscPositions: goldDiscPositions, machineNames: machineNames)
+        mazeBuilder = MazeBuilder(map: gridMap)
         hud = HUD(requiredItems: requiredItems)
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound)
@@ -192,12 +181,43 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     var workerDirection: MoveDirection? { workerController.direction }
 
     func workerDidEnterTile(_ grid: CGPoint) {
-        guard mazeBuilder.collectDot(atColumn: Int(grid.x), row: Int(grid.y)) else { return }
-        state.collectedDots += 1
-        state.bumpScore(by: 1)
-        sound.playDotBlip()
-        refreshHUD()
-        checkLevelComplete()
+        if mazeBuilder.collectDot(at: grid) {
+            state.collectedDots += 1
+            state.bumpScore(by: 1)
+            sound.playDotBlip()
+            refreshHUD()
+            checkLevelComplete()
+        }
+        if mazeBuilder.collectGold(at: grid) {
+            state.bumpScore(by: 5)
+            state.collectedGoldDiscs += 1
+            sound.playGoldDisc()
+            startGoldDiscMode()
+            refreshHUD()
+            checkLevelComplete()
+        }
+        if mazeBuilder.collectWaterPellet(at: grid) {
+            state.bumpScore(by: 50)
+            ScorePopup.show(50, at: gridMap.point(for: grid), in: self)
+            if waterGunPickedUp {
+                waterGun.reloadPellets(8)
+                sound.playWaterGunPickup()
+            }
+            refreshHUD()
+        }
+        if mazeBuilder.collectWaterGun(at: grid) {
+            sound.playWaterGunPickup()
+            state.bumpScore(by: 75)
+            ScorePopup.show(75, at: gridMap.point(for: grid), in: self)
+            startWaterGunMode()
+            refreshHUD()
+        }
+        if let machine = mazeBuilder.collectMachine(at: grid) {
+            handleMachine(name: machine.name, at: machine.position)
+        }
+        if mazeBuilder.touchedBrownBox(at: grid) != nil {
+            collectTPSReport()
+        }
     }
 
     private func checkLevelComplete() {
@@ -238,43 +258,11 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
                 self.bossCaughtWorker()
             }
         }
-        contactRouter.onGoldDiscTouched = { [weak self] node in
-            node?.removeFromParent()
-            guard let self else { return }
-            self.state.bumpScore(by: 5)
-            self.state.collectedGoldDiscs += 1
-            self.sound.playGoldDisc()
-            self.startGoldDiscMode()
-            self.refreshHUD()
-            self.checkLevelComplete()
-        }
-        contactRouter.onMachineTouchedWorker = { [weak self] body, name in
-            self?.handleMachine(body: body, name: name)
-        }
-        contactRouter.onTpsBoxTouchedWorker = { [weak self] in self?.collectTPSReport() }
+        // Gold disc, water pellet, water gun, machines, and the brown box are
+        // collected by grid tile-arrival now (see workerDidEnterTile) — the
+        // common MazeBuilder gives them no physics bodies. Only the boss catch,
+        // traveler catch, and droplet-hit stay on physics contacts.
         contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
-        contactRouter.onWaterPelletTouchedWorker = { [weak self] node in
-            let pos = node?.position ?? .zero
-            node?.removeFromParent()
-            guard let self else { return }
-            self.state.bumpScore(by: 50)
-            ScorePopup.show(50, at: pos, in: self)
-            if self.waterGunPickedUp {
-                self.waterGun.reloadPellets(8)
-                self.sound.playWaterGunPickup()
-            }
-            self.refreshHUD()
-        }
-        contactRouter.onWaterGunTouchedWorker = { [weak self] node in
-            let pos = node?.position ?? .zero
-            node?.removeFromParent()
-            guard let self else { return }
-            self.sound.playWaterGunPickup()
-            self.state.bumpScore(by: 75)
-            ScorePopup.show(75, at: pos, in: self)
-            self.startWaterGunMode()
-            self.refreshHUD()
-        }
         contactRouter.onDropletTouchedBoss = { [weak self] dropletBody, bossBody in
             dropletBody.node?.removeFromParent()
             guard let self else { return }
@@ -293,7 +281,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
     private let reportItemPoints = [10, 25, 50, 100]
 
-    private func handleMachine(body: SKPhysicsBody, name: String) {
+    private func handleMachine(name: String, at position: CGPoint) {
         guard requiredItems.contains(name), !state.reportItems.contains(name) else { return }
         state.reportItems.insert(name)
 
@@ -302,11 +290,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             let pts = reportItemPoints[itemIndex]
             state.bumpScore(by: pts)
             state.currentReportScore += pts
-            ScorePopup.show(pts, at: body.node?.position ?? .zero, in: self)
+            ScorePopup.show(pts, at: position, in: self)
         }
 
         sound.playMachine(named: name)
-        mazeBuilder.grayOutMachine(body)
         refreshHUD()
         if state.reportItems.count == requiredItems.count {
             hud.showMessage(Strings.Message.tpsReportReady, duration: 6)
@@ -320,15 +307,16 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
         gridMap.setRows(currentLevelRows())
         mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        state.dotCount = mazeBuilder.build(in: self)
-        state.goldDiscCount = mazeBuilder.placedGoldDiscs
+        state.dotCount = mazeBuilder.build(in: self, view: self.view)
+        state.goldDiscCount = mazeBuilder.goldDiscPositions.count
         hud.install(in: self)
-        let spawn = mazeBuilder.workerSpawnFromMap ?? workerSpawn
+        let spawn = mazeBuilder.workerSpawn ?? workerSpawn
         workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
         workerController.delegate = self
         addChild(workerController.node)
         workerController.applySpawnShield()
-        bossController.spawn(forLevel: state.level, spawnOverrides: mazeBuilder.bossSpawnsFromMap)
+        bossController.spawn(forLevel: state.level,
+                             spawnOverrides: mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
         refreshHUD()
         let scheduledLevel = state.level
         travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
@@ -403,10 +391,10 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
 
         state.reportItems.removeAll()
         state.currentReportScore = 0
-        mazeBuilder.resetGrayedMachines(in: self, names: requiredItems)
+        mazeBuilder.resetGrayedMachines()
         refreshHUD()
         workerController.resetMotion()
-        workerController.teleport(to: mazeBuilder.workerSpawnFromMap ?? workerSpawn)
+        workerController.teleport(to: mazeBuilder.workerSpawn ?? workerSpawn)
         workerController.applySpawnShield()
         bossController.teleportAllToSpawn()
         if state.lives <= 0 {
