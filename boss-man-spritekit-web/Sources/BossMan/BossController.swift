@@ -18,21 +18,22 @@ final class BossController {
     let ai: BossAI
     private let sound: SoundManager
 
-    // bossman-apple BossController uses TWO constants: moveInterval (0.36, the
-    // total wall-clock time per tile = decision cadence) and moveDuration (0.22,
-    // the glide). The pause at each tile centre is the remainder,
-    // moveInterval - moveDuration = 0.14. "Square" tracks reproduce that exact
-    // 0.22-glide / 0.14-pause cadence; "smooth" (this port's own model) keeps a
-    // continuous 0.16 glide with no pause and is left untouched.
-    private static let baseChaseStep: TimeInterval      = 0.16   // smooth-mode continuous glide
-    private static let baseFrightenedStep: TimeInterval = 0.22   // flee glide
-    private static let moveInterval: TimeInterval       = 0.36   // apple: total per tile (square)
-    private static let moveDuration: TimeInterval       = 0.22   // apple: glide per tile (square)
+    // bossman-apple BossController uses TWO constants: moveInterval (total
+    // wall-clock per tile = decision cadence) and moveDuration (the glide). The
+    // pause at each tile centre is the remainder (moveInterval - moveDuration).
+    // "Square" reproduces that glide-then-pause cadence; "smooth" glides
+    // continuously over the full moveInterval — same per-tile speed, no pause —
+    // which is what keeps a boss slower than Pete (whose tile step is shorter).
+    private static let baseFrightenedStep: TimeInterval = 0.22   // square flee glide
+    private static let moveInterval: TimeInterval       = 0.36   // total wall-clock per tile
+    private static let moveDuration: TimeInterval       = 0.22   // square glide per tile
     private let speed: Double
     private let squareTracks: Bool
 
-    private var chaseStep: TimeInterval      { (squareTracks ? Self.moveDuration : Self.baseChaseStep) / speed }
-    private var frightenedStep: TimeInterval { Self.baseFrightenedStep / speed }
+    // Per-tile glide, scaled by the per-boss speed multiplier. Smooth uses the
+    // full moveInterval so its effective speed matches square (glide + dwell).
+    private var chaseStep: TimeInterval      { (squareTracks ? Self.moveDuration : Self.moveInterval) / speed }
+    private var frightenedStep: TimeInterval { (squareTracks ? Self.baseFrightenedStep : Self.moveInterval) / speed }
 
     private(set) var isFrightened: Bool = false
     // Mirrors bossman-apple's BossController.Entity.isImmobilized — the
@@ -68,9 +69,9 @@ final class BossController {
         self.sprite.addChild(tag)
         self.nameTag = tag
         _ = tileSize
-        // Square mode glides for moveDuration (0.22); smooth keeps the continuous
-        // 0.16. Both scale by the per-boss speed multiplier, matching bossman-apple.
-        let chaseGlide = (squareTracks ? Self.moveDuration : Self.baseChaseStep) / blueprint.speed
+        // Square glides for moveDuration then dwells; smooth glides the full
+        // moveInterval. Both scale by the per-boss speed multiplier.
+        let chaseGlide = (squareTracks ? Self.moveDuration : Self.moveInterval) / blueprint.speed
         self.mover = TileMover<MoveDirection>(node: sprite, spawn: spawn, map: map,
                                step: chaseGlide,
                                containerOriginX: containerOriginX,
