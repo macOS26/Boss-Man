@@ -27,3 +27,6 @@ leaderboard.txt
 
 # Generated web bundle (file:// dev convenience). Ship wasm + assets only.
 bundle.js
+
+# Compiled WebAssembly artifact (rebuilt by build.sh; not tracked)
+*.wasm
