@@ -121,7 +121,7 @@ final class TravelerSpawner {
         wrapper.position = gridMap.point(for: grid)
         wrapper.zPosition = 9
         wrapper.physicsBody = SKPhysicsBody(circleOfRadius: 10)
-        wrapper.physicsBody?.isDynamic = false
+        wrapper.physicsBody?.isDynamic = true
         wrapper.physicsBody?.categoryBitMask = PhysicsCategory.fish
         wrapper.physicsBody?.contactTestBitMask = PhysicsCategory.worker
         wrapper.physicsBody?.collisionBitMask = 0

@@ -149,9 +149,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         worker = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
         worker.delegate = self
         pete = worker.node
-        // WorkerController sets collisionBitMask = .wall (apple model); zero it on
-        // web so the kit's Box2D doesn't push the directly-positioned (SKAction-
-        // moved) body into micro-jitter. Contacts still fire via contactTest.
+        // WorkerController builds Pete's body for the apple model: dynamic, so it
+        // physics-contacts every pickup. On web Pete is moved purely by SKAction
+        // and the only contact he needs is the fish (everything else is
+        // tile-driven), so make the body NON-dynamic — a dynamic body fights the
+        // SKAction position each Box2D step and makes Pete skip. The fish/traveler
+        // body is dynamic, so non-dynamic-Pete + dynamic-fish still fires didBegin.
+        pete.physicsBody?.isDynamic = false
         pete.physicsBody?.collisionBitMask = 0
         addChild(pete)
 

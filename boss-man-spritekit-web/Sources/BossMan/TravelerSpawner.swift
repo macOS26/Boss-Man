@@ -149,7 +149,11 @@ final class TravelerSpawner {
         // SKPhysicsWorld.step pushes the wrapper's animated position into
         // Box2D each frame so the contact fires the instant Pete crosses.
         let body = SKPhysicsBody(circleOfRadius: 10)
-        body.isDynamic = false
+        // Dynamic on web: Pete's body is non-dynamic here (so Box2D doesn't
+        // fight his SKAction position and make him skip), and Box2D only emits
+        // a contact when at least one body is dynamic. Making the fish the
+        // dynamic side keeps the Pete<->fish catch firing.
+        body.isDynamic = true
         body.categoryBitMask = PhysicsCategory.fish
         body.contactTestBitMask = PhysicsCategory.worker
         body.collisionBitMask = 0
