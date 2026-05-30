@@ -473,7 +473,7 @@ final class LevelEditorScene: SKScene {
 
     // MARK: - Level loading
     func loadCurrentLevel() {
-        let names = Levels.names
+        let names = Levels.levelNames
         guard currentLevelIndex < names.count else {
             currentLevelIndex = 0
             return loadCurrentLevel()
@@ -501,7 +501,7 @@ final class LevelEditorScene: SKScene {
     }
 
     func updateLevelLabel() {
-        let names = Levels.names
+        let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
         levelLabel?.text = names[currentLevelIndex]
         levelSubLabel?.text = Strings.Editor.levelCounter(currentLevelIndex + 1, of: names.count)
@@ -687,13 +687,13 @@ final class LevelEditorScene: SKScene {
         switch name {
         case Strings.EditorButton.prev:
             autosaveIfDirty()
-            let count = Levels.names.count
+            let count = Levels.levelNames.count
             currentLevelIndex = (currentLevelIndex - 1 + count) % count
             pendingFlashName = Strings.EditorButton.prev
             loadCurrentLevel()
         case Strings.EditorButton.next:
             autosaveIfDirty()
-            currentLevelIndex = (currentLevelIndex + 1) % Levels.names.count
+            currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
         case Strings.EditorButton.undo:   undo()
@@ -735,7 +735,7 @@ final class LevelEditorScene: SKScene {
     }
 
     func saveCurrentLevel() {
-        let names = Levels.names
+        let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
         LevelStore.saveLevel(index: currentLevelIndex, rows: mapRows)
         lastSavedHash = mapHash()
@@ -765,14 +765,14 @@ final class LevelEditorScene: SKScene {
             return
         case 71:                                   // ArrowLeft -> prev
             autosaveIfDirty()
-            let count = Levels.names.count
+            let count = Levels.levelNames.count
             currentLevelIndex = (currentLevelIndex - 1 + count) % count
             pendingFlashName = Strings.EditorButton.prev
             loadCurrentLevel()
             return
         case 72:                                   // ArrowRight -> next
             autosaveIfDirty()
-            currentLevelIndex = (currentLevelIndex + 1) % Levels.names.count
+            currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
             return

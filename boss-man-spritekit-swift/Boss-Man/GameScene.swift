@@ -337,7 +337,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         if let custom = LevelStore.shared.loadLevel(name: name) {
             return custom
         }
-        return officeMaps[idx % officeMaps.count]
+        return Levels.officeMaps[idx % Levels.officeMaps.count]
     }
 
     private func musicTheme(for level: Int) -> MusicTheme {

@@ -86,14 +86,14 @@ final class LevelStore {
     func loadLevel(name: String) -> [String]? {
         if let custom = loadCustomLevels()[name] { return Self.normalize(custom) }
         guard let idx = Levels.levelNames.firstIndex(of: name) else { return nil }
-        return Self.normalize(officeMaps[idx])
+        return Self.normalize(Levels.officeMaps[idx])
     }
 
     func loadLevel(index: Int) -> [String] {
         guard index >= 0 && index < Levels.levelNames.count else {
-            return Self.normalize(officeMaps[0])
+            return Self.normalize(Levels.officeMaps[0])
         }
-        return loadLevel(name: Levels.levelNames[index]) ?? Self.normalize(officeMaps[index])
+        return loadLevel(name: Levels.levelNames[index]) ?? Self.normalize(Levels.officeMaps[index])
     }
 
     func saveLevel(name: String, rows: [String]) {

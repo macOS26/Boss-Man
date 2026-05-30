@@ -109,7 +109,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
 
-        levelIndex = max(0, min(startingLevel - 1, Levels.names.count - 1))
+        levelIndex = max(0, min(startingLevel - 1, Levels.levelNames.count - 1))
         let rows = LevelStore.loadLevel(index: levelIndex)
         gridMap = GridMap(tileSize: tileSize, rows: rows)
         pathfinder = Pathfinder(map: gridMap)
