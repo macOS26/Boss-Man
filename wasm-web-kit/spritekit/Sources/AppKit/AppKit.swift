@@ -6,6 +6,13 @@ import SpriteKit
 
 public typealias NSColor = SKColor
 
+// NSColorSpace + NSColor.usingColorSpace: SKColor is already device-RGB, so the
+// conversion is the identity. Sendable enum avoids any actor-isolation friction.
+public enum NSColorSpace: Sendable { case deviceRGB, genericRGB, sRGB, displayP3, genericGray }
+public extension SKColor {
+    func usingColorSpace(_ space: NSColorSpace) -> SKColor? { self }
+}
+
 // NSImage: an opaque handle to a pre-loaded asset (looked up by name via the kit's
 // asset table). `init(named:)` mirrors NSImage(named:); the image is never decoded
 // in Swift — it lives in the runtime as a managed texture.

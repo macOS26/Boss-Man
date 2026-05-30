@@ -13,6 +13,12 @@ public struct SKColor: Equatable, Sendable {
 
     func u8(_ v: CGFloat) -> UInt32 { UInt32(max(0, min(255, Int(v * 255 + 0.5)))) }
     public var rgba: UInt32 { (u8(r) << 24) | (u8(g) << 16) | (u8(b) << 8) | u8(a) }
+
+    // NSColor/UIColor-style component accessors (Apple games read these off colors).
+    public var redComponent:   CGFloat { r }
+    public var greenComponent: CGFloat { g }
+    public var blueComponent:  CGFloat { b }
+    public var alphaComponent: CGFloat { a }
     public func withAlphaComponent(_ alpha: CGFloat) -> SKColor {
         SKColor(red: r, green: g, blue: b, alpha: alpha)
     }
