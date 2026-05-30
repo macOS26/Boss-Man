@@ -102,6 +102,10 @@ enum Strings {
         static func popup(_ points: Int) -> String { points >= 0 ? "+\(points)" : "\(points)" }
     }
 
+    enum Resource {
+        static let travelerStaplerFile = "shinyredstapler-emoji-160x244"
+    }
+
     // MARK: - In-game messages (transient HUD banners). Ported verbatim
     // from bossman-apple's Strings.Message so the wasm port displays the
     // same wording on every event.

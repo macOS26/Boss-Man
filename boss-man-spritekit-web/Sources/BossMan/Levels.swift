@@ -11,47 +11,6 @@ import SpriteKit
 // Each row uses Strings.Tile.* characters. Length and column count are
 // homogeneous within a level (the parser doesn't enforce padding — author
 // responsibility).
-// Level travelers ported verbatim from bossman-apple's Levels.swift.
-// Each level cycles through this table to pick the bonus emoji that flies
-// across the maze for a bonus pickup. The HUD shows the upcoming sequence
-// in the top-right corner.
-enum TravelerSound {
-    case water, glaze, crunch, alienBleep, jelly, crispTap, bellDing
-    case radioStatic, magicChime, ufoWhoosh, eyeDrone, bigEye
-}
-
-struct LevelTraveler {
-    let emoji: String
-    let sound: TravelerSound
-    let points: Int
-    let image: String?
-    let facesRight: Bool
-
-    init(emoji: String, sound: TravelerSound, points: Int, image: String? = nil, facesRight: Bool = false) {
-        self.emoji = emoji
-        self.sound = sound
-        self.points = points
-        self.image = image
-        self.facesRight = facesRight
-    }
-}
-
-let levelTravelers: [LevelTraveler] = [
-    LevelTraveler(emoji: "\u{1F41F}", sound: .water,       points: 100),     // 🐟
-    LevelTraveler(emoji: "\u{1F369}", sound: .glaze,       points: 200),     // 🍩
-    LevelTraveler(emoji: "\u{2615}\u{FE0F}", sound: .crunch,    points: 400),// ☕
-    LevelTraveler(emoji: "\u{1F964}", sound: .alienBleep,  points: 800),     // 🥤
-    LevelTraveler(emoji: "\u{1F34E}", sound: .jelly,       points: 1000),    // 🍎
-    LevelTraveler(emoji: "\u{2702}\u{FE0F}", sound: .crispTap,  points: 2000,
-                  image: "shinyredstapler-emoji-160x244", facesRight: true),   // ✂ -> dedicated stapler PNG
-    LevelTraveler(emoji: "\u{1F349}", sound: .bellDing,    points: 3000),    // 🍉
-    LevelTraveler(emoji: "\u{1F9C7}", sound: .radioStatic, points: 4000),    // 🧇
-    LevelTraveler(emoji: "\u{1F366}", sound: .magicChime,  points: 5000),    // 🍦
-    LevelTraveler(emoji: "\u{1F370}", sound: .ufoWhoosh,   points: 6000),    // 🍰
-    LevelTraveler(emoji: "\u{1F440}", sound: .eyeDrone,    points: 7000),    // 👀
-    LevelTraveler(emoji: "\u{1F441}\u{FE0F}", sound: .bigEye, points: 8000), // 👁
-]
-
 enum Levels {
     static let names: [String] = (1...24).map { "Level \($0)" }
 
