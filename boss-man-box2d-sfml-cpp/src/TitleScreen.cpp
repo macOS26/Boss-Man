@@ -113,7 +113,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sf::Sprite sh(panelShadow_);
         auto ss = panelShadow_.getSize();
         sh.setOrigin(ss.x / 2.f, ss.y / 2.f);
-        sh.setPosition(panelCX + 1.f, panelCY + 3.f);
+        sh.setPosition(panelCX, panelCY + 5.f);
         target.draw(sh);
     }
 
