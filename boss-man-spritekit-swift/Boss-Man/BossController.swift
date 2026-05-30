@@ -47,8 +47,8 @@ final class BossController {
              pants: .darkGray, spawn: .zero, personality: bp.personality, speed: bp.speed)
         }
 
-    private let moveInterval: TimeInterval = 0.36
-    private let moveDuration: TimeInterval = 0.22
+    private let moveInterval: TimeInterval = 0.14   // per-tile time for speed 1.0 (== Pete); raise to slow bosses
+    private let moveDuration: TimeInterval = 0.09   // square glide per tile (dwell = moveInterval - this)
     private let detectionRange: CGFloat = 10
 
     static let baseSkinColor: NSColor = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
@@ -160,14 +160,13 @@ final class BossController {
         tag.position = CGPoint(x: 0, y: 24)
         node.addChild(tag)
 
-        // Boss Tracks setting (title screen). "Square" (default) is the classic
-        // glide-then-dwell cadence (0.36 interval / 0.22 glide => 0.14 dwell per
-        // tile). "Smooth" is a continuous glide with no centre dwell (matches the
-        // SuperBox64 / wasm port's Smooth mode). Absent key defaults to Square so
-        // existing behaviour is unchanged until the player opts into Smooth.
+        // Boss Tracks setting (title screen). "Square" (default) glides then
+        // dwells at each tile centre; "Smooth" is a continuous glide with no
+        // dwell (matches the wasm port). Both run at moveInterval per tile for
+        // speed 1.0, so the fastest boss matches Pete. Absent key defaults to Square.
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
-        let entityInterval = (square ? moveInterval : 0.16) / blueprint.speed
-        let entityDuration = (square ? moveDuration : 0.16) / blueprint.speed
+        let entityInterval = moveInterval / blueprint.speed
+        let entityDuration = (square ? moveDuration : moveInterval) / blueprint.speed
 
         let entity = Entity(
             name: blueprint.name,
