@@ -1,4 +1,4 @@
-import CoreGraphics
+import SpriteKit
 
 enum BossPersonality {
     case directChase
