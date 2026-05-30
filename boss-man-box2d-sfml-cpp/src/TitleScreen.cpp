@@ -13,7 +13,7 @@ namespace {
 // Rasterized at size*uiScale and counter-scaled so it stays crisp on Retina.
 sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsigned size,
               sf::Color color, float x, float y, int halign = 1,
-              float rotationDeg = 0.f, uint8_t alpha = 255, bool baselineAnchor = false) {
+              float rotationDeg = 0.f, uint8_t alpha = 255, const char* baselineRef = nullptr) {
     float dpi = uiScale();
     sf::Text txt;
     txt.setFont(f);
@@ -25,15 +25,15 @@ sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string
     float ox = (halign == 0) ? lb.left : (halign == 2 ? lb.left + lb.width : lb.left + lb.width / 2.f);
     // SpriteKit SKLabelNode uses baseline vertical alignment by default: the node's
     // y is the text baseline and glyphs sit above it. Anchor on the bounding-box
-    // bottom, which equals the baseline for all-caps labels. For mixed-case labels
-    // with descenders (e.g. "(P)lay"), baselineAnchor measures the baseline from a
-    // descender-free reference glyph so siblings like "(P)lay"/"(E)ditor" share one
-    // baseline instead of drifting by the descender height.
+    // bottom, which equals the baseline for all-caps labels. Pass baselineRef to
+    // anchor on a MASTER string's baseline instead, so sibling labels (the
+    // "(P)lay"/"(E)ditor" buttons) share "(E)ditor"'s baseline rather than each
+    // drifting by its own descender.
     float oy = lb.top + lb.height;
-    if (baselineAnchor) {
+    if (baselineRef) {
         sf::Text ref;
         ref.setFont(f);
-        ref.setString("X");
+        ref.setString(std::string(baselineRef));
         ref.setCharacterSize((unsigned)(size * dpi));
         auto rb = ref.getLocalBounds();
         oy = rb.top + rb.height;
@@ -71,7 +71,7 @@ void TitleScreen::ensureLoaded() {
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
     // falloff (a cheap Gaussian-like blur). Panel is 320x400. Tuned light + wide to read
     // like the wasm/Xcode soft shadow (0.24 black, CIGaussianBlur 12.5 + framework softening).
-    const float feather = 12.f, baseAlpha = 36.f, radius = 12.f;
+    const float feather = 10.f, baseAlpha = 36.f, radius = 12.f;
     const float halfW = 162.f, halfH = 202.f;
     int texW = (int)(halfW * 2 + feather * 2);
     int texH = (int)(halfH * 2 + feather * 2);
@@ -182,7 +182,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
             box.setPosition(r.left, r.top);
             box.setFillColor(col);
             target.draw(box);
-            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f - 5.f, 1, 0.f, 255, true);
+            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f - 6.f, 1, 0.f, 255, "(E)ditor");
             return r;
         };
         playRect_   = button(W / 2.f - 104.f, sf::Color(0, 140, 46),  "(P)lay");
