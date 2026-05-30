@@ -163,15 +163,11 @@ final class BossController {
             .run { [weak self] in
                 guard let self else { return }
                 self.isImmobilized = false
-                // Re-apply the flee palette only if the gold-disc window is
-                // STILL active. If it ended during the capture animation, the
-                // thaw already cleared isFrightened + set base colors, so the
-                // boss respawns red instead of stuck as a ghost. (apple checks
-                // the live delegate.isGoldDiscMode the same way.)
-                if self.isFrightened {
-                    self.setFrightened(false)        // clear cached state
-                    self.setFrightened(true)         // and re-apply flee palette
-                }
+                // Don't touch the palette here. Capture never changes the boss's
+                // colors, and the gold-disc events own them: collect sets the
+                // flee palette, the wear-off thaw restores the base palette. So
+                // the boss stays blue while the window is open and turns red the
+                // instant it wears off, with no re-apply (and no double-set).
             },
         ]))
     }
