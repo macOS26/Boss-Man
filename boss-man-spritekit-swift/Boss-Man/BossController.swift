@@ -165,7 +165,7 @@ final class BossController {
         // tile). "Smooth" is a continuous glide with no centre dwell (matches the
         // SuperBox64 / wasm port's Smooth mode). Absent key defaults to Square so
         // existing behaviour is unchanged until the player opts into Smooth.
-        let square = (UserDefaults.standard.object(forKey: Strings.DefaultsKey.bossTracksSquare) as? Bool) ?? true
+        let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
         let entityInterval = (square ? moveInterval : 0.16) / blueprint.speed
         let entityDuration = (square ? moveDuration : 0.16) / blueprint.speed
 
