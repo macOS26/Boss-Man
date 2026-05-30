@@ -24,10 +24,9 @@ final class BossController {
     // "Square" reproduces that glide-then-pause cadence; "smooth" glides
     // continuously over the full moveInterval — same per-tile speed, no pause —
     // which is what keeps a boss slower than Pete (whose tile step is shorter).
-    private static let baseFrightenedStep: TimeInterval = 0.22   // square flee glide
-    private static let moveInterval: TimeInterval       = 0.36   // total wall-clock per tile
-    private static let moveDuration: TimeInterval       = 0.22   // square glide per tile
-    private static let speedScale: Double               = 1.25   // global: bosses 25% faster than base
+    private static let baseFrightenedStep: TimeInterval = 0.14   // square flee glide
+    private static let moveInterval: TimeInterval       = 0.14   // per-tile time for speed 1.0 (== Pete); raise to slow bosses
+    private static let moveDuration: TimeInterval       = 0.09   // square glide per tile (dwell = moveInterval - this)
     private let speed: Double
     private let squareTracks: Bool
 
@@ -52,7 +51,7 @@ final class BossController {
         self.sound = sound
         self.homeGrid = spawn
         let blueprint = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)]
-        self.speed = blueprint.speed * Self.speedScale
+        self.speed = blueprint.speed
         self.squareTracks = squareTracks
         self.ai = BossAI(homeGrid: spawn, detectionRange: 10,
                          personality: blueprint.personality,
