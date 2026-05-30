@@ -14,7 +14,7 @@ final class BossController {
     let blueprintIndex: Int
     let homeGrid: CGPoint
     private weak var map: GridMap?
-    let mover: TileMover
+    let mover: TileMover<MoveDirection>
     let ai: BossAI
     private let sound: SoundManager
 
@@ -71,7 +71,7 @@ final class BossController {
         // Square mode glides for moveDuration (0.22); smooth keeps the continuous
         // 0.16. Both scale by the per-boss speed multiplier, matching bossman-apple.
         let chaseGlide = (squareTracks ? Self.moveDuration : Self.baseChaseStep) / blueprint.speed
-        self.mover = TileMover(node: sprite, spawn: spawn, map: map,
+        self.mover = TileMover<MoveDirection>(node: sprite, spawn: spawn, map: map,
                                step: chaseGlide,
                                containerOriginX: containerOriginX,
                                slowInTunnels: true)
