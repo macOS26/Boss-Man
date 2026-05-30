@@ -42,21 +42,22 @@ struct ButtonDef { std::string label; sf::Color color; };
 // Buttons, in the exact order of btnData in LevelEditorScene.swift.
 const std::vector<ButtonDef>& editorButtons() {
     static const std::vector<ButtonDef> buttons = {
-        {"PREV  <",                sf::Color(107, 107, 107)},
-        {"NEXT  >",                sf::Color( 87,  87,  87)},
-        {"UNDO  command Z",        sf::Color( 66,  66,  66)},
-        {"REDO  shift command Z",  sf::Color( 46,  46,  46)},
-        {"CLEAR command delete",   sf::Color(153,  38,  38)},
-        {"SAVE  command S",        sf::Color( 38, 115,  38)},
-        {"COPY  command C",        sf::Color( 51, 102,  77)},
-        {"PASTE command V",        sf::Color( 64,  89,  77)},
-        {"SHOW  command R",        sf::Color( 64,  89, 115)},
-        {"PLAY  command P",        sf::Color( 38,  38, 140)},
-        {"BACK  ESC",              sf::Color(115, 102,  38)},
+        {"PREV  <",   sf::Color(107, 107, 107)},
+        {"NEXT  >",   sf::Color( 87,  87,  87)},
+        {"UNDO  Z",   sf::Color( 66,  66,  66)},
+        {"REDO  Y",   sf::Color( 46,  46,  46)},
+        {"CLEAR del", sf::Color(153,  38,  38)},
+        {"RESET R",   sf::Color(153,  89,  26)},
+        {"SAVE  S",   sf::Color( 38, 115,  38)},
+        {"COPY  C",   sf::Color( 51, 102,  77)},
+        {"PASTE V",   sf::Color( 64,  89,  77)},
+        {"SHOW",      sf::Color( 64,  89, 115)},
+        {"PLAY  P",   sf::Color( 38,  38, 140)},
+        {"BACK  ESC", sf::Color(115, 102,  38)},
     };
     return buttons;
 }
-enum Btn { B_PREV, B_NEXT, B_UNDO, B_REDO, B_CLEAR, B_SAVE, B_COPY, B_PASTE, B_REVEAL, B_PLAY, B_BACK };
+enum Btn { B_PREV, B_NEXT, B_UNDO, B_REDO, B_CLEAR, B_RESET, B_SAVE, B_COPY, B_PASTE, B_REVEAL, B_PLAY, B_BACK };
 
 // Machine / item emoji, matching Strings.Emoji and MazeRenderer.
 const std::string EMO_PRINTER = "\xf0\x9f\x96\xa8\xef\xb8\x8f"; // 🖨️
@@ -255,6 +256,17 @@ void LevelEditor::confirmClearLevel() {
     for (auto& row : mapRows) row.assign(gridCols, Tile::floor);
 }
 
+// Revert this level to its built-in layout (undoable with Z). Mirrors the wasm
+// editor master's resetCurrentLevel.
+void LevelEditor::resetCurrentLevel() {
+    auto names = levelNames();
+    if (currentLevelIndex < 0 || currentLevelIndex >= (int)names.size()) return;
+    pushUndoSnapshot();
+    store_.resetLevel(names[currentLevelIndex]);
+    mapRows = LevelStore::normalize(store_.loadLevel(currentLevelIndex));
+    statusText = "Reset to built-in (Z to undo)";
+}
+
 // ---- save / load / level navigation ----
 
 void LevelEditor::saveCurrentLevel() {
@@ -352,6 +364,7 @@ void LevelEditor::handleClick(sf::Vector2f loc) {
         case B_UNDO:   undo(); break;
         case B_REDO:   redo(); break;
         case B_CLEAR:  confirmClearLevel(); break;
+        case B_RESET:  resetCurrentLevel(); break;
         case B_SAVE:   saveCurrentLevel(); break;
         case B_COPY:   copyLevel(); break;
         case B_PASTE:  pasteLevel(); break;
@@ -396,43 +409,31 @@ void LevelEditor::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
         break;
     }
     case sf::Event::KeyPressed: {
-        bool cmd = event.key.system;   // ⌘ on macOS
-        bool shift = event.key.shift;
+        // Bare-key shortcuts (no Cmd). The wasm editor is the master for the
+        // right panel; browsers reserve Cmd/Ctrl combos, so it dropped the
+        // modifier and C++ matches so the controls are identical cross-platform.
         switch (event.key.code) {
         case sf::Keyboard::Left:  flashButton(B_PREV); prevLevel(); return;
         case sf::Keyboard::Right: flashButton(B_NEXT); nextLevel(); return;
         case sf::Keyboard::Escape: backToTitle(); return;
-        case sf::Keyboard::BackSpace:
-            if (cmd) { flashButton(B_CLEAR); confirmClearLevel(); }
-            return;
+        case sf::Keyboard::BackSpace: flashButton(B_CLEAR); confirmClearLevel(); return;
+        case sf::Keyboard::S: flashButton(B_SAVE);  saveCurrentLevel(); return;
+        case sf::Keyboard::P: flashButton(B_PLAY);  playCurrentLevel(); return;
+        case sf::Keyboard::C: flashButton(B_COPY);  copyLevel(); return;
+        case sf::Keyboard::V: flashButton(B_PASTE); pasteLevel(); return;
+        case sf::Keyboard::Z: flashButton(B_UNDO);  undo(); return;
+        case sf::Keyboard::Y: flashButton(B_REDO);  redo(); return;
+        case sf::Keyboard::R: flashButton(B_RESET); resetCurrentLevel(); return;
+        case sf::Keyboard::Num1: case sf::Keyboard::Numpad1: selectedTile = Tile::wall; break;
+        case sf::Keyboard::Num2: case sf::Keyboard::Numpad2: selectedTile = Tile::dot; break;
+        case sf::Keyboard::Num3: case sf::Keyboard::Numpad3: selectedTile = Tile::hideout; break;
+        case sf::Keyboard::Num4: case sf::Keyboard::Numpad4: selectedTile = Tile::printer; break;
+        case sf::Keyboard::Num5: case sf::Keyboard::Numpad5: selectedTile = Tile::fax; break;
+        case sf::Keyboard::Num6: case sf::Keyboard::Numpad6: selectedTile = Tile::coverSheet; break;
+        case sf::Keyboard::Num7: case sf::Keyboard::Numpad7: selectedTile = Tile::bookBinder; break;
+        case sf::Keyboard::Num8: case sf::Keyboard::Numpad8: selectedTile = Tile::brownBox; break;
+        case sf::Keyboard::Num0: case sf::Keyboard::Numpad0: selectedTile = Tile::floor; break;
         default: break;
-        }
-        if (cmd) {
-            switch (event.key.code) {
-            case sf::Keyboard::S: flashButton(B_SAVE);   saveCurrentLevel(); break;
-            case sf::Keyboard::P: flashButton(B_PLAY);   playCurrentLevel(); break;
-            case sf::Keyboard::R: flashButton(B_REVEAL); store_.revealInFinder(); break;
-            case sf::Keyboard::C: flashButton(B_COPY);   copyLevel(); break;
-            case sf::Keyboard::V: flashButton(B_PASTE);  pasteLevel(); break;
-            case sf::Keyboard::Z:
-                if (shift) { flashButton(B_REDO); redo(); }
-                else       { flashButton(B_UNDO); undo(); }
-                break;
-            default: break;
-            }
-        } else {
-            switch (event.key.code) {
-            case sf::Keyboard::Num1: case sf::Keyboard::Numpad1: selectedTile = Tile::wall; break;
-            case sf::Keyboard::Num2: case sf::Keyboard::Numpad2: selectedTile = Tile::dot; break;
-            case sf::Keyboard::Num3: case sf::Keyboard::Numpad3: selectedTile = Tile::hideout; break;
-            case sf::Keyboard::Num4: case sf::Keyboard::Numpad4: selectedTile = Tile::printer; break;
-            case sf::Keyboard::Num5: case sf::Keyboard::Numpad5: selectedTile = Tile::fax; break;
-            case sf::Keyboard::Num6: case sf::Keyboard::Numpad6: selectedTile = Tile::coverSheet; break;
-            case sf::Keyboard::Num7: case sf::Keyboard::Numpad7: selectedTile = Tile::bookBinder; break;
-            case sf::Keyboard::Num8: case sf::Keyboard::Numpad8: selectedTile = Tile::brownBox; break;
-            case sf::Keyboard::Num0: case sf::Keyboard::Numpad0: selectedTile = Tile::floor; break;
-            default: break;
-            }
         }
         // SpriteKit keyDown tail: updatePaletteHighlight() resets the status line.
         statusText = "Tile: " + displayNameFor(selectedTile);

@@ -82,6 +82,7 @@ private:
     void copyLevel();
     void pasteLevel();
     void confirmClearLevel();
+    void resetCurrentLevel();
     void playCurrentLevel();
     void backToTitle();
     void pushUndoSnapshot();
