@@ -57,9 +57,10 @@ void TitleScreen::ensureLoaded() {
     if (staplerLoaded_) stapler_.setSmooth(true);
 
     // Build a soft drop-shadow texture once: a rounded rect with a feathered alpha
-    // falloff (a cheap Gaussian-like blur). Panel is 320x400.
-    const float feather = 26.f, baseAlpha = 60.f, radius = 12.f;
-    const float halfW = 160.f, halfH = 200.f;
+    // falloff (a cheap Gaussian-like blur). Panel is 320x400. Matches the Xcode
+    // SpriteKit shadow: alpha 0.24, blur radius 12.5, rect expanded 2px (insetBy -2).
+    const float feather = 26.f, baseAlpha = 61.f, radius = 12.f;
+    const float halfW = 162.f, halfH = 202.f;
     int texW = (int)(halfW * 2 + feather * 2);
     int texH = (int)(halfH * 2 + feather * 2);
     sf::Image img;
@@ -100,7 +101,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sf::Sprite sh(panelShadow_);
         auto ss = panelShadow_.getSize();
         sh.setOrigin(ss.x / 2.f, ss.y / 2.f);
-        sh.setPosition(panelCX + 6.f, panelCY + 8.f);
+        sh.setPosition(panelCX + 1.f, panelCY + 3.f);
         target.draw(sh);
     }
 
