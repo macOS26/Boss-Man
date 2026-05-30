@@ -211,71 +211,6 @@ enum Strings {
         static let leaderboardID = "BossManLeaderBoard0001"
     }
 
-    // MARK: - Speech / voice
-    enum Speech {
-        static let fallback = "Yeah."
-        static let usEnglish = "en-US"
-        static let englishPrefix = "en"
-        static let roboticVoiceNames = [
-            "bahh", "bells", "boing", "bubbles",
-            "cellos", "deranged", "good news", "hysterical",
-            "pipe organ", "trinoids", "whisper", "zarvox", "albert", "eddy"
-        ]
-        // Ordered voice preference (list order = priority). Gender is no longer a
-        // filter — female voices are ranked last by the picker, not excluded.
-        // All male-sounding, non-robotic English voices, US-region first then GB.
-        // (The shared Eloquence names — reed/rocko/eddy/grandpa — exist in both
-        // en-US and en-GB; the picker tries the en-US pool first, so US wins.
-        // Daniel is GB-only, so it naturally falls to the GB tier.)
-        static let preferredVoiceNames = [
-            "rocko", "ralph", "fred", "reed", "grandpa", "junior", // US
-            "daniel"                                      // GB
-        ]
-        static let caughtFallback   = "Ohh, yeah."
-        static let fishFallback     = "Mmm, yeah."
-        static let tpsFallback      = "Sounds great."
-        static let gameOverFallback = "yeah right!"
-
-        static let bossCaptureLines = [
-            "Aw, geez.",
-            "Hey now.",
-            "Whoaaa.",
-            "Ouch."
-        ]
-        static let caughtLines = [
-            "TPS reports.",
-            "Cover sheet please.",
-            "Saturday's the day.",
-            "Memo, anyone?",
-            "Did you see my shiny red stapler?"
-        ]
-        static let fishLines = [
-            "Terrific.",
-            "Fantastic.",
-            "Swell.",
-            "Niiice."
-        ]
-        static let tpsLines = [
-            "Atta boy.",
-            "Well done.",
-            "Excellent.",
-            "Solid work."
-        ]
-        static let gameOverLines = [
-            "Please clear out your desk.",
-            "Security, escort him.",
-            "If you would work Saturday, that'd be great.",
-            "Did you see my shiny red stapler?",
-            "Please add a cover sheet for your TPS Report."
-        ]
-        static let levelStartLines = [
-            "Hi there.",
-            "What's happening?",
-            "New floor.",
-            "Welcome back."
-        ]
-    }
-
     // MARK: - Sound buffer cache keys (passed to SoundManager.cached(_:))
     enum SoundCache {
         static let goldDisc      = "goldDisc"
@@ -346,4 +281,25 @@ enum Strings {
         static let signInToGameCenter     = "Sign in to Game Center"
         static let loading                = "Loading…"
     }
+}
+
+// macOS-only NSSpeechSynthesizer voice-picker infra; the shared spoken-line
+// pools live in Strings+Shared. Web has no synthesizer voice selection.
+extension Strings.Speech {
+    static let fallback = "Yeah."
+    static let usEnglish = "en-US"
+    static let englishPrefix = "en"
+    static let roboticVoiceNames = [
+        "bahh", "bells", "boing", "bubbles",
+        "cellos", "deranged", "good news", "hysterical",
+        "pipe organ", "trinoids", "whisper", "zarvox", "albert", "eddy"
+    ]
+    static let preferredVoiceNames = [
+        "rocko", "ralph", "fred", "reed", "grandpa", "junior",
+        "daniel"
+    ]
+    static let caughtFallback   = "Ohh, yeah."
+    static let fishFallback     = "Mmm, yeah."
+    static let tpsFallback      = "Sounds great."
+    static let gameOverFallback = "yeah right!"
 }
