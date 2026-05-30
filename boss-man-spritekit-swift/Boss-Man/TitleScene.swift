@@ -31,6 +31,14 @@ final class TitleScene: SKScene {
         title.zPosition = 10
         addChild(title)
 
+        let credit = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+        credit.text = "Game Design by Todd Bruss"
+        credit.fontSize = 24
+        credit.fontColor = .black
+        credit.position = CGPoint(x: size.width / 2, y: size.height * 0.86)
+        credit.zPosition = 10
+        addChild(credit)
+
         let stapler = makeStapler()
         stapler.position = CGPoint(x: size.width / 2, y: size.height * 0.46 + 8)
         stapler.zRotation = -0.06
