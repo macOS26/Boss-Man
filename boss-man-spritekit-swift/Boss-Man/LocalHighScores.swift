@@ -25,13 +25,18 @@ struct LocalHighScores {
     // MARK: - Read
     static func load() -> [Entry] {
         guard let raw = Persistence.string(forKey: storeKey), !raw.isEmpty else { return [] }
-        return decode(raw)
+        return decode(raw).filter { !isAnonymous($0.name) }
+    }
+
+    // An anonymous / blank entry never belongs on the leaderboard.
+    private static func isAnonymous(_ name: String) -> Bool {
+        name.isEmpty || name.uppercased() == "ANON"
     }
 
     // MARK: - Write (per-name best)
     @discardableResult
     static func record(name: String, score: Int) -> Int? {
-        guard score > 0 else { return nil }
+        guard score > 0, !isAnonymous(name) else { return nil }
         var all = load()
         if let i = all.firstIndex(where: { $0.name == name }) {
             guard score > all[i].score else { return nil }

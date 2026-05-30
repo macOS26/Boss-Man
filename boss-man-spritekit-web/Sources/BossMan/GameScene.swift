@@ -666,7 +666,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             },
             onSkip: { [weak self] in
                 guard let self else { return }
-                LocalHighScores.submit(name: "ANON", score: self.score)
                 self.dismissUsernameDialog()
             }
         )
