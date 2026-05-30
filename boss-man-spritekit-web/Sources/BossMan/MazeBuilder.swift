@@ -47,8 +47,18 @@ final class MazeBuilder {
     // pellet — mirrors bossman-apple's single pelletTexture. Cached across
     // levels so we only pay the offscreen bake one time.
     private var dotTexture: SKTexture?
+    // The baked floor+wall sheet is re-rendered every level; hold its texture so
+    // we can free the previous level's canvas instead of leaking one per level.
+    private var mazeSheetTexture: SKTexture?
 
     init(map: GridMap) { self.map = map }
+
+    // Free baked textures on scene teardown (call from GameScene.willMove). The
+    // per-level maze sheet is also freed at the top of build().
+    func releaseTextures() {
+        mazeSheetTexture?.releaseImage(); mazeSheetTexture = nil
+        dotTexture?.releaseImage();       dotTexture = nil
+    }
 
     @discardableResult
     func build(in scene: SKNode, view: SKView? = nil) -> Int {
@@ -66,6 +76,11 @@ final class MazeBuilder {
         waterGunNodes = [:]
         machineNodes = [:]
         brownBoxNodes = [:]
+
+        // Free last level's baked floor+wall sheet so its canvas is reclaimed
+        // instead of leaking one full-size image per level.
+        mazeSheetTexture?.releaseImage()
+        mazeSheetTexture = nil
 
         // Backdrop — solid dark fill behind the maze. The per-tile floor
         // checker sits at z=-9; walls and pickups go on top.
@@ -198,6 +213,7 @@ final class MazeBuilder {
             sheet.position = CGPoint(x: frame.midX, y: frame.midY)
             sheet.zPosition = -9
             scene.addChild(sheet)
+            mazeSheetTexture = tex
         } else {
             // No view to bake with: fall back to the live (slower) node tree.
             for child in staticTree.children { child.removeFromParent(); scene.addChild(child) }

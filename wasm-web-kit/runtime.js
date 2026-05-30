@@ -1072,6 +1072,14 @@ class Runtime {
         if (handle === this.targets.length - 1) this.targets.pop();
         else this.targets[handle] = null;
       },
+      // Release a baked image (from gfx_offscreen_end_to_image): drop its
+      // canvas so the browser can reclaim it. Without this, a game that
+      // re-bakes a texture per level (e.g. the maze sheet) leaks one full-size
+      // canvas every level until the tab is killed for memory. Never call this
+      // on a preloaded/atlas image that other textures still share.
+      gfx_free_image: (img) => {
+        if (img > 0 && this.images && this.images[img]) this.images[img] = null;
+      },
       // Blit an offscreen image as a SOFT drop shadow only: draw it far off
       // canvas with a compensating shadowOffset so just its ctx.shadowBlur
       // halo lands at (x,y,w,h). Done in device space (identity transform) so

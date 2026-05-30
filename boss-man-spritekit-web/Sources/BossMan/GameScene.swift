@@ -98,6 +98,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // music voice never outlives it and stacks under the next game's
         // music (the choppy-on-restart bug).
         sound.stopAllAudio()
+        mazeBuilder.releaseTextures()
     }
 
     override func didMove(to view: SKView) {

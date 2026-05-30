@@ -46,6 +46,14 @@ public class SKTexture {
         if handle > 0 { populateSize() }
     }
 
+    // Release the backing canvas of a texture baked via SKView.texture(from:),
+    // so the runtime can reclaim it. Only call on a texture you own exclusively
+    // (e.g. a per-level maze sheet) — never on a preloaded/atlas texture other
+    // nodes still share.
+    public func releaseImage() {
+        if handle > 0 { gfx_free_image(handle); handle = 0; pendingName = nil; size = .zero }
+    }
+
     // Called by anyone that needs a handle: SKSpriteNode.draw, SKView.texture.
     // Resolves a deferred name lookup the first time the runtime has the
     // asset registered. Also populates `size` so call sites can read the

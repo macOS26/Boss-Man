@@ -58,6 +58,9 @@ WABI void  tts_set_female_voices(const char* csv, int len);
 WABI int   gfx_offscreen_begin(int w, int h);
 WABI int   gfx_offscreen_end_to_image(int handle);   /* returns img handle */
 WABI void  gfx_offscreen_end_discard(int handle);
+/* Release a baked image returned by gfx_offscreen_end_to_image so its canvas */
+/* is reclaimed. Do NOT call on preloaded/shared-atlas images. */
+WABI void  gfx_free_image(int img);
 
 /* gfx_draw_shadow_image: blit an offscreen image as a SOFT drop shadow ONLY   */
 /* (Canvas2D ctx.shadowBlur). The image body is drawn far off-canvas; only its */
