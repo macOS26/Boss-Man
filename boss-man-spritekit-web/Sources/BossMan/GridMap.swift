@@ -10,6 +10,12 @@ import SpriteKit
 final class GridMap {
     let tileSize: CGFloat
     var yOffset: CGFloat = 0
+    // Horizontal centering offset (web centres a narrow maze in a fixed-width
+    // scene). Defaults to 0 so apple — whose scene matches the maze width —
+    // is unchanged. With this in point(for:), a Pete/boss node placed at
+    // gridMap.point(for:) lands centred without any per-mover offset, so apple's
+    // WorkerController (which positions via gridMap.point) drops in unchanged.
+    var xOffset: CGFloat = 0
     private(set) var rows: [String] = []
     private var tunnelPairs: [(CGPoint, CGPoint)] = []
 
@@ -29,7 +35,7 @@ final class GridMap {
 
     // World-coordinate center of the tile at `grid` (col, row) in y-up space.
     func point(for grid: CGPoint) -> CGPoint {
-        CGPoint(x: grid.x * tileSize + tileSize / 2,
+        CGPoint(x: grid.x * tileSize + tileSize / 2 + xOffset,
                 y: grid.y * tileSize + tileSize / 2 + yOffset)
     }
 

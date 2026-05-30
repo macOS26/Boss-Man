@@ -126,9 +126,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // labels never sit on top of cubicle tiles (bossman-apple parity).
         let availableHeight = size.height - HUD.panelHeight
         gridMap.yOffset = max(20, (availableHeight - mazeHeight) / 2)
-        containerOriginX = max(0, (size.width - mazeWidth) / 2)
+        // Horizontal centering now lives in gridMap.xOffset (mirrors yOffset),
+        // so gridMap.point(for:) returns final centred coords for tiles, Pete,
+        // and bosses alike — and apple's WorkerController drops in unchanged.
+        gridMap.xOffset = max(0, (size.width - mazeWidth) / 2)
+        containerOriginX = gridMap.xOffset
 
-        mazeRoot.position = CGPoint(x: containerOriginX, y: 0)
+        mazeRoot.position = .zero
         addChild(mazeRoot)
 
         mazeBuilder = MazeBuilder(map: gridMap)
@@ -286,8 +290,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // Convert a grid cell to a scene-space coordinate (including the maze
     // root's horizontal offset that centres the maze in the scene).
     private func sceneCoord(forGrid g: CGPoint) -> CGPoint {
-        let local = gridMap.point(for: g)
-        return CGPoint(x: local.x + containerOriginX, y: local.y)
+        gridMap.point(for: g)
     }
 
     // MARK: - Input

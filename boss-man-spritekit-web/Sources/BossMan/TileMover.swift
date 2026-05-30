@@ -47,8 +47,10 @@ final class TileMover {
 
     func centre(of g: CGPoint) -> CGPoint {
         guard let map = map else { return .zero }
-        let local = map.point(for: g)
-        return CGPoint(x: local.x + containerOriginX, y: local.y)
+        // gridMap.point(for:) already includes the maze's xOffset; the legacy
+        // containerOriginX param is kept for call-site compatibility but no
+        // longer added here (it would double-offset).
+        return map.point(for: g)
     }
 
     // The same tile after stepping in `d` from `g`, honoring tunnel wrap
