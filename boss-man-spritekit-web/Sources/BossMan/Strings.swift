@@ -98,6 +98,10 @@ enum Strings {
         static let initCoderUnsupported = "init(coder:) is not supported"
     }
 
+    enum Score {
+        static func popup(_ points: Int) -> String { points >= 0 ? "+\(points)" : "\(points)" }
+    }
+
     // MARK: - In-game messages (transient HUD banners). Ported verbatim
     // from bossman-apple's Strings.Message so the wasm port displays the
     // same wording on every event.
