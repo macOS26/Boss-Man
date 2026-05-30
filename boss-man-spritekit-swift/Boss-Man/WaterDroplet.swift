@@ -25,7 +25,7 @@ enum WaterDroplet {
         node.alpha = 1.0
 
         let body = SKPhysicsBody(circleOfRadius: radius)
-        body.isDynamic = true
+        body.isDynamic = false
         body.affectedByGravity = false
         body.categoryBitMask = PhysicsCategory.waterDroplet
         body.contactTestBitMask = PhysicsCategory.boss | PhysicsCategory.wall
