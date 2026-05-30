@@ -113,7 +113,7 @@ final class TitleScene: SKScene {
     private func makeTitleButton(text: String, color: NSColor, font: String,
                                  center: CGPoint, size s: CGSize, textDY: CGFloat = 0) -> CGRect {
         let bg = SKShapeNode(rect: CGRect(x: -s.width / 2, y: -s.height / 2, width: s.width, height: s.height),
-                             cornerRadius: 0)
+                             cornerRadius: 10)
         bg.position = center
         bg.fillColor = color
         bg.strokeColor = .clear
