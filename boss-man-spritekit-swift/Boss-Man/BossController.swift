@@ -154,16 +154,19 @@ final class BossController {
         )
         node.name = blueprint.name
         node.position = gridMap.point(for: blueprint.spawn)
-        #if os(macOS)
         // r=5 so a catch needs a deeper overlap with Pete (Pete's body is 10,
         // contact fires at centres ~15px apart), not the barely-touching overlap
         // that r=10 (20px) gave.
         node.physicsBody = SKPhysicsBody(circleOfRadius: 5)
         node.physicsBody?.allowsRotation = false
+        #if os(macOS)
+        node.physicsBody?.isDynamic = true
+        #elseif os(WASI)
+        node.physicsBody?.isDynamic = false
+        #endif
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
         node.physicsBody?.collisionBitMask = PhysicsCategory.wall
-        #endif
         node.zPosition = 11
         scene.addChild(node)
 
@@ -206,6 +209,7 @@ final class BossController {
         let mover = TileMover<MoveDirection>(node: node, spawn: blueprint.spawn, map: gridMap,
                                              step: entityDuration, containerOriginX: containerOriginX,
                                              slowInTunnels: true)
+        mover.directions = MoveDirection.allCases
         let hold = entityInterval - entityDuration
         if hold > 0 { mover.holdTime = hold }
         entities[idx].mover = mover
@@ -221,10 +225,7 @@ final class BossController {
         entity.ai.teleport(to: entity.spawn)
         node.position = gridMap.point(for: entity.spawn)
         #if os(WASI)
-        entity.mover?.grid = entity.spawn
-        entity.mover?.dir = nil
-        entity.mover?.moving = false
-        entity.mover?.moveT = 0
+        entity.mover?.reset(to: entity.spawn)
         #endif
         node.setBodyColor(entity.baseColor)
         node.setTieColor(entity.tieColor)
@@ -478,8 +479,6 @@ final class BossController {
         let peteDirection = delegate.workerDirection
         let blinky = firstBossGrid
         let flee = delegate.isGoldDiscMode
-        let cols = gridMap.columnCount
-        let rows = gridMap.rowCount
         for i in entities.indices {
             if entities[i].isImmobilized { continue }
             guard let mover = entities[i].mover else { continue }
@@ -492,15 +491,7 @@ final class BossController {
                     blinkyGrid: blinky,
                     flee: flee
                 ) else { return nil }
-                let dx = Int(move.to.x - e.grid.x)
-                let dy = Int(move.to.y - e.grid.y)
-                if abs(dx) > 1 {
-                    return e.grid.x < CGFloat(cols) / 2 ? .left : .right
-                }
-                if abs(dy) > 1 {
-                    return e.grid.y < CGFloat(rows) / 2 ? .down : .up
-                }
-                return MoveDirection.from(delta: (dx, dy))
+                return e.direction(toward: move.to)
             }, onArrive: { e in
                 if let d = e.dir { node.setFacingSmoothed(d) }
             })
@@ -526,10 +517,7 @@ final class BossController {
         boss.node.stopWalking()
         #if os(WASI)
         entities[index].isImmobilized = true
-        boss.mover?.grid = boss.spawn
-        boss.mover?.dir = nil
-        boss.mover?.moving = false
-        boss.mover?.moveT = 0
+        boss.mover?.reset(to: boss.spawn)
         #endif
         let homePoint = gridMap.point(for: boss.spawn)
         let bossNode = boss.node
@@ -600,19 +588,3 @@ final class BossController {
         ]))
     }
 }
-
-#if os(WASI)
-// Grid-delta -> MoveDirection. -1/0/+1 only; tunnel-wrap deltas are caught by
-// the advance() decide closure before they reach this.
-extension MoveDirection {
-    static func from(delta: (Int, Int)) -> MoveDirection? {
-        switch delta {
-        case (-1, 0): return .left
-        case ( 1, 0): return .right
-        case ( 0,-1): return .down
-        case ( 0, 1): return .up
-        default: return nil
-        }
-    }
-}
-#endif

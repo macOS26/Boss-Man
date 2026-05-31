@@ -47,6 +47,7 @@ public final class TileMover<D: TileDirection> {
     public var step: TimeInterval
     public var slowInTunnels: Bool
     public var holdTime: TimeInterval = 0   // > 0 = "square" tracks: pause at each tile centre
+    public var directions: [D] = []         // candidate headings for direction(toward:)
     private var moveDur: TimeInterval = 0
     private var holding = false
     private var holdT: TimeInterval = 0
@@ -84,6 +85,27 @@ public final class TileMover<D: TileDirection> {
         guard let map = map else { return false }
         let n = tileAfter(from: grid, in: d)
         return map.isWalkable(n)
+    }
+
+    // Clear all motion state and re-home to a tile. Used by host games on
+    // teleport / respawn / capture so the mover doesn't keep gliding from the
+    // old cell after the node is snapped elsewhere.
+    public func reset(to g: CGPoint) {
+        grid = g
+        dir = nil
+        moving = false
+        moveT = 0
+        holding = false
+        holdT = 0
+    }
+
+    // The heading whose single step from the current tile lands on `target`,
+    // honoring tunnel wrap (tileAfter resolves the far mouth). Lets a
+    // target-cell AI hand the mover a destination instead of reconstructing the
+    // direction + maze-edge wrap itself. `directions` must be populated.
+    public func direction(toward target: CGPoint) -> D? {
+        for d in directions where tileAfter(from: grid, in: d) == target { return d }
+        return nil
     }
 
     public func advance(_ dt: TimeInterval,

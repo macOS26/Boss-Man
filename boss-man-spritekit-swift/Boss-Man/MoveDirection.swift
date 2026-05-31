@@ -1,6 +1,6 @@
 import Foundation
 
-enum MoveDirection {
+enum MoveDirection: CaseIterable {
     case left, right, down, up
 
     var delta: (dx: Int, dy: Int) {

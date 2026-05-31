@@ -103,9 +103,7 @@ final class WorkerController {
         isMoving = false
         node.removeAction(forKey: Strings.ActionKey.workerMove)
         #elseif os(WASI)
-        mover.dir = nil
-        mover.moving = false
-        mover.moveT = 0
+        mover.reset(to: mover.grid)
         #endif
     }
 
@@ -115,10 +113,7 @@ final class WorkerController {
         #if os(macOS)
         node.run(SKAction.move(to: gridMap.point(for: grid), duration: 0.2))
         #elseif os(WASI)
-        mover.grid = grid
-        mover.dir = nil
-        mover.moving = false
-        mover.moveT = 0
+        mover.reset(to: grid)
         #endif
     }
 
