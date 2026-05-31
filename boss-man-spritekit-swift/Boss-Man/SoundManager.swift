@@ -401,7 +401,17 @@ final class SoundManager {
         }
         guard let buffer = useMIB ? mibGoldDiscBeatBuffer : goldDiscBeatBuffer else { return }
         goldDiscBassActive = true
-        if musicPlayer.isPlaying { musicPlayer.pause() }   // music yields to the bass; no overlap
+        // Silence the background loop while the bass stands in for it. On wasm the
+        // kit's pause()/play() are GLOBAL (snd_pause_all / snd_resume_all), so a
+        // merely-paused loop is revived the instant any node resumes (the bass's
+        // own play() did exactly that, leaking the music under the bass). Stop the
+        // voice outright on wasm and reschedule it on exit; macOS keeps a seamless
+        // per-player pause/resume.
+        #if os(macOS)
+        if musicPlayer.isPlaying { musicPlayer.pause() }
+        #elseif os(WASI)
+        musicPlayer.stop()
+        #endif
         bassPlayer.stop()
         bassPlayer.volume = 0.9 * (useMIB ? 0.75 : 1.0) * 1.15   // 15% louder while standing in for the music
         bassPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
@@ -412,9 +422,18 @@ final class SoundManager {
         let wasActive = goldDiscBassActive
         goldDiscBassActive = false
         bassPlayer.stop()
-        // Resume the background loop at its unchanged volume. Guarded by wasActive
-        // so teardown paths (game over, stop-all) that also call this never revive it.
-        if wasActive && musicEnabled { musicPlayer.play() }
+        // Restore the background loop at its unchanged volume. Guarded by wasActive
+        // so teardown paths (game over, stop-all) never revive it. On wasm the loop
+        // was stopped (not paused), so it must be rescheduled rather than resumed.
+        if wasActive && musicEnabled {
+            #if os(macOS)
+            musicPlayer.play()
+            #elseif os(WASI)
+            let theme = currentMusicTheme
+            musicEnabled = false
+            startBackgroundMusic(theme: theme)
+            #endif
+        }
     }
 
     private func buildGoldDiscBeat() -> AVAudioPCMBuffer {
