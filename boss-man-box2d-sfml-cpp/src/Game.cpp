@@ -548,12 +548,28 @@ void Game::render() {
             window.draw(ptsText);
         }
 
+        // In-flight water shot: a systemCyan core with a systemBlue stroke plus a
+        // white specular highlight that orbits the core (0.4s/rev) so it reads as
+        // spinning through the air, matching the SpriteKit WaterDropletVisual.
+        float dropSpin = clock.getElapsedTime().asSeconds() * (6.2831853f / 0.4f);
         for (auto& d : waterGun.droplets) {
             if (!d.active) continue;
-            sf::CircleShape drop(5);
-            drop.setFillColor(sf::Color(0, 200, 240));
-            drop.setPosition(d.pos.x - 5, d.pos.y - 5);
-            window.draw(drop);
+            const float R = 5.f;
+            sf::CircleShape core(R, 16);
+            core.setOrigin(R, R);
+            core.setPosition(d.pos.x, d.pos.y);
+            core.setFillColor(sf::Color(50, 200, 240, 217));   // systemCyan @ 0.85
+            core.setOutlineThickness(1.f);
+            core.setOutlineColor(sf::Color(10, 122, 255));      // systemBlue
+            window.draw(core);
+            const float off = R * 0.3f;
+            float sx = -off * std::cos(dropSpin) + off * std::sin(dropSpin);
+            float sy = -off * std::sin(dropSpin) - off * std::cos(dropSpin);
+            sf::CircleShape spec(R * 0.35f, 12);
+            spec.setOrigin(R * 0.35f, R * 0.35f);
+            spec.setPosition(d.pos.x + sx, d.pos.y + sy);
+            spec.setFillColor(sf::Color(255, 255, 255, 191));   // white @ 0.75
+            window.draw(spec);
         }
 
         bossController.draw(window);
