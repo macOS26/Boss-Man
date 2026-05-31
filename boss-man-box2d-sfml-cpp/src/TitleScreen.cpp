@@ -161,6 +161,9 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Title "BOSS-MAN" — Marker Felt Wide, tilted (SpriteKit zRotation -0.04) ---
     drawText(target, fontWide_, "BOSS-MAN", 108, ink, W / 2.f, H * 0.26f, 1, 2.3f);
 
+    // --- Credit (SpriteKit y = height*0.95 - 15, top-left flipped) ---
+    drawText(target, fontThin_, "Game Design by Todd Bruss", 24, ink, W / 2.f, H * 0.05f + 15.f, 1);
+
     // --- Red stapler, fit to ~290px, tilted (zRotation -0.06) ---
     if (staplerLoaded_) {
         sf::Sprite sp(stapler_);
@@ -207,7 +210,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         std::string("Boss Tracks: ") + (Settings::bossTracksSquare() ? "Square" : "Smooth"),
         16, ink, W - 20.f, H - 120.f, 2);
     waterGunRect_   = drawText(target, fontMono_,
-        std::string("Water Gun: ") + (Settings::waterGunLeft() ? "Left" : "Right"),
+        std::string("Water Gun: ") + (Settings::waterGunHide() ? "Hide" : (Settings::waterGunLeft() ? "Left" : "Right")),
         16, ink, W - 20.f, H - 171.f, 2);
 }
 

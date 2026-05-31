@@ -25,13 +25,24 @@ namespace bm {
 
 enum class GameState { Title, Playing, Paused, GameOver, Editor };
 
-class Game {
+class Game : public BossControllerDelegate {
 public:
     Game();
     void run();
     void tick(); // one frame, driven by the web requestAnimationFrame loop
 
+    // BossControllerDelegate: per-step boss water-droplet evasion. Returns the
+    // travel axis of a droplet bearing down on the boss at `bossGrid` (None when
+    // no threat); the boss steps perpendicular to dodge it.
+    MoveDirection dropletAxisThreatening(GridPos bossGrid) override;
+
 private:
+    // True when an active droplet on `dropletGrid` travelling `dir` shares the
+    // boss's row/col, sits ahead within the dodge range, and has a wall-free path.
+    bool dropletThreatens(GridPos dropletGrid, MoveDirection dir, GridPos bossGrid) const;
+    GridPos dropletGridFor(sf::Vector2f pos) const;
+
+
     void processInput();
     void update(float dt);
     void render();

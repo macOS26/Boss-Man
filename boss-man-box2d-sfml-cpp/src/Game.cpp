@@ -30,6 +30,7 @@ Game::Game()
     uiScale() = windowBackingScale(window.getSystemHandle()); // crisp text on Retina
 #endif
     bossController.setSound(&sound);
+    bossController.setDelegate(this); // boss water-droplet dodge queries the game
     travelerSpawner.setSound(&sound);
     levelData = LevelLoader::loadFromAsset();
     levelStore.setBundled(levelData);
@@ -226,7 +227,17 @@ void Game::processInput() {
             case TitleScreen::Hit::Play:       input.pRequested = true; break;
             case TitleScreen::Hit::Editor:     input.eRequested = true; break;
             case TitleScreen::Hit::BossTracks: Settings::setBossTracksSquare(!Settings::bossTracksSquare()); break;
-            case TitleScreen::Hit::WaterGun:   Settings::setWaterGunLeft(!Settings::waterGunLeft()); break;
+            case TitleScreen::Hit::WaterGun:
+                // Cycle Left -> Right -> Hide -> Left (two bools: left + hide).
+                if (Settings::waterGunHide()) {
+                    Settings::setWaterGunHide(false);
+                    Settings::setWaterGunLeft(true);
+                } else if (Settings::waterGunLeft()) {
+                    Settings::setWaterGunLeft(false);
+                } else {
+                    Settings::setWaterGunHide(true);
+                }
+                break;
             case TitleScreen::Hit::Fullscreen:
             case TitleScreen::Hit::Window:     input.fullscreenToggleRequested = true; break;
             case TitleScreen::Hit::None:       break;
@@ -456,15 +467,15 @@ void Game::update(float dt) {
 
         for (int i = 0; i < (int)bossController.entities.size(); ++i) {
             auto& boss = bossController.entities[i];
-            if (!boss.isActive || boss.isImmobilized) continue;
+            if (!boss.isActive) continue;
             float dx = d.pos.x - boss.pixelPos.x;
             float dy = d.pos.y - boss.pixelPos.y;
-            if (dx*dx + dy*dy < 16.0f * 16.0f) {
+            if (dx*dx + dy*dy < 14.4f * 14.4f) {
                 d.active = false;
                 waterSplash.spawn(boss.pixelPos);
                 bossController.splash(i, gridMap, *pathfinder);
-                state.bumpScore(50);
-                scorePopups.add(50, boss.pixelPos);
+                state.bumpScore(100);
+                scorePopups.add(100, boss.pixelPos);
                 sound.playWaterGunSplash();
                 refreshHUD();
                 break;
@@ -551,7 +562,8 @@ void Game::render() {
         hud.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
         // On-screen fire button (left-click fires; side per the Water Gun setting).
-        {
+        // The Hide setting suppresses the button entirely, matching installFireButton.
+        if (!Settings::waterGunHide()) {
             float cx = Settings::waterGunLeft() ? 64.f : (float)WINDOW_WIDTH - 64.f;
             float cy = (float)WINDOW_HEIGHT - 72.f;
             sf::CircleShape ring(38.f);
@@ -724,7 +736,8 @@ void Game::collectTPSReport(int pickupIndex) {
     bool gainedLife = state.lives < MAX_LIVES;
     if (gainedLife) state.lives++;
     refreshHUD();
-    hud.showMessage("TPS report turned in! +" + std::to_string(tpsPoints), 3.0f);
+    hud.showMessage("TPS report turned in! +" + std::to_string(tpsPoints) +
+                    (gainedLife ? ", extra worker hired." : ", workers at max."), 3.0f);
     checkLevelComplete();
 }
 
@@ -738,7 +751,7 @@ void Game::refreshHUD() {
     hud.reportItems = state.reportItems;
     hud.lives = state.lives;
     hud.waterGunActive = waterGun.isActive;
-    hud.waterGunVisible = waterGunPickedUp;
+    hud.waterGunVisible = waterGunPickedUp && !Settings::waterGunHide();
     hud.waterGunPellets = waterGun.pelletsRemaining;
     hud.goldDiscActive = goldDiscActive;
 }
@@ -747,7 +760,7 @@ void Game::startNextLevel() {
     state.advanceLevel();
     resetSceneAndBuild();
     sound.playLevelStart();
-    hud.showMessage("Level " + std::to_string(state.level) + "!", 3.0f);
+    hud.showMessage("Level " + std::to_string(state.level) + "! New office floor loaded.", 3.0f);
 }
 
 void Game::resetSceneAndBuild() {
@@ -781,6 +794,56 @@ void Game::returnToTitle() {
         return;
     }
     gameState = GameState::Title;
+}
+
+// MARK: - Boss water-droplet dodge (BossControllerDelegate)
+
+GridPos Game::dropletGridFor(sf::Vector2f pos) const {
+    int gx = (int)(pos.x / TILE_SIZE);
+    int gy = (int)((pos.y - gridMap.yOffset) / TILE_SIZE);
+    gy = GRID_ROWS - 1 - gy; // flip screen row into bottom-up grid coords
+    return {gx, gy};
+}
+
+MoveDirection Game::dropletAxisThreatening(GridPos bossGrid) {
+    for (auto& d : waterGun.droplets) {
+        if (!d.active) continue;
+        // Travel axis from screen velocity: y-down screen, y-up grid.
+        MoveDirection dir;
+        if (std::abs(d.velocity.x) > std::abs(d.velocity.y))
+            dir = d.velocity.x > 0 ? MoveDirection::Right : MoveDirection::Left;
+        else
+            dir = d.velocity.y < 0 ? MoveDirection::Up : MoveDirection::Down;
+        if (dropletThreatens(dropletGridFor(d.pos), dir, bossGrid))
+            return dir;
+    }
+    return MoveDirection::None;
+}
+
+// A boss is threatened when it shares the droplet's row/col, sits ahead of it
+// along its travel axis within the dodge range, and every tile between is
+// walkable (a wall would stop the shot first).
+bool Game::dropletThreatens(GridPos d, MoveDirection dir, GridPos b) const {
+    auto step = bm::delta(dir);
+    int dist;
+    if (step.x != 0) {
+        if (b.y != d.y) return false;
+        int diff = b.x - d.x;
+        if (diff == 0 || (step.x > 0) != (diff > 0)) return false;
+        dist = std::abs(diff);
+    } else {
+        if (b.x != d.x) return false;
+        int diff = b.y - d.y;
+        if (diff == 0 || (step.y > 0) != (diff > 0)) return false;
+        dist = std::abs(diff);
+    }
+    if (dist > 8) return false;
+    GridPos cell = d;
+    for (int i = 0; i < dist; ++i) {
+        cell = {cell.x + step.x, cell.y + step.y};
+        if (!gridMap.isWalkable(cell)) return false;
+    }
+    return true;
 }
 
 } // namespace bm

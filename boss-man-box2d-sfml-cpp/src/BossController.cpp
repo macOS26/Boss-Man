@@ -215,7 +215,10 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         }
         if (!found) { boss.mustExitDoorway = false; return; }
     } else {
-        move = boss.ai.planNextStep(workerGrid, workerDir, firstBossGrid(), isGoldDiscMode);
+        MoveDirection dodgeAxis = delegate ? delegate->dropletAxisThreatening(boss.grid)
+                                           : MoveDirection::None;
+        const MoveDirection* dodge = (dodgeAxis != MoveDirection::None) ? &dodgeAxis : nullptr;
+        move = boss.ai.planNextStep(workerGrid, workerDir, firstBossGrid(), isGoldDiscMode, dodge);
     }
 
     // Set look direction

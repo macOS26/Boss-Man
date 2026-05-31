@@ -12,6 +12,15 @@ namespace bm {
 class BossController;
 class SoundManager;
 
+// Per-step hook for boss water-droplet evasion. The game scans active droplets
+// and reports the travel axis of any droplet bearing down on a boss at `grid`
+// (None when no threat); the boss then steps perpendicular to dodge it.
+class BossControllerDelegate {
+public:
+    virtual ~BossControllerDelegate() = default;
+    virtual MoveDirection dropletAxisThreatening(GridPos bossGrid) = 0;
+};
+
 struct BossEntity {
     std::string name;
     Color baseColor;
@@ -60,10 +69,12 @@ public:
     int captureStreak = 0;
     int currentLevel = 1;
     SoundManager* sound = nullptr;
+    BossControllerDelegate* delegate = nullptr;
 
     BossController() = default;
 
     void setSound(SoundManager* s) { sound = s; }
+    void setDelegate(BossControllerDelegate* d) { delegate = d; }
 
     void spawn(int level, const GridMap& map, const Pathfinder& pf,
                const std::vector<std::pair<int, GridPos>>& overrides = {});

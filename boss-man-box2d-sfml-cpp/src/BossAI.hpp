@@ -35,9 +35,13 @@ public:
         grid = g;
     }
 
-    Move planNextStep(GridPos workerGrid, MoveDirection workerDir, GridPos blinkyGrid, bool flee) {
+    Move planNextStep(GridPos workerGrid, MoveDirection workerDir, GridPos blinkyGrid, bool flee,
+                      const MoveDirection* dodgeAxis = nullptr) {
         GridPos next = grid;
-        if (flee) {
+        GridPos escape;
+        if (dodgeAxis && dodgeStep(*dodgeAxis, escape)) {
+            next = escape;
+        } else if (flee) {
             next = stepAwayFrom(workerGrid);
         } else {
             GridPos target = chaseTarget(workerGrid, workerDir, blinkyGrid);
@@ -57,6 +61,32 @@ public:
     }
 
 private:
+    // Step off the droplet's line of fire: a walkable neighbor perpendicular to
+    // the incoming droplet's travel axis, preferring not to backtrack. Returns
+    // false when boxed in (caller falls back to the normal chase/flee step).
+    bool dodgeStep(MoveDirection axis, GridPos& out) {
+        if (!map) return false;
+        GridPos perp[2];
+        if (isHorizontal(axis)) {
+            perp[0] = {grid.x, grid.y + 1};
+            perp[1] = {grid.x, grid.y - 1};
+        } else {
+            perp[0] = {grid.x + 1, grid.y};
+            perp[1] = {grid.x - 1, grid.y};
+        }
+        GridPos options[2];
+        int count = 0;
+        for (auto& p : perp) {
+            if (map->isWalkable(p)) options[count++] = p;
+        }
+        if (count == 0) return false;
+        for (int i = 0; i < count; ++i) {
+            if (options[i] != previousGrid) { out = options[i]; return true; }
+        }
+        out = options[0];
+        return true;
+    }
+
     GridPos chaseTarget(GridPos workerGrid, MoveDirection workerDir, GridPos blinkyGrid) {
         switch (personality) {
         case BossPersonality::DirectChase:
