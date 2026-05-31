@@ -1287,7 +1287,12 @@ class Runtime {
       win_width: () => LOGICAL_W,
       win_height: () => LOGICAL_H,
       win_request_fullscreen: () => {
-        if (this.canvas.requestFullscreen) this.canvas.requestFullscreen().catch(() => {});
+        // iPhone Safari has no element Fullscreen API (video only), so this is a
+        // no-op there; Android + iPad + desktop honor it. webkit* covers older
+        // iPadOS/Safari that only ship the prefixed call.
+        const el = this.canvas;
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
       },
       win_exit_fullscreen: () => {
         if (document.exitFullscreen) document.exitFullscreen().catch(() => {});

@@ -203,18 +203,19 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Controls + fullscreen hints, bottom of screen, HUD mono font ---
     drawText(target, fontMono_, "Cursor key to Move \xC2\xB7 Space to Fire Water Pistol", 16, ink,
              W / 2.f, H - 18.f, 1);
-    // Bottom-right toggle column, 51px apart, anchored at "F for Fullscreen".
-    fullscreenRect_ = drawText(target, fontMono_, "F for Fullscreen", 16, ink, W - 20.f, H - 18.f, 2);
-    windowRect_     = drawText(target, fontMono_, "ESC for Window", 16, ink, W - 20.f, H - 69.f, 2);
+    // Bottom-right toggle column, 64px apart, anchored at "F for Fullscreen"
+    // (25% larger + taller than before so it's tappable on mobile).
+    fullscreenRect_ = drawText(target, fontMono_, "F for Fullscreen", 20, ink, W - 20.f, H - 18.f, 2);
+    windowRect_     = drawText(target, fontMono_, "ESC for Window", 20, ink, W - 20.f, H - 82.f, 2);
     // baselineRef pins these to a fixed (descender-free) baseline so toggling the
     // value doesn't jump the line vertically (Square's q / Right's g would shift a
     // glyph-box-bottom anchor). Descenders simply hang below the shared baseline.
     bossTracksRect_ = drawText(target, fontMono_,
         std::string("Boss Tracks: ") + (Settings::bossTracksSquare() ? "Square" : "Smooth"),
-        16, ink, W - 20.f, H - 120.f, 2, 0.f, 255, "Boss Tracks: Smooth");
+        20, ink, W - 20.f, H - 146.f, 2, 0.f, 255, "Boss Tracks: Smooth");
     waterGunRect_   = drawText(target, fontMono_,
         std::string("Water Gun: ") + (Settings::waterGunHide() ? "Hide" : (Settings::waterGunLeft() ? "Left" : "Right")),
-        16, ink, W - 20.f, H - 171.f, 2, 0.f, 255, "Water Gun: Hide");
+        20, ink, W - 20.f, H - 210.f, 2, 0.f, 255, "Water Gun: Hide");
 }
 
 TitleScreen::Hit TitleScreen::hitTest(float x, float y) const {
