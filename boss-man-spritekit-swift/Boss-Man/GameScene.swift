@@ -74,6 +74,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // MARK: - Lifecycle
     #if os(macOS)
     override func didMove(to view: SKView) {
+        view.preferredFramesPerSecond = 60   // uncapped play, even when launched from the 30fps editor
         backgroundColor = SpriteFactory.mazeBackground
         anchorPoint = CGPoint(x: 0, y: 0)
         physicsWorld.gravity = .zero
@@ -102,6 +103,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
     #elseif os(WASI)
     override func didMove(to view: SKView) {
+        view.preferredFramesPerSecond = 60   // uncapped play, even when launched from the low-fps editor
         backgroundColor = SpriteFactory.mazeBackground
         anchorPoint = .zero
         physicsWorld.gravity = .zero

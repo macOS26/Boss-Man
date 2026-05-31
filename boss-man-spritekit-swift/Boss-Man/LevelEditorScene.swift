@@ -247,6 +247,15 @@ final class LevelEditorScene: SKScene {
 
     // MARK: - Lifecycle
     override func didMove(to view: SKView) {
+        // The editor is a static surface: idle at a low frame rate to spare the
+        // CPU. The kit forces a redraw on every input event, so painting stays
+        // instant on wasm despite the low cap. (Gameplay reclaims 60 in its own
+        // didMove, so launching a playtest from here is not throttled.)
+        #if os(macOS)
+        view.preferredFramesPerSecond = 30
+        #elseif os(WASI)
+        view.preferredFramesPerSecond = 10
+        #endif
         backgroundColor = SKColor(white: 0.08, alpha: 1.0)
         anchorPoint = .zero
         addChild(gridContainer)
