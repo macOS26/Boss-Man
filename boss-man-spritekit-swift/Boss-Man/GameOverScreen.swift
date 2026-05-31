@@ -42,7 +42,7 @@ final class GameOverScreen: SKNode {
         self.screen = size
         self.font = font
         self.finalScore = score
-        self.qualified = allowEntry && LocalHighScores.qualifies(name: defaultName, score: score)
+        self.qualified = allowEntry && LocalHighScores.qualifiesForBoard(score: score)
         self.onPlay = onPlay
         self.onEsc = onEsc
         super.init()

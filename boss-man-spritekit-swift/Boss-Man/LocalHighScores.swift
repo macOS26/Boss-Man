@@ -56,6 +56,15 @@ struct LocalHighScores {
         return all.count < maxEntries || score > (all.last?.score ?? 0)
     }
 
+    // Name-independent: would this score land on the board at all (open slot, or
+    // beats the lowest entry)? Drives whether the game-over screen offers name
+    // entry, matching the C++ LocalLeaderboard.qualifies.
+    static func qualifiesForBoard(score: Int) -> Bool {
+        guard score > 0 else { return false }
+        let all = load()
+        return all.count < maxEntries || score > (all.last?.score ?? 0)
+    }
+
     @discardableResult
     static func submit(name: String, score: Int) -> [Entry] {
         record(name: name, score: score)
