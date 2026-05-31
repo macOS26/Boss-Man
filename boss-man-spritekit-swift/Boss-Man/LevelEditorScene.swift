@@ -1,29 +1,41 @@
-import AppKit
 import SpriteKit
+#if os(macOS)
+import AppKit
 import Darwin
+#endif
 
-// MARK: - Tile ↔ Character Mapping
+// Level editor, common to the macOS master and the wasm port. The editor is the
+// "wasm is master" exception: its panel layout, key commands and behaviour come
+// from the web version, so the shared body follows the wasm editor. Platform
+// facilities fork behind #if:
+//   - macOS: NSEvent input (node-name hit testing), NSAlert clear-confirm,
+//     NSWorkspace "Reveal File" (the Show button is macOS-only), file-backed
+//     LevelStore, app-terminate autosave.
+//   - wasm: kit CGPoint/Int input (rect hit testing), immediate clear,
+//     localStorage-backed LevelStore (no Reveal button).
+
+// MARK: - Tile <-> Character mapping
 struct EditorTile: Equatable {
     let character: Character
     let displayName: String
 
-    static let empty = EditorTile(character: Strings.Tile.floorChar, displayName: Strings.Editor.Tile.floor)
-    static let dot = EditorTile(character: Strings.Tile.dotChar, displayName: Strings.Editor.Tile.dot)
-    static let wall = EditorTile(character: Strings.Tile.wallChar, displayName: Strings.Editor.Tile.wall)
-    static let hideout = EditorTile(character: Strings.Tile.hideoutChar, displayName: Strings.Editor.Tile.hideout)
-    static let printer = EditorTile(character: Strings.Tile.printerChar, displayName: Strings.Machine.printer)
-    static let fax = EditorTile(character: Strings.Tile.faxChar, displayName: Strings.Machine.fax)
-    static let copy = EditorTile(character: Strings.Tile.coverSheetChar, displayName: Strings.Machine.coverSheet)
-    static let collator = EditorTile(character: Strings.Tile.bookBinderChar, displayName: Strings.Machine.bookBinder)
-    static let brownBox = EditorTile(character: Strings.Tile.brownBoxChar, displayName: Strings.Machine.brownBox)
-    static let goldDisc = EditorTile(character: Strings.Tile.goldDiscChar, displayName: Strings.Editor.Tile.goldDisc)
-    static let worker = EditorTile(character: Strings.Tile.workerChar, displayName: Strings.Worker.hero.capitalized + " " + Strings.Worker.pete.capitalized)
-    static let boss1 = EditorTile(character: Strings.Tile.boss1Char, displayName: Strings.Boss.boss.capitalized + " " + Strings.Boss.bill.capitalized)
-    static let boss2 = EditorTile(character: Strings.Tile.boss2Char, displayName: Strings.Boss.boss.capitalized + " " + Strings.Boss.dom.capitalized)
-    static let boss3 = EditorTile(character: Strings.Tile.boss3Char, displayName: Strings.Boss.boss.capitalized + " " + Strings.Boss.bob.capitalized)
-    static let boss4 = EditorTile(character: Strings.Tile.boss4Char, displayName: Strings.Boss.boss.capitalized + " " + Strings.Boss.stan.capitalized)
-    static let waterGun = EditorTile(character: Strings.Tile.waterGunChar, displayName: Strings.Editor.Tile.waterGun)
-    static let waterPellet = EditorTile(character: Strings.Tile.waterPelletChar, displayName: Strings.Editor.Tile.waterPellet)
+    static let empty       = EditorTile(character: Strings.Tile.floorChar,       displayName: Strings.Editor.Tile.floor)
+    static let dot         = EditorTile(character: Strings.Tile.dotChar,          displayName: Strings.Editor.Tile.dot)
+    static let wall        = EditorTile(character: Strings.Tile.wallChar,         displayName: Strings.Editor.Tile.wall)
+    static let hideout     = EditorTile(character: Strings.Tile.hideoutChar,      displayName: Strings.Editor.Tile.hideout)
+    static let printer     = EditorTile(character: Strings.Tile.printerChar,      displayName: Strings.Machine.printer)
+    static let fax         = EditorTile(character: Strings.Tile.faxChar,          displayName: Strings.Machine.fax)
+    static let copy        = EditorTile(character: Strings.Tile.coverSheetChar,   displayName: Strings.Machine.coverSheet)
+    static let collator    = EditorTile(character: Strings.Tile.bookBinderChar,   displayName: Strings.Machine.bookBinder)
+    static let brownBox    = EditorTile(character: Strings.Tile.brownBoxChar,     displayName: Strings.Machine.brownBox)
+    static let goldDisc    = EditorTile(character: Strings.Tile.goldDiscChar,     displayName: Strings.Editor.Tile.goldDisc)
+    static let worker      = EditorTile(character: Strings.Tile.workerChar,       displayName: "Hero Pete")
+    static let boss1       = EditorTile(character: Strings.Tile.boss1Char,        displayName: "Boss Bill")
+    static let boss2       = EditorTile(character: Strings.Tile.boss2Char,        displayName: "Boss Dom")
+    static let boss3       = EditorTile(character: Strings.Tile.boss3Char,        displayName: "Boss Bob")
+    static let boss4       = EditorTile(character: Strings.Tile.boss4Char,        displayName: "Boss Stan")
+    static let waterGun    = EditorTile(character: Strings.Tile.waterGunChar,     displayName: Strings.Editor.Tile.waterGun)
+    static let waterPellet = EditorTile(character: Strings.Tile.waterPelletChar,  displayName: Strings.Editor.Tile.waterPellet)
 
     static let all: [EditorTile] = [
         .empty, .dot, .wall, .hideout,
@@ -32,7 +44,11 @@ struct EditorTile: Equatable {
     ]
 }
 
-// MARK: - Level Store
+// MARK: - Level store (platform-specific persistence)
+#if os(macOS)
+// macOS: a levels.json dict in Application Support, edited per-name. The static
+// index-based wrappers below give the shared editor + GameScene a uniform call
+// shape (the wasm store is index-keyed).
 final class LevelStore {
     static let shared = LevelStore()
 
@@ -116,33 +132,89 @@ final class LevelStore {
         Self.dequarantine(url)
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
-}
 
-// MARK: - Level Editor Scene
-class LevelEditorScene: SKScene {
-    
+    static func loadLevel(index: Int) -> [String] { shared.loadLevel(index: index) }
+    static func saveLevel(index: Int, rows: [String]) {
+        guard index >= 0, index < Levels.levelNames.count else { return }
+        shared.saveLevel(name: Levels.levelNames[index], rows: rows)
+    }
+    static func resetLevel(index: Int) {
+        guard index >= 0, index < Levels.levelNames.count else { return }
+        shared.resetLevel(name: Levels.levelNames[index])
+    }
+}
+#elseif os(WASI)
+// wasm: no filesystem write — each edited level is stored under its own
+// localStorage key as the rows joined by newlines. Built-in levels seed from
+// the read-only Levels.officeMaps asset.
+enum LevelStore {
+    static let mapCols = 37
+    static let mapRows = 17
+
+    static func key(_ index: Int) -> String { Strings.DefaultsKey.editorLevelPrefix + String(index) }
+
+    static func normalize(_ rows: [String]) -> [String] {
+        var out = rows.map { row -> String in
+            if row.count == mapCols { return row }
+            if row.count <  mapCols { return row + String(repeating: Strings.Tile.floor, count: mapCols - row.count) }
+            return String(row.prefix(mapCols))
+        }
+        while out.count < mapRows { out.append(String(repeating: Strings.Tile.floor, count: mapCols)) }
+        if out.count > mapRows { out = Array(out.prefix(mapRows)) }
+        return out
+    }
+
+    static func hasOverride(index: Int) -> Bool {
+        !(Persistence.string(forKey: key(index)) ?? "").isEmpty
+    }
+
+    static func loadLevel(index: Int) -> [String] {
+        if let stored = Persistence.string(forKey: key(index)), !stored.isEmpty {
+            return normalize(stored.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
+        }
+        let maps = Levels.officeMaps
+        let safe = (index >= 0 && index < maps.count) ? maps[index] : (maps.first ?? [])
+        return normalize(safe)
+    }
+
+    static func saveLevel(index: Int, rows: [String]) {
+        Persistence.setString(rows.joined(separator: "\n"), forKey: key(index))
+    }
+
+    static func resetLevel(index: Int) {
+        Persistence.setString("", forKey: key(index))
+    }
+}
+#endif
+
+// MARK: - Level editor scene
+final class LevelEditorScene: SKScene {
+
     var tileSize: CGFloat = 32
     var gridRows = 0
     var gridCols = 0
     var mapRows: [String] = []
     var selectedTile: EditorTile = .wall
+    #if os(macOS)
     var currentLevelIndex = UserDefaults.standard.integer(forKey: "LevelEditor_LastLevelIndex") {
         didSet { UserDefaults.standard.set(currentLevelIndex, forKey: "LevelEditor_LastLevelIndex") }
     }
-    
+    #elseif os(WASI)
+    var currentLevelIndex = Persistence.int(forKey: Strings.DefaultsKey.editorLastLevelIndex) {
+        didSet { Persistence.set(currentLevelIndex, forKey: Strings.DefaultsKey.editorLastLevelIndex) }
+    }
+    #endif
+
     let panelWidth: CGFloat = 148
     let margin: CGFloat = 12
-    
+
     var gridContainer = SKNode()
+    var uiContainer = SKNode()
     var tileNodes: [[SKNode]] = []
     var paletteNodes: [SKShapeNode] = []
+    var paletteRects: [CGRect] = []
+    var buttonRects: [(rect: CGRect, name: String)] = []
 
-    private static let paletteNamePrefix = Strings.NodeName.palettePrefix
-    private static func paletteName(for char: Character) -> String {
-        "\(paletteNamePrefix)\(char)"
-    }
-
-    var uiContainer = SKNode()
     var levelLabel: SKLabelNode!
     var levelSubLabel: SKLabelNode!
     var statusLabel: SKLabelNode!
@@ -152,7 +224,7 @@ class LevelEditorScene: SKScene {
     private var redoStack: [[String]] = []
     private var clipboard: [String]? = nil
     private var lastSavedHash: Int = 0
-    private var buttonBaseColors: [String: NSColor] = [:]
+    private var buttonBaseColors: [String: SKColor] = [:]
     private var buttonNodes: [String: SKShapeNode] = [:]
     private var pendingFlashName: String?
     private var levelHeadingGlyph: SKNode?
@@ -160,34 +232,52 @@ class LevelEditorScene: SKScene {
     var saveButton: SKShapeNode!
     var saveButtonLabel: SKLabelNode?
     private let autosaveInterval: TimeInterval = 60
-    
+    private var isPainting = false
+
     var gridOffsetX: CGFloat = 12
     var gridOffsetY: CGFloat = 12
-    
-    // MARK: - Scene Setup
+
+    private static func paletteName(for char: Character) -> String {
+        "\(Strings.NodeName.palettePrefix)\(char)"
+    }
+
+    private var currentCubicleColor: SKColor {
+        SpriteFactory.cubicleColors[currentLevelIndex % SpriteFactory.cubicleColors.count]
+    }
+
+    // MARK: - Lifecycle
     override func didMove(to view: SKView) {
-        backgroundColor = NSColor(white: 0.08, alpha: 1.0)
+        backgroundColor = SKColor(white: 0.08, alpha: 1.0)
+        anchorPoint = .zero
         addChild(gridContainer)
         addChild(uiContainer)
         buildUI()
         loadCurrentLevel()
         scheduleAutosave()
+        #if os(macOS)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleAppWillTerminate),
             name: NSApplication.willTerminateNotification,
             object: nil
         )
+        #endif
     }
 
     override func willMove(from view: SKView) {
+        #if os(macOS)
         NotificationCenter.default.removeObserver(self, name: NSApplication.willTerminateNotification, object: nil)
         super.willMove(from: view)
+        #elseif os(WASI)
+        autosaveIfDirty()
+        #endif
     }
 
+    #if os(macOS)
     @objc private func handleAppWillTerminate() {
         autosaveIfDirty()
     }
+    #endif
 
     private func scheduleAutosave() {
         removeAction(forKey: "autosave")
@@ -200,129 +290,136 @@ class LevelEditorScene: SKScene {
 
     private func performAutosave() {
         saveCurrentLevel()
-        let originalLabel = Strings.Editor.save
-        saveButtonLabel?.text = "AUTOSAVE 1 min"
-        statusLabel?.text = "AUTOSAVE 1 min"
+        saveButtonLabel?.text = Strings.Editor.autosaveToast
+        statusLabel?.text = Strings.Editor.autosaveToast
         run(.sequence([
             .wait(forDuration: 3),
             .run { [weak self] in
                 guard let self else { return }
-                self.saveButtonLabel?.text = originalLabel
+                self.saveButtonLabel?.text = Strings.Editor.save
                 self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
             }
         ]), withKey: "autosaveRevert")
     }
-    
+
     // MARK: - UI
     func buildUI() {
         uiContainer.removeAllChildren()
-        
-        let panelWidth: CGFloat = 148
-        let panelX = frame.width - panelWidth - 4
-        
-        let panel = SKShapeNode(rect: CGRect(x: panelX, y: 0, width: panelWidth + 4, height: frame.height))
-        panel.fillColor = NSColor(white: 0.15, alpha: 0.97)
-        panel.strokeColor = NSColor(white: 0.35, alpha: 1.0)
+        buttonRects.removeAll()
+
+        let panelW: CGFloat = 148
+        let panelX = size.width - panelW - 4
+
+        let panel = SKShapeNode(rect: CGRect(x: panelX, y: 0, width: panelW + 4, height: size.height))
+        panel.fillColor = SKColor(white: 0.15, alpha: 0.97)
+        panel.strokeColor = SKColor(white: 0.35, alpha: 1.0)
         panel.lineWidth = 2
         panel.zPosition = 100
         uiContainer.addChild(panel)
-        
-        let cx = panelX + panelWidth / 2 + 2
-        
-        let title = SKLabelNode(text: Strings.Editor.title)
-        title.fontName = Strings.Font.menloBold
+
+        let cx = panelX + panelW / 2 + 2
+
+        let title = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        title.text = Strings.Editor.title
         title.fontSize = 13
-        title.fontColor = NSColor.white
-        title.position = CGPoint(x: cx, y: frame.height - 24)
+        title.fontColor = .white
+        title.position = CGPoint(x: cx, y: size.height - 24)
         title.zPosition = 101
         uiContainer.addChild(title)
-        
-        levelLabel = SKLabelNode(text: Strings.empty)
-        levelLabel.fontName = Strings.Font.menloBold
+
+        levelLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        levelLabel.text = ""
         levelLabel.fontSize = 11
         levelLabel.fontColor = .systemBlue
-        levelLabel.position = CGPoint(x: cx, y: frame.height - 46)
+        levelLabel.position = CGPoint(x: cx, y: size.height - 46)
         levelLabel.zPosition = 101
         levelLabel.numberOfLines = 2
         levelLabel.horizontalAlignmentMode = .center
         uiContainer.addChild(levelLabel)
-        levelSubLabel = SKLabelNode(text: Strings.empty)
-        levelSubLabel.fontName = Strings.Font.menloBold
+
+        levelSubLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        levelSubLabel.text = ""
         levelSubLabel.fontSize = 11
         levelSubLabel.fontColor = .systemBlue
-        levelSubLabel.position = CGPoint(x: cx, y: frame.height - 60)
+        levelSubLabel.position = CGPoint(x: cx, y: size.height - 60)
         levelSubLabel.zPosition = 101
         levelSubLabel.horizontalAlignmentMode = .center
         uiContainer.addChild(levelSubLabel)
-        
-        statusLabel = SKLabelNode(text: Strings.Editor.tileWallInitial)
-        statusLabel.fontName = Strings.Font.menlo
+
+        statusLabel = SKLabelNode(fontNamed: Strings.Font.menlo)
+        statusLabel.text = Strings.Editor.tileWallInitial
         statusLabel.fontSize = 10
-        statusLabel.fontColor = NSColor.yellow
-        statusLabel.position = CGPoint(x: cx, y: frame.height - 78)
+        statusLabel.fontColor = .yellow
+        statusLabel.position = CGPoint(x: cx, y: size.height - 78)
         statusLabel.zPosition = 101
         uiContainer.addChild(statusLabel)
-        
+
         paletteNodes = []
-        let palStartY = frame.height - 89
+        paletteRects = []
+        let palStartY = size.height - 89
         let palSpacing: CGFloat = 17
-        
+
         for (i, tile) in EditorTile.all.enumerated() {
             let y = palStartY - 24 - CGFloat(i) * palSpacing
-            let swatchRect = CGRect(x: panelX + 8, y: y, width: panelWidth - 12, height: palSpacing)
+            let swatchRect = CGRect(x: panelX + 8, y: y, width: panelW - 12, height: palSpacing)
             let palName = LevelEditorScene.paletteName(for: tile.character)
+
             let bg = SKShapeNode(rect: swatchRect)
             bg.fillColor = floorColor(forParity: 0)
-            bg.strokeColor = NSColor(white: 0.4, alpha: 1.0)
+            bg.strokeColor = SKColor(white: 0.4, alpha: 1.0)
             bg.lineWidth = 1
             bg.zPosition = 101
             bg.name = palName
             uiContainer.addChild(bg)
             paletteNodes.append(bg)
+            paletteRects.append(swatchRect)
 
             let preview = renderTile(char: tile.character, size: palSpacing - 6, isPaletteSwatch: true)
-            preview.position = CGPoint(x: panelX + 8 + (palSpacing - 6) / 2 + 3,
-                                       y: y + (palSpacing) / 2)
+            preview.position = CGPoint(x: panelX + 8 + (palSpacing - 6) / 2 + 3, y: y + palSpacing / 2)
             preview.zPosition = 102
-            preview.name = palName
             uiContainer.addChild(preview)
 
-            let lbl = SKLabelNode(text: tile.displayName)
-            lbl.fontName = Strings.Font.menloBold
+            let lbl = SKLabelNode(fontNamed: Strings.Font.menloBold)
+            lbl.text = tile.displayName
             lbl.fontSize = 10
             lbl.fontColor = .white
             lbl.horizontalAlignmentMode = .left
             lbl.verticalAlignmentMode = .center
-            lbl.position = CGPoint(x: panelX + 8 + palSpacing + 4,
-                                   y: y + (palSpacing) / 2)
+            lbl.position = CGPoint(x: panelX + 8 + palSpacing + 4, y: y + palSpacing / 2)
             lbl.zPosition = 102
-            lbl.name = palName
             uiContainer.addChild(lbl)
         }
-        
-        let btnData: [(String, NSColor, String)] = [
-            (Strings.Editor.prev,     NSColor(white: 0.42, alpha: 1.0),              Strings.EditorButton.prev),
-            (Strings.Editor.next,     NSColor(white: 0.34, alpha: 1.0),              Strings.EditorButton.next),
-            (Strings.Editor.undo,     NSColor(white: 0.26, alpha: 1.0),              Strings.EditorButton.undo),
-            (Strings.Editor.redo,     NSColor(white: 0.18, alpha: 1.0),              Strings.EditorButton.redo),
-            (Strings.Editor.clear,      NSColor(calibratedRed: 0.6, green: 0.15, blue: 0.15, alpha: 1.0), Strings.EditorButton.clear),
-            (Strings.Editor.reset,      NSColor(calibratedRed: 0.6, green: 0.35, blue: 0.10, alpha: 1.0), Strings.EditorButton.reset),
-            (Strings.Editor.save,  NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
-            (Strings.Editor.copy,  NSColor(calibratedRed: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
-            (Strings.Editor.paste, NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
-            (Strings.Editor.revealFile, NSColor(calibratedRed: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal),
-            (Strings.Editor.play,       NSColor(calibratedRed: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), Strings.EditorButton.play),
-            (Strings.Editor.back, NSColor(calibratedRed: 0.45, green: 0.4, blue: 0.15, alpha: 1.0),  Strings.EditorButton.back),
+
+        var btnData: [(String, SKColor, String)] = [
+            (Strings.Editor.prev,  SKColor(white: 0.42, alpha: 1.0),                        Strings.EditorButton.prev),
+            (Strings.Editor.next,  SKColor(white: 0.34, alpha: 1.0),                        Strings.EditorButton.next),
+            (Strings.Editor.undo,  SKColor(white: 0.26, alpha: 1.0),                        Strings.EditorButton.undo),
+            (Strings.Editor.redo,  SKColor(white: 0.18, alpha: 1.0),                        Strings.EditorButton.redo),
+            (Strings.Editor.clear, SKColor(red: 0.6,  green: 0.15, blue: 0.15, alpha: 1.0), Strings.EditorButton.clear),
+            (Strings.Editor.reset, SKColor(red: 0.6,  green: 0.35, blue: 0.10, alpha: 1.0), Strings.EditorButton.reset),
+            (Strings.Editor.save,  SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
+            (Strings.Editor.copy,  SKColor(red: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
+            (Strings.Editor.paste, SKColor(red: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
         ]
+        // The Reveal File ("Show") button is macOS-only: it opens the levels.json
+        // in Finder. The web port has no filesystem, so it isn't offered.
+        #if os(macOS)
+        btnData.append((Strings.Editor.revealFile, SKColor(red: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal))
+        #endif
+        btnData.append((Strings.Editor.play, SKColor(red: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), Strings.EditorButton.play))
+        btnData.append((Strings.Editor.back, SKColor(red: 0.45, green: 0.4,  blue: 0.15, alpha: 1.0), Strings.EditorButton.back))
+
         let btnHeight: CGFloat = 17
         let btnSpacing: CGFloat = 19
         let btnStartY = palStartY - 24 - CGFloat(EditorTile.all.count) * palSpacing - 13
         buttonBaseColors.removeAll()
         buttonNodes.removeAll()
 
-        for (i, (title, color, name)) in btnData.enumerated() {
+        for (i, item) in btnData.enumerated() {
+            let (titleText, color, name) = item
             let by = btnStartY - CGFloat(i) * btnSpacing
-            let btn = SKShapeNode(rect: CGRect(x: panelX + 8, y: by, width: panelWidth - 12, height: btnHeight))
+            let rect = CGRect(x: panelX + 8, y: by, width: panelW - 12, height: btnHeight)
+            let btn = SKShapeNode(rect: rect)
             btn.fillColor = color
             btn.strokeColor = .clear
             btn.lineWidth = 0
@@ -331,16 +428,16 @@ class LevelEditorScene: SKScene {
             uiContainer.addChild(btn)
             buttonBaseColors[name] = color
             buttonNodes[name] = btn
+            buttonRects.append((rect: rect, name: name))
 
-            let lbl = SKLabelNode(text: title)
-            lbl.fontName = Strings.Font.menloBold
+            let lbl = SKLabelNode(fontNamed: Strings.Font.menloBold)
+            lbl.text = titleText
             lbl.fontSize = 9
-            lbl.fontColor = NSColor.white
+            lbl.fontColor = .white
             lbl.verticalAlignmentMode = .center
             lbl.horizontalAlignmentMode = .left
             lbl.position = CGPoint(x: panelX + 15, y: by + btnHeight / 2)
             lbl.zPosition = 102
-            lbl.name = name
             uiContainer.addChild(lbl)
 
             if name == Strings.EditorButton.save {
@@ -348,7 +445,7 @@ class LevelEditorScene: SKScene {
                 saveButtonLabel = lbl
             }
         }
-        
+
         updatePaletteHighlight()
         updateLevelLabel()
         if let pending = pendingFlashName {
@@ -356,36 +453,32 @@ class LevelEditorScene: SKScene {
             flashButton(named: pending)
         }
     }
-    
+
     // MARK: - Grid
     func rebuildGrid() {
         gridContainer.removeAllChildren()
         tileNodes = []
-        
-        let availWidth = frame.width - panelWidth - margin * 2 - 8
-        let availHeight = frame.height - margin * 2
-        
+
+        let availWidth = size.width - panelWidth - margin * 2 - 8
+        let availHeight = size.height - margin * 2
+
         let fitW = gridCols > 0 ? availWidth / CGFloat(gridCols) : 32
         let fitH = gridRows > 0 ? availHeight / CGFloat(gridRows) : 32
-        tileSize = min(fitW, fitH)
-        tileSize = max(tileSize, 4)
-        
+        tileSize = max(min(fitW, fitH), 4)
+
         let totalW = CGFloat(gridCols) * tileSize
         let totalH = CGFloat(gridRows) * tileSize
-        let offsetX = (availWidth - totalW) / 2 + margin
-        let offsetY = (availHeight - totalH) / 2 + margin
-        gridOffsetX = offsetX
-        gridOffsetY = offsetY
-        
+        gridOffsetX = (availWidth - totalW) / 2 + margin
+        gridOffsetY = (availHeight - totalH) / 2 + margin
+
         for row in 0..<gridRows {
             var rowNodes: [SKNode] = []
             for col in 0..<gridCols {
-                let x = offsetX + CGFloat(col) * tileSize
-                let y = offsetY + CGFloat(gridRows - 1 - row) * tileSize
+                let x = gridOffsetX + CGFloat(col) * tileSize
+                let y = gridOffsetY + CGFloat(gridRows - 1 - row) * tileSize
                 let container = SKNode()
                 container.position = CGPoint(x: x + tileSize / 2, y: y + tileSize / 2)
                 container.zPosition = 10
-                container.name = Strings.Editor.tileNodeName(row: row, col: col)
                 gridContainer.addChild(container)
                 renderTileInto(container, row: row, col: col, size: tileSize)
                 rowNodes.append(container)
@@ -393,14 +486,14 @@ class LevelEditorScene: SKScene {
             tileNodes.append(rowNodes)
         }
     }
-    
+
     func charAt(row: Int, col: Int) -> Character {
         guard row < mapRows.count else { return Strings.Tile.floorChar }
         let chars = Array(mapRows[row])
         guard col < chars.count else { return Strings.Tile.floorChar }
         return chars[col]
     }
-    
+
     func setChar(row: Int, col: Int, ch: Character) {
         guard row < mapRows.count else { return }
         var chars = Array(mapRows[row])
@@ -408,7 +501,7 @@ class LevelEditorScene: SKScene {
         chars[col] = ch
         mapRows[row] = String(chars)
     }
-    
+
     func updateTileVisual(row: Int, col: Int) {
         guard row < tileNodes.count, col < tileNodes[row].count else { return }
         let container = tileNodes[row][col]
@@ -416,114 +509,68 @@ class LevelEditorScene: SKScene {
         renderTileInto(container, row: row, col: col, size: tileSize)
     }
 
-    // MARK: - Real game-style rendering (matches MazeBuilder visuals)
-    private var currentCubicleColor: NSColor {
-        SpriteFactory.cubicleColors[currentLevelIndex % SpriteFactory.cubicleColors.count]
-    }
-
-    private func floorColor(forParity parity: Int) -> NSColor {
-        parity.isMultiple(of: 2)
-            ? NSColor(calibratedRed: 0.11, green: 0.12, blue: 0.13, alpha: 1)
-            : NSColor(calibratedRed: 0.09, green: 0.10, blue: 0.11, alpha: 1)
+    // MARK: - Rendering (matches the in-game MazeBuilder visuals)
+    private func floorColor(forParity parity: Int) -> SKColor {
+        parity.isMultiple(of: 2) ? SpriteFactory.floorTileA : SpriteFactory.floorTileB
     }
 
     private func renderTileInto(_ container: SKNode, row: Int, col: Int, size: CGFloat) {
         let ch = charAt(row: row, col: col)
-        let parity = row + col
-        addFloor(to: container, size: size, parity: parity)
+        addFloor(to: container, size: size, parity: row + col)
         addContent(to: container, char: ch, size: size)
     }
 
     private func renderTile(char: Character, size: CGFloat, isPaletteSwatch: Bool = false) -> SKNode {
         let container = SKNode()
-        if !isPaletteSwatch {
-            addFloor(to: container, size: size, parity: 0)
-        }
+        if !isPaletteSwatch { addFloor(to: container, size: size, parity: 0) }
         addContent(to: container, char: char, size: size)
         return container
     }
 
     private func addFloor(to container: SKNode, size: CGFloat, parity: Int) {
-        let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
-        let floor = SKShapeNode(rect: rect)
+        let floor = SKShapeNode(rect: CGRect(x: -size / 2, y: -size / 2, width: size, height: size))
         floor.fillColor = floorColor(forParity: parity)
-        floor.strokeColor = NSColor(calibratedWhite: 0.16, alpha: 1)
+        floor.strokeColor = SpriteFactory.floorTileStroke
         floor.lineWidth = 0.5
+        floor.isAntialiased = false
         container.addChild(floor)
     }
 
     private func addContent(to container: SKNode, char: Character, size: CGFloat) {
         switch char {
-        case Strings.Tile.wallChar:
-            addWall(to: container, size: size)
-        case Strings.Tile.dotChar:
-            addDot(to: container, size: size)
-        case Strings.Tile.hideoutChar:
-            addLetter(to: container, text: Strings.Tile.hideout, color: .systemPurple, size: size * 0.85)
-        case Strings.Tile.waterPelletChar:
-            addWaterPellet(to: container, size: size)
-        case Strings.Tile.printerChar, Strings.Tile.faxChar,
-             Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar,
-             Strings.Tile.brownBoxChar, Strings.Tile.waterGunChar:
-            addEmoji(to: container, text: MazeBuilder.emoji(forSymbol: String(char)), size: size)
-        case Strings.Tile.goldDiscChar:
-            addGoldDisc(to: container, size: size)
-        case Strings.Tile.workerChar:
-            addPete(to: container, size: size)
-        case Strings.Tile.boss1Char:
-            addBoss(to: container, name: Strings.Boss.bill,
-                    body: .systemRed,    tie: .black,        size: size)
-        case Strings.Tile.boss2Char:
-            addBoss(to: container, name: Strings.Boss.dom,
-                    body: NSColor.systemPink.withAlphaComponent(0.75),
-                    tie: NSColor.systemPurple.blended(withFraction: 0.40, of: .black) ?? .systemPurple, size: size)
-        case Strings.Tile.boss3Char:
-            addBoss(to: container, name: Strings.Boss.bob,
-                    body: .systemTeal,
-                    tie: NSColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue, size: size)
-        case Strings.Tile.boss4Char:
-            addBoss(to: container, name: Strings.Boss.stan,
-                    body: .systemOrange,
-                    tie: NSColor.systemRed.blended(withFraction: 0.10, of: .black) ?? .systemRed, size: size)
-        default:
-            break
+        case Strings.Tile.wallChar:        addWall(to: container, size: size)
+        case Strings.Tile.dotChar:         addDot(to: container, size: size)
+        case Strings.Tile.hideoutChar:     addLetter(to: container, text: Strings.Tile.hideout,
+                                                      color: SKColor(red: 0.69, green: 0.32, blue: 0.87, alpha: 1),
+                                                      size: size * 0.85)
+        case Strings.Tile.waterPelletChar: container.addChild(SpriteFactory.waterPelletVisual(radius: size * 0.32))
+        case Strings.Tile.printerChar:     addEmoji(to: container, text: Strings.Emoji.printer,    size: size)
+        case Strings.Tile.faxChar:         addEmoji(to: container, text: Strings.Emoji.fax,        size: size)
+        case Strings.Tile.coverSheetChar:  addEmoji(to: container, text: Strings.Emoji.coverSheet, size: size)
+        case Strings.Tile.bookBinderChar:  addEmoji(to: container, text: Strings.Emoji.bookBinder, size: size)
+        case Strings.Tile.brownBoxChar:    addEmoji(to: container, text: Strings.Emoji.brownBox,   size: size)
+        case Strings.Tile.waterGunChar:    addEmoji(to: container, text: Strings.Emoji.waterGun,   size: size)
+        case Strings.Tile.goldDiscChar:    container.addChild(SpriteFactory.goldDiscVisual(radius: size * 0.28))
+        case Strings.Tile.workerChar:      addPerson(to: container, SpriteFactory.petePerson(), size: size)
+        case Strings.Tile.boss1Char:       addPerson(to: container, SpriteFactory.bossPersonForBlueprint(0), size: size)
+        case Strings.Tile.boss2Char:       addPerson(to: container, SpriteFactory.bossPersonForBlueprint(1), size: size)
+        case Strings.Tile.boss3Char:       addPerson(to: container, SpriteFactory.bossPersonForBlueprint(2), size: size)
+        case Strings.Tile.boss4Char:       addPerson(to: container, SpriteFactory.bossPersonForBlueprint(3), size: size)
+        default: break
         }
     }
 
     private func addWall(to container: SKNode, size: CGFloat) {
-        let color = currentCubicleColor
-        let inset = size * 0.04
-        let fillRect = CGRect(x: -size / 2 + inset, y: -size / 2 + inset,
-                              width: size - inset * 2, height: size - inset * 2)
-        let body = SKShapeNode(rect: fillRect)
-        body.fillColor = color.withAlphaComponent(0.55)
-        body.strokeColor = color
-        body.lineWidth = 1.5
-        container.addChild(body)
-
-        let trimHeight = max(2, size * 0.12)
-        let trimRect = CGRect(x: -size / 2 + size * 0.16,
-                              y: size * 0.20,
-                              width: size - size * 0.32,
-                              height: trimHeight)
-        let trim = SKShapeNode(rect: trimRect)
-        trim.fillColor = NSColor.systemGray
-        trim.strokeColor = .clear
-        container.addChild(trim)
+        container.addChild(SpriteFactory.wallTile(size: size, color: currentCubicleColor))
     }
 
     private func addDot(to container: SKNode, size: CGFloat) {
-        let dotSize = max(2, size * 0.20)
-        let dot = SKShapeNode(rect: CGRect(x: -dotSize / 2, y: -dotSize / 2,
-                                           width: dotSize, height: dotSize))
-        dot.fillColor = NSColor.systemYellow
-        dot.strokeColor = .clear
-        container.addChild(dot)
+        container.addChild(SpriteFactory.dotVisual(size: max(2, size * 0.20)))
     }
 
-    private func addLetter(to container: SKNode, text: String, color: NSColor, size: CGFloat) {
-        let label = SKLabelNode(text: text)
-        label.fontName = Strings.Font.menloBold
+    private func addLetter(to container: SKNode, text: String, color: SKColor, size: CGFloat) {
+        let label = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        label.text = text
         label.fontSize = size
         label.fontColor = color
         label.verticalAlignmentMode = .center
@@ -532,67 +579,31 @@ class LevelEditorScene: SKScene {
     }
 
     private func addEmoji(to container: SKNode, text: String, size: CGFloat) {
-        let label = SKLabelNode(text: text)
-        label.fontName = Strings.Font.menlo
+        let label = SKLabelNode(fontNamed: Strings.Font.menlo)
+        label.text = text
         label.fontSize = size * 0.72
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
         container.addChild(label)
     }
 
-    private func addGoldDisc(to container: SKNode, size: CGFloat) {
-        container.addChild(SpriteFactory.goldDiscVisual(radius: size * 0.28))
-    }
-
-    private func addWaterPellet(to container: SKNode, size: CGFloat) {
-        container.addChild(SpriteFactory.waterPelletVisual(radius: size * 0.32))
-    }
-
-    private func addPete(to container: SKNode, size: CGFloat) {
-        let person = SpriteFactory.petePerson()
+    private func addPerson(to container: SKNode, _ person: PixelPerson, size: CGFloat) {
         person.setScale(size / 38)
         container.addChild(person)
     }
 
-    private func addBoss(to container: SKNode,
-                         name: String,
-                         body: NSColor,
-                         tie: NSColor,
-                         size: CGFloat) {
-        let person = SpriteFactory.bossPerson(bodyColor: body, tieColor: tie)
-        person.setScale(size / 38)
-        container.addChild(person)
-    }
-    
-    // MARK: - Level Loading
+    // MARK: - Level loading
     func loadCurrentLevel() {
         let names = Levels.levelNames
         guard currentLevelIndex < names.count else {
             currentLevelIndex = 0
             return loadCurrentLevel()
         }
-        let name = names[currentLevelIndex]
         undoStack.removeAll()
         redoStack.removeAll()
-
-        let targetCols = 37
-        let targetRows = 17
-        if let rows = LevelStore.shared.loadLevel(name: name) {
-            mapRows = rows.map { row -> String in
-                if row.count == targetCols { return row }
-                if row.count <  targetCols { return row + String(repeating: Strings.Tile.floor, count: targetCols - row.count) }
-                return String(row.prefix(targetCols))
-            }
-            while mapRows.count < targetRows {
-                mapRows.append(String(repeating: Strings.Tile.floor, count: targetCols))
-            }
-            if mapRows.count > targetRows { mapRows = Array(mapRows.prefix(targetRows)) }
-        } else {
-            mapRows = Array(repeating: String(repeating: Strings.Tile.floor, count: targetCols), count: targetRows)
-        }
-        gridRows = targetRows
-        gridCols = targetCols
-        
+        mapRows = LevelStore.loadLevel(index: currentLevelIndex)
+        gridRows = LevelStore.mapRows
+        gridCols = LevelStore.mapCols
         rebuildGrid()
         updateLevelLabel()
         buildUI()
@@ -609,12 +620,11 @@ class LevelEditorScene: SKScene {
             lastSavedHash = mapHash()
         }
     }
-    
+
     func updateLevelLabel() {
         let names = Levels.levelNames
         guard currentLevelIndex < names.count else { return }
-        let baseName = names[currentLevelIndex]
-        levelLabel?.text = baseName
+        levelLabel?.text = names[currentLevelIndex]
         levelSubLabel?.text = Strings.Editor.levelCounter(currentLevelIndex + 1, of: names.count)
 
         levelHeadingGlyph?.removeFromParent()
@@ -622,22 +632,28 @@ class LevelEditorScene: SKScene {
         let traveler = levelTravelers[currentLevelIndex % levelTravelers.count]
         let glyph = TravelerGlyph.makeNode(for: traveler, pointSize: lbl.fontSize)
         if traveler.image != nil { glyph.xScale = -1 }
+        #if os(macOS)
         let lblFrame = lbl.calculateAccumulatedFrame()
         glyph.position = CGPoint(x: lblFrame.maxX + 14, y: lblFrame.midY)
+        #elseif os(WASI)
+        glyph.position = CGPoint(x: lbl.position.x + lbl.measuredWidth() / 2 + 14, y: lbl.position.y)
+        #endif
         glyph.zPosition = lbl.zPosition
         uiContainer.addChild(glyph)
         levelHeadingGlyph = glyph
     }
-    
+
     func updatePaletteHighlight() {
         for (i, node) in paletteNodes.enumerated() {
             node.lineWidth = 1
-            node.strokeColor = NSColor(white: 0.4, alpha: 1.0)
-            if i < EditorTile.all.count && EditorTile.all[i] == selectedTile {
+            node.strokeColor = SKColor(white: 0.4, alpha: 1.0)
+            if i < EditorTile.all.count && EditorTile.all[i] == selectedTile && i < paletteRects.count {
                 highlightOverlay?.removeFromParent()
-                let overlay = SKShapeNode(rect: node.frame.insetBy(dx: 2, dy: 2))
-                overlay.fillColor = NSColor.yellow.withAlphaComponent(0.10)
-                overlay.strokeColor = NSColor.yellow
+                let r = paletteRects[i]
+                let overlay = SKShapeNode(rect: CGRect(x: r.minX + 2, y: r.minY + 2,
+                                                       width: r.width - 4, height: r.height - 4))
+                overlay.fillColor = SKColor.yellow.withAlphaComponent(0.10)
+                overlay.strokeColor = .yellow
                 overlay.lineWidth = 1
                 overlay.zPosition = 110
                 uiContainer.addChild(overlay)
@@ -646,9 +662,8 @@ class LevelEditorScene: SKScene {
         }
         statusLabel?.text = Strings.Editor.tilePrefix(selectedTile.displayName)
     }
-    
-    // MARK: - Input
-    // MARK: - Undo / redo
+
+    // MARK: - Undo / redo / clipboard
     private func pushUndoSnapshot() {
         undoStack.append(mapRows)
         if undoStack.count > maxUndoDepth { undoStack.removeFirst() }
@@ -677,16 +692,6 @@ class LevelEditorScene: SKScene {
         statusLabel?.text = Strings.Editor.redoToast
     }
 
-    private func flashButton(named name: String) {
-        guard let btn = buttonNodes[name], let base = buttonBaseColors[name] else { return }
-        let bright = base.blended(withFraction: 0.45, of: .white) ?? base
-        btn.fillColor = bright
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak btn] in
-            guard let self, let btn else { return }
-            btn.fillColor = self.buttonBaseColors[name] ?? base
-        }
-    }
-
     private func copyLevel() {
         clipboard = mapRows
         statusLabel?.text = Strings.Editor.copyToast
@@ -704,6 +709,7 @@ class LevelEditorScene: SKScene {
     }
 
     private func confirmClearLevel() {
+        #if os(macOS)
         let alert = NSAlert()
         alert.messageText = Strings.Editor.clearConfirmTitle
         alert.informativeText = Strings.Editor.clearConfirmBody
@@ -711,32 +717,98 @@ class LevelEditorScene: SKScene {
         alert.addButton(withTitle: Strings.Editor.clearConfirmDestructive)
         alert.addButton(withTitle: Strings.Editor.clearConfirmCancel)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        #endif
         pushUndoSnapshot()
         mapRows = mapRows.map { _ in String(repeating: Strings.Tile.floor, count: gridCols) }
         rebuildGrid()
+        statusLabel?.text = Strings.Editor.clearedToast
     }
 
-    // Revert this level to its built-in layout (undoable with Z). Mirrors the
-    // wasm editor master's resetCurrentLevel.
     private func resetCurrentLevel() {
         pushUndoSnapshot()
-        LevelStore.shared.resetLevel(name: Levels.levelNames[currentLevelIndex])
-        mapRows = LevelStore.shared.loadLevel(index: currentLevelIndex)
+        LevelStore.resetLevel(index: currentLevelIndex)
+        mapRows = LevelStore.loadLevel(index: currentLevelIndex)
         rebuildGrid()
+        lastSavedHash = mapHash()
         statusLabel?.text = Strings.Editor.resetToast
     }
 
+    private func brightened(_ c: SKColor, _ f: CGFloat = 0.45) -> SKColor {
+        #if os(macOS)
+        return c.blended(withFraction: f, of: .white) ?? c
+        #else
+        return SKColor(red: c.r + (1 - c.r) * f, green: c.g + (1 - c.g) * f,
+                       blue: c.b + (1 - c.b) * f, alpha: c.a)
+        #endif
+    }
+
+    private func flashButton(named name: String) {
+        guard let btn = buttonNodes[name], let base = buttonBaseColors[name] else { return }
+        btn.fillColor = brightened(base)
+        btn.run(.sequence([
+            .wait(forDuration: 0.5),
+            .run { [weak self, weak btn] in btn?.fillColor = self?.buttonBaseColors[name] ?? base }
+        ]), withKey: "btnflash")
+    }
+
+    // MARK: - Shared button actions
+    private func runButtonAction(_ name: String) {
+        switch name {
+        case Strings.EditorButton.prev:
+            autosaveIfDirty()
+            let count = Levels.levelNames.count
+            currentLevelIndex = (currentLevelIndex - 1 + count) % count
+            pendingFlashName = Strings.EditorButton.prev
+            loadCurrentLevel()
+        case Strings.EditorButton.next:
+            autosaveIfDirty()
+            currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
+            pendingFlashName = Strings.EditorButton.next
+            loadCurrentLevel()
+        case Strings.EditorButton.undo:   undo()
+        case Strings.EditorButton.redo:   redo()
+        case Strings.EditorButton.clear:  confirmClearLevel()
+        case Strings.EditorButton.reset:  resetCurrentLevel()
+        case Strings.EditorButton.save:   saveCurrentLevel()
+        case Strings.EditorButton.copy:   copyLevel()
+        case Strings.EditorButton.paste:  pasteLevel()
+        case Strings.EditorButton.reveal:
+            #if os(macOS)
+            LevelStore.shared.revealInFinder()
+            #endif
+        case Strings.EditorButton.play:   playCurrentLevel()
+        case Strings.EditorButton.back:
+            autosaveIfDirty()
+            let title = TitleScene(size: size)
+            title.scaleMode = .aspectFit
+            view?.presentScene(title, transition: .fade(withDuration: 0.3))
+        default: break
+        }
+    }
+
+    func paint(at loc: CGPoint, tile: EditorTile) {
+        let col = Int((loc.x - gridOffsetX) / tileSize)
+        let row = gridRows - 1 - Int((loc.y - gridOffsetY) / tileSize)
+        guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
+        if charAt(row: row, col: col) != tile.character {
+            setChar(row: row, col: col, ch: tile.character)
+            updateTileVisual(row: row, col: col)
+        }
+    }
+
+    // MARK: - Input (platform-specific)
+    #if os(macOS)
     override func mouseDown(with event: NSEvent) {
         pushUndoSnapshot()
         handleInput(event.location(in: self), begin: true)
     }
-    
+
     override func mouseDragged(with event: NSEvent) {
         handleInput(event.location(in: self), begin: false)
     }
-    
+
     override func mouseUp(with event: NSEvent) { }
-    
+
     override func rightMouseDown(with event: NSEvent) {
         paintRightClick(at: event.location(in: self))
     }
@@ -749,26 +821,25 @@ class LevelEditorScene: SKScene {
         let col = Int((loc.x - gridOffsetX) / tileSize)
         let row = gridRows - 1 - Int((loc.y - gridOffsetY) / tileSize)
         guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
-        let current = charAt(row: row, col: col)
         let tile: EditorTile
-        switch current {
+        switch charAt(row: row, col: col) {
         case Strings.Tile.dotChar:  tile = .wall
         case Strings.Tile.wallChar: tile = .dot
         default:                    tile = .dot
         }
         paint(at: loc, tile: tile)
     }
-    
+
     func handleInput(_ loc: CGPoint, begin: Bool) {
         if begin {
             let hitNodes = nodes(at: loc)
             let paletteName = hitNodes.compactMap { node -> String? in
-                if let name = node.name, name.hasPrefix(LevelEditorScene.paletteNamePrefix) { return name }
-                if let name = node.parent?.name, name.hasPrefix(LevelEditorScene.paletteNamePrefix) { return name }
-                if let name = node.parent?.parent?.name, name.hasPrefix(LevelEditorScene.paletteNamePrefix) { return name }
+                if let name = node.name, name.hasPrefix(Strings.NodeName.palettePrefix) { return name }
+                if let name = node.parent?.name, name.hasPrefix(Strings.NodeName.palettePrefix) { return name }
+                if let name = node.parent?.parent?.name, name.hasPrefix(Strings.NodeName.palettePrefix) { return name }
                 return nil
             }.first
-            
+
             if let palName = paletteName {
                 let ch = palName.suffix(1).first!
                 if let tile = EditorTile.all.first(where: { $0.character == ch }) {
@@ -777,135 +848,45 @@ class LevelEditorScene: SKScene {
                 }
                 return
             }
-            
+
             let name = hitNodes.first?.name ?? Strings.empty
-            if name.hasPrefix("btn_") { flashButton(named: name) }
-            switch name {
-            case Strings.EditorButton.prev:
-                autosaveIfDirty()
-                let count = Levels.levelNames.count
-                currentLevelIndex = (currentLevelIndex - 1 + count) % count
-                pendingFlashName = Strings.EditorButton.prev
-                loadCurrentLevel()
+            if name.hasPrefix("btn_") {
+                flashButton(named: name)
+                runButtonAction(name)
                 return
-            case Strings.EditorButton.next:
-                autosaveIfDirty()
-                currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
-                pendingFlashName = Strings.EditorButton.next
-                loadCurrentLevel()
-                return
-            case Strings.EditorButton.undo:
-                undo()
-                return
-            case Strings.EditorButton.redo:
-                redo()
-                return
-            case Strings.EditorButton.clear:
-                confirmClearLevel()
-                return
-            case Strings.EditorButton.reset:
-                resetCurrentLevel()
-                return
-            case Strings.EditorButton.save:
-                saveCurrentLevel()
-                return
-            case Strings.EditorButton.copy:
-                copyLevel()
-                return
-            case Strings.EditorButton.paste:
-                pasteLevel()
-                return
-            case Strings.EditorButton.reveal:
-                LevelStore.shared.revealInFinder()
-                return
-            case Strings.EditorButton.play:
-                playCurrentLevel()
-                return
-            case Strings.EditorButton.back:
-                autosaveIfDirty()
-                let title = TitleScene(size: size)
-                title.scaleMode = .aspectFit
-                view?.presentScene(title, transition: .fade(withDuration: 0.3))
-                return
-            default: break
             }
         }
-        
         paint(at: loc, tile: selectedTile)
     }
-    
-    func paint(at loc: CGPoint, tile: EditorTile) {
-        let col = Int((loc.x - gridOffsetX) / tileSize)
-        let row = gridRows - 1 - Int((loc.y - gridOffsetY) / tileSize)
-        
-        guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
-        
-        if charAt(row: row, col: col) != tile.character {
-            setChar(row: row, col: col, ch: tile.character)
-            updateTileVisual(row: row, col: col)
-        }
-    }
-    
-    // MARK: - Play
-    func playCurrentLevel() {
-        autosaveIfDirty()
-        let game = GameScene(size: size)
-        game.scaleMode = .aspectFit
-        game.practiceMode = true
-        game.startingLevel = currentLevelIndex + 1
-        view?.presentScene(game, transition: .fade(withDuration: 0.5))
-    }
 
-    // MARK: - Save
-    func saveCurrentLevel() {
-        let names = Levels.levelNames
-        guard currentLevelIndex < names.count else { return }
-        LevelStore.shared.saveLevel(name: names[currentLevelIndex], rows: mapRows)
-        lastSavedHash = mapHash()
-
-        saveButton?.fillColor = NSColor.green
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.saveButton?.fillColor = NSColor(calibratedRed: 0.15, green: 0.45, blue: 0.15, alpha: 1.0)
-        }
-        statusLabel?.text = Strings.Editor.savedToast
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self = self else { return }
-            self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
-        }
-    }
-    
-    // MARK: - Keyboard
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 53:                                   // Escape -> back to title
+        case 53:
             autosaveIfDirty()
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
             view?.presentScene(title, transition: .fade(withDuration: 0.3))
             return
-        case 123:                                  // ArrowLeft -> prev
+        case 123:
             autosaveIfDirty()
             let count = Levels.levelNames.count
             currentLevelIndex = (currentLevelIndex - 1 + count) % count
             pendingFlashName = Strings.EditorButton.prev
             loadCurrentLevel()
             return
-        case 124:                                  // ArrowRight -> next
+        case 124:
             autosaveIfDirty()
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
             return
-        case 51:                                   // Delete -> clear (bare, no Cmd)
+        case 51:
             flashButton(named: Strings.EditorButton.clear)
             confirmClearLevel()
             return
         default: break
         }
 
-        // Bare-key shortcuts (no Command). The wasm editor master dropped the
-        // Cmd modifier because browsers reserve Cmd/Ctrl combos; apple matches
-        // it so the editor controls are identical cross-platform.
         if let chars = event.characters?.lowercased() {
             switch chars {
             case Strings.Key.digit1: selectedTile = .wall
@@ -928,5 +909,124 @@ class LevelEditorScene: SKScene {
             }
         }
         updatePaletteHighlight()
+    }
+    #elseif os(WASI)
+    override func mouseDown(at p: CGPoint) {
+        if handleUITap(p) { return }
+        pushUndoSnapshot()
+        isPainting = true
+        paint(at: p, tile: selectedTile)
+    }
+
+    override func mouseMoved(to p: CGPoint) {
+        guard isPainting else { return }
+        paint(at: p, tile: selectedTile)
+    }
+
+    override func mouseUp(at p: CGPoint) {
+        isPainting = false
+    }
+
+    override func rightMouseDown(at p: CGPoint) {
+        let col = Int((p.x - gridOffsetX) / tileSize)
+        let row = gridRows - 1 - Int((p.y - gridOffsetY) / tileSize)
+        guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
+        let tile: EditorTile
+        switch charAt(row: row, col: col) {
+        case Strings.Tile.dotChar:  tile = .wall
+        case Strings.Tile.wallChar: tile = .dot
+        default:                    tile = .dot
+        }
+        pushUndoSnapshot()
+        paint(at: p, tile: tile)
+    }
+
+    private func handleUITap(_ p: CGPoint) -> Bool {
+        for (i, rect) in paletteRects.enumerated() where rect.contains(p) {
+            if i < EditorTile.all.count {
+                selectedTile = EditorTile.all[i]
+                updatePaletteHighlight()
+            }
+            return true
+        }
+        for entry in buttonRects where entry.rect.contains(p) {
+            flashButton(named: entry.name)
+            runButtonAction(entry.name)
+            return true
+        }
+        return false
+    }
+
+    override func keyDown(_ key: Int) {
+        switch key {
+        case 36:
+            autosaveIfDirty()
+            let title = TitleScene(size: size)
+            title.scaleMode = .aspectFit
+            view?.presentScene(title, transition: .fade(withDuration: 0.3))
+            return
+        case 71:
+            autosaveIfDirty()
+            let count = Levels.levelNames.count
+            currentLevelIndex = (currentLevelIndex - 1 + count) % count
+            pendingFlashName = Strings.EditorButton.prev
+            loadCurrentLevel()
+            return
+        case 72:
+            autosaveIfDirty()
+            currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
+            pendingFlashName = Strings.EditorButton.next
+            loadCurrentLevel()
+            return
+        case 27, 76: selectedTile = .wall;     updatePaletteHighlight(); return
+        case 28, 77: selectedTile = .dot;      updatePaletteHighlight(); return
+        case 29, 78: selectedTile = .hideout;  updatePaletteHighlight(); return
+        case 30, 79: selectedTile = .printer;  updatePaletteHighlight(); return
+        case 31, 80: selectedTile = .fax;      updatePaletteHighlight(); return
+        case 32, 81: selectedTile = .copy;     updatePaletteHighlight(); return
+        case 33, 82: selectedTile = .collator; updatePaletteHighlight(); return
+        case 34, 83: selectedTile = .brownBox; updatePaletteHighlight(); return
+        case 26, 75: selectedTile = .empty;    updatePaletteHighlight(); return
+        case 18: flashButton(named: Strings.EditorButton.save);   saveCurrentLevel()
+        case 15: flashButton(named: Strings.EditorButton.play);   playCurrentLevel()
+        case 2:  flashButton(named: Strings.EditorButton.copy);   copyLevel()
+        case 21: flashButton(named: Strings.EditorButton.paste);  pasteLevel()
+        case 25: flashButton(named: Strings.EditorButton.undo);   undo()
+        case 24: flashButton(named: Strings.EditorButton.redo);   redo()
+        case 17: flashButton(named: Strings.EditorButton.reset);  resetCurrentLevel()
+        case 59: flashButton(named: Strings.EditorButton.clear);  confirmClearLevel()
+        default: break
+        }
+    }
+    #endif
+
+    // MARK: - Play / save
+    func playCurrentLevel() {
+        autosaveIfDirty()
+        let game = GameScene(size: size)
+        game.scaleMode = .aspectFit
+        game.practiceMode = true
+        game.startingLevel = currentLevelIndex + 1
+        view?.presentScene(game, transition: .fade(withDuration: 0.5))
+    }
+
+    func saveCurrentLevel() {
+        let names = Levels.levelNames
+        guard currentLevelIndex < names.count else { return }
+        LevelStore.saveLevel(index: currentLevelIndex, rows: mapRows)
+        lastSavedHash = mapHash()
+        saveButton?.fillColor = .green
+        saveButton?.run(.sequence([
+            .wait(forDuration: 0.5),
+            .run { [weak self] in self?.saveButton?.fillColor = SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0) }
+        ]), withKey: "savegreen")
+        statusLabel?.text = Strings.Editor.savedToast
+        run(.sequence([
+            .wait(forDuration: 1.0),
+            .run { [weak self] in
+                guard let self else { return }
+                self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
+            }
+        ]), withKey: "savetoast")
     }
 }
