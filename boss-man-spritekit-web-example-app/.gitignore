@@ -1,7 +1,0 @@
-.build/
-*.wasm
-*.a
-*.o
-native/objs/
-web/manifest.json
-.DS_Store
