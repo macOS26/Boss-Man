@@ -382,6 +382,7 @@ void Game::update(float dt) {
                     if (!bossController.entities[i].isActive) continue;
                     if (bossController.isImmobilized(i)) continue;
                     if (bossController.isInFleeMode(i)) {
+                        std::string bossName = bossController.entities[i].name;
                         bossController.capture(i, gridMap);
                         int pts = 100 * bossController.captureStreak;
                         state.bumpScore(pts);
@@ -389,6 +390,7 @@ void Game::update(float dt) {
                         auto pos = gridMap.pointFor(bossController.entities[i].grid);
                         scorePopups.add(pts, pos);
                         refreshHUD();
+                        hud.showMessage(bossName + " captured! +" + std::to_string(pts), 2.0f);
                     } else if (!shielded) {
                         bossCaught = true;
                     }
@@ -474,9 +476,10 @@ void Game::update(float dt) {
                 d.active = false;
                 waterSplash.spawn(boss.pixelPos);
                 bossController.splash(i, gridMap, *pathfinder);
-                state.bumpScore(100);
-                scorePopups.add(100, boss.pixelPos);
+                state.bumpScore(50);
+                scorePopups.add(50, boss.pixelPos);
                 sound.playWaterGunSplash();
+                hud.showMessage(Message::BOSS_SPLASHED, 1.5f);
                 refreshHUD();
                 break;
             }
@@ -492,6 +495,7 @@ void Game::update(float dt) {
                 sound.playFishOrTreat();
                 scorePopups.add(tr.points, tr.pixelPos);
                 refreshHUD();
+                hud.showMessage("Caught " + tr.emoji + "! +" + std::to_string(tr.points), 2.0f);
             }
         }
     }
@@ -685,8 +689,9 @@ void Game::handleMachine(const std::string& name, int pickupIndex) {
     state.reportItems.insert(name);
 
     int itemIndex = (int)state.reportItems.size() - 1;
+    int pts = 0;
     if (itemIndex < 4) {
-        int pts = REPORT_ITEM_POINTS[itemIndex];
+        pts = REPORT_ITEM_POINTS[itemIndex];
         state.bumpScore(pts);
         state.currentReportScore += pts;
         scorePopups.add(pts, mazeRenderer->pickups[pickupIndex].pixelPos);
@@ -700,6 +705,9 @@ void Game::handleMachine(const std::string& name, int pickupIndex) {
 
     if ((int)state.reportItems.size() == (int)Machine::REQUIRED.size())
         hud.showMessage(Message::TPS_READY, 6.0f);
+    else
+        hud.showMessage("Collected " + name +
+                        " page for TPS report +" + std::to_string(pts), 2.0f);
 }
 
 void Game::collectTPSReport(int pickupIndex) {

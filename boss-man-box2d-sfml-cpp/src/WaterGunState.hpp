@@ -39,8 +39,12 @@ public:
     void fire(sf::Vector2f from, MoveDirection dir) {
         if (!consumePellet()) return;
         WaterDroplet d;
-        d.pos = from;
         auto delta = bm::delta(dir);
+        // Spawn ahead of Pete by half a tile plus the droplet radius so the shot
+        // clears his body instead of materializing inside it (matches SpriteKit's
+        // tileSize/2 + radius + 2 launch offset).
+        const float spawnOffset = TILE_SIZE / 2.f + WATER_DROPLET_RADIUS + 2.f;
+        d.pos = sf::Vector2f(from.x + delta.x * spawnOffset, from.y - delta.y * spawnOffset);
         d.velocity = sf::Vector2f(delta.x * WATER_DROPLET_SPEED, -delta.y * WATER_DROPLET_SPEED);
         d.distance = 0;
         d.active = true;

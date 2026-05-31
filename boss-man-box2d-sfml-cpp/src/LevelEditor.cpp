@@ -37,27 +37,41 @@ const std::vector<EditorTile>& editorTiles() {
     return tiles;
 }
 
-struct ButtonDef { std::string label; sf::Color color; };
+enum Btn { B_PREV, B_NEXT, B_UNDO, B_REDO, B_CLEAR, B_RESET, B_SAVE, B_COPY, B_PASTE, B_REVEAL, B_PLAY, B_BACK };
 
-// Buttons, in the exact order of btnData in LevelEditorScene.swift.
+struct ButtonDef { std::string label; sf::Color color; Btn id; };
+
+// Buttons, in the exact order of btnData in LevelEditorScene.swift. SHOW (Reveal
+// File) is desktop-only: the web build has no filesystem, so it is omitted there
+// (mirrors the Swift editor's #if os(macOS) reveal button). Hit-test / keyboard /
+// render key off ButtonDef.id, never the raw vector index, so PLAY/BACK reflow
+// correctly when SHOW is absent.
 const std::vector<ButtonDef>& editorButtons() {
     static const std::vector<ButtonDef> buttons = {
-        {"PREV  <",   sf::Color(107, 107, 107)},
-        {"NEXT  >",   sf::Color( 87,  87,  87)},
-        {"UNDO  Z",   sf::Color( 66,  66,  66)},
-        {"REDO  Y",   sf::Color( 46,  46,  46)},
-        {"CLEAR del", sf::Color(153,  38,  38)},
-        {"RESET R",   sf::Color(153,  89,  26)},
-        {"SAVE  S",   sf::Color( 38, 115,  38)},
-        {"COPY  C",   sf::Color( 51, 102,  77)},
-        {"PASTE V",   sf::Color( 64,  89,  77)},
-        {"SHOW",      sf::Color( 64,  89, 115)},
-        {"PLAY  P",   sf::Color( 38,  38, 140)},
-        {"BACK  ESC", sf::Color(115, 102,  38)},
+        {"PREV  <",   sf::Color(107, 107, 107), B_PREV},
+        {"NEXT  >",   sf::Color( 87,  87,  87), B_NEXT},
+        {"UNDO  Z",   sf::Color( 66,  66,  66), B_UNDO},
+        {"REDO  Y",   sf::Color( 46,  46,  46), B_REDO},
+        {"CLEAR del", sf::Color(153,  38,  38), B_CLEAR},
+        {"RESET R",   sf::Color(153,  89,  26), B_RESET},
+        {"SAVE  S",   sf::Color( 38, 115,  38), B_SAVE},
+        {"COPY  C",   sf::Color( 51, 102,  77), B_COPY},
+        {"PASTE V",   sf::Color( 64,  89,  77), B_PASTE},
+#if !defined(BOSS_MAN_WEB)
+        {"SHOW",      sf::Color( 64,  89, 115), B_REVEAL},
+#endif
+        {"PLAY  P",   sf::Color( 38,  38, 140), B_PLAY},
+        {"BACK  ESC", sf::Color(115, 102,  38), B_BACK},
     };
     return buttons;
 }
-enum Btn { B_PREV, B_NEXT, B_UNDO, B_REDO, B_CLEAR, B_RESET, B_SAVE, B_COPY, B_PASTE, B_REVEAL, B_PLAY, B_BACK };
+
+// Vector index of a button by id (-1 if absent on this platform, e.g. SHOW on web).
+int btnIndex(Btn id) {
+    const auto& b = editorButtons();
+    for (int i = 0; i < (int)b.size(); ++i) if (b[i].id == id) return i;
+    return -1;
+}
 
 // Machine / item emoji, matching Strings.Emoji and MazeRenderer.
 const std::string EMO_PRINTER = "\xf0\x9f\x96\xa8\xef\xb8\x8f"; // 🖨️
@@ -264,7 +278,7 @@ void LevelEditor::resetCurrentLevel() {
     pushUndoSnapshot();
     store_.resetLevel(names[currentLevelIndex]);
     mapRows = LevelStore::normalize(store_.loadLevel(currentLevelIndex));
-    statusText = "Reset to built-in (Z to undo)";
+    statusText = "Reset (Z to undo)";
 }
 
 // ---- save / load / level navigation ----
@@ -358,7 +372,7 @@ void LevelEditor::handleClick(sf::Vector2f loc) {
     for (int i = 0; i < (int)buttons.size(); ++i) {
         if (!buttonRectSFML(i).contains(loc)) continue;
         flashButton(i);
-        switch (i) {
+        switch (buttons[i].id) {
         case B_PREV:   prevLevel(); break;
         case B_NEXT:   nextLevel(); break;
         case B_UNDO:   undo(); break;
@@ -413,17 +427,17 @@ void LevelEditor::handleEvent(const sf::Event& event, const sf::RenderWindow& wi
         // right panel; browsers reserve Cmd/Ctrl combos, so it dropped the
         // modifier and C++ matches so the controls are identical cross-platform.
         switch (event.key.code) {
-        case sf::Keyboard::Left:  flashButton(B_PREV); prevLevel(); return;
-        case sf::Keyboard::Right: flashButton(B_NEXT); nextLevel(); return;
+        case sf::Keyboard::Left:  flashButton(btnIndex(B_PREV)); prevLevel(); return;
+        case sf::Keyboard::Right: flashButton(btnIndex(B_NEXT)); nextLevel(); return;
         case sf::Keyboard::Escape: backToTitle(); return;
-        case sf::Keyboard::BackSpace: flashButton(B_CLEAR); confirmClearLevel(); return;
-        case sf::Keyboard::S: flashButton(B_SAVE);  saveCurrentLevel(); return;
-        case sf::Keyboard::P: flashButton(B_PLAY);  playCurrentLevel(); return;
-        case sf::Keyboard::C: flashButton(B_COPY);  copyLevel(); return;
-        case sf::Keyboard::V: flashButton(B_PASTE); pasteLevel(); return;
-        case sf::Keyboard::Z: flashButton(B_UNDO);  undo(); return;
-        case sf::Keyboard::Y: flashButton(B_REDO);  redo(); return;
-        case sf::Keyboard::R: flashButton(B_RESET); resetCurrentLevel(); return;
+        case sf::Keyboard::BackSpace: flashButton(btnIndex(B_CLEAR)); confirmClearLevel(); return;
+        case sf::Keyboard::S: flashButton(btnIndex(B_SAVE));  saveCurrentLevel(); return;
+        case sf::Keyboard::P: flashButton(btnIndex(B_PLAY));  playCurrentLevel(); return;
+        case sf::Keyboard::C: flashButton(btnIndex(B_COPY));  copyLevel(); return;
+        case sf::Keyboard::V: flashButton(btnIndex(B_PASTE)); pasteLevel(); return;
+        case sf::Keyboard::Z: flashButton(btnIndex(B_UNDO));  undo(); return;
+        case sf::Keyboard::Y: flashButton(btnIndex(B_REDO));  redo(); return;
+        case sf::Keyboard::R: flashButton(btnIndex(B_RESET)); resetCurrentLevel(); return;
         case sf::Keyboard::Num1: case sf::Keyboard::Numpad1: selectedTile = Tile::wall; break;
         case sf::Keyboard::Num2: case sf::Keyboard::Numpad2: selectedTile = Tile::dot; break;
         case sf::Keyboard::Num3: case sf::Keyboard::Numpad3: selectedTile = Tile::hideout; break;
@@ -691,7 +705,7 @@ void LevelEditor::drawPanel(sf::RenderTarget& t) {
     for (int i = 0; i < (int)buttons.size(); ++i) {
         sf::FloatRect r = buttonRectSFML(i);
         sf::Color fill = buttons[i].color;
-        if (i == B_SAVE && saveGreenTimer > 0.f) {
+        if (buttons[i].id == B_SAVE && saveGreenTimer > 0.f) {
             fill = sf::Color(0, 255, 0);
         } else if (i < (int)buttonFlash.size() && buttonFlash[i] > 0.f) {
             // Brighten toward white by 45%, like flashButton().
@@ -706,7 +720,7 @@ void LevelEditor::drawPanel(sf::RenderTarget& t) {
         t.draw(btn);
 
         std::string label = buttons[i].label;
-        if (i == B_SAVE && autosaveLabelTimer > 0.f) label = "AUTOSAVE 1 min";
+        if (buttons[i].id == B_SAVE && autosaveLabelTimer > 0.f) label = "AUTOSAVE 1 min";
         drawText(t, label, 9, sf::Color::White, PANEL_X + 15.f, r.top + r.height / 2.f, 0, true);
     }
 }

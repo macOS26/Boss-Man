@@ -55,9 +55,13 @@ void BossController::spawn(int level, const GridMap& map, const Pathfinder& pf,
         // Boss Tracks (title screen): "Square" (default) = classic glide-then-dwell
         // (0.36 interval / 0.22 glide => 0.14 centre dwell); "Smooth" = continuous
         // 0.16 glide with no dwell, matching the SuperBox64 / wasm Smooth mode.
+        // Square runs 15% faster (x1.15 on speed = 15% less per-tile time) while
+        // keeping the 0.22-glide / 0.14-dwell cadence; smooth uses the base speed.
+        // Matches the Swift master's BossController.buildEntity.
         const bool square = Settings::bossTracksSquare();
-        ent.moveInterval = (square ? BOSS_MOVE_INTERVAL : 0.16f) / bp.speed;
-        ent.moveDuration = (square ? BOSS_MOVE_DURATION : 0.16f) / bp.speed;
+        const float speed = square ? (bp.speed * 1.15f) : bp.speed;
+        ent.moveInterval = (square ? BOSS_MOVE_INTERVAL : 0.16f) / speed;
+        ent.moveDuration = (square ? BOSS_MOVE_DURATION : 0.16f) / speed;
         ent.grid = spawnPos;
         ent.pixelPos = map.pointFor(spawnPos);
         ent.blueprintIndex = bpIdx;

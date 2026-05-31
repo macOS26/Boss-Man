@@ -54,6 +54,7 @@ constexpr int   STARTING_LIVES   = 3;
 constexpr int   WATER_GUN_PELLETS = 8;
 constexpr float WATER_DROPLET_SPEED = 320.0f;
 constexpr float WATER_DROPLET_MAX_DIST = 576.0f;
+constexpr float WATER_DROPLET_RADIUS = 5.0f;
 
 // Worker default spawn
 struct GridPos {

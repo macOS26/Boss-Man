@@ -172,8 +172,8 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         sp.setOrigin(ts.x / 2.f, ts.y / 2.f);
         sp.setScale(fit, fit);
         sp.setRotation(3.4f);
-        // SpriteKit centers the stapler sprite at height*0.46 (i.e. 0.54 from top).
-        sp.setPosition(W / 2.f, H * 0.54f);
+        // SpriteKit centers the stapler sprite at height*0.46 + 8 (i.e. 0.54 from top, raised 8px).
+        sp.setPosition(W / 2.f, H * 0.54f - 8.f);
         // Premultiplied blend (texture is premultiplied) — clean edges over the
         // yellow background instead of a gray fringe from straight-alpha scaling.
         target.draw(sp, sf::RenderStates(sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha)));
@@ -216,7 +216,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
 
 TitleScreen::Hit TitleScreen::hitTest(float x, float y) const {
     auto in = [&](const sf::FloatRect& r) {
-        return sf::FloatRect(r.left - 10.f, r.top - 8.f, r.width + 20.f, r.height + 16.f).contains(x, y);
+        return sf::FloatRect(r.left - 12.f, r.top - 10.f, r.width + 24.f, r.height + 20.f).contains(x, y);
     };
     if (in(playRect_))        return Hit::Play;
     if (in(editorRect_))      return Hit::Editor;
