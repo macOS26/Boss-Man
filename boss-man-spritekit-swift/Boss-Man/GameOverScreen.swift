@@ -28,7 +28,7 @@ final class GameOverScreen: SKNode {
     private var committed = false
 
     private let nameLabel = SKLabelNode()
-    private let caretLabel = SKLabelNode()
+    private var caretNode = SKShapeNode()
     private var keyRects: [(rect: CGRect, ch: Character)] = []
     private var backspaceRect = CGRect.zero
     private var spaceRect = CGRect.zero
@@ -130,15 +130,15 @@ final class GameOverScreen: SKNode {
         nameLabel.position = CGPoint(x: (W - fieldW) / 2 + 14, y: fieldY)
         nameLabel.zPosition = zPosition + 3
         addChild(nameLabel)
-        caretLabel.text = "|"
-        caretLabel.fontName = font
-        caretLabel.fontSize = H * 0.036
-        caretLabel.fontColor = nameLabel.fontColor
-        caretLabel.horizontalAlignmentMode = .left
-        caretLabel.verticalAlignmentMode = .center
-        caretLabel.zPosition = zPosition + 3
-        caretLabel.run(.repeatForever(.sequence([.fadeAlpha(to: 0, duration: 0.45), .fadeAlpha(to: 1, duration: 0.45)])))
-        addChild(caretLabel)
+        // Thin rectangle caret (no glyph side-bearing, so it tucks right against
+        // the last letter instead of leaving a space-sized gap like a "|" glyph).
+        let caretH = H * 0.042
+        caretNode = SKShapeNode(rect: CGRect(x: 0, y: -caretH / 2, width: 3, height: caretH), cornerRadius: 1)
+        caretNode.fillColor = SKColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1)
+        caretNode.strokeColor = .clear
+        caretNode.zPosition = zPosition + 3
+        caretNode.run(.repeatForever(.sequence([.fadeAlpha(to: 0, duration: 0.45), .fadeAlpha(to: 1, duration: 0.45)])))
+        addChild(caretNode)
 
         // On-screen keyboard.
         let rows = ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
@@ -179,7 +179,7 @@ final class GameOverScreen: SKNode {
         // keyboard present they sit just inside the bottom border, below it.
         let bw = W * 0.30
         let bh = H * (qualified ? 0.095 : 0.13)
-        let by = H * (qualified ? 0.085 : 0.25)
+        let by = H * (qualified ? 0.085 : 0.25) + 3
         playRect = CGRect(x: W * 0.16, y: by - bh / 2, width: bw, height: bh)
         box(playRect, fill: SKColor(red: 0.12, green: 0.5, blue: 0.18, alpha: 1), radius: 14)
         _ = label("PLAY", bh * 0.42, .white, x: playRect.midX, y: by)
@@ -191,7 +191,7 @@ final class GameOverScreen: SKNode {
     private func refreshName() {
         guard qualified else { return }
         nameLabel.text = typed
-        caretLabel.position = CGPoint(x: nameLabel.position.x + nameLabel.frame.width + 2, y: nameLabel.position.y)
+        caretNode.position = CGPoint(x: nameLabel.position.x + nameLabel.frame.width - 1, y: nameLabel.position.y)
     }
 
     private func commitName() {
