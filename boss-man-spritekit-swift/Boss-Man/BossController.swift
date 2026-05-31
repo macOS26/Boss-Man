@@ -171,10 +171,10 @@ final class BossController {
         // dwell (matches the wasm port). Both run at moveInterval per tile for
         // speed 1.0, so the fastest boss matches Pete. Absent key defaults to Square.
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
-        // Square glides fast then dwells, so it reads faster than smooth at the
-        // same multiplier — drop it 0.10 (smooth 0.90/0.80/0.70/0.60 -> square
-        // 0.80/0.70/0.60/0.50).
-        let speed = square ? (blueprint.speed - 0.10) : blueprint.speed
+        // Square glides fast then dwells, so it reads faster + jerkier than
+        // smooth at the same multiplier — drop it 0.30 (smooth 0.90/0.80/0.70/0.60
+        // -> square 0.60/0.50/0.40/0.30) so the glide/dwell cycle slows down.
+        let speed = square ? (blueprint.speed - 0.30) : blueprint.speed
         let entityInterval = moveInterval / speed
         let entityDuration = (square ? moveDuration : moveInterval) / speed
 

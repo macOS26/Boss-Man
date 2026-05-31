@@ -51,10 +51,10 @@ final class BossController {
         self.sound = sound
         self.homeGrid = spawn
         let blueprint = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)]
-        // Square glides fast then dwells, so it reads faster than smooth at the
-        // same multiplier — drop it 0.10 (smooth 0.90/0.80/0.70/0.60 -> square
-        // 0.80/0.70/0.60/0.50).
-        self.speed = squareTracks ? (blueprint.speed - 0.10) : blueprint.speed
+        // Square glides fast then dwells, so it reads faster + jerkier than
+        // smooth at the same multiplier — drop it 0.30 (smooth 0.90/0.80/0.70/0.60
+        // -> square 0.60/0.50/0.40/0.30) so the glide/dwell cycle slows down.
+        self.speed = squareTracks ? (blueprint.speed - 0.30) : blueprint.speed
         self.squareTracks = squareTracks
         self.ai = BossAI(homeGrid: spawn, detectionRange: 10,
                          personality: blueprint.personality,
