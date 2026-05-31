@@ -70,6 +70,12 @@ public:
         unsigned int button;
     };
 
+    struct TouchEvent {
+        unsigned int finger;
+        int          x;
+        int          y;
+    };
+
     enum EventType {
         Closed,
         Resized,
@@ -111,6 +117,7 @@ public:
         JoystickMoveEvent     joystickMove;
         JoystickButtonEvent   joystickButton;
         JoystickConnectEvent  joystickConnect;
+        TouchEvent            touch;
     };
 };
 

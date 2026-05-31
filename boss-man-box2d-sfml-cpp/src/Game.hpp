@@ -63,6 +63,14 @@ private:
     void workerEnteredTile(GridPos grid);
     void checkLevelComplete();
     void bossCaughtWorker();
+    // Full-screen game-over combo: leaderboard + on-screen keyboard name entry
+    // (when the score qualifies) + PLAY/ESC. Mirrors the SpriteKit GameOverScreen.
+    struct GameOverKey { sf::FloatRect rect; int kind; char ch; }; // kind 0=char 1=del 2=space 3=play 4=esc
+    std::vector<GameOverKey> gameOverKeys() const;
+    void drawGameOver();
+    void gameOverTap(float x, float y);
+    void gameOverAppendChar(char c);
+    void gameOverCommit();
     void startGoldDiscMode();
     void endGoldDiscMode();
     void fireWaterGun();
@@ -98,6 +106,10 @@ private:
     bool waterGunPickedUp = false;
     float goldDiscTimer = 0.0f;
     bool goldDiscActive = false;
+
+    std::string goName;          // name typed on the game-over combo screen
+    bool goQualified = false;    // score made the top 10 (and not practice mode)
+    bool goCommitted = false;    // name recorded to the leaderboard already
 
     std::unordered_map<std::string, std::vector<std::string>> levelData;
     std::vector<std::string> officeMaps;

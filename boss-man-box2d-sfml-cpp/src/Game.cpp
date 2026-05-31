@@ -6,8 +6,36 @@
 #include "Settings.hpp"
 #include <algorithm>
 #include <cstdlib>
+#include <cmath>
 
 namespace bm {
+
+namespace {
+sf::Font& gameOverFont() {
+    static sf::Font font;
+    static bool loaded = false;
+    if (!loaded) loaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
+    return font;
+}
+// halign: 0 left, 1 center, 2 right (about x). Rasterizes at uiScale and
+// counter-scales so text stays crisp on Retina. Returns the logical text width.
+float goText(sf::RenderTarget& t, const std::string& s, float sizePx, sf::Color color,
+             float x, float centerY, int halign) {
+    float dpi = uiScale();
+    sf::Text txt;
+    txt.setFont(gameOverFont());
+    txt.setString(s);
+    txt.setCharacterSize((unsigned)(sizePx * dpi));
+    txt.setFillColor(color);
+    auto lb = txt.getLocalBounds();
+    float ox = (halign == 0) ? lb.left : (halign == 2 ? lb.left + lb.width : lb.left + lb.width / 2.f);
+    txt.setOrigin(ox, lb.top + lb.height / 2.f);
+    txt.setScale(1.f / dpi, 1.f / dpi);
+    txt.setPosition(x, centerY);
+    t.draw(txt);
+    return lb.width / dpi;
+}
+} // namespace
 
 Game::Game()
     : window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), WINDOW_TITLE,
@@ -236,6 +264,34 @@ void Game::processInput() {
         // ⌘ shortcuts), so route events straight to it and skip InputController.
         if (gameState == GameState::Editor) {
             editor.handleEvent(event, window);
+            continue;
+        }
+        // Game-over combo screen: taps hit the on-screen keyboard / PLAY / ESC;
+        // physical keys type the name (when the score qualifies), Enter (or P when
+        // not typing) is PLAY, Escape is ESC. Deferred via input flags like the title.
+        if (gameState == GameState::GameOver) {
+            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y));
+                gameOverTap(p.x, p.y);
+            } else if (event.type == sf::Event::TouchEnded) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)event.touch.x, (int)event.touch.y));
+                gameOverTap(p.x, p.y);
+            } else if (event.type == sf::Event::KeyPressed) {
+                int code = event.key.code;
+                if (code == sf::Keyboard::Enter || (!goQualified && code == sf::Keyboard::P)) {
+                    gameOverCommit(); input.pRequested = true;
+                } else if (code == sf::Keyboard::Escape) {
+                    gameOverCommit(); input.escapeRequested = true;
+                } else if (goQualified && code == sf::Keyboard::Backspace) {
+                    if (!goName.empty()) goName.pop_back();
+                } else if (goQualified && code >= sf::Keyboard::A && code <= sf::Keyboard::Z) {
+                    gameOverAppendChar((char)('A' + (code - sf::Keyboard::A)));
+                } else if (goQualified && code >= sf::Keyboard::Num0 && code <= sf::Keyboard::Num9) {
+                    gameOverAppendChar((char)('0' + (code - sf::Keyboard::Num0)));
+                } else if (goQualified && code == sf::Keyboard::Space) {
+                    gameOverAppendChar(' ');
+                }
+            }
             continue;
         }
         // Title-screen clicks: the (P)lay/(E)ditor buttons and the bottom-right
@@ -649,6 +705,8 @@ void Game::render() {
             ring.setOutlineColor(sf::Color(255, 255, 255, 128)); // white @ 0.5
             window.draw(ring);
         }
+
+        if (gameState == GameState::GameOver) drawGameOver();
     }
 
     window.display();
@@ -700,13 +758,18 @@ void Game::bossCaughtWorker() {
 
     if (state.lives <= 0) {
         gameState = GameState::GameOver;
-        hud.isGameOver = true;
-        // Practice mode (launched from the editor) never affects the high score
-        // or the leaderboard, matching the SpriteKit GameScene.
+        // Seed the combo screen: practice mode (launched from the editor) never
+        // affects the high score or the leaderboard, matching the SpriteKit
+        // GameScene. The name is recorded on commit (PLAY/ESC) only when the
+        // score qualifies; non-qualifying scores never reach the top 10 anyway.
+        goName.clear();
+        goCommitted = false;
+        goQualified = false;
         if (!state.practiceMode) {
             state.saveHighScore();
-            const char* user = std::getenv("USER");
-            leaderboard.record(user ? user : "PLAYER", state.score);
+            goQualified = leaderboard.qualifies(state.score);
+            goName = leaderboard.savedName();
+            if (goName.empty()) { const char* user = std::getenv("USER"); goName = user ? user : ""; }
         }
         sound.stopBackgroundMusic();
         sound.stopGoldDiscBass();
@@ -714,6 +777,136 @@ void Game::bossCaughtWorker() {
     } else {
         hud.showMessage("A boss caught you! " + std::to_string(state.lives) + " workers left.", 3.0f);
     }
+}
+
+std::vector<Game::GameOverKey> Game::gameOverKeys() const {
+    std::vector<GameOverKey> keys;
+    const float W = (float)WINDOW_WIDTH;
+    if (goQualified) {
+        const std::string rows[] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
+        const float keyW = 70.f, keyH = 34.f, gap = 7.f;
+        float y = 366.f;
+        for (const auto& row : rows) {
+            float rowW = (float)row.size() * keyW + (float)(row.size() - 1) * gap;
+            float x = (W - rowW) / 2.f;
+            for (char c : row) {
+                keys.push_back({sf::FloatRect(x, y - keyH / 2.f, keyW, keyH), 0, c});
+                x += keyW + gap;
+            }
+            y += keyH + gap;
+        }
+        const float delW = keyW * 2.f, spW = keyW * 6.f;
+        float rowW = delW + gap + spW;
+        float x = (W - rowW) / 2.f;
+        keys.push_back({sf::FloatRect(x, y - keyH / 2.f, delW, keyH), 1, 0});
+        x += delW + gap;
+        keys.push_back({sf::FloatRect(x, y - keyH / 2.f, spW, keyH), 2, 0});
+    }
+    const float bw = 300.f, bh = 44.f, gapB = 90.f, by = 600.f;
+    float startX = (W - (2.f * bw + gapB)) / 2.f;
+    keys.push_back({sf::FloatRect(startX, by - bh / 2.f, bw, bh), 3, 0});
+    keys.push_back({sf::FloatRect(startX + bw + gapB, by - bh / 2.f, bw, bh), 4, 0});
+    return keys;
+}
+
+void Game::drawGameOver() {
+    const float W = (float)WINDOW_WIDTH, H = (float)WINDOW_HEIGHT;
+    sf::RectangleShape dim(sf::Vector2f(W, H));
+    dim.setFillColor(sf::Color(0, 0, 0, 205));
+    window.draw(dim);
+    const float m = 18.f;
+    sf::RectangleShape panel(sf::Vector2f(W - 2 * m, H - 2 * m));
+    panel.setPosition(m, m);
+    panel.setFillColor(sf::Color(26, 26, 33, 250));
+    panel.setOutlineColor(sf::Color(255, 140, 0));
+    panel.setOutlineThickness(3.f);
+    window.draw(panel);
+
+    const bool q = goQualified;
+    goText(window, "GAME OVER", q ? 48.f : 56.f, sf::Color(242, 51, 46), W / 2, q ? 44.f : 70.f, 1);
+    goText(window, "FINAL " + std::to_string(state.score) + "    HIGH " + std::to_string(state.highScore),
+           q ? 22.f : 24.f, sf::Color::White, W / 2, q ? 82.f : 120.f, 1);
+    goText(window, "LEADERBOARD", q ? 20.f : 22.f, sf::Color(255, 235, 107), W / 2, q ? 112.f : 160.f, 1);
+
+    const auto& entries = leaderboard.entries();
+    const int rowCount = q ? 5 : 9;
+    const float rowH = q ? 26.f : 34.f;
+    const float topY = q ? 140.f : 195.f;
+    if (entries.empty()) {
+        goText(window, "No local scores yet.", 18.f, sf::Color(180, 180, 180), W / 2, topY, 1);
+    } else {
+        for (int i = 0; i < (int)entries.size() && i < rowCount; ++i) {
+            float y = topY + (float)i * rowH;
+            goText(window, std::to_string(i + 1) + ". " + entries[i].name, q ? 18.f : 20.f, sf::Color::White, W * 0.30f, y, 0);
+            goText(window, std::to_string(entries[i].score), q ? 18.f : 20.f, sf::Color::White, W * 0.70f, y, 2);
+        }
+    }
+
+    if (q) {
+        goText(window, "NEW HIGH SCORE!   Enter name:", 20.f, sf::Color(77, 217, 255), W / 2, 282.f, 1);
+        const float fw = 600.f, fh = 38.f, fx = (W - fw) / 2.f, fy = 318.f;
+        sf::RectangleShape field(sf::Vector2f(fw, fh));
+        field.setPosition(fx, fy - fh / 2.f);
+        field.setFillColor(sf::Color(245, 245, 245));
+        field.setOutlineColor(sf::Color(150, 150, 150));
+        field.setOutlineThickness(1.f);
+        window.draw(field);
+        float tw = goText(window, goName, 24.f, sf::Color(13, 13, 26), fx + 14.f, fy, 0);
+        if (std::fmod(animClock.getElapsedTime().asSeconds(), 0.9f) < 0.45f) {
+            goText(window, "|", 24.f, sf::Color(13, 13, 26), fx + 16.f + tw, fy, 0);
+        }
+    }
+
+    for (const auto& k : gameOverKeys()) {
+        sf::RectangleShape r(sf::Vector2f(k.rect.width, k.rect.height));
+        r.setPosition(k.rect.left, k.rect.top);
+        sf::Color fill(56, 56, 56), stroke(110, 110, 110);
+        std::string lbl;
+        float fs = 18.f;
+        switch (k.kind) {
+        case 0: lbl = std::string(1, k.ch); break;
+        case 1: lbl = "DEL"; fill = sf::Color(80, 80, 80); fs = 15.f; break;
+        case 2: lbl = "SPACE"; fs = 15.f; break;
+        case 3: lbl = "PLAY"; fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); fs = 24.f; break;
+        case 4: lbl = "ESC"; fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); fs = 24.f; break;
+        }
+        r.setFillColor(fill);
+        r.setOutlineColor(stroke);
+        r.setOutlineThickness(1.f);
+        window.draw(r);
+        goText(window, lbl, fs, sf::Color::White, k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1);
+    }
+}
+
+void Game::gameOverTap(float x, float y) {
+    for (const auto& k : gameOverKeys()) {
+        if (!k.rect.contains(x, y)) continue;
+        switch (k.kind) {
+        case 0: gameOverAppendChar(k.ch); break;
+        case 1: if (!goName.empty()) goName.pop_back(); break;
+        case 2: gameOverAppendChar(' '); break;
+        case 3: gameOverCommit(); input.pRequested = true; break;
+        case 4: gameOverCommit(); input.escapeRequested = true; break;
+        }
+        return;
+    }
+}
+
+void Game::gameOverAppendChar(char c) {
+    if (!goQualified || (int)goName.size() >= 16) return;
+    if (c == ' ' && goName.empty()) return;
+    goName.push_back(c);
+}
+
+void Game::gameOverCommit() {
+    if (!goQualified || goCommitted) return;
+    std::string n = goName;
+    while (!n.empty() && n.front() == ' ') n.erase(n.begin());
+    while (!n.empty() && n.back() == ' ') n.pop_back();
+    if (n.empty()) return;
+    goCommitted = true;
+    leaderboard.saveName(n);
+    leaderboard.record(n, state.score);
 }
 
 void Game::startGoldDiscMode() {

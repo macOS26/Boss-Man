@@ -63,6 +63,36 @@ public:
 
     const std::vector<LeaderboardEntry>& entries() const { return entries_; }
 
+    // True when `score` would land in the top 10 (board not full, or beats the
+    // lowest entry). Mirrors LocalHighScores.qualifies.
+    bool qualifies(int score) const {
+        if (score <= 0) return false;
+        if ((int)entries_.size() < MAX_ENTRIES) return true;
+        return score > entries_.back().score;
+    }
+
+    // Last-entered name, persisted alongside the board (username.txt), so the
+    // game-over name field defaults to it. Mirrors LocalHighScores.savedUsername.
+    std::string savedName() const {
+#if defined(BOSS_MAN_WEB)
+        std::istringstream f(storeGet("username.txt"));
+#else
+        std::ifstream f(appSupportPath("username.txt"));
+#endif
+        std::string n;
+        std::getline(f, n);
+        return n;
+    }
+
+    void saveName(const std::string& name) {
+#if defined(BOSS_MAN_WEB)
+        storeSet("username.txt", name);
+#else
+        std::ofstream f(appSupportPath("username.txt"));
+        f << name;
+#endif
+    }
+
 private:
     std::vector<LeaderboardEntry> entries_;
     std::string path_; // resolved to appSupportPath("leaderboard.txt") on load/record
