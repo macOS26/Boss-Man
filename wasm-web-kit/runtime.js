@@ -1287,16 +1287,18 @@ class Runtime {
       win_width: () => LOGICAL_W,
       win_height: () => LOGICAL_H,
       win_request_fullscreen: () => {
-        // iPhone Safari has no element Fullscreen API (video only), so this is a
-        // no-op there; Android + iPad + desktop honor it. webkit* covers older
-        // iPadOS/Safari that only ship the prefixed call.
+        // Android + iPad + desktop use the real Fullscreen API. iPhone Safari has
+        // none (video only), so fall back to a CSS pseudo-fullscreen that covers
+        // the viewport (and asks an embedding page to expand its iframe).
         const el = this.canvas;
-        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => this._pseudoFullscreen(true));
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else this._pseudoFullscreen(true);
       },
       win_exit_fullscreen: () => {
         if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        this._pseudoFullscreen(false);
       },
 
       // ---- persistence (localStorage) ----
@@ -1671,6 +1673,29 @@ void main() {
     for (const v of this.voices.values()) {
       if (v.gain) v.gain.gain.setTargetAtTime((v.base ?? 1) * factor, this.audioCtx.currentTime, 0.05);
     }
+  }
+
+  // CSS fallback when the real Fullscreen API is unavailable (iPhone Safari):
+  // pin the canvas over the viewport, and ask an embedding page (the website's
+  // iframe) to expand itself. A synthetic resize recomputes the backing store.
+  _pseudoFullscreen(on) {
+    this._pseudoFsOn = on;
+    const s = this.canvas.style;
+    if (on) {
+      s.position = 'fixed'; s.top = '0'; s.left = '0';
+      s.width = '100vw'; s.height = '100dvh';
+      s.maxWidth = 'none'; s.maxHeight = 'none'; s.zIndex = '99999';
+    } else {
+      s.position = ''; s.top = ''; s.left = '';
+      s.width = ''; s.height = '';
+      s.maxWidth = ''; s.maxHeight = ''; s.zIndex = '';
+    }
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(on ? 'wasmweb:fullscreen' : 'wasmweb:exit-fullscreen', '*');
+      }
+    } catch (_e) {}
+    setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (_e) {} }, 0);
   }
 
   ensureAudio() {
