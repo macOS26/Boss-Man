@@ -66,7 +66,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var frightenSecondsLeft: TimeInterval = 0
     private var waterDroplets: [WaterDroplet] = []
     private let waterDropletSpeed: CGFloat = 12 * 32
-    private let waterHitPoints = 100
+    private let waterHitPoints = 50
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     #endif

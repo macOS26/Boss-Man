@@ -109,7 +109,7 @@ enum Strings {
         static let paste         = "PASTE V"
         static let play          = "PLAY  P"
         static let back          = "BACK  ESC"
-        static let resetToast    = "Reset to built-in (Z to undo)"
+        static let resetToast    = "Reset (Z to undo)"
         static let copyToast     = "Copied"
         static let pasteToast    = "Pasted"
         static let nothingPaste  = "Nothing to paste"
