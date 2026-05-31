@@ -1931,6 +1931,7 @@ void main() {
       if (!e.changedTouches.length) return;
       this.mouseDown[0] = true;
       const p = touchAt(e.changedTouches[0]);
+      this._touchStartX = p.x; this._touchStartY = p.y; this._touchMoved = false;
       this.mouseX = p.x; this.mouseY = p.y;
       this.events.push({ type: EVT.MouseButtonPressed, a: 0, b: p.x, c: p.y, d: 0 });
       e.preventDefault();
@@ -1938,6 +1939,7 @@ void main() {
     this.canvas.addEventListener('touchmove', (e) => {
       if (!e.touches.length) return;
       const p = touchAt(e.touches[0]);
+      if (Math.abs(p.x - this._touchStartX) > 16 || Math.abs(p.y - this._touchStartY) > 16) this._touchMoved = true;
       this.mouseX = p.x; this.mouseY = p.y;
       this.events.push({ type: EVT.MouseMoved, a: p.x, b: p.y, c: 0, d: 0 });
       e.preventDefault();
@@ -1948,13 +1950,19 @@ void main() {
       const p = touchAt(e.changedTouches[0]);
       this.events.push({ type: EVT.MouseButtonReleased, a: 0, b: p.x, c: p.y, d: 0 });
       e.preventDefault();
-      // Double-tap toggles fullscreen (enter or exit) on touch devices.
-      const now = Date.now();
-      if (this._lastTapAt && now - this._lastTapAt < 300) {
-        this._lastTapAt = 0;
-        this._toggleFullscreen();
+      // Double-tap toggles fullscreen, but only on a CLEAN tap: not a swipe (moved)
+      // and not in the bottom fire-button zone, so firing + steering never trigger it.
+      const cleanTap = !this._touchMoved && p.y < LOGICAL_H - 180;
+      if (cleanTap) {
+        const now = Date.now();
+        if (this._lastTapAt && now - this._lastTapAt < 300) {
+          this._lastTapAt = 0;
+          this._toggleFullscreen();
+        } else {
+          this._lastTapAt = now;
+        }
       } else {
-        this._lastTapAt = now;
+        this._lastTapAt = 0;   // a swipe or fire tap breaks the double-tap chain
       }
     };
     this.canvas.addEventListener('touchend', onTouchEnd, { passive: false });
