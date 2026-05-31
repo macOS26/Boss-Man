@@ -148,10 +148,10 @@ final class BossController {
         )
         node.name = blueprint.name
         node.position = gridMap.point(for: blueprint.spawn)
-        // r=6 so a catch needs a ~half-tile overlap with Pete (Pete's body is 10,
-        // contact fires at centres ~16px apart = half a 32px tile), not the
-        // barely-touching ~1/3-tile overlap that r=10 (20px) gave.
-        node.physicsBody = SKPhysicsBody(circleOfRadius: 6)
+        // r=5 so a catch needs a deeper overlap with Pete (Pete's body is 10,
+        // contact fires at centres ~15px apart), not the barely-touching overlap
+        // that r=10 (20px) gave.
+        node.physicsBody = SKPhysicsBody(circleOfRadius: 5)
         node.physicsBody?.allowsRotation = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
