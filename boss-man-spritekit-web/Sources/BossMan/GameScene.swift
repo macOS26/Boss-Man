@@ -32,6 +32,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private var moveAnchor: CGPoint? = nil
     private let swipeThreshold: CGFloat = 24
     private var fireButtonCenter = CGPoint.zero
+    private var fireButtonHidden = false
     private let fireButtonRadius: CGFloat = 90
     private let tileSize: CGFloat = 32
     private var containerOriginX: CGFloat = 0
@@ -187,6 +188,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     // water gun; a swipe anywhere else steers Pete (see mouseDown/Moved/Up).
     // A virtual joystick may join it on the left side later.
     private func installFireButton() {
+        fireButtonHidden = Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide)
+        if fireButtonHidden { return }   // Hide mode: no on-screen button (+ no tap-to-fire)
         let onLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
         // Big circle tucked into the bottom corner (fully on-screen, tangent to
         // both edges); no inner core.
@@ -272,7 +275,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         if gameOver || isUserPaused { return }
         moveAnchor = p
         // Tap the round button => fire; press anywhere else begins a swipe.
-        if fireButtonCenter.distance(to: p) <= fireButtonRadius {
+        if !fireButtonHidden, fireButtonCenter.distance(to: p) <= fireButtonRadius {
             fireWater()
             swipeStart = nil
             return

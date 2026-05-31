@@ -67,6 +67,7 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     // tiny target — a left-click fires the water gun and this round button is the
     // visual affordance. Its side follows the Water Gun title-screen setting.
     private func installFireButton() {
+        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }   // Hide mode: no on-screen button
         let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
         // Big circle tucked into the bottom corner (fully on-screen, tangent to
         // both edges); no inner core.

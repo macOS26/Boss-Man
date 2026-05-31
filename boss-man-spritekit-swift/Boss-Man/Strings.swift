@@ -186,6 +186,7 @@ enum Strings {
         static let localLeaderboardUsername = "Boss-Man.localLeaderboardUsername"
         static let bossTracksSquare = "Boss-Man.bossTracksSquare"
         static let waterGunLeft     = "Boss-Man.waterGunLeft"
+        static let waterGunHide     = "Boss-Man.waterGunHide"
 #elseif os(WASI)
         static let highScore              = "BossMan.highScore"
         static let leaderboard            = "BossMan.leaderboard"
@@ -195,6 +196,7 @@ enum Strings {
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
         static let waterGunLeft           = "BossMan.waterGunLeft"
+        static let waterGunHide           = "BossMan.waterGunHide"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
         static let editorLevelPrefix      = "BossMan.editorLevel."
 #endif

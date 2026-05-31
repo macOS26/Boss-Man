@@ -102,7 +102,25 @@ final class TitleScene: SKScene {
         "Boss Tracks: \(isSquareTracks() ? "Square" : "Smooth")"
     }
     private func waterGunText() -> String {
-        "Water Gun: \(Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "Left" : "Right")"
+        let mode: String
+        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) {
+            mode = "Hide"
+        } else {
+            mode = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "Left" : "Right"
+        }
+        return "Water Gun: \(mode)"
+    }
+
+    // Cycle Left -> Right -> Hide -> Left (two bools: waterGunLeft + waterGunHide).
+    private func cycleWaterGun() {
+        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) {          // Hide -> Left
+            Persistence.set(false, forKey: Strings.DefaultsKey.waterGunHide)
+            Persistence.set(true,  forKey: Strings.DefaultsKey.waterGunLeft)
+        } else if Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) {   // Left -> Right
+            Persistence.set(false, forKey: Strings.DefaultsKey.waterGunLeft)
+        } else {                                                                 // Right -> Hide
+            Persistence.set(true,  forKey: Strings.DefaultsKey.waterGunHide)
+        }
     }
     private func isSquareTracks() -> Bool {
         Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
@@ -186,8 +204,7 @@ final class TitleScene: SKScene {
             return
         }
         if let wg = waterGunLabel, labelHit(wg, p) {
-            Persistence.set(!Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft),
-                            forKey: Strings.DefaultsKey.waterGunLeft)
+            cycleWaterGun()
             wg.text = waterGunText()
             return
         }
