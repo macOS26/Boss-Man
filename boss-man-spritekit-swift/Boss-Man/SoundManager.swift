@@ -89,13 +89,11 @@ final class SoundManager {
     private var dotsEatenInCycle: Int = 0
     private var lastDotEatTime: TimeInterval = 0
     
-    // An octave below the originals: C5-A6 pure sines read as a tinny ting on phone
-    // speakers; the warmer C4-A5 range keeps the same waka pattern.
     private let dotStages: [(Float, Float)] = [
-        (494.00, 587.33),
-        (698.46, 587.33),
-        (698.46, 880.00),
-        (392.00, 493.88)
+        (988.00, 1174.66),
+        (1396.91, 1174.66),
+        (1396.91, 1760.00),
+        (783.99, 987.77)
     ]
     // MIB dots an octave below the originals (C5-C6 read as a tinny ting against
     // the dark 12/24 theme); same C-minor pattern, just warmer.
@@ -777,13 +775,9 @@ final class SoundManager {
             let start = idx * perFrames
             for j in 0..<perFrames {
                 let t = Float(j) / Float(sampleRate)
-                let attack: Float = 0.008
-                // Slower decay + soft attack so notes ring instead of pinging; a 2nd
-                // harmonic gives the bass body that survives phone speakers, and the
-                // high lead is quieter so it reads less tinny.
-                let env = (t < attack ? t / attack : exp(-3.5 * (t - attack)))
-                let bass = (sin(2 * .pi * bassF * t) + 0.4 * sin(2 * .pi * 2 * bassF * t)) * 0.11 * env
-                let lead = leadF == 0 ? 0 : sin(2 * .pi * leadF * t) * 0.04 * env * 0.7
+                let env = exp(-6 * t) * (t < 0.005 ? t / 0.005 : 1)
+                let bass = sin(2 * .pi * bassF * t) * 0.12 * env
+                let lead = leadF == 0 ? 0 : sin(2 * .pi * leadF * t) * 0.06 * env * 0.7
                 data[start + j] = bass + lead
             }
         }

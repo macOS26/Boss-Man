@@ -201,9 +201,7 @@ void SoundManager::playDotBlip() {
         threshold += dotsPerStage[i];
         if (pos < threshold) { stage = i; break; }
     }
-    // An octave below the originals: the high pure sines read as a tinny ting on
-    // phone speakers; warmer C4-A5 range, same waka pattern.
-    static const float dotStages[4][2]    = {{494.00f,587.33f},{698.46f,587.33f},{698.46f,880.00f},{392.00f,493.88f}};
+    static const float dotStages[4][2]    = {{988.00f,1174.66f},{1396.91f,1174.66f},{1396.91f,1760.00f},{783.99f,987.77f}};
     // MIB dots an octave below the originals (C5-C6 read as a tinny ting against
     // the dark 12/24 theme); same C-minor pattern, just warmer.
     static const float mibDotStages[4][2] = {{261.63f,311.13f},{311.13f,392.00f},{392.00f,523.25f},{466.16f,392.00f}};

@@ -90,12 +90,12 @@ final class TitleScene: SKScene {
         controlsHint.position = CGPoint(x: size.width / 2, y: 18)
         addChild(controlsHint)
 
-        // Bottom-right toggle column, 64px apart, anchored at "F for Fullscreen"
-        // (25% larger + taller than before so it's tappable on mobile).
+        // Bottom-right toggle column, 80px apart, anchored at "F for Fullscreen"
+        // (larger + taller again so it's tappable on mobile).
         fullscreenLabel = makeHint("F for Fullscreen", y: 18)
-        escWindowLabel  = makeHint("ESC for Window", y: 82)
-        bossTracksLabel = makeHint(bossTracksText(), y: 146)
-        waterGunLabel   = makeHint(waterGunText(), y: 210)
+        escWindowLabel  = makeHint("ESC for Window", y: 98)
+        bossTracksLabel = makeHint(bossTracksText(), y: 178)
+        waterGunLabel   = makeHint(waterGunText(), y: 258)
     }
 
     // MARK: - Settings text
@@ -153,7 +153,7 @@ final class TitleScene: SKScene {
     private func makeHint(_ text: String, y: CGFloat) -> SKLabelNode {
         let label = SKLabelNode(fontNamed: Strings.Font.menloBold)
         label.text = text
-        label.fontSize = 20
+        label.fontSize = 25
         label.fontColor = .black
         label.horizontalAlignmentMode = .right
         label.position = CGPoint(x: size.width - 20, y: y)

@@ -1914,6 +1914,16 @@ void main() {
       const p = touchAt(e.changedTouches[0]);
       this.events.push({ type: EVT.MouseButtonReleased, a: 0, b: p.x, c: p.y, d: 0 });
       e.preventDefault();
+      // Double-tap exits fullscreen (real or pseudo) on touch devices.
+      const now = Date.now();
+      if (this._lastTapAt && now - this._lastTapAt < 300) {
+        this._lastTapAt = 0;
+        if (this._pseudoFsOn) this._pseudoFullscreen(false);
+        else if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+      } else {
+        this._lastTapAt = now;
+      }
     };
     this.canvas.addEventListener('touchend', onTouchEnd, { passive: false });
     this.canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
