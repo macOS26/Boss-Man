@@ -180,12 +180,12 @@ final class GameOverScreen: SKNode {
         let bw = W * 0.30
         let bh = H * (qualified ? 0.095 : 0.13)
         let by = H * (qualified ? 0.085 : 0.25) + 3
-        playRect = CGRect(x: W * 0.16, y: by - bh / 2, width: bw, height: bh)
-        box(playRect, fill: SKColor(red: 0.12, green: 0.5, blue: 0.18, alpha: 1), radius: 14)
-        _ = label("PLAY", bh * 0.42, .white, x: playRect.midX, y: by)
-        escRect = CGRect(x: W * 0.54, y: by - bh / 2, width: bw, height: bh)
+        escRect = CGRect(x: W * 0.16, y: by - bh / 2, width: bw, height: bh)
         box(escRect, fill: SKColor(red: 0.5, green: 0.18, blue: 0.18, alpha: 1), radius: 14)
         _ = label("ESC", bh * 0.42, .white, x: escRect.midX, y: by)
+        playRect = CGRect(x: W * 0.54, y: by - bh / 2, width: bw, height: bh)
+        box(playRect, fill: SKColor(red: 0.12, green: 0.5, blue: 0.18, alpha: 1), radius: 14)
+        _ = label("PLAY", bh * 0.42, .white, x: playRect.midX, y: by)
     }
 
     private func refreshName() {

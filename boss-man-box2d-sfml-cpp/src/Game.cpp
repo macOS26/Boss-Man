@@ -806,8 +806,8 @@ std::vector<Game::GameOverKey> Game::gameOverKeys() const {
     const float bh = goQualified ? 70.f : 80.f;
     const float by = goQualified ? 557.f : 507.f;
     float startX = (W - (2.f * bw + gapB)) / 2.f;
-    keys.push_back({sf::FloatRect(startX, by - bh / 2.f, bw, bh), 3, 0});
-    keys.push_back({sf::FloatRect(startX + bw + gapB, by - bh / 2.f, bw, bh), 4, 0});
+    keys.push_back({sf::FloatRect(startX, by - bh / 2.f, bw, bh), 4, 0});                 // ESC (left)
+    keys.push_back({sf::FloatRect(startX + bw + gapB, by - bh / 2.f, bw, bh), 3, 0});     // PLAY (right)
     return keys;
 }
 
