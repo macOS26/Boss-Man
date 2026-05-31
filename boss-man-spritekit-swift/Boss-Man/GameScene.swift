@@ -68,18 +68,15 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     // visual affordance. Its side follows the Water Gun title-screen setting.
     private func installFireButton() {
         let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        let center = CGPoint(x: onLeft ? 64 : size.width - 64, y: 72)
-        let ring = SKShapeNode(circleOfRadius: 38)
+        // Big circle tucked into the bottom corner (fully on-screen, tangent to
+        // both edges); no inner core.
+        let center = CGPoint(x: onLeft ? 90 : size.width - 90, y: 90)
+        let ring = SKShapeNode(circleOfRadius: 90)
         ring.position = center
         ring.fillColor = NSColor(white: 1, alpha: 0.14)
         ring.strokeColor = NSColor(white: 1, alpha: 0.5)
         ring.lineWidth = 2
         ring.zPosition = 50
-        let core = SKShapeNode(circleOfRadius: 38 * 0.34)
-        core.fillColor = NSColor(calibratedRed: 0.4, green: 0.7, blue: 1.0, alpha: 0.6)
-        core.strokeColor = .clear
-        core.zPosition = 51
-        ring.addChild(core)
         addChild(ring)
     }
 

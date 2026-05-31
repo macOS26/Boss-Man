@@ -32,7 +32,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private var moveAnchor: CGPoint? = nil
     private let swipeThreshold: CGFloat = 24
     private var fireButtonCenter = CGPoint.zero
-    private let fireButtonRadius: CGFloat = 38
+    private let fireButtonRadius: CGFloat = 90
     private let tileSize: CGFloat = 32
     private var containerOriginX: CGFloat = 0
 
@@ -188,18 +188,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     // A virtual joystick may join it on the left side later.
     private func installFireButton() {
         let onLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        fireButtonCenter = CGPoint(x: onLeft ? 64 : size.width - 64, y: 72)
+        // Big circle tucked into the bottom corner (fully on-screen, tangent to
+        // both edges); no inner core.
+        fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius)
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter
         ring.fillColor = SKColor(white: 1, alpha: 0.14)
         ring.strokeColor = SKColor(white: 1, alpha: 0.5)
         ring.lineWidth = 2
         ring.zPosition = 50
-        let core = SKShapeNode(circleOfRadius: fireButtonRadius * 0.34)
-        core.fillColor = SKColor(red: 0.40, green: 0.70, blue: 1.0, alpha: 0.6)
-        core.strokeColor = .clear
-        core.zPosition = 51
-        ring.addChild(core)
         addChild(ring)
     }
 
