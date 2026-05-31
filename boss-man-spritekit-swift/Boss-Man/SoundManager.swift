@@ -468,34 +468,27 @@ final class SoundManager {
         let data = buffer.floatChannelData![0]
         let frames = Int(buffer.frameLength)
 
-        // 100 BPM, 2.4s loop. A driving C-minor riff that sits under the MIB
-        // "Sunglasses at Night" theme (same key + tanh-saturated 2nd-harmonic
-        // timbre), plus a high G5 "ping" pulse on the beat so the gold-disc
-        // (blue / frighten) window is unmistakable on levels 12/24.
+        // 100 BPM, 2.4s loop. A driving C-minor riff under the MIB "Sunglasses at
+        // Night" theme: fundamental + warm 2nd harmonic, tanh-saturated, with a
+        // soft attack / slow decay / short release so it grooves as a bass instead
+        // of a tinny tap on small speakers. (The old high G5 "ping" pulse was the
+        // tingy part and is gone.)
         let C2: Float = 65.41, Eb2: Float = 77.78, F2: Float = 87.31, G2: Float = 98.00, Ab2: Float = 103.83
         let bass: [Float] = [C2, G2, Eb2, G2, Ab2, G2, F2, G2]
         let slotFrames = frames / bass.count
-        let attack: Float = 0.005
-        let pingHz: Float = 783.99
-        let pingFrames = Int(sampleRate * 0.06)
+        let attack: Float = 0.008
+        let release: Float = 0.018
+        let slotDuration = Float(slotFrames) / Float(sampleRate)
 
         for (slot, freq) in bass.enumerated() {
             let startFrame = slot * slotFrames
-            let slotDuration = Float(slotFrames) / Float(sampleRate)
-            let release: Float = 0.02
             for j in 0..<slotFrames where startFrame + j < frames {
                 let t = Float(j) / Float(sampleRate)
-                var env: Float = t < attack ? t / attack : exp(-3.0 * (t - attack))
+                var env: Float = t < attack ? t / attack : exp(-2.2 * (t - attack))
                 let tailStart = slotDuration - release
-                if t > tailStart {
-                    env *= max(0, (slotDuration - t) / release)
-                }
+                if t > tailStart { env *= max(0, (slotDuration - t) / release) }
                 let s = sin(2 * .pi * freq * t) + 0.4 * sin(2 * .pi * freq * 2 * t)
-                var v = tanh(s * 1.2) * 0.30 * env
-                if slot % 2 == 0 && j < pingFrames {
-                    v += sin(2 * .pi * pingHz * t) * exp(-20 * t) * 0.10
-                }
-                data[startFrame + j] = v
+                data[startFrame + j] = tanh(s * 1.2) * 0.30 * env
             }
         }
         return buffer

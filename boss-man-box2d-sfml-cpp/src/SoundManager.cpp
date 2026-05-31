@@ -572,27 +572,30 @@ sf::SoundBuffer SoundManager::buildGoldDiscBeat() {
     return buf;
 }
 
-// MIB power-pellet bass: an 8-step, 2.4s loop (0.3s/step) of pure sine notes with
-// a short release tail. Matches SoundManager.buildMIBGoldDiscBeat in SpriteKit.
+// MIB power-pellet bass (levels 12/24): a 100 BPM, 2.4s C-minor riff matching the
+// SpriteKit SoundManager.buildMIBGoldDiscBeat. Fundamental + warm 2nd harmonic,
+// tanh-saturated, with a soft attack / slow decay / short release so it grooves as
+// a bass rather than a tinny tap on small speakers. (Replaces a sparse pure-sine
+// loop that had drifted out of parity with the Swift master.)
 sf::SoundBuffer SoundManager::buildMIBGoldDiscBeat() {
     const float duration = 60.0f / 100.0f * 4.0f; // 2.4s
     int frames = (int)(sampleRate * duration);
     std::vector<int16_t> data(frames, 0);
-    const float C2 = 65.41f, G2 = 98.0f;
-    const float pattern[8] = { C2,0,C2,0, G2,0,C2,0 };
+    const float C2 = 65.41f, Eb2 = 77.78f, F2 = 87.31f, G2 = 98.0f, Ab2 = 103.83f;
+    const float bass[8] = { C2, G2, Eb2, G2, Ab2, G2, F2, G2 };
     int slotFrames = frames / 8;
-    const float attack = 0.006f, release = 0.02f;
+    const float attack = 0.008f, release = 0.018f;
     float slotDuration = (float)slotFrames / sampleRate;
     for (int slot = 0; slot < 8; ++slot) {
-        float freq = pattern[slot];
-        if (freq <= 0) continue;
+        float freq = bass[slot];
         int startFrame = slot * slotFrames;
         for (int j = 0; j < slotFrames && startFrame + j < frames; ++j) {
             float t = (float)j / sampleRate;
-            float env = (t < attack) ? (t / attack) : expf(-3.2f * (t - attack));
+            float env = (t < attack) ? (t / attack) : expf(-2.2f * (t - attack));
             float tailStart = slotDuration - release;
             if (t > tailStart) env *= std::max(0.0f, (slotDuration - t) / release);
-            data[startFrame + j] = (int16_t)(sinf(2 * M_PI * freq * t) * 0.34f * env * 32767);
+            float s = sinf(2 * M_PI * freq * t) + 0.4f * sinf(2 * M_PI * freq * 2 * t);
+            data[startFrame + j] = (int16_t)(tanhf(s * 1.2f) * 0.30f * env * 32767);
         }
     }
     sf::SoundBuffer buf;
