@@ -32,7 +32,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
-    private var usernameDialog: UsernameDialog?
+    private var gameOverScreen: GameOverScreen?
 
     private(set) var isGameOver = false
     var practiceMode: Bool {
@@ -225,8 +225,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func keyDown(with event: NSEvent) {
-        if let dialog = usernameDialog {
-            dialog.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
+        if let s = gameOverScreen {
+            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
             return
         }
         if isGameOver {
@@ -249,8 +249,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseDown(with event: NSEvent) {
-        if let dialog = usernameDialog {
-            dialog.handleMouseDown(at: event.location(in: self))
+        if let s = gameOverScreen {
+            s.handleTap(at: event.location(in: self))
             return
         }
         guard !isPaused, !isGameOver else { return }
@@ -283,8 +283,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseDown(at p: CGPoint) {
-        if let dialog = usernameDialog {
-            dialog.handleMouseDown(at: p)
+        if let s = gameOverScreen {
+            s.handleTap(at: p)
             return
         }
         if isGameOver || isUserPaused { return }
@@ -322,8 +322,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func keyDown(_ key: Int) {
-        if let dialog = usernameDialog {
-            dialog.handleKey(key, shift: false)
+        if let s = gameOverScreen {
+            s.handleKey(key, shift: false)
             return
         }
         if isGameOver {
@@ -704,71 +704,39 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         sound.playGameOver()
         workerController.resetMotion()
         bossController.stopAll()
-        hud.showGameOver(in: self)
         #if os(macOS)
         inputController.unhideCursor()
         if !state.practiceMode {
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
-            if GKLocalPlayer.local.isAuthenticated {
-                let name = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
-                LocalHighScores.record(name: name, score: state.score)
-            } else {
-                let defaultName = LocalHighScores.savedUsername ?? ""
-                if LocalHighScores.qualifies(name: defaultName, score: state.score) {
-                    showUsernameDialog(defaultName: defaultName)
-                } else {
-                    LocalHighScores.record(name: defaultName, score: state.score)
-                }
-            }
         }
+        let defaultName = GKLocalPlayer.local.isAuthenticated
+            ? (LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName())
+            : (LocalHighScores.savedUsername ?? "")
         #elseif os(WASI)
-        let summary = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        summary.text = "FINAL SCORE \(state.score)   HIGH \(state.highScore)"
-        summary.fontSize = 22
-        summary.fontColor = .white
-        summary.position = CGPoint(x: size.width / 2, y: size.height / 2 - 100)
-        summary.zPosition = 102
-        addChild(summary)
-        if !state.practiceMode {
-            let defaultName = LocalHighScores.savedUsername ?? ""
-            if LocalHighScores.qualifies(name: defaultName, score: state.score) {
-                showUsernameDialog(defaultName: defaultName)
-            } else {
-                LocalHighScores.record(name: defaultName, score: state.score)
-            }
-        }
+        let defaultName = LocalHighScores.savedUsername ?? ""
         #endif
+        presentGameOverScreen(defaultName: defaultName)
     }
 
-    private func showUsernameDialog(defaultName: String) {
-        let dialog = UsernameDialog(
-            size: CGSize(width: 360, height: 220),
-            fontName: Strings.Font.menloBold,
-            onConfirm: { [weak self] name in
-                guard let self else { return }
-                LocalHighScores.record(name: name, score: self.state.score)
-                self.dismissUsernameDialog()
-            },
-            onSkip: { [weak self] in
-                guard let self else { return }
-                LocalHighScores.record(name: defaultName, score: self.state.score)
-                self.dismissUsernameDialog()
-            }
+    private func presentGameOverScreen(defaultName: String) {
+        let screen = GameOverScreen(
+            size: size,
+            font: Strings.Font.menloBold,
+            score: state.score,
+            highScore: state.highScore,
+            defaultName: defaultName,
+            allowEntry: !state.practiceMode,
+            onPlay: { [weak self] in self?.dismissGameOverScreen(); self?.restartGame() },
+            onEsc:  { [weak self] in self?.dismissGameOverScreen(); self?.returnToTitleScene() }
         )
-        #if os(macOS)
-        dialog.position = CGPoint(x: frame.midX, y: frame.midY)
-        dialog.zPosition = 2000
-        #elseif os(WASI)
-        dialog.position = CGPoint(x: size.width / 2, y: size.height * 0.40)
-        dialog.zPosition = 200
-        #endif
-        addChild(dialog)
-        usernameDialog = dialog
+        screen.position = .zero
+        addChild(screen)
+        gameOverScreen = screen
     }
 
-    private func dismissUsernameDialog() {
-        usernameDialog?.removeFromParent()
-        usernameDialog = nil
+    private func dismissGameOverScreen() {
+        gameOverScreen?.removeFromParent()
+        gameOverScreen = nil
     }
 
     private func togglePause() {
