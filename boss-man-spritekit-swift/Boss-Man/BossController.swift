@@ -47,10 +47,10 @@ final class BossController {
              pants: .darkGray, spawn: .zero, personality: bp.personality, speed: bp.speed)
         }
 
-    // Per-tile time for speed 1.0. 0.147 = wasm's 0.14 + 5% (apple Bill ran 5%
-    // faster than Pete at 0.14, since apple-Pete's SKAction chain is a touch
-    // slower than a gapless mover). Raise to slow bosses.
-    private let moveInterval: TimeInterval = 0.147
+    // Per-tile time for speed 1.0. 0.15 = wasm's 0.14 + ~7% (apple Bill ran
+    // faster than Pete at 0.14; apple-Pete's SKAction chain is a touch slower
+    // than a gapless mover). Raise to slow bosses.
+    private let moveInterval: TimeInterval = 0.15
     private let moveDuration: TimeInterval = 0.09   // square glide per tile (dwell = moveInterval - this)
     private let detectionRange: CGFloat = 10
 
