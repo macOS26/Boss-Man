@@ -523,8 +523,8 @@ void Game::render() {
 
             // Emoji glyph rendered via the OS text stack (sf::Text can't do color emoji).
             // Flipped to face travel direction; the points label below is not flipped.
-            // 30.8 = 28 * 1.1 — travelers run 10% larger so they fill the lane.
-            drawEmoji(window, tr.emoji, tr.pixelPos, 30.8f * scale, sf::Color(255, 255, 255, a), tr.flipX);
+            // Rendered larger than a tile so the traveler fills the lane.
+            drawEmoji(window, tr.emoji, tr.pixelPos, 35.42f * scale, sf::Color(255, 255, 255, a), tr.flipX);
 
             // Points label above
             static sf::Font font;
