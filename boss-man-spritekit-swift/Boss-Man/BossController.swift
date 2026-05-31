@@ -416,18 +416,11 @@ final class BossController {
                 }
             ]), withKey: Strings.ActionKey.bossMove)
         }
-        if Pathfinder.manhattanDistance(move.to, delegate.workerGrid) < 0.5 {
-            if entities[index].isInFleeMode {
-                capture(at: index)
-            } else if !delegate.isPeteShielded {
-                let catcher = entities[index].node
-                catcher.alpha = 0
-                catcher.physicsBody?.categoryBitMask = 0
-                catcher.removeAllActions()
-                relocateToSpawn(at: index)
-                delegate.bossDidCatchWorker()
-            }
-        }
+        // Catch + frightened-capture happen on actual overlap via the physics
+        // contact (onBossTouchedWorker). The old grid test here fired the moment
+        // the boss merely TARGETED Pete's tile (still a tile away mid-glide),
+        // which conflicted with the contact catch and made the hit distance
+        // inconsistent — "a square away" sometimes, touching others.
     }
 
     private func forcedExit(from grid: CGPoint) -> CGPoint? {
