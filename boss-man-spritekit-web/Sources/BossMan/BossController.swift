@@ -49,7 +49,9 @@ final class BossController {
         self.sound = sound
         self.homeGrid = spawn
         let blueprint = BossBlueprint.table[min(blueprintIndex, BossBlueprint.table.count - 1)]
-        self.speed = blueprint.speed
+        // Square runs 15% faster (x1.15 on speed = 15% less per-tile time) while
+        // keeping the clean 0.22-glide / 0.14-dwell cadence.
+        self.speed = squareTracks ? (blueprint.speed * 1.15) : blueprint.speed
         self.squareTracks = squareTracks
         self.ai = BossAI(homeGrid: spawn, detectionRange: 10,
                          personality: blueprint.personality,

@@ -168,8 +168,11 @@ final class BossController {
         // tile). "Smooth" is a continuous glide with no centre dwell (matches the
         // wasm port's Smooth mode). Absent key defaults to Square.
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
-        let entityInterval = (square ? moveInterval : 0.16) / blueprint.speed
-        let entityDuration = (square ? moveDuration : 0.16) / blueprint.speed
+        // Square runs 15% faster (x1.15 on speed = 15% less per-tile time) while
+        // keeping the clean 0.22-glide / 0.14-dwell cadence.
+        let speed = square ? (blueprint.speed * 1.15) : blueprint.speed
+        let entityInterval = (square ? moveInterval : 0.16) / speed
+        let entityDuration = (square ? moveDuration : 0.16) / speed
 
         let entity = Entity(
             name: blueprint.name,
