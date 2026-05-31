@@ -17,6 +17,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let goldDiscDuration: TimeInterval = 20
     private let requiredItems = Strings.Machine.required
     private let reportItemPoints = [10, 25, 50, 100]
+    private let dropletDodgeRange = 8
 
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
@@ -958,6 +959,63 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         ring.lineWidth = 2
         ring.zPosition = 50
         addChild(ring)
+        #endif
+    }
+
+    // MARK: - Boss water-droplet dodge (BossControllerDelegate)
+    func dropletAxisThreatening(_ bossGrid: CGPoint) -> MoveDirection? {
+        for line in activeDropletLines() where dropletThreatens(dropletGrid: line.grid, dir: line.dir, boss: bossGrid) {
+            return line.dir
+        }
+        return nil
+    }
+
+    // A boss is threatened when it shares the droplet's row/col, sits ahead of it
+    // along its travel axis within dropletDodgeRange tiles, and every tile between
+    // is walkable (a wall would stop the shot first).
+    private func dropletThreatens(dropletGrid d: CGPoint, dir: MoveDirection, boss b: CGPoint) -> Bool {
+        let (dx, dy) = dir.delta
+        let dist: Int
+        if dx != 0 {
+            guard Int(b.y) == Int(d.y) else { return false }
+            let delta = Int(b.x) - Int(d.x)
+            guard delta != 0, (dx > 0) == (delta > 0) else { return false }
+            dist = abs(delta)
+        } else {
+            guard Int(b.x) == Int(d.x) else { return false }
+            let delta = Int(b.y) - Int(d.y)
+            guard delta != 0, (dy > 0) == (delta > 0) else { return false }
+            dist = abs(delta)
+        }
+        guard dist <= dropletDodgeRange else { return false }
+        var step = d
+        for _ in 0..<dist {
+            step = CGPoint(x: step.x + CGFloat(dx), y: step.y + CGFloat(dy))
+            if !gridMap.isWalkable(step) { return false }
+        }
+        return true
+    }
+
+    private func dropletGrid(_ p: CGPoint) -> CGPoint {
+        CGPoint(x: CGFloat(Int((p.x - gridMap.xOffset) / tileSize)),
+                y: CGFloat(Int((p.y - gridMap.yOffset) / tileSize)))
+    }
+
+    private func activeDropletLines() -> [(grid: CGPoint, dir: MoveDirection)] {
+        #if os(macOS)
+        return children.compactMap { node in
+            guard node.name == "waterDroplet",
+                  let dx = node.userData?["wdx"] as? Int,
+                  let dy = node.userData?["wdy"] as? Int else { return nil }
+            let dir: MoveDirection = dx > 0 ? .right : dx < 0 ? .left : dy > 0 ? .up : .down
+            return (self.dropletGrid(node.position), dir)
+        }
+        #elseif os(WASI)
+        return waterDroplets.map { d in
+            let v = d.velocity
+            let dir: MoveDirection = abs(v.dx) > abs(v.dy) ? (v.dx > 0 ? .right : .left) : (v.dy > 0 ? .up : .down)
+            return (self.dropletGrid(d.position), dir)
+        }
         #endif
     }
 

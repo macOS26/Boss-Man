@@ -9,6 +9,9 @@ protocol BossControllerDelegate: AnyObject {
     var isPeteShielded: Bool { get }
     func bossDidCatchWorker()
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint)
+    // Travel axis of a water droplet bearing down on a boss at `grid` (nil if
+    // none); the boss steps perpendicular to dodge it.
+    func dropletAxisThreatening(_ grid: CGPoint) -> MoveDirection?
 }
 
 @MainActor
@@ -408,7 +411,8 @@ final class BossController {
             workerGrid: delegate.workerGrid,
             workerDirection: delegate.workerDirection,
             blinkyGrid: blinkyGrid,
-            flee: delegate.isGoldDiscMode
+            flee: delegate.isGoldDiscMode,
+            dodgeAxis: delegate.dropletAxisThreatening(boss.ai.grid)
         ) {
             move = planned
         } else {
@@ -489,7 +493,8 @@ final class BossController {
                     workerGrid: peteGrid,
                     workerDirection: peteDirection,
                     blinkyGrid: blinky,
-                    flee: flee
+                    flee: flee,
+                    dodgeAxis: delegate.dropletAxisThreatening(e.grid)
                 ) else { return nil }
                 return e.direction(toward: move.to)
             }, onArrive: { e in

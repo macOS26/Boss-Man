@@ -35,9 +35,11 @@ final class BossAI {
         self.grid = grid
     }
 
-    func planNextStep(workerGrid: CGPoint, workerDirection: MoveDirection?, blinkyGrid: CGPoint? = nil, flee: Bool = false) -> Move? {
+    func planNextStep(workerGrid: CGPoint, workerDirection: MoveDirection?, blinkyGrid: CGPoint? = nil, flee: Bool = false, dodgeAxis: MoveDirection? = nil) -> Move? {
         let next: CGPoint?
-        if flee {
+        if let dodgeAxis, let escape = dodgeStep(perpendicularTo: dodgeAxis) {
+            next = escape
+        } else if flee {
             next = stepAwayFrom(workerGrid)
         } else {
             let target = chaseTarget(workerGrid: workerGrid, workerDirection: workerDirection, blinkyGrid: blinkyGrid)
@@ -50,6 +52,17 @@ final class BossAI {
         previousGrid = from
         grid = next
         return Move(from: from, to: next)
+    }
+
+    // Step off the droplet's line of fire: a walkable neighbour perpendicular to
+    // the incoming droplet's travel axis, preferring not to backtrack. Returns
+    // nil when boxed in (caller falls back to the normal chase/flee step).
+    private func dodgeStep(perpendicularTo axis: MoveDirection) -> CGPoint? {
+        let perp: [(Int, Int)] = (axis == .left || axis == .right) ? [(0, 1), (0, -1)] : [(1, 0), (-1, 0)]
+        let options = perp
+            .map { CGPoint(x: grid.x + CGFloat($0.0), y: grid.y + CGFloat($0.1)) }
+            .filter { map.isWalkable($0) }
+        return options.first(where: { $0 != previousGrid }) ?? options.first
     }
 
     private func chaseTarget(workerGrid: CGPoint, workerDirection: MoveDirection?, blinkyGrid: CGPoint?) -> CGPoint {

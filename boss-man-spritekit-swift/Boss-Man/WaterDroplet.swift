@@ -38,6 +38,12 @@ enum WaterDroplet {
         node.zPosition = 12
         node.addChild(WaterDropletVisual.build())
         node.alpha = 1.0
+        // Stash the travel delta so the boss dodge logic can read each droplet's
+        // axis (the SKAction bakes direction into its target, not the node).
+        let dirData = NSMutableDictionary()
+        dirData["wdx"] = direction.delta.dx
+        dirData["wdy"] = direction.delta.dy
+        node.userData = dirData
 
         let body = SKPhysicsBody(circleOfRadius: radius)
         body.isDynamic = false
