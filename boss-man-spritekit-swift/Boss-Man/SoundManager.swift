@@ -95,11 +95,13 @@ final class SoundManager {
         (1396.91, 1760.00),
         (783.99, 987.77)
     ]
+    // MIB dots an octave below the originals (C5-C6 read as a tinny ting against
+    // the dark 12/24 theme); same C-minor pattern, just warmer.
     private let mibDotStages: [(Float, Float)] = [
-        (523.25, 622.25),
-        (622.25, 783.99),
-        (783.99, 1046.50),
-        (932.33, 783.99)
+        (261.63, 311.13),
+        (311.13, 392.00),
+        (392.00, 523.25),
+        (466.16, 392.00)
     ]
     private let dotsPerStage: [Int] = [4, 2, 4, 2]
     private var lastSpeechTime: TimeInterval = 0

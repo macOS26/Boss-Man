@@ -202,7 +202,9 @@ void SoundManager::playDotBlip() {
         if (pos < threshold) { stage = i; break; }
     }
     static const float dotStages[4][2]    = {{988.00f,1174.66f},{1396.91f,1174.66f},{1396.91f,1760.00f},{783.99f,987.77f}};
-    static const float mibDotStages[4][2] = {{523.25f,622.25f},{622.25f,783.99f},{783.99f,1046.50f},{932.33f,783.99f}};
+    // MIB dots an octave below the originals (C5-C6 read as a tinny ting against
+    // the dark 12/24 theme); same C-minor pattern, just warmer.
+    static const float mibDotStages[4][2] = {{261.63f,311.13f},{311.13f,392.00f},{392.00f,523.25f},{466.16f,392.00f}};
     const float (*pair)[2] = isMIB ? mibDotStages : dotStages;
     float freq = dotToggle ? pair[stage][0] : pair[stage][1];
     float vol = isMIB ? 0.11f : 0.22f; // MIB dot blips are quieter, like SpriteKit
