@@ -152,12 +152,21 @@ final class LeaderboardPanel: SKNode {
     }
 
     private func load() {
+        #if os(macOS)
+        // Xcode/macOS: always try the Game Center board first and keep showing
+        // "Loading" until it resolves. fetchEntries falls back to the local board
+        // only if the online load errors out or comes back empty. No timeout —
+        // the result drives the fallback, not a timer.
+        showStatus(Strings.App.loading)
+        fetchEntries()
+        #else
         if GKLocalPlayer.local.isAuthenticated {
             showStatus(Strings.App.loading)
             fetchEntries()
         } else {
             renderLocalFallback()
         }
+        #endif
     }
 
     private func fetchEntries() {
