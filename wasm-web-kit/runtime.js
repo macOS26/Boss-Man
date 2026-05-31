@@ -121,6 +121,12 @@ const CFG = Object.assign({
 const LOGICAL_W = CFG.logicalWidth;
 const LOGICAL_H = CFG.logicalHeight;
 
+// iOS Safari only lets Web Speech run inside a user gesture, so event-driven game
+// voice lines never play reliably. Disable TTS (and its priming) on iOS entirely.
+const IS_IOS = typeof navigator !== 'undefined' &&
+  (/iP(hone|od|ad)/.test(navigator.userAgent) ||
+   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
 // Asset roots, relative to web/index.html.
 const ASSET_ROOT = CFG.assetRoot;
 
@@ -711,7 +717,7 @@ class Runtime {
         this._ttsVoice = null;
       },
       tts_speak: (utf8Ptr, len, rate, pitch, volume) => {
-        if (typeof speechSynthesis === 'undefined') return 0;
+        if (typeof speechSynthesis === 'undefined' || IS_IOS) return 0;
         try { speechSynthesis.resume(); } catch (_e) {}   // Safari can leave the queue paused
         const text = this.cstr(utf8Ptr, len);
         const u = new SpeechSynthesisUtterance(text);
@@ -1644,7 +1650,7 @@ void main() {
   // synth for the session, then poll getVoices() (Safari's event is flaky) and
   // drain anything queued before voices were ready.
   _primeSpeech() {
-    if (this._speechPrimed || typeof speechSynthesis === 'undefined') return;
+    if (this._speechPrimed || typeof speechSynthesis === 'undefined' || IS_IOS) return;
     this._speechPrimed = true;
     try {
       speechSynthesis.resume();
@@ -1669,7 +1675,7 @@ void main() {
   // synth "warm" by re-priming on every button/tap/key. A silent utterance unlocks
   // the window without interrupting a line that's actually speaking.
   _reprimeSpeech() {
-    if (typeof speechSynthesis === 'undefined') return;
+    if (typeof speechSynthesis === 'undefined' || IS_IOS) return;
     try {
       speechSynthesis.resume();
       if (!speechSynthesis.speaking && !speechSynthesis.pending) {
