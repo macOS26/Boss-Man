@@ -160,7 +160,7 @@ void SoundManager::playVoiceRandom(const std::string& prefix) {
 
 void SoundManager::applyDuck(bool ducked) {
     voiceDucked = ducked;
-    float sfx = ducked ? 25.0f : 100.0f; // SpriteKit duckedEffectsVolume 0.25
+    float sfx = ducked ? 15.0f : 60.0f; // SFX trimmed (too loud on mobile); SpriteKit normal 0.6 / ducked 0.15
     for (auto& s : sounds) s.setVolume(sfx);
     if (musicEnabled) musicSound.setVolume(ducked ? 18.0f : 100.0f); // 0.18
     // Bass is intentionally not ducked, matching SpriteKit's setDucked.
@@ -172,7 +172,7 @@ void SoundManager::updateDucking() {
 }
 
 void SoundManager::playBuffer(const sf::SoundBuffer& buf) {
-    float vol = voiceDucked ? 25.0f : 100.0f;
+    float vol = voiceDucked ? 15.0f : 60.0f;
     // Find a stopped sound or add a new one
     for (auto& s : sounds) {
         if (s.getStatus() != sf::Sound::Playing) {
@@ -201,7 +201,9 @@ void SoundManager::playDotBlip() {
         threshold += dotsPerStage[i];
         if (pos < threshold) { stage = i; break; }
     }
-    static const float dotStages[4][2]    = {{988.00f,1174.66f},{1396.91f,1174.66f},{1396.91f,1760.00f},{783.99f,987.77f}};
+    // An octave below the originals: the high pure sines read as a tinny ting on
+    // phone speakers; warmer C4-A5 range, same waka pattern.
+    static const float dotStages[4][2]    = {{494.00f,587.33f},{698.46f,587.33f},{698.46f,880.00f},{392.00f,493.88f}};
     // MIB dots an octave below the originals (C5-C6 read as a tinny ting against
     // the dark 12/24 theme); same C-minor pattern, just warmer.
     static const float mibDotStages[4][2] = {{261.63f,311.13f},{311.13f,392.00f},{392.00f,523.25f},{466.16f,392.00f}};

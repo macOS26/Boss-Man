@@ -113,13 +113,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         gridMap = GridMap(tileSize: tileSize, rows: rows)
         pathfinder = Pathfinder(map: gridMap)
 
-        let mazeHeight = CGFloat(gridMap.rowCount) * tileSize
         let mazeWidth  = CGFloat(gridMap.columnCount) * tileSize
-        // Reserve the top HUD panel and centre the maze in what's left so labels
-        // never sit on top of cubicle tiles. gridMap.point(for:) then returns
-        // final centred coords for tiles, Pete and bosses alike.
-        let availableHeight = size.height - HUD.panelHeight
-        gridMap.yOffset = max(20, (availableHeight - mazeHeight) / 2)
+        // Bottom-align the maze: the bottom wall row sits on the scene's bottom edge,
+        // so there's no black strip below the walls and the corner fire button lines
+        // up with the maze bottom. The HUD panel reserves the top; the slack falls
+        // between the HUD and the maze top.
+        gridMap.yOffset = 0
         gridMap.xOffset = max(0, (size.width - mazeWidth) / 2)
         containerOriginX = gridMap.xOffset
 
