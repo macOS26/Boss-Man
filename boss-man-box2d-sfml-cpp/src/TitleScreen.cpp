@@ -106,7 +106,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Leaderboard sticky-note panel (drawn first; title sits on top if overlapping) ---
     const float panelW = 320.f, panelH = 400.f;
     const float panelCX = panelW / 2.f + 32.f;
-    const float panelCY = H * 0.5f - 15.f;
+    const float panelCY = H * 0.5f - 20.f;
     const float panelLeft = panelCX - panelW / 2.f;
     const float panelTop = panelCY - panelH / 2.f;
 

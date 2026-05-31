@@ -79,7 +79,7 @@ final class TitleScene: SKScene {
             titleFont: Strings.Font.markerFeltThin,
             bodyFont: Strings.Font.menloBold
         )
-        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5 + 15)
+        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5 + 20)
         addChild(panel)
 
         let controlsHint = SKLabelNode(fontNamed: Strings.Font.menloBold)
