@@ -44,6 +44,11 @@ private:
 
 
     void processInput();
+    void handleTitleHit(float x, float y); // shared by mouse-click + Android touch
+    // Android touch state: a drag steers, a tap fires (in-game) or hits a title button.
+    int   touchFinger = -1;
+    float touchStartX = 0.f, touchStartY = 0.f;
+    bool  touchMoved = false;
     void update(float dt);
     void render();
     void toggleFullscreen();

@@ -198,6 +198,28 @@ void Game::buildLevel() {
     refreshHUD();
 }
 
+void Game::handleTitleHit(float x, float y) {
+    switch (titleScreen.hitTest(x, y)) {
+    case TitleScreen::Hit::Play:       input.pRequested = true; break;
+    case TitleScreen::Hit::Editor:     input.eRequested = true; break;
+    case TitleScreen::Hit::BossTracks: Settings::setBossTracksSquare(!Settings::bossTracksSquare()); break;
+    case TitleScreen::Hit::WaterGun:
+        // Cycle Left -> Right -> Hide -> Left (two bools: left + hide).
+        if (Settings::waterGunHide()) {
+            Settings::setWaterGunHide(false);
+            Settings::setWaterGunLeft(true);
+        } else if (Settings::waterGunLeft()) {
+            Settings::setWaterGunLeft(false);
+        } else {
+            Settings::setWaterGunHide(true);
+        }
+        break;
+    case TitleScreen::Hit::Fullscreen:
+    case TitleScreen::Hit::Window:     input.fullscreenToggleRequested = true; break;
+    case TitleScreen::Hit::None:       break;
+    }
+}
+
 void Game::processInput() {
     sf::Event event;
     while (window.pollEvent(event)) {
@@ -223,25 +245,7 @@ void Game::processInput() {
                 && event.mouseButton.button == sf::Mouse::Left) {
             sf::Vector2f p = window.mapPixelToCoords(
                 sf::Vector2i(event.mouseButton.x, event.mouseButton.y));
-            switch (titleScreen.hitTest(p.x, p.y)) {
-            case TitleScreen::Hit::Play:       input.pRequested = true; break;
-            case TitleScreen::Hit::Editor:     input.eRequested = true; break;
-            case TitleScreen::Hit::BossTracks: Settings::setBossTracksSquare(!Settings::bossTracksSquare()); break;
-            case TitleScreen::Hit::WaterGun:
-                // Cycle Left -> Right -> Hide -> Left (two bools: left + hide).
-                if (Settings::waterGunHide()) {
-                    Settings::setWaterGunHide(false);
-                    Settings::setWaterGunLeft(true);
-                } else if (Settings::waterGunLeft()) {
-                    Settings::setWaterGunLeft(false);
-                } else {
-                    Settings::setWaterGunHide(true);
-                }
-                break;
-            case TitleScreen::Hit::Fullscreen:
-            case TitleScreen::Hit::Window:     input.fullscreenToggleRequested = true; break;
-            case TitleScreen::Hit::None:       break;
-            }
+            handleTitleHit(p.x, p.y);
             continue;
         }
         // In-game mouse/trackpad: moving steers Pete (swipe), left-click fires
@@ -256,6 +260,40 @@ void Game::processInput() {
                 input.fireRequested = true;
                 continue;
             }
+        }
+        // Touch (Android): drag past a threshold steers Pete; a tap fires in-game
+        // or hits a title button. Desktop never emits these events.
+        if (event.type == sf::Event::TouchBegan) {
+            touchFinger = (int)event.touch.finger;
+            touchStartX = (float)event.touch.x;
+            touchStartY = (float)event.touch.y;
+            touchMoved = false;
+            continue;
+        }
+        if (event.type == sf::Event::TouchMoved && (int)event.touch.finger == touchFinger) {
+            if (gameState == GameState::Playing && !touchMoved) {
+                float dx = (float)event.touch.x - touchStartX;
+                float dy = (float)event.touch.y - touchStartY;
+                float adx = std::abs(dx), ady = std::abs(dy);
+                if (adx >= 40.f || ady >= 40.f) {
+                    touchMoved = true;
+                    if (adx >= ady) input.lastDirection = dx > 0 ? MoveDirection::Right : MoveDirection::Left;
+                    else            input.lastDirection = dy > 0 ? MoveDirection::Down  : MoveDirection::Up;
+                }
+            }
+            continue;
+        }
+        if (event.type == sf::Event::TouchEnded && (int)event.touch.finger == touchFinger) {
+            touchFinger = -1;
+            if (!touchMoved) {
+                if (gameState == GameState::Title) {
+                    sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)touchStartX, (int)touchStartY));
+                    handleTitleHit(p.x, p.y);
+                } else if (gameState == GameState::Playing) {
+                    input.fireRequested = true;
+                }
+            }
+            continue;
         }
         input.handleEvent(event);
     }
