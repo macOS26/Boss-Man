@@ -47,11 +47,8 @@ final class BossController {
              pants: .darkGray, spawn: .zero, personality: bp.personality, speed: bp.speed)
         }
 
-    // Per-tile time for speed 1.0. 0.15 = wasm's 0.14 + ~7% (apple Bill ran
-    // faster than Pete at 0.14; apple-Pete's SKAction chain is a touch slower
-    // than a gapless mover). Raise to slow bosses.
-    private let moveInterval: TimeInterval = 0.15
-    private let moveDuration: TimeInterval = 0.09   // square glide per tile (dwell = moveInterval - this)
+    private let moveInterval: TimeInterval = 0.36
+    private let moveDuration: TimeInterval = 0.22
     private let detectionRange: CGFloat = 10
 
     static let baseSkinColor: NSColor = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
@@ -166,17 +163,13 @@ final class BossController {
         tag.position = CGPoint(x: 0, y: 24)
         node.addChild(tag)
 
-        // Boss Tracks setting (title screen). "Square" (default) glides then
-        // dwells at each tile centre; "Smooth" is a continuous glide with no
-        // dwell (matches the wasm port). Both run at moveInterval per tile for
-        // speed 1.0, so the fastest boss matches Pete. Absent key defaults to Square.
+        // Boss Tracks setting (title screen). "Square" (default) is the classic
+        // glide-then-dwell cadence (0.36 interval / 0.22 glide => 0.14 dwell per
+        // tile). "Smooth" is a continuous glide with no centre dwell (matches the
+        // wasm port's Smooth mode). Absent key defaults to Square.
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
-        // Square glides fast then dwells, so it reads faster + jerkier than
-        // smooth at the same multiplier — drop it 0.30 (smooth 0.90/0.80/0.70/0.60
-        // -> square 0.60/0.50/0.40/0.30) so the glide/dwell cycle slows down.
-        let speed = square ? (blueprint.speed - 0.30) : blueprint.speed
-        let entityInterval = moveInterval / speed
-        let entityDuration = (square ? moveDuration : moveInterval) / speed
+        let entityInterval = (square ? moveInterval : 0.16) / blueprint.speed
+        let entityDuration = (square ? moveDuration : 0.16) / blueprint.speed
 
         let entity = Entity(
             name: blueprint.name,
