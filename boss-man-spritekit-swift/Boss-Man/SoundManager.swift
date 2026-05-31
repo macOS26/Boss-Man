@@ -107,6 +107,7 @@ final class SoundManager {
     private var teleportPlaying = false
     
     private var musicEnabled = false
+    private var goldDiscBassActive = false   // bass stands in for the music during blue mode; the two never overlap
 
     private let normalEffectsVolume: Float = 1.0
     private let duckedEffectsVolume: Float = 0.25
@@ -384,7 +385,7 @@ final class SoundManager {
     }
 
     func resumeAudio() {
-        if musicEnabled { musicPlayer.play() }
+        if musicEnabled && !goldDiscBassActive { musicPlayer.play() }   // keep music silent while the bass owns blue mode
         effectsPlayer.play()
         bassPlayer.play()
         if speech.isPaused { speech.continueSpeaking() }
@@ -399,14 +400,21 @@ final class SoundManager {
             if goldDiscBeatBuffer == nil { goldDiscBeatBuffer = buildGoldDiscBeat() }
         }
         guard let buffer = useMIB ? mibGoldDiscBeatBuffer : goldDiscBeatBuffer else { return }
+        goldDiscBassActive = true
+        if musicPlayer.isPlaying { musicPlayer.pause() }   // music yields to the bass; no overlap
         bassPlayer.stop()
-        bassPlayer.volume = 0.9 * (useMIB ? 0.75 : 1.0)
+        bassPlayer.volume = 0.9 * (useMIB ? 0.75 : 1.0) * 1.15   // 15% louder while standing in for the music
         bassPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
         if !bassPlayer.isPlaying { bassPlayer.play() }
     }
 
     func stopGoldDiscBass() {
+        let wasActive = goldDiscBassActive
+        goldDiscBassActive = false
         bassPlayer.stop()
+        // Resume the background loop at its unchanged volume. Guarded by wasActive
+        // so teardown paths (game over, stop-all) that also call this never revive it.
+        if wasActive && musicEnabled { musicPlayer.play() }
     }
 
     private func buildGoldDiscBeat() -> AVAudioPCMBuffer {

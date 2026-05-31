@@ -592,24 +592,33 @@ sf::SoundBuffer SoundManager::buildMIBGoldDiscBeat() {
 }
 
 void SoundManager::startGoldDiscBass(bool mib) {
-    // Dedicated bass channel, looped, layered over the background music.
+    // The bass stands in for the background music during blue mode: pause the
+    // music so the two never overlap, and play the bass 15% louder.
+    musicSound.pause();
     bassSound.stop();
     bassBuffer = mib ? buildMIBGoldDiscBeat() : buildGoldDiscBeat();
     bassSound.setBuffer(bassBuffer);
     bassSound.setLoop(true);
-    bassSound.setVolume(mib ? 67.5f : 90.f); // SpriteKit: 0.9 * (mib ? 0.75 : 1.0)
+    bassSound.setVolume((mib ? 67.5f : 90.f) * 1.15f); // SpriteKit 0.9*(mib?0.75:1.0), +15% while it replaces the music
     bassSound.play();
     bassEnabled = true;
 }
 
-void SoundManager::stopGoldDiscBass() { bassSound.stop(); bassEnabled = false; }
+void SoundManager::stopGoldDiscBass() {
+    bool wasActive = bassEnabled;
+    bassEnabled = false;
+    bassSound.stop();
+    // Resume the background music at its unchanged volume. Guarded by wasActive so
+    // teardown paths (game over, stop-all) that also call this never revive it.
+    if (wasActive && musicEnabled) musicSound.play();
+}
 void SoundManager::pauseAudio() {
     musicSound.pause();
     bassSound.pause();
     for (auto& s : sounds) s.pause();
 }
 void SoundManager::resumeAudio() {
-    if (musicEnabled) musicSound.play();
+    if (musicEnabled && !bassEnabled) musicSound.play(); // keep music silent while the bass owns blue mode
     if (bassEnabled) bassSound.play();
 }
 
