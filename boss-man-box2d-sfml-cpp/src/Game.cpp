@@ -581,23 +581,21 @@ void Game::render() {
         scorePopups.draw(window);
         hud.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-        // On-screen fire button (left-click fires; side per the Water Gun setting).
-        // The Hide setting suppresses the button entirely, matching installFireButton.
+        // On-screen fire button: one big translucent ring tucked tangent to the
+        // bottom corner (faint white fill + white stroke, NO inner core), matching
+        // the SpriteKit installFireButton. Left-click anywhere fires; the Hide
+        // setting suppresses the button. Side follows the Water Gun setting.
         if (!Settings::waterGunHide()) {
-            float cx = Settings::waterGunLeft() ? 64.f : (float)WINDOW_WIDTH - 64.f;
-            float cy = (float)WINDOW_HEIGHT - 72.f;
-            sf::CircleShape ring(38.f);
-            ring.setOrigin(38.f, 38.f);
+            const float R = 90.f;
+            float cx = Settings::waterGunLeft() ? R : (float)WINDOW_WIDTH - R;
+            float cy = (float)WINDOW_HEIGHT - R;
+            sf::CircleShape ring(R, 64);
+            ring.setOrigin(R, R);
             ring.setPosition(cx, cy);
-            ring.setFillColor(sf::Color(255, 255, 255, 36));
+            ring.setFillColor(sf::Color(255, 255, 255, 36));    // white @ 0.14
             ring.setOutlineThickness(2.f);
-            ring.setOutlineColor(sf::Color(255, 255, 255, 128));
+            ring.setOutlineColor(sf::Color(255, 255, 255, 128)); // white @ 0.5
             window.draw(ring);
-            sf::CircleShape core(13.f);
-            core.setOrigin(13.f, 13.f);
-            core.setPosition(cx, cy);
-            core.setFillColor(sf::Color(102, 179, 255, 153));
-            window.draw(core);
         }
     }
 
