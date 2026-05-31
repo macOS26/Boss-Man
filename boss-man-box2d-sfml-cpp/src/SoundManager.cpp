@@ -534,8 +534,12 @@ void SoundManager::stopBackgroundMusic() {
 }
 
 // Non-MIB power-pellet bass: a 16-step, 2.0s loop. Each note is fundamental +
-// 2nd (0.35) + 3rd (0.12) harmonics, boosted x1.8 and tanh-saturated for a punchy
-// bass — not a clean sine. Matches SoundManager.buildGoldDiscBeat in SpriteKit.
+// 2nd (0.40) + 3rd (0.06) harmonics, tanh-saturated. A soft attack + slow decay +
+// short release keep it from clicking, and each note rings through a following
+// rest so the line grooves instead of tapping ("tap tap tap" on small speakers).
+// The trimmed 3rd harmonic takes the tinny edge off; the fuller 2nd carries the
+// bass on phone speakers that can't reproduce the fundamental. Matches the
+// SpriteKit SoundManager.buildGoldDiscBeat.
 sf::SoundBuffer SoundManager::buildGoldDiscBeat() {
     const float duration = 2.0f;
     int frames = (int)(sampleRate * duration);
@@ -543,18 +547,23 @@ sf::SoundBuffer SoundManager::buildGoldDiscBeat() {
     const float E2 = 82.41f, E3 = 164.81f, G2 = 98.0f, A2 = 110.0f, B2 = 123.47f;
     const float pattern[16] = { E2,E2,0, E3, E2,0, G2,G2, E2,0, A2,A2, G2,0, B2,E3 };
     int slotFrames = frames / 16;
-    const float attack = 0.005f;
+    const float attack = 0.008f, release = 0.010f;
     for (int slot = 0; slot < 16; ++slot) {
         float freq = pattern[slot];
-        if (freq <= 0) continue; // rest (left at 0)
+        if (freq <= 0) continue; // rest: filled by the ring-out of the previous note
+        bool nextRest = pattern[(slot + 1) % 16] <= 0;
+        int noteFrames = slotFrames + (nextRest ? slotFrames : 0);
+        float noteDur = (float)noteFrames / sampleRate;
         int startFrame = slot * slotFrames;
-        for (int j = 0; j < slotFrames && startFrame + j < frames; ++j) {
+        for (int j = 0; j < noteFrames && startFrame + j < frames; ++j) {
             float t = (float)j / sampleRate;
-            float env = (t < attack) ? (t / attack) : expf(-3.8f * (t - attack));
+            float env = (t < attack) ? (t / attack) : expf(-2.2f * (t - attack));
+            float tail = noteDur - release;
+            if (t > tail) env *= std::max(0.0f, (noteDur - t) / release);
             float f1 = sinf(2 * M_PI * freq * t);
-            float f2 = sinf(2 * M_PI * freq * 2 * t) * 0.35f;
-            float f3 = sinf(2 * M_PI * freq * 3 * t) * 0.12f;
-            float raw = (f1 + f2 + f3) * 1.8f * env;
+            float f2 = sinf(2 * M_PI * freq * 2 * t) * 0.40f;
+            float f3 = sinf(2 * M_PI * freq * 3 * t) * 0.06f;
+            float raw = (f1 + f2 + f3) * 1.6f * env;
             data[startFrame + j] = (int16_t)(tanhf(raw) * 0.34f * 32767);
         }
     }

@@ -435,28 +435,27 @@ final class SoundManager {
             E2, 0,  A2, A2,  G2, 0,  B2, E3
         ]
         let slotFrames = frames / pattern.count
-        let attack: Float = 0.005
+        let attack: Float = 0.008
+        let release: Float = 0.010
 
-        for (slot, freq) in pattern.enumerated() {
+        // Start from silence; notes ring through a following rest (filling the
+        // staccato gaps that read as "tap tap tap"), so rests are not re-zeroed.
+        for i in 0..<frames { data[i] = 0 }
+
+        for (slot, freq) in pattern.enumerated() where freq > 0 {
+            let nextRest = pattern[(slot + 1) % pattern.count] <= 0
+            let noteFrames = slotFrames + (nextRest ? slotFrames : 0)
+            let noteDur = Float(noteFrames) / Float(sampleRate)
             let startFrame = slot * slotFrames
-            guard freq > 0 else {
-                for j in 0..<slotFrames where startFrame + j < frames {
-                    data[startFrame + j] = 0
-                }
-                continue
-            }
-            for j in 0..<slotFrames where startFrame + j < frames {
+            for j in 0..<noteFrames where startFrame + j < frames {
                 let t = Float(j) / Float(sampleRate)
-                let env: Float
-                if t < attack {
-                    env = t / attack
-                } else {
-                    env = exp(-3.8 * (t - attack))
-                }
+                var env: Float = (t < attack) ? (t / attack) : exp(-2.2 * (t - attack))
+                let tail = noteDur - release
+                if t > tail { env *= max(0, (noteDur - t) / release) }
                 let f1 = sin(2 * .pi * freq * t)
-                let f2 = sin(2 * .pi * freq * 2 * t) * 0.35
-                let f3 = sin(2 * .pi * freq * 3 * t) * 0.12
-                let raw = (f1 + f2 + f3) * 1.8 * env
+                let f2 = sin(2 * .pi * freq * 2 * t) * 0.40
+                let f3 = sin(2 * .pi * freq * 3 * t) * 0.06
+                let raw = (f1 + f2 + f3) * 1.6 * env
                 data[startFrame + j] = tanh(raw) * 0.34
             }
         }
