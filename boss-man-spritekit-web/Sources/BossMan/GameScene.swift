@@ -19,7 +19,7 @@ import SpriteKit
 //     all queued for the next pass.
 //
 // Escape returns to the title screen.
-final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelegate {
+final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelegate, BossControllerDelegate {
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
     private var mazeBuilder: MazeBuilder!
@@ -54,15 +54,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private let dotPoints = 10
     private let goldPoints = 200
 
-    private var bosses: [BossController] = []
+    private var bossController: BossController!
     private var contactCooldown: TimeInterval = 0     // brief grace after a hit
     // Gold-disc (frighten) window — bossman-apple uses 20s.
     private var frightenSecondsLeft: TimeInterval = 0
     private let frightenDuration: TimeInterval = 20
-    // Capture streak: bossman-apple awards 100 * streak per consecutive
-    // boss captured during the SAME gold-disc window. Resets when a new
-    // window starts.
-    private var captureStreak = 0
     // Tracks how many gold discs Pete has collected this level vs how
     // many exist on the maze; both have to hit equality to clear it.
     private var goldDiscsRemaining = 0
@@ -77,7 +73,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     private var currentReportScore = 0
     private var tpsReportsDelivered = 0
     private let requiredReports = Strings.Machine.required
-    private let squareTracks = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare)
     private let reportItemPoints = [10, 25, 50, 100]
 
     private let waterGun = WaterGunState()
@@ -90,6 +85,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
     // MARK: - WorkerControllerDelegate
     var isGameOver: Bool { gameOver }
     func workerDidEnterTile(_ grid: CGPoint) { handlePeteArrival(at: grid) }
+
+    // MARK: - BossControllerDelegate
+    var workerGrid: CGPoint { worker.grid }
+    var workerDirection: MoveDirection? { worker.direction }
+    var isGoldDiscMode: Bool { frightenSecondsLeft > 0 }
+    var isPeteShielded: Bool { worker?.isShielded ?? false }
+    func bossDidCatchWorker() { handlePeteHit() }
+    func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
+        score += points
+        refreshHUD()
+        ScorePopup.show(points, at: position, in: self,
+                        color: SKColor(red: 0.3, green: 0.7, blue: 1, alpha: 1))
+        sound.playCaptureBoss(streak: points / 100)
+    }
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     private var usernameDialog: UsernameDialog? = nil
@@ -153,21 +162,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         pete = worker.node
         addChild(pete)
 
-        for (index, bossSpawn) in mazeBuilder.bossSpawns.enumerated() {
-            let boss = BossController(blueprintIndex: bossSpawn.index,
-                                      spawn: bossSpawn.position,
-                                      map: gridMap,
-                                      pathfinder: pathfinder,
-                                      tileSize: tileSize,
-                                      containerOriginX: containerOriginX,
-                                      sound: sound,
-                                      squareTracks: squareTracks,
-                                      mib: (levelIndex + 1) % 12 == 0)
-            boss.install(in: self)
-            boss.applySpawnFreeze()
-            bosses.append(boss)
-            _ = index
-        }
+        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder,
+                                        sound: sound, containerOriginX: containerOriginX)
+        bossController.delegate = self
+        bossController.spawn(forLevel: levelIndex + 1,
+                             spawnOverrides: mazeBuilder.bossSpawns.map {
+                                 (blueprintIndex: $0.index, position: $0.position)
+                             })
 
         travelerSpawner = TravelerSpawner(scene: self,
                                           gridMap: gridMap,
@@ -379,16 +380,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // instead of collapsing to direct chase.
         worker.advance(dt)
 
-        // BLINKY anchor for Bob's flanker reflection = the FIRST-SPAWNED boss
-        // (bossman-apple's entities.first), in maze scan order — NOT necessarily
-        // Bill. bosses[] is built in bossSpawns scan order, so bosses.first matches.
-        let blinky = bosses.first?.grid
-        for boss in bosses {
-            boss.step(dt: dt,
-                      peteGrid: worker.grid,
-                      peteDirection: worker.direction,
-                      blinkyGrid: blinky)
-        }
+        // The shared BossController steps every boss through its per-entity
+        // TileMover (gap-free) on wasm; the BLINKY anchor + Pete grid/heading +
+        // flee state all come from this scene via BossControllerDelegate.
+        bossController.advance(dt)
 
         stepWaterDroplets(dt: dt)
 
@@ -396,42 +391,32 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
             frightenSecondsLeft -= TimeInterval(dt)
             if frightenSecondsLeft <= 0 {
                 frightenSecondsLeft = 0
-                for b in bosses { b.applyFleeThaw() }
-                refreshBossTags()
+                bossController.setGoldDiscActive(false)
                 sound.stopGoldDiscBass()
             }
         }
         if contactCooldown > 0 {
             contactCooldown -= TimeInterval(dt)
-        } else if let b = bossOnPete() {
-            if b.isFrightened {
-                // bossman-apple capture streak: each consecutive boss eaten
-                // during the same gold-disc window is worth 100 x streak.
-                captureStreak += 1
-                refreshBossTags()
-                let points = 100 * captureStreak
-                score += points
-                refreshHUD()
-                ScorePopup.show(points, at: b.sprite.position, in: self,
-                                color: SKColor(red: 0.3, green: 0.7, blue: 1, alpha: 1))
-                sound.playCaptureBoss(streak: captureStreak)
-                // Scale-up + fade-out, snap home, scale-down + fade-in.
-                b.capture()
+        } else if let bossNode = bossOnPete() {
+            if bossController.isInFleeMode(boss: bossNode) {
+                // capture(boss:) awards 100 x streak via bossDidGetCaptured and
+                // plays the scale-up + fade-out, snap-home, scale-down animation.
+                bossController.capture(boss: bossNode)
                 contactCooldown = 0.4
             } else if !worker.isShielded {
-                handlePeteHit(catcher: b)
+                handlePeteHit(catcher: bossNode)
             }
         }
     }
 
-    private func bossOnPete() -> BossController? {
+    private func bossOnPete() -> PixelPerson? {
         let r = tileSize * 0.55
         let r2 = r * r
-        for b in bosses {
-            if b.isImmobilized { continue }    // freezed-spawn bosses can't catch
-            let dx = b.sprite.position.x - pete.position.x
-            let dy = b.sprite.position.y - pete.position.y
-            if dx * dx + dy * dy < r2 { return b }
+        for e in bossController.entities {
+            if e.isImmobilized { continue }    // freezed-spawn bosses can't catch
+            let dx = e.node.position.x - pete.position.x
+            let dy = e.node.position.y - pete.position.y
+            if dx * dx + dy * dy < r2 { return e.node }
         }
         return nil
     }
@@ -457,14 +442,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         if mazeBuilder.collectGold(at: grid) {
             score += goldPoints
             goldDiscsRemaining = max(0, goldDiscsRemaining - 1)
-            // bossman-apple resets the capture streak when a NEW gold-disc
-            // window opens, so the first eaten boss is worth 100 again.
-            captureStreak = 0
             refreshHUD()
             ScorePopup.show(goldPoints, at: gridMap.point(for: grid), in: self)
             frightenSecondsLeft = frightenDuration
-            for b in bosses { b.setFrightened(true) }
-            refreshBossTags()
+            // setGoldDiscActive flips the flee palette, resets the capture streak
+            // (so the first eaten boss is worth 100 again) and refreshes the tags.
+            bossController.setGoldDiscActive(true)
             sound.playGoldDisc()
             sound.startGoldDiscBass()
             hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
@@ -588,7 +571,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         checkLevelComplete()
     }
 
-    private func handlePeteHit(catcher: BossController? = nil) {
+    private func handlePeteHit(catcher: PixelPerson? = nil) {
         lives = max(0, lives - 1)
         // bossman-apple bossCaughtWorker: a catch forfeits the in-progress TPS
         // report — flash its value in red, clear the collected items, and
@@ -613,17 +596,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         // touched Pete additionally has its alpha snapped to 0 first
         // via relocateAfterCatch so Pete can't get re-tagged on the
         // same contact frame.
-        catcher?.relocateAfterCatch()
-        for b in bosses { b.respawnAfterPeteCaught() }
-        // Apple also ends a gold-disc window early on a catch and
-        // bails out of any in-progress capture streak.
+        // Apple ends a gold-disc window early on a catch (which also clears the
+        // capture streak) BEFORE sending everyone home, so the rebuilt bosses
+        // come back red rather than blue.
         if frightenSecondsLeft > 0 {
             frightenSecondsLeft = 0
-            for b in bosses { b.setFrightened(false) }
-            captureStreak = 0
-            refreshBossTags()
+            bossController.setGoldDiscActive(false)
             sound.stopGoldDiscBass()
         }
+        catcher.map { bossController.relocateAfterCatch(boss: $0) }
+        bossController.teleportAllToSpawn()
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
         applyPeteSpawnShield()
@@ -739,8 +721,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         sound.startBackgroundMusic(theme: musicTheme(for: levelIndex + 1))
         sound.playLevelStart()
 
-        for boss in bosses { boss.sprite.removeFromParent() }
-        bosses.removeAll()
+        bossController.clear()
         mazeRoot.removeAllChildren()
         travelerSpawner.reset()
 
@@ -762,20 +743,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         resetPete(to: spawn)
 
-        for bossSpawn in mazeBuilder.bossSpawns {
-            let boss = BossController(blueprintIndex: bossSpawn.index,
-                                      spawn: bossSpawn.position,
-                                      map: gridMap,
-                                      pathfinder: pathfinder,
-                                      tileSize: tileSize,
-                                      containerOriginX: containerOriginX,
-                                      sound: sound,
-                                      squareTracks: squareTracks,
-                                      mib: (levelIndex + 1) % 12 == 0)
-            boss.install(in: self)
-            boss.applySpawnFreeze()
-            bosses.append(boss)
-        }
+        bossController.spawn(forLevel: levelIndex + 1,
+                             spawnOverrides: mazeBuilder.bossSpawns.map {
+                                 (blueprintIndex: $0.index, position: $0.position)
+                             })
 
         refreshHUD()
     }
@@ -792,18 +763,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
                 let g = gridCellAtScenePoint(drop.position)
                 if !gridMap.isWalkable(g) { consumed = true }
                 else {
-                    for b in bosses {
-                        let dx = b.sprite.position.x - drop.position.x
-                        let dy = b.sprite.position.y - drop.position.y
+                    for e in bossController.entities {
+                        let dx = e.node.position.x - drop.position.x
+                        let dy = e.node.position.y - drop.position.y
                         if dx * dx + dy * dy < (tileSize * 0.45) * (tileSize * 0.45) {
                             score += waterHitPoints
-                            ScorePopup.show(waterHitPoints, at: b.sprite.position, in: self,
+                            ScorePopup.show(waterHitPoints, at: e.node.position, in: self,
                                             color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
-                            spawnWaterSplash(at: b.sprite.position)
+                            spawnWaterSplash(at: e.node.position)
                             sound.playWaterGunSplash()
                             // bossman-apple: boss disappears for 5s,
                             // then spawn-freeze fades it back in.
-                            b.splash()
+                            bossController.splash(boss: e.node)
                             refreshHUD()
                             consumed = true
                             break
@@ -873,13 +844,5 @@ final class GameScene: SKScene, SKPhysicsContactDelegate, WorkerControllerDelega
                            pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1,
                            blueMode: frightenSecondsLeft > 0)
         hud.updateLevelEmojis(unlockedTravelers())
-    }
-
-    // bossman-apple refreshTags(goldDiscActive:): the next-capture value is
-    // 100 * (captureStreak + 1); each boss shows it (yellow) while frightened,
-    // else its name (white).
-    private func refreshBossTags() {
-        let next = 100 * (captureStreak + 1)
-        for b in bosses { b.refreshTag(nextPoints: next) }
     }
 }

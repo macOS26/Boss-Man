@@ -30,6 +30,10 @@ final class BossController {
         var captureCount: Int = 0
         var isImmobilized: Bool = false
         let blueprintIndex: Int
+        #if os(WASI)
+        var mover: TileMover<MoveDirection>! = nil
+        var frightenedStep: TimeInterval = 0
+        #endif
     }
 
     // The `spawn` slot here is a placeholder (.zero) only. A boss's home/spawn
@@ -59,6 +63,7 @@ final class BossController {
     private let gridMap: GridMap
     private let pathfinder: Pathfinder
     private let sound: SoundManager
+    private let containerOriginX: CGFloat
     private(set) var entities: [Entity] = []
     private var captureStreak = 0
     private var currentLevel = 1
@@ -66,11 +71,12 @@ final class BossController {
     var hasFirstBoss: Bool { !entities.isEmpty }
     var firstBossGrid: CGPoint? { entities.first?.ai.grid }
 
-    init(scene: SKScene, gridMap: GridMap, pathfinder: Pathfinder, sound: SoundManager) {
+    init(scene: SKScene, gridMap: GridMap, pathfinder: Pathfinder, sound: SoundManager, containerOriginX: CGFloat = 0) {
         self.scene = scene
         self.sound = sound
         self.gridMap = gridMap
         self.pathfinder = pathfinder
+        self.containerOriginX = containerOriginX
     }
 
     // MARK: - Roster lifecycle
@@ -121,6 +127,9 @@ final class BossController {
             node.setShoeOutlineColor(Self.bossShoeGoldColor)
             node.setEyeColor(SpriteFactory.fleeEyeColor)
             node.setSkinColor(SpriteFactory.fleeSkinColor)
+            #if os(WASI)
+            entities[index].mover?.step = entities[index].frightenedStep
+            #endif
         }
         scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
@@ -145,6 +154,7 @@ final class BossController {
         )
         node.name = blueprint.name
         node.position = gridMap.point(for: blueprint.spawn)
+        #if os(macOS)
         // r=5 so a catch needs a deeper overlap with Pete (Pete's body is 10,
         // contact fires at centres ~15px apart), not the barely-touching overlap
         // that r=10 (20px) gave.
@@ -153,6 +163,7 @@ final class BossController {
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
         node.physicsBody?.collisionBitMask = PhysicsCategory.wall
+        #endif
         node.zPosition = 11
         scene.addChild(node)
 
@@ -165,12 +176,12 @@ final class BossController {
 
         // Boss Tracks setting (title screen). "Square" (default) is the classic
         // glide-then-dwell cadence (0.36 interval / 0.22 glide => 0.14 dwell per
-        // tile). "Smooth" is a continuous glide with no centre dwell (matches the
-        // wasm port's Smooth mode). Absent key defaults to Square.
+        // tile). "Smooth" is a continuous glide with no centre dwell. Absent key
+        // defaults to Square.
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
         // Square runs 15% faster (x1.15 on speed = 15% less per-tile time) while
         // keeping the clean 0.22-glide / 0.14-dwell cadence.
-        let speed = square ? (blueprint.speed * 1.1) : blueprint.speed
+        let speed = square ? (blueprint.speed * 1.15) : blueprint.speed
         let entityInterval = (square ? moveInterval : 0.16) / speed
         let entityDuration = (square ? moveDuration : 0.16) / speed
 
@@ -189,6 +200,17 @@ final class BossController {
             blueprintIndex: blueprintIndex
         )
         entities.append(entity)
+
+        #if os(WASI)
+        let idx = entities.count - 1
+        let mover = TileMover<MoveDirection>(node: node, spawn: blueprint.spawn, map: gridMap,
+                                             step: entityDuration, containerOriginX: containerOriginX,
+                                             slowInTunnels: true)
+        let hold = entityInterval - entityDuration
+        if hold > 0 { mover.holdTime = hold }
+        entities[idx].mover = mover
+        entities[idx].frightenedStep = 0.22 / speed
+        #endif
     }
 
     private func relocateToSpawn(at index: Int) {
@@ -198,6 +220,12 @@ final class BossController {
         node.stopWalking()
         entity.ai.teleport(to: entity.spawn)
         node.position = gridMap.point(for: entity.spawn)
+        #if os(WASI)
+        entity.mover?.grid = entity.spawn
+        entity.mover?.dir = nil
+        entity.mover?.moving = false
+        entity.mover?.moveT = 0
+        #endif
         node.setBodyColor(entity.baseColor)
         node.setTieColor(entity.tieColor)
         node.setTieOutline(color: nil)
@@ -290,6 +318,9 @@ final class BossController {
             entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
             entities[i].node.setEyeColor(active ? SpriteFactory.fleeEyeColor : .black)
             entities[i].node.setSkinColor(active ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
+            #if os(WASI)
+            entities[i].mover?.step = active ? entities[i].frightenedStep : entities[i].moveDuration
+            #endif
         }
         refreshTags(goldDiscActive: active)
         if !active { applyFleeThawTransition() }
@@ -343,8 +374,9 @@ final class BossController {
         }
     }
 
-    // MARK: - Stepping (SKAction-driven per boss)
+    // MARK: - Stepping (apple: SKAction-driven per boss; wasm: TileMover via advance)
     private func scheduleStepper(for entity: Entity) {
+        #if os(macOS)
         let bossNode = entity.node
         let stepper = SKAction.repeatForever(.sequence([
             .wait(forDuration: entity.moveInterval),
@@ -356,8 +388,10 @@ final class BossController {
             }
         ]))
         entity.node.run(stepper, withKey: Strings.ActionKey.bossStepper)
+        #endif
     }
 
+    #if os(macOS)
     private func stepOne(at index: Int) {
         guard let delegate, !entities[index].isImmobilized else { return }
         let boss = entities[index]
@@ -430,6 +464,49 @@ final class BossController {
         }
         return nil
     }
+    #endif
+
+    #if os(WASI)
+    // Per-frame continuous stepper for the wasm port: each boss steps through a
+    // TileMover (gap-free, no per-tile SKAction restart), driven from
+    // GameScene.update. Pete-grid / heading / flee come from the delegate, the
+    // BLINKY anchor from entities.first — same inputs the macOS SKAction stepper
+    // reads in stepOne.
+    func advance(_ dt: TimeInterval) {
+        guard let delegate else { return }
+        let peteGrid = delegate.workerGrid
+        let peteDirection = delegate.workerDirection
+        let blinky = firstBossGrid
+        let flee = delegate.isGoldDiscMode
+        let cols = gridMap.columnCount
+        let rows = gridMap.rowCount
+        for i in entities.indices {
+            if entities[i].isImmobilized { continue }
+            guard let mover = entities[i].mover else { continue }
+            let ai = entities[i].ai
+            let node = entities[i].node
+            mover.advance(dt, decide: { e in
+                guard let move = ai.planNextStep(
+                    workerGrid: peteGrid,
+                    workerDirection: peteDirection,
+                    blinkyGrid: blinky,
+                    flee: flee
+                ) else { return nil }
+                let dx = Int(move.to.x - e.grid.x)
+                let dy = Int(move.to.y - e.grid.y)
+                if abs(dx) > 1 {
+                    return e.grid.x < CGFloat(cols) / 2 ? .left : .right
+                }
+                if abs(dy) > 1 {
+                    return e.grid.y < CGFloat(rows) / 2 ? .down : .up
+                }
+                return MoveDirection.from(delta: (dx, dy))
+            }, onArrive: { e in
+                if let d = e.dir { node.setFacingSmoothed(d) }
+            })
+        }
+    }
+    #endif
 
     func capture(boss node: PixelPerson) {
         guard let index = entities.firstIndex(where: { $0.node === node }) else { return }
@@ -447,6 +524,13 @@ final class BossController {
         boss.ai.teleport(to: boss.spawn)
         boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
         boss.node.stopWalking()
+        #if os(WASI)
+        entities[index].isImmobilized = true
+        boss.mover?.grid = boss.spawn
+        boss.mover?.dir = nil
+        boss.mover?.moving = false
+        boss.mover?.moveT = 0
+        #endif
         let homePoint = gridMap.point(for: boss.spawn)
         let bossNode = boss.node
 
@@ -459,7 +543,7 @@ final class BossController {
             delegate?.bossDidGetCaptured(name: boss.name, points: points, at: homePoint)
             return
         } else {
-            bossNode.run(.sequence([
+            var seq: [SKAction] = [
                 .group([
                     .scale(to: 1.6, duration: 0.25),
                     .fadeOut(withDuration: 0.25)
@@ -469,7 +553,15 @@ final class BossController {
                     .scale(to: 1.0, duration: 0.2),
                     .fadeIn(withDuration: 0.2)
                 ])
-            ]))
+            ]
+            #if os(WASI)
+            seq.append(.run { [weak self, weak bossNode] in
+                guard let self, let bossNode,
+                      let i = self.entities.firstIndex(where: { $0.node === bossNode }) else { return }
+                self.entities[i].isImmobilized = false
+            })
+            #endif
+            bossNode.run(.sequence(seq))
             boss.node.setBodyColor(powerActive ? SpriteFactory.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? SpriteFactory.fleeTieColor : boss.tieColor)
             boss.node.setTieOutline(color: nil)
@@ -508,3 +600,19 @@ final class BossController {
         ]))
     }
 }
+
+#if os(WASI)
+// Grid-delta -> MoveDirection. -1/0/+1 only; tunnel-wrap deltas are caught by
+// the advance() decide closure before they reach this.
+extension MoveDirection {
+    static func from(delta: (Int, Int)) -> MoveDirection? {
+        switch delta {
+        case (-1, 0): return .left
+        case ( 1, 0): return .right
+        case ( 0,-1): return .down
+        case ( 0, 1): return .up
+        default: return nil
+        }
+    }
+}
+#endif
