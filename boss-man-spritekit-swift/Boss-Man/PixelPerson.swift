@@ -257,6 +257,26 @@ final class PixelPerson: SKNode {
         setLookDirection(direction)
     }
 
+    // Like setFacing, but ignores a single direction reversal so the eyes/tie/
+    // body keep the general heading instead of flipping forward-opposite-forward
+    // on per-tile AI jitter (most visible in square mode's dwell). A reversal
+    // that persists 2+ tiles still turns. Bosses use this; Pete uses setFacing
+    // directly so the player gets an instant turn.
+    private var smoothedFaceDir: MoveDirection?
+    private var faceReverseSkips = 0
+    func setFacingSmoothed(_ direction: MoveDirection) {
+        if let last = smoothedFaceDir {
+            let a = direction.delta, b = last.delta
+            if a.dx == -b.dx && a.dy == -b.dy {        // exact reversal
+                faceReverseSkips += 1
+                if faceReverseSkips < 2 { return }     // skip an isolated flip-flop
+            }
+        }
+        faceReverseSkips = 0
+        smoothedFaceDir = direction
+        setFacing(direction)
+    }
+
     // MARK: - Eye tracking
     func setLookDirection(_ dir: MoveDirection?) {
         guard let leftEye, let rightEye else { return }

@@ -170,7 +170,7 @@ final class BossController {
         let square = Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
         // Square runs 15% faster (x1.15 on speed = 15% less per-tile time) while
         // keeping the clean 0.22-glide / 0.14-dwell cadence.
-        let speed = square ? (blueprint.speed * 1.15) : blueprint.speed
+        let speed = square ? (blueprint.speed * 1.1) : blueprint.speed
         let entityInterval = (square ? moveInterval : 0.16) / speed
         let entityDuration = (square ? moveDuration : 0.16) / speed
 
@@ -389,9 +389,7 @@ final class BossController {
             if dy != 0 { return dy > 0 ? .up : .down }
             return nil
         }()
-        if look == .left  { boss.node.face(left: true)  }
-        if look == .right { boss.node.face(left: false) }
-        boss.node.setLookDirection(look)
+        if let look { boss.node.setFacingSmoothed(look) }
         let isPartnerEdge = abs(move.to.x - move.from.x) + abs(move.to.y - move.from.y) > 1
         if isPartnerEdge {
             boss.node.removeAction(forKey: Strings.ActionKey.bossMove)

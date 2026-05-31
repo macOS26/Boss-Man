@@ -320,7 +320,7 @@ final class BossController {
                       },
                       onArrive: { [weak self] e in
                           guard let self else { return }
-                          if let d = e.dir { self.sprite.setFacing(d) }
+                          if let d = e.dir { self.sprite.setFacingSmoothed(d) }
                       })
     }
 }
