@@ -712,6 +712,7 @@ class Runtime {
       },
       tts_speak: (utf8Ptr, len, rate, pitch, volume) => {
         if (typeof speechSynthesis === 'undefined') return 0;
+        try { speechSynthesis.resume(); } catch (_e) {}   // Safari can leave the queue paused
         const text = this.cstr(utf8Ptr, len);
         const u = new SpeechSynthesisUtterance(text);
         u.rate   = Math.max(0.1, Math.min(rate   || 1.0, 10));
@@ -1630,6 +1631,33 @@ void main() {
     return this._ttsVoice;
   }
 
+  // Safari gates Web Speech behind a user gesture and silently drops utterances
+  // fired outside one, and it does not reliably fire onvoiceschanged. Called from
+  // the first keydown/mousedown/touchstart: speak a silent utterance to unlock the
+  // synth for the session, then poll getVoices() (Safari's event is flaky) and
+  // drain anything queued before voices were ready.
+  _primeSpeech() {
+    if (this._speechPrimed || typeof speechSynthesis === 'undefined') return;
+    this._speechPrimed = true;
+    try {
+      speechSynthesis.resume();
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      speechSynthesis.speak(u);
+    } catch (_e) {}
+    let tries = 0;
+    const poll = () => {
+      this._ttsVoice = null;
+      const v = this._pickTTSVoice();
+      if (v && this._ttsPending.length) {
+        const pending = this._ttsPending; this._ttsPending = [];
+        for (const u of pending) { u.voice = v; try { speechSynthesis.speak(u); } catch (_e) {} }
+      }
+      if (!v && ++tries < 8) setTimeout(poll, 250);
+    };
+    poll();
+  }
+
   // Duck every active snd voice (music + SFX + gold-disc bass) to `factor` of
   // its base gain; called with 0.25 while a TTS voice speaks and 1 when it ends.
   _setDuck(factor) {
@@ -1768,7 +1796,7 @@ void main() {
   // DOM wiring + main loop
   // ==========================================================================
   wireInput() {
-    const onResume = () => this.ensureAudio();
+    const onResume = () => { this.ensureAudio(); this._primeSpeech(); };
     addEventListener('keydown', onResume, { once: true });
     addEventListener('mousedown', onResume, { once: true });
     addEventListener('touchstart', onResume, { once: true });
