@@ -1665,6 +1665,21 @@ void main() {
     poll();
   }
 
+  // iOS Safari only lets speech run inside/just-after a user gesture, so keep the
+  // synth "warm" by re-priming on every button/tap/key. A silent utterance unlocks
+  // the window without interrupting a line that's actually speaking.
+  _reprimeSpeech() {
+    if (typeof speechSynthesis === 'undefined') return;
+    try {
+      speechSynthesis.resume();
+      if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+        const u = new SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        speechSynthesis.speak(u);
+      }
+    } catch (_e) {}
+  }
+
   // Duck every active snd voice (music + SFX + gold-disc bass) to `factor` of
   // its base gain; called with 0.25 while a TTS voice speaks and 1 when it ends.
   _setDuck(factor) {
@@ -1696,6 +1711,22 @@ void main() {
       }
     } catch (_e) {}
     setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (_e) {} }, 0);
+  }
+
+  // Double-tap toggles fullscreen (enter if not in it, exit if in it), real API
+  // where available and the iPhone pseudo-fullscreen otherwise.
+  _toggleFullscreen() {
+    const el = this.canvas;
+    const inFs = this._pseudoFsOn || document.fullscreenElement || document.webkitFullscreenElement;
+    if (inFs) {
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      this._pseudoFullscreen(false);
+    } else {
+      if (el.requestFullscreen) el.requestFullscreen().catch(() => this._pseudoFullscreen(true));
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else this._pseudoFullscreen(true);
+    }
   }
 
   ensureAudio() {
@@ -1843,6 +1874,7 @@ void main() {
     });
 
     addEventListener('keydown', (e) => {
+      if (!e.repeat) this._reprimeSpeech();   // keep TTS warm on every key (Play/Esc/F/...)
       const sf = DOM_TO_SF.get(e.code);
       if (sf === undefined) return;
       e.preventDefault();
@@ -1867,6 +1899,7 @@ void main() {
     });
 
     this.canvas.addEventListener('mousedown', (e) => {
+      this._reprimeSpeech();   // keep TTS warm on every click
       const btn = e.button === 2 ? 1 : (e.button === 0 ? 0 : -1);
       if (btn < 0) return;
       this.mouseDown[btn] = true;
@@ -1894,6 +1927,7 @@ void main() {
     this.canvas.style.touchAction = 'none';
     const touchAt = (t) => this.toLogical({ clientX: t.clientX, clientY: t.clientY });
     this.canvas.addEventListener('touchstart', (e) => {
+      this._reprimeSpeech();   // keep TTS warm on every tap
       if (!e.changedTouches.length) return;
       this.mouseDown[0] = true;
       const p = touchAt(e.changedTouches[0]);
@@ -1914,13 +1948,11 @@ void main() {
       const p = touchAt(e.changedTouches[0]);
       this.events.push({ type: EVT.MouseButtonReleased, a: 0, b: p.x, c: p.y, d: 0 });
       e.preventDefault();
-      // Double-tap exits fullscreen (real or pseudo) on touch devices.
+      // Double-tap toggles fullscreen (enter or exit) on touch devices.
       const now = Date.now();
       if (this._lastTapAt && now - this._lastTapAt < 300) {
         this._lastTapAt = 0;
-        if (this._pseudoFsOn) this._pseudoFullscreen(false);
-        else if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
-        else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+        this._toggleFullscreen();
       } else {
         this._lastTapAt = now;
       }
