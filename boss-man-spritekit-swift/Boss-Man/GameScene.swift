@@ -1,13 +1,22 @@
 import AppKit
+#if os(macOS)
 import GameKit
+#endif
 import SpriteKit
 
-final class GameScene: SKScene, PointerInputControllerDelegate, WorkerControllerDelegate, BossControllerDelegate {
+// Gameplay scene, common to the macOS master and the wasm port. The pure game
+// logic (collection, scoring via RoundState, TPS reports, gold-disc, boss
+// catch, level flow) is shared; the platform I/O is forked behind #if:
+//   - macOS: NSEvent input + PointerInputController, ContactRouter, GameKit,
+//     SKAction-driven movement, gold-disc expiry via a scene SKAction.
+//   - wasm: kit CGPoint/Int input overrides, didBegin contacts, TileMover
+//     movement driven from update(), gold-disc expiry via a frame countdown,
+//     maze centred through gridMap x/yOffset.
+final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate {
     private let tileSize: CGFloat = 32
-    private let workerSpawn = CGPoint(x: 18, y: 7)
     private let goldDiscDuration: TimeInterval = 20
-
     private let requiredItems = Strings.Machine.required
+    private let reportItemPoints = [10, 25, 50, 100]
 
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
@@ -16,14 +25,13 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     private let sound = SoundManager()
 
     private let state = RoundState()
-    private let inputController = PointerInputController()
-    private let contactRouter = ContactRouter()
     private let goldDisc = GoldDiscTimer()
     private let waterGun = WaterGunState()
     private var waterGunPickedUp = false
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
+    private var usernameDialog: UsernameDialog?
 
     private(set) var isGameOver = false
     var practiceMode: Bool {
@@ -36,8 +44,34 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     }
     var isGoldDiscMode: Bool { goldDisc.isActive }
     var isPeteShielded: Bool { workerController?.isShielded ?? false }
+    var workerGrid: CGPoint { workerController.grid }
+    var workerDirection: MoveDirection? { workerController.direction }
+
+    #if os(macOS)
+    private let workerSpawn = CGPoint(x: 18, y: 7)
+    private let inputController = PointerInputController()
+    private let contactRouter = ContactRouter()
+    #elseif os(WASI)
+    private let mazeRoot = SKNode()
+    private var containerOriginX: CGFloat = 0
+    private var swipeStart: CGPoint? = nil
+    private var swipeFired = false
+    private var moveAnchor: CGPoint? = nil
+    private let swipeThreshold: CGFloat = 24
+    private var fireButtonCenter = CGPoint.zero
+    private var fireButtonHidden = false
+    private let fireButtonRadius: CGFloat = 90
+    private var contactCooldown: TimeInterval = 0
+    private var frightenSecondsLeft: TimeInterval = 0
+    private var waterDroplets: [WaterDroplet] = []
+    private let waterDropletSpeed: CGFloat = 12 * 32
+    private let waterHitPoints = 100
+    private var isUserPaused = false
+    private var pauseOverlay: SKNode? = nil
+    #endif
 
     // MARK: - Lifecycle
+    #if os(macOS)
     override func didMove(to view: SKView) {
         backgroundColor = SpriteFactory.mazeBackground
         anchorPoint = CGPoint(x: 0, y: 0)
@@ -62,44 +96,129 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         installFireButton()
     }
 
-    // On-screen fire button (matches the SuperBox64 / wasm port). The cursor is
-    // hidden during play (mouse delta steers Pete), so it can't be aimed at a
-    // tiny target — a left-click fires the water gun and this round button is the
-    // visual affordance. Its side follows the Water Gun title-screen setting.
-    private func installFireButton() {
-        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }   // Hide mode: no on-screen button
-        let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        // Big circle tucked into the bottom corner (fully on-screen, tangent to
-        // both edges); no inner core.
-        let center = CGPoint(x: onLeft ? 90 : size.width - 90, y: 90)
-        let ring = SKShapeNode(circleOfRadius: 90)
-        ring.position = center
-        ring.fillColor = NSColor(white: 1, alpha: 0.14)
-        ring.strokeColor = NSColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2
-        ring.zPosition = 50
-        addChild(ring)
-    }
-
     override func willMove(from view: SKView) {
         inputController.unhideCursor()
     }
+    #elseif os(WASI)
+    override func didMove(to view: SKView) {
+        backgroundColor = SpriteFactory.mazeBackground
+        anchorPoint = .zero
+        physicsWorld.gravity = .zero
+        physicsWorld.contactDelegate = self
 
-    // MARK: - Input
-    private var usernameDialog: UsernameDialog?
+        let rows = LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
+        gridMap = GridMap(tileSize: tileSize, rows: rows)
+        pathfinder = Pathfinder(map: gridMap)
 
-    // Translate a macOS key event into the shared UsernameDialog's code scheme
-    // (wasm is the master). Anything unmapped returns -1 and the dialog swallows it.
+        let mazeHeight = CGFloat(gridMap.rowCount) * tileSize
+        let mazeWidth  = CGFloat(gridMap.columnCount) * tileSize
+        // Reserve the top HUD panel and centre the maze in what's left so labels
+        // never sit on top of cubicle tiles. gridMap.point(for:) then returns
+        // final centred coords for tiles, Pete and bosses alike.
+        let availableHeight = size.height - HUD.panelHeight
+        gridMap.yOffset = max(20, (availableHeight - mazeHeight) / 2)
+        gridMap.xOffset = max(0, (size.width - mazeWidth) / 2)
+        containerOriginX = gridMap.xOffset
+
+        mazeRoot.position = .zero
+        addChild(mazeRoot)
+
+        mazeBuilder = MazeBuilder(map: gridMap)
+        hud = HUD(requiredItems: requiredItems)
+        travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound,
+                                          containerOriginX: containerOriginX)
+        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder,
+                                        sound: sound, containerOriginX: containerOriginX)
+        bossController.delegate = self
+        buildLevel()
+        installFireButton()
+        if state.practiceMode { hud.showMessage(Strings.Message.practiceMode, duration: 3) }
+    }
+
+    override func willMove(from view: SKView) {
+        sound.stopAllAudio()
+        mazeBuilder.releaseTextures()
+    }
+    #endif
+
+    private func buildLevel() {
+        sound.startBackgroundMusic(theme: musicTheme(for: state.level))
+        mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        #if os(macOS)
+        gridMap.setRows(currentLevelRows())
+        state.dotCount = mazeBuilder.build(in: self, view: self.view)
+        #elseif os(WASI)
+        state.dotCount = mazeBuilder.build(in: mazeRoot, view: view)
+        #endif
+        state.goldDiscCount = mazeBuilder.goldDiscPositions.count
+        hud.install(in: self)
+        let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
+        #if os(macOS)
+        workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
+        #elseif os(WASI)
+        workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound,
+                                            containerOriginX: containerOriginX)
+        #endif
+        workerController.delegate = self
+        addChild(workerController.node)
+        workerController.applySpawnShield()
+        bossController.spawn(forLevel: state.level,
+                             spawnOverrides: mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
+        refreshHUD()
+        #if os(macOS)
+        let scheduledLevel = state.level
+        travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
+            guard let self else { return false }
+            return self.state.level == scheduledLevel && !self.isGameOver
+        }
+        #elseif os(WASI)
+        scheduleTravelerForCurrentLevel()
+        #endif
+    }
+
+    private func currentLevelRows() -> [String] {
+        #if os(macOS)
+        let idx = (state.level - 1) % Levels.levelNames.count
+        let name = Levels.levelNames[idx]
+        if let custom = LevelStore.shared.loadLevel(name: name) {
+            return custom
+        }
+        return Levels.officeMaps[idx % Levels.officeMaps.count]
+        #elseif os(WASI)
+        return LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
+        #endif
+    }
+
+    private func musicTheme(for level: Int) -> MusicTheme {
+        level % 12 == 0 ? .mib : .normal
+    }
+
+    private func currentTraveler() -> LevelTraveler {
+        levelTravelers[(state.level - 1) % levelTravelers.count]
+    }
+
+    private func firstWalkableCell() -> CGPoint {
+        for row in 0..<gridMap.rowCount {
+            for col in 0..<gridMap.columnCount {
+                let p = CGPoint(x: col, y: row)
+                if gridMap.isWalkable(p) && !gridMap.isHideout(p) { return p }
+            }
+        }
+        return .zero
+    }
+
+    // MARK: - Input (platform-specific)
+    #if os(macOS)
     private func usernameKeyCode(for event: NSEvent) -> Int {
         switch event.keyCode {
-        case 36, 76: return 58              // Return / keypad Enter
-        case 53:     return 36              // Escape
-        case 51:     return 59              // Delete (backspace)
-        case 49:     return 57              // Space
+        case 36, 76: return 58
+        case 53:     return 36
+        case 51:     return 59
+        case 49:     return 57
         default:
             guard let u = (event.charactersIgnoringModifiers ?? "").uppercased().unicodeScalars.first else { return -1 }
-            if u.value >= 65, u.value <= 90 { return Int(u.value) - 65 }       // A-Z
-            if u.value >= 48, u.value <= 57 { return 26 + Int(u.value) - 48 }  // 0-9
+            if u.value >= 65, u.value <= 90 { return Int(u.value) - 65 }
+            if u.value >= 48, u.value <= 57 { return 26 + Int(u.value) - 48 }
             return -1
         }
     }
@@ -118,36 +237,14 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             return
         }
         switch event.keyCode {
-        case 35:
-            togglePause()
-            return
-        case 53:
-            returnToTitleScene()
-            return
-        default:
-            break
+        case 35: togglePause(); return
+        case 53: returnToTitleScene(); return
+        default: break
         }
         guard !isPaused else { return }
-        if event.keyCode == 49 {
-            fireWaterGun()
-            return
-        }
+        if event.keyCode == 49 { fireWaterGun(); return }
         guard let direction = MoveDirection(keyCode: event.keyCode), !event.isARepeat else { return }
         workerController.queueDirection(direction)
-    }
-
-    private func togglePause() {
-        if isPaused {
-            isPaused = false
-            sound.resumeAudio()
-            inputController.hideCursor()
-            hud.showMessage(Strings.HUD.empty, duration: 0.1)
-        } else {
-            hud.showMessage(Strings.Message.paused, duration: 9999)
-            inputController.unhideCursor()
-            isPaused = true
-            sound.pauseAudio()
-        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -155,7 +252,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             dialog.handleMouseDown(at: event.location(in: self))
             return
         }
-        // Left-click fires the water gun (the on-screen fire button is the cue).
         guard !isPaused, !isGameOver else { return }
         fireWaterGun()
     }
@@ -173,11 +269,87 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
     func inputControllerDidRequest(_ direction: MoveDirection) {
         workerController.queueDirection(direction)
     }
+    #elseif os(WASI)
+    private func swipeDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
+        guard max(abs(dx), abs(dy)) >= swipeThreshold else { return nil }
+        if abs(dx) >= abs(dy) { return dx > 0 ? .right : .left }
+        return dy > 0 ? .up : .down
+    }
 
-    // MARK: - WorkerControllerDelegate
-    var workerGrid: CGPoint { workerController.grid }
-    var workerDirection: MoveDirection? { workerController.direction }
+    private func steer(_ dir: MoveDirection) {
+        workerController.queueDirection(dir)
+        workerController.node.setFacing(dir)
+    }
 
+    override func mouseDown(at p: CGPoint) {
+        if let dialog = usernameDialog {
+            dialog.handleMouseDown(at: p)
+            return
+        }
+        if isGameOver || isUserPaused { return }
+        moveAnchor = p
+        if !fireButtonHidden, fireButtonCenter.distance(to: p) <= fireButtonRadius {
+            fireWaterGun()
+            swipeStart = nil
+            return
+        }
+        swipeStart = p
+        swipeFired = false
+    }
+
+    override func mouseMoved(to p: CGPoint) {
+        if isGameOver || isUserPaused { moveAnchor = p; return }
+        if let start = swipeStart {
+            if !swipeFired, let d = swipeDirection(p.x - start.x, p.y - start.y) {
+                steer(d); swipeFired = true
+            }
+            return
+        }
+        guard let anchor = moveAnchor else { moveAnchor = p; return }
+        if let d = swipeDirection(p.x - anchor.x, p.y - anchor.y) {
+            steer(d); moveAnchor = p
+        }
+    }
+
+    override func mouseUp(at p: CGPoint) {
+        if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused,
+           let d = swipeDirection(p.x - start.x, p.y - start.y) {
+            steer(d)
+        }
+        swipeStart = nil
+        moveAnchor = p
+    }
+
+    override func keyDown(_ key: Int) {
+        if let dialog = usernameDialog {
+            dialog.handleKey(key, shift: false)
+            return
+        }
+        if isGameOver {
+            if key == 15 { restartGame() }
+            else if key == 36 { returnToTitleScene() }
+            return
+        }
+        if key == 36 { returnToTitleScene(); return }
+        if key == 15 { togglePause(); return }
+        if isUserPaused { return }
+        if key == 57 { fireWaterGun(); return }
+        if let dir = MoveDirection(keyCode: key) {
+            workerController.queueDirection(dir)
+            workerController.node.setFacing(dir)
+        }
+    }
+
+    private func scheduleTravelerForCurrentLevel() {
+        travelerSpawner.scheduleVisits(of: currentTraveler(),
+                                       whileActive: { [weak self] in
+                                           guard let self else { return false }
+                                           return !self.isGameOver && !self.isUserPaused
+                                       })
+    }
+    #endif
+
+    // MARK: - WorkerControllerDelegate (shared collection logic)
     func workerDidEnterTile(_ grid: CGPoint) {
         if mazeBuilder.collectDot(at: grid) {
             state.collectedDots += 1
@@ -231,6 +403,57 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         }
     }
 
+    private func handleMachine(name: String, at position: CGPoint) {
+        guard requiredItems.contains(name), !state.reportItems.contains(name) else { return }
+        state.reportItems.insert(name)
+        let itemIndex = state.reportItems.count - 1
+        if itemIndex < reportItemPoints.count {
+            let pts = reportItemPoints[itemIndex]
+            state.bumpScore(by: pts)
+            state.currentReportScore += pts
+            ScorePopup.show(pts, at: position, in: self)
+        }
+        sound.playMachine(named: name)
+        refreshHUD()
+        if state.reportItems.count == requiredItems.count {
+            hud.showMessage(Strings.Message.tpsReportReady, duration: 6)
+        } else {
+            hud.showMessage(Strings.Message.reportItemCollected(name: name, points: reportItemPoints[itemIndex]), duration: 2)
+        }
+    }
+
+    private func collectTPSReport() {
+        guard state.reportItems.count == requiredItems.count else {
+            let missing = requiredItems.filter { !state.reportItems.contains($0) }
+            hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
+            sound.playTpsMissingItems(missing)
+            return
+        }
+        state.tpsReportsDelivered += 1
+        state.reportItems.removeAll()
+        let tpsPoints = state.level * 100 + 100
+        state.bumpScore(by: tpsPoints)
+        state.currentReportScore = 0
+        if let workerPos = workerController?.node.position {
+            ScorePopup.show(tpsPoints, at: workerPos, in: self)
+        }
+        sound.playTpsDeliver()
+        let gainedLife = state.lives < HUD.maxLives
+        if gainedLife { state.lives += 1 }
+        refreshHUD()
+        hud.showMessage(Strings.Message.tpsTurnedIn(points: tpsPoints, gainedLife: gainedLife), duration: 3)
+        checkLevelComplete()
+    }
+
+    private func catchTraveler(_ node: SKNode?) {
+        guard let caught = travelerSpawner.tryCatch(node) else { return }
+        state.bumpScore(by: caught.traveler.points)
+        sound.playFishOrTreat()
+        refreshHUD()
+        hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
+        ScorePopup.show(caught.traveler.points, at: caught.position, in: self)
+    }
+
     // MARK: - BossControllerDelegate
     func bossDidCatchWorker() { bossCaughtWorker() }
 
@@ -242,7 +465,34 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         hud.showMessage(Strings.Message.bossCaptured(name: name, points: points), duration: 2)
     }
 
-    // MARK: - Contact wiring
+    private func bossCaughtWorker() {
+        sound.playCaughtByBoss()
+        state.lives -= 1
+        if goldDisc.isActive { endGoldDiscMode() }
+
+        if state.currentReportScore > 0 {
+            let lost = state.currentReportScore
+            if let workerPos = workerController?.node.position {
+                ScorePopup.show(-lost, at: workerPos, in: self, color: .systemRed)
+            }
+        }
+        state.reportItems.removeAll()
+        state.currentReportScore = 0
+        mazeBuilder.resetGrayedMachines()
+        refreshHUD()
+        workerController.resetMotion()
+        workerController.teleport(to: mazeBuilder.workerSpawn ?? firstWalkableCell())
+        workerController.applySpawnShield()
+        bossController.teleportAllToSpawn()
+        if state.lives <= 0 {
+            triggerGameOver()
+        } else {
+            hud.showMessage(Strings.Message.bossCaughtYou(state.lives), duration: 3)
+        }
+    }
+
+    // MARK: - Contacts (platform-specific)
+    #if os(macOS)
     private func wireContactRouter() {
         contactRouter.shouldIgnoreContact = { [weak self] in self?.isGameOver ?? true }
         contactRouter.onBossTouchedWorker = { [weak self] node in
@@ -258,10 +508,6 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
                 self.bossCaughtWorker()
             }
         }
-        // Gold disc, water pellet, water gun, machines, and the brown box are
-        // collected by grid tile-arrival now (see workerDidEnterTile) — the
-        // common MazeBuilder gives them no physics bodies. Only the boss catch,
-        // traveler catch, and droplet-hit stay on physics contacts.
         contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
         contactRouter.onDropletTouchedBoss = { [weak self] dropletBody, bossBody in
             dropletBody.node?.removeFromParent()
@@ -278,187 +524,132 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             }
         }
     }
-
-    private let reportItemPoints = [10, 25, 50, 100]
-
-    private func handleMachine(name: String, at position: CGPoint) {
-        guard requiredItems.contains(name), !state.reportItems.contains(name) else { return }
-        state.reportItems.insert(name)
-
-        let itemIndex = state.reportItems.count - 1
-        if itemIndex < reportItemPoints.count {
-            let pts = reportItemPoints[itemIndex]
-            state.bumpScore(by: pts)
-            state.currentReportScore += pts
-            ScorePopup.show(pts, at: position, in: self)
+    #elseif os(WASI)
+    func didBegin(_ contact: SKPhysicsContact) {
+        if isGameOver { return }
+        let bodies = [contact.bodyA, contact.bodyB]
+        let hasWorker = bodies.contains { $0.categoryBitMask == PhysicsCategory.worker }
+        if hasWorker, let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
+           fishBody.node != nil {
+            catchTraveler(fishBody.node)
         }
+    }
+    #endif
 
-        sound.playMachine(named: name)
-        refreshHUD()
-        if state.reportItems.count == requiredItems.count {
-            hud.showMessage(Strings.Message.tpsReportReady, duration: 6)
-        } else {
-            hud.showMessage(Strings.Message.reportItemCollected(name: name, points: reportItemPoints[itemIndex]), duration: 2)
+    // MARK: - Update loop (wasm: drives movement; macOS: SKAction-driven)
+    #if os(WASI)
+    override func update(_ currentTime: TimeInterval) {
+        guard workerController != nil else { return }
+        if isGameOver || isUserPaused { return }
+        let dt: TimeInterval = 1.0 / 60.0
+
+        workerController.advance(dt)
+        bossController.advance(dt)
+        stepWaterDroplets(dt: dt)
+
+        if frightenSecondsLeft > 0 {
+            frightenSecondsLeft -= dt
+            if frightenSecondsLeft <= 0 { endGoldDiscMode() }
+        }
+        if contactCooldown > 0 {
+            contactCooldown -= dt
+        } else if let bossNode = bossOnPete() {
+            if bossController.isInFleeMode(boss: bossNode) {
+                bossController.capture(boss: bossNode)
+                contactCooldown = 0.4
+            } else if !workerController.isShielded {
+                bossController.relocateAfterCatch(boss: bossNode)
+                bossCaughtWorker()
+                contactCooldown = 1.2
+            }
         }
     }
 
-    // MARK: - Level / round flow
-    private func buildLevel() {
+    private func bossOnPete() -> PixelPerson? {
+        let r = tileSize * 0.55
+        let r2 = r * r
+        for e in bossController.entities {
+            if e.isImmobilized { continue }
+            let dx = e.node.position.x - workerController.node.position.x
+            let dy = e.node.position.y - workerController.node.position.y
+            if dx * dx + dy * dy < r2 { return e.node }
+        }
+        return nil
+    }
+
+    private func gridCellAtScenePoint(_ p: CGPoint) -> CGPoint {
+        let localX = p.x - containerOriginX
+        let col = Int(localX / tileSize)
+        let row = Int((p.y - gridMap.yOffset) / tileSize)
+        return CGPoint(x: col, y: row)
+    }
+
+    private func stepWaterDroplets(dt: TimeInterval) {
+        guard !waterDroplets.isEmpty else { return }
+        var i = waterDroplets.count - 1
+        while i >= 0 {
+            let drop = waterDroplets[i]
+            var consumed = drop.step(dt: dt)
+            if !consumed {
+                let g = gridCellAtScenePoint(drop.position)
+                if !gridMap.isWalkable(g) { consumed = true }
+                else {
+                    for e in bossController.entities {
+                        let dx = e.node.position.x - drop.position.x
+                        let dy = e.node.position.y - drop.position.y
+                        if dx * dx + dy * dy < (tileSize * 0.45) * (tileSize * 0.45) {
+                            state.bumpScore(by: waterHitPoints)
+                            ScorePopup.show(waterHitPoints, at: e.node.position, in: self,
+                                            color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
+                            spawnWaterSplash(at: e.node.position)
+                            sound.playWaterGunSplash()
+                            bossController.splash(boss: e.node)
+                            refreshHUD()
+                            consumed = true
+                            break
+                        }
+                    }
+                }
+            }
+            if consumed {
+                drop.removeFromParent()
+                waterDroplets.remove(at: i)
+            }
+            i -= 1
+        }
+    }
+    #endif
+
+    // MARK: - Level / game flow
+    private func startNextLevel() {
+        state.advanceLevel()
+        #if os(macOS)
+        resetSceneAndBuild()
+        sound.playLevelStart()
+        #elseif os(WASI)
+        // wasm reuses the worker / HUD / fire button across levels — only the
+        // maze, bosses and traveler are swapped (apple rebuilds the whole scene).
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
+        sound.playLevelStart()
+        bossController.clear()
+        mazeRoot.removeAllChildren()
+        travelerSpawner.reset()
         gridMap.setRows(currentLevelRows())
         mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        state.dotCount = mazeBuilder.build(in: self, view: self.view)
+        state.dotCount = mazeBuilder.build(in: mazeRoot, view: view)
         state.goldDiscCount = mazeBuilder.goldDiscPositions.count
-        hud.install(in: self)
-        let spawn = mazeBuilder.workerSpawn ?? workerSpawn
-        workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
-        workerController.delegate = self
-        addChild(workerController.node)
-        workerController.applySpawnShield()
+        scheduleTravelerForCurrentLevel()
+        let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
+        workerController.resetMotion()
+        workerController.teleport(to: spawn)
         bossController.spawn(forLevel: state.level,
                              spawnOverrides: mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
         refreshHUD()
-        let scheduledLevel = state.level
-        travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
-            guard let self else { return false }
-            return self.state.level == scheduledLevel && !self.isGameOver
-        }
+        #endif
+        hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
     }
 
-    private func currentLevelRows() -> [String] {
-        let idx = (state.level - 1) % Levels.levelNames.count
-        let name = Levels.levelNames[idx]
-        if let custom = LevelStore.shared.loadLevel(name: name) {
-            return custom
-        }
-        return Levels.officeMaps[idx % Levels.officeMaps.count]
-    }
-
-    private func musicTheme(for level: Int) -> MusicTheme {
-        level % 12 == 0 ? .mib : .normal
-    }
-
-    private func currentTraveler() -> LevelTraveler {
-        levelTravelers[(state.level - 1) % levelTravelers.count]
-    }
-
-    private func catchTraveler(_ node: SKNode?) {
-        guard let caught = travelerSpawner.tryCatch(node) else { return }
-        state.bumpScore(by: caught.traveler.points)
-        sound.playFishOrTreat()
-        refreshHUD()
-        hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
-        ScorePopup.show(caught.traveler.points, at: caught.position, in: self)
-    }
-
-    private func collectTPSReport() {
-        guard state.reportItems.count == requiredItems.count else {
-            let missing = requiredItems.filter { !state.reportItems.contains($0) }
-            hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
-            sound.playTpsMissingItems(missing)
-            return
-        }
-        state.tpsReportsDelivered += 1
-        state.reportItems.removeAll()
-
-        let tpsPoints = state.level * 100 + 100
-        state.bumpScore(by: tpsPoints)
-        state.currentReportScore = 0
-        if let workerPos = workerController?.node.position {
-            ScorePopup.show(tpsPoints, at: workerPos, in: self)
-        }
-
-        sound.playTpsDeliver()
-        let gainedLife = state.lives < HUD.maxLives
-        if gainedLife { state.lives += 1 }
-        refreshHUD()
-        hud.showMessage(Strings.Message.tpsTurnedIn(points: tpsPoints, gainedLife: gainedLife),
-                        duration: 3)
-        checkLevelComplete()
-    }
-
-    private func bossCaughtWorker() {
-        sound.playCaughtByBoss()
-        state.lives -= 1
-        if goldDisc.isActive { endGoldDiscMode() }
-
-        if state.currentReportScore > 0 {
-            let lost = state.currentReportScore
-            if let workerPos = workerController?.node.position {
-                ScorePopup.show(-lost, at: workerPos, in: self, color: .systemRed)
-            }
-        }
-
-        state.reportItems.removeAll()
-        state.currentReportScore = 0
-        mazeBuilder.resetGrayedMachines()
-        refreshHUD()
-        workerController.resetMotion()
-        workerController.teleport(to: mazeBuilder.workerSpawn ?? workerSpawn)
-        workerController.applySpawnShield()
-        bossController.teleportAllToSpawn()
-        if state.lives <= 0 {
-            triggerGameOver()
-        } else {
-            hud.showMessage(Strings.Message.bossCaughtYou(state.lives), duration: 3)
-        }
-    }
-
-    private func triggerGameOver() {
-        isGameOver = true
-        inputController.unhideCursor()
-        if !state.practiceMode {
-            GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
-
-            if GKLocalPlayer.local.isAuthenticated {
-                // Game Center is the live board — record its name, no manual entry.
-                let name = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
-                LocalHighScores.record(name: name, score: state.score)
-            } else {
-                // Local leaderboard is on — follow the wasm master: manual
-                // username entry when the score qualifies, otherwise just record.
-                let defaultName = LocalHighScores.savedUsername ?? ""
-                if LocalHighScores.qualifies(name: defaultName, score: state.score) {
-                    showUsernameDialog(defaultName: defaultName)
-                } else {
-                    LocalHighScores.record(name: defaultName, score: state.score)
-                }
-            }
-        }
-        sound.stopGoldDiscBass()
-        sound.stopBackgroundMusic()
-        sound.playGameOver()
-        workerController.resetMotion()
-        bossController.stopAll()
-        hud.showGameOver(in: self)
-    }
-
-    private func showUsernameDialog(defaultName: String) {
-        let dialog = UsernameDialog(
-            size: CGSize(width: 320, height: 220),
-            fontName: Strings.Font.menloBold,
-            onConfirm: { [weak self] name in
-                guard let self else { return }
-                LocalHighScores.record(name: name, score: self.state.score)
-                self.dismissUsernameDialog()
-            },
-            onSkip: { [weak self] in
-                guard let self else { return }
-                LocalHighScores.record(name: defaultName, score: self.state.score)
-                self.dismissUsernameDialog()
-            }
-        )
-        dialog.position = CGPoint(x: frame.midX, y: frame.midY)
-        dialog.zPosition = 2000
-        addChild(dialog)
-        usernameDialog = dialog
-    }
-
-    private func dismissUsernameDialog() {
-        usernameDialog?.removeFromParent()
-        usernameDialog = nil
-    }
-
+    #if os(macOS)
     private func resetSceneAndBuild() {
         bossController.clear()
         travelerSpawner.reset()
@@ -471,21 +662,22 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         removeAllChildren()
         buildLevel()
     }
+    #endif
 
     private func restartGame() {
+        #if os(macOS)
         hud.hideGameOver()
         inputController.hideCursor()
         isGameOver = false
         state.resetForNewGame()
         resetSceneAndBuild()
         hud.showMessage(Strings.Message.newGame, duration: 3)
-    }
-
-    private func startNextLevel() {
-        state.advanceLevel()
-        resetSceneAndBuild()
-        sound.playLevelStart()
-        hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
+        #elseif os(WASI)
+        sound.stopAllAudio()
+        let game = GameScene(size: size)
+        game.scaleMode = .aspectFit
+        view?.presentScene(game, transition: .fade(withDuration: 0.4))
+        #endif
     }
 
     private func returnToTitleScene() {
@@ -504,15 +696,131 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         view.presentScene(title, transition: .fade(withDuration: 0.5))
     }
 
+    private func triggerGameOver() {
+        isGameOver = true
+        sound.stopGoldDiscBass()
+        sound.stopBackgroundMusic()
+        sound.playGameOver()
+        workerController.resetMotion()
+        bossController.stopAll()
+        hud.showGameOver(in: self)
+        #if os(macOS)
+        inputController.unhideCursor()
+        if !state.practiceMode {
+            GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
+            if GKLocalPlayer.local.isAuthenticated {
+                let name = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
+                LocalHighScores.record(name: name, score: state.score)
+            } else {
+                let defaultName = LocalHighScores.savedUsername ?? ""
+                if LocalHighScores.qualifies(name: defaultName, score: state.score) {
+                    showUsernameDialog(defaultName: defaultName)
+                } else {
+                    LocalHighScores.record(name: defaultName, score: state.score)
+                }
+            }
+        }
+        #elseif os(WASI)
+        let summary = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        summary.text = "FINAL SCORE \(state.score)   HIGH \(state.highScore)"
+        summary.fontSize = 22
+        summary.fontColor = .white
+        summary.position = CGPoint(x: size.width / 2, y: size.height / 2 - 100)
+        summary.zPosition = 102
+        addChild(summary)
+        if !state.practiceMode {
+            let defaultName = LocalHighScores.savedUsername ?? ""
+            if LocalHighScores.qualifies(name: defaultName, score: state.score) {
+                showUsernameDialog(defaultName: defaultName)
+            } else {
+                LocalHighScores.record(name: defaultName, score: state.score)
+            }
+        }
+        #endif
+    }
+
+    private func showUsernameDialog(defaultName: String) {
+        let dialog = UsernameDialog(
+            size: CGSize(width: 360, height: 220),
+            fontName: Strings.Font.menloBold,
+            onConfirm: { [weak self] name in
+                guard let self else { return }
+                LocalHighScores.record(name: name, score: self.state.score)
+                self.dismissUsernameDialog()
+            },
+            onSkip: { [weak self] in
+                guard let self else { return }
+                LocalHighScores.record(name: defaultName, score: self.state.score)
+                self.dismissUsernameDialog()
+            }
+        )
+        #if os(macOS)
+        dialog.position = CGPoint(x: frame.midX, y: frame.midY)
+        dialog.zPosition = 2000
+        #elseif os(WASI)
+        dialog.position = CGPoint(x: size.width / 2, y: size.height * 0.40)
+        dialog.zPosition = 200
+        #endif
+        addChild(dialog)
+        usernameDialog = dialog
+    }
+
+    private func dismissUsernameDialog() {
+        usernameDialog?.removeFromParent()
+        usernameDialog = nil
+    }
+
+    private func togglePause() {
+        #if os(macOS)
+        if isPaused {
+            isPaused = false
+            sound.resumeAudio()
+            inputController.hideCursor()
+            hud.showMessage(Strings.HUD.empty, duration: 0.1)
+        } else {
+            hud.showMessage(Strings.Message.paused, duration: 9999)
+            inputController.unhideCursor()
+            isPaused = true
+            sound.pauseAudio()
+        }
+        #elseif os(WASI)
+        isUserPaused.toggle()
+        if isUserPaused { sound.pauseAudio() } else { sound.resumeAudio() }
+        speed = isUserPaused ? 0 : 1
+        if isUserPaused {
+            let dim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+            dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.45)
+            dim.strokeColor = .clear
+            dim.zPosition = 40
+            let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
+            label.text = "PAUSED"
+            label.fontSize = 72
+            label.fontColor = .white
+            label.position = CGPoint(x: size.width / 2, y: size.height * 0.5)
+            label.zPosition = 41
+            dim.addChild(label)
+            addChild(dim)
+            pauseOverlay = dim
+        } else {
+            pauseOverlay?.removeFromParent()
+            pauseOverlay = nil
+        }
+        #endif
+    }
+
     // MARK: - Gold disc
     private func startGoldDiscMode() {
         goldDisc.activate()
         bossController.setGoldDiscActive(true)
         sound.startGoldDiscBass()
+        #if os(macOS)
         run(.sequence([
-            .wait(forDuration: 20),
+            .wait(forDuration: goldDiscDuration),
             .run { [weak self] in self?.endGoldDiscMode() }
         ]), withKey: Strings.ActionKey.goldDiscExpiry)
+        #elseif os(WASI)
+        frightenSecondsLeft = goldDiscDuration
+        #endif
         hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
         refreshHUD()
     }
@@ -522,6 +830,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         bossController.setGoldDiscActive(false)
         sound.stopGoldDiscBass()
         removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
+        #if os(WASI)
+        frightenSecondsLeft = 0
+        #endif
         hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
         refreshHUD()
     }
@@ -550,19 +861,29 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
             hud.showMessage(Strings.Message.waterGunBlueMode, duration: 2)
             return
         }
+        #if os(macOS)
         guard let direction = workerController.direction else { return }
         guard waterGun.consumePellet() else { return }
-        let workerPos = workerController.node.position
-        let droplet = WaterDroplet.fire(from: workerPos, direction: direction, tileSize: tileSize)
+        let droplet = WaterDroplet.fire(from: workerController.node.position, direction: direction, tileSize: tileSize)
         addChild(droplet)
         sound.playWaterGunShoot()
         hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
-        if waterGun.pelletsRemaining == 0 {
-            endWaterGunMode()
-        }
+        if waterGun.pelletsRemaining == 0 { endWaterGunMode() }
+        #elseif os(WASI)
+        guard let h = workerController.direction ?? workerController.queuedDirection else { return }
+        guard waterGun.consumePellet() else { return }
+        let drop = WaterDroplet(direction: h, speed: waterDropletSpeed)
+        drop.position = workerController.node.position
+        drop.zPosition = 6
+        addChild(drop)
+        waterDroplets.append(drop)
+        sound.playWaterGunShoot()
+        refreshHUD()
+        #endif
     }
 
     private func spawnWaterSplash(at center: CGPoint) {
+        #if os(macOS)
         let count = 10
         for i in 0..<count {
             let angle = CGFloat(i) / CGFloat(count) * .pi * 2
@@ -587,6 +908,57 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
                 .removeFromParent()
             ]))
         }
+        #elseif os(WASI)
+        let burst = SKNode()
+        burst.position = center
+        burst.zPosition = 8
+        addChild(burst)
+        let dist: CGFloat = tileSize * 0.45
+        // Hand-rolled unit vectors (60 deg apart) to avoid linking libm on wasm.
+        let unit: [(CGFloat, CGFloat)] = [
+            ( 1.0,  0.0), ( 0.5,  0.866025), (-0.5,  0.866025),
+            (-1.0,  0.0), (-0.5, -0.866025), ( 0.5, -0.866025),
+        ]
+        for (ux, uy) in unit {
+            let dot = SKShapeNode(circleOfRadius: 3.5)
+            dot.fillColor = SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 0.9)
+            dot.strokeColor = .clear
+            burst.addChild(dot)
+            dot.run(.group([
+                .move(by: CGVector(dx: ux * dist, dy: uy * dist), duration: 0.35),
+                .fadeOut(withDuration: 0.4),
+            ]))
+        }
+        burst.run(.sequence([.wait(forDuration: 0.45), .removeFromParent()]))
+        #endif
+    }
+
+    // MARK: - Fire button
+    private func installFireButton() {
+        #if os(macOS)
+        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
+        let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        let center = CGPoint(x: onLeft ? 90 : size.width - 90, y: 90)
+        let ring = SKShapeNode(circleOfRadius: 90)
+        ring.position = center
+        ring.fillColor = NSColor(white: 1, alpha: 0.14)
+        ring.strokeColor = NSColor(white: 1, alpha: 0.5)
+        ring.lineWidth = 2
+        ring.zPosition = 50
+        addChild(ring)
+        #elseif os(WASI)
+        fireButtonHidden = Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide)
+        if fireButtonHidden { return }
+        let onLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius)
+        let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
+        ring.position = fireButtonCenter
+        ring.fillColor = SKColor(white: 1, alpha: 0.14)
+        ring.strokeColor = SKColor(white: 1, alpha: 0.5)
+        ring.lineWidth = 2
+        ring.zPosition = 50
+        addChild(ring)
+        #endif
     }
 
     // MARK: - HUD
@@ -602,3 +974,9 @@ final class GameScene: SKScene, PointerInputControllerDelegate, WorkerController
         hud.updateLevelEmojis(Array(levelTravelers.prefix(cyclePosition)))
     }
 }
+
+#if os(macOS)
+extension GameScene: PointerInputControllerDelegate {}
+#elseif os(WASI)
+extension GameScene: SKPhysicsContactDelegate {}
+#endif
