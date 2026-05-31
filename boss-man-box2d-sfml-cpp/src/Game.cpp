@@ -784,8 +784,8 @@ std::vector<Game::GameOverKey> Game::gameOverKeys() const {
     const float W = (float)WINDOW_WIDTH;
     if (goQualified) {
         const std::string rows[] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
-        const float keyW = 70.f, keyH = 34.f, gap = 7.f;
-        float y = 366.f;
+        const float keyW = 82.f, keyH = 50.f, gap = 10.f;
+        float y = 235.f;
         for (const auto& row : rows) {
             float rowW = (float)row.size() * keyW + (float)(row.size() - 1) * gap;
             float x = (W - rowW) / 2.f;
@@ -802,7 +802,9 @@ std::vector<Game::GameOverKey> Game::gameOverKeys() const {
         x += delW + gap;
         keys.push_back({sf::FloatRect(x, y - keyH / 2.f, spW, keyH), 2, 0});
     }
-    const float bw = 300.f, bh = 44.f, gapB = 90.f, by = 600.f;
+    const float bw = W * 0.30f, gapB = 90.f;
+    const float bh = goQualified ? 70.f : 80.f;
+    const float by = goQualified ? 560.f : 510.f;
     float startX = (W - (2.f * bw + gapB)) / 2.f;
     keys.push_back({sf::FloatRect(startX, by - bh / 2.f, bw, bh), 3, 0});
     keys.push_back({sf::FloatRect(startX + bw + gapB, by - bh / 2.f, bw, bh), 4, 0});
@@ -823,28 +825,15 @@ void Game::drawGameOver() {
     window.draw(panel);
 
     const bool q = goQualified;
-    goText(window, "GAME OVER", q ? 48.f : 56.f, sf::Color(242, 51, 46), W / 2, q ? 44.f : 70.f, 1);
+    goText(window, "GAME OVER", q ? 44.f : 56.f, sf::Color(242, 51, 46), W / 2, q ? 44.f : 70.f, 1);
     goText(window, "FINAL " + std::to_string(state.score) + "    HIGH " + std::to_string(state.highScore),
-           q ? 22.f : 24.f, sf::Color::White, W / 2, q ? 82.f : 120.f, 1);
-    goText(window, "LEADERBOARD", q ? 20.f : 22.f, sf::Color(255, 235, 107), W / 2, q ? 112.f : 160.f, 1);
+           q ? 22.f : 24.f, sf::Color::White, W / 2, q ? 82.f : 118.f, 1);
 
-    const auto& entries = leaderboard.entries();
-    const int rowCount = q ? 5 : 9;
-    const float rowH = q ? 26.f : 34.f;
-    const float topY = q ? 140.f : 195.f;
-    if (entries.empty()) {
-        goText(window, "No local scores yet.", 18.f, sf::Color(180, 180, 180), W / 2, topY, 1);
-    } else {
-        for (int i = 0; i < (int)entries.size() && i < rowCount; ++i) {
-            float y = topY + (float)i * rowH;
-            goText(window, std::to_string(i + 1) + ". " + entries[i].name, q ? 18.f : 20.f, sf::Color::White, W * 0.30f, y, 0);
-            goText(window, std::to_string(entries[i].score), q ? 18.f : 20.f, sf::Color::White, W * 0.70f, y, 2);
-        }
-    }
-
+    // The leaderboard is the least important element: shown only when there is no
+    // name entry, otherwise yielded to the keyboard.
     if (q) {
-        goText(window, "NEW HIGH SCORE!   Enter name:", 20.f, sf::Color(77, 217, 255), W / 2, 282.f, 1);
-        const float fw = 600.f, fh = 38.f, fx = (W - fw) / 2.f, fy = 318.f;
+        goText(window, "NEW HIGH SCORE!   Enter name:", 20.f, sf::Color(77, 217, 255), W / 2, 120.f, 1);
+        const float fw = 600.f, fh = 44.f, fx = (W - fw) / 2.f, fy = 165.f;
         sf::RectangleShape field(sf::Vector2f(fw, fh));
         field.setPosition(fx, fy - fh / 2.f);
         field.setFillColor(sf::Color(245, 245, 245));
@@ -854,6 +843,19 @@ void Game::drawGameOver() {
         float tw = goText(window, goName, 24.f, sf::Color(13, 13, 26), fx + 14.f, fy, 0);
         if (std::fmod(animClock.getElapsedTime().asSeconds(), 0.9f) < 0.45f) {
             goText(window, "|", 24.f, sf::Color(13, 13, 26), fx + 16.f + tw, fy, 0);
+        }
+    } else {
+        goText(window, "LEADERBOARD", 22.f, sf::Color(255, 235, 107), W / 2, 158.f, 1);
+        const auto& entries = leaderboard.entries();
+        const float rowH = 27.f, topY = 192.f;
+        if (entries.empty()) {
+            goText(window, "No local scores yet.", 18.f, sf::Color(180, 180, 180), W / 2, topY, 1);
+        } else {
+            for (int i = 0; i < (int)entries.size() && i < 10; ++i) {
+                float y = topY + (float)i * rowH;
+                goText(window, std::to_string(i + 1) + ". " + entries[i].name, 20.f, sf::Color::White, W * 0.30f, y, 0);
+                goText(window, std::to_string(entries[i].score), 20.f, sf::Color::White, W * 0.70f, y, 2);
+            }
         }
     }
 
@@ -867,8 +869,8 @@ void Game::drawGameOver() {
         case 0: lbl = std::string(1, k.ch); break;
         case 1: lbl = "DEL"; fill = sf::Color(80, 80, 80); fs = 15.f; break;
         case 2: lbl = "SPACE"; fs = 15.f; break;
-        case 3: lbl = "PLAY"; fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); fs = 24.f; break;
-        case 4: lbl = "ESC"; fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); fs = 24.f; break;
+        case 3: lbl = "PLAY"; fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); fs = 28.f; break;
+        case 4: lbl = "ESC"; fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); fs = 28.f; break;
         }
         r.setFillColor(fill);
         r.setOutlineColor(stroke);

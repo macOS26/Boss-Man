@@ -87,48 +87,52 @@ final class GameOverScreen: SKNode {
             fill: SKColor(red: 0.10, green: 0.10, blue: 0.13, alpha: 0.98),
             stroke: SKColor(red: 1, green: 0.55, blue: 0.0, alpha: 0.9), line: 3, radius: 16)
 
-        _ = label("GAME OVER", H * 0.085, SKColor(red: 0.95, green: 0.20, blue: 0.18, alpha: 1), x: W / 2, y: H * 0.91)
-        _ = label("FINAL \(score)    HIGH \(highScore)", H * 0.034, .white, x: W / 2, y: H * 0.845)
-        _ = label(Strings.Leaderboard.header, H * 0.038, SKColor(red: 1, green: 0.92, blue: 0.42, alpha: 1), x: W / 2, y: H * 0.79)
+        _ = label("GAME OVER", H * (qualified ? 0.075 : 0.085), SKColor(red: 0.95, green: 0.20, blue: 0.18, alpha: 1),
+                  x: W / 2, y: H * (qualified ? 0.93 : 0.91))
+        _ = label("FINAL \(score)    HIGH \(highScore)", H * (qualified ? 0.030 : 0.034), .white,
+                  x: W / 2, y: H * (qualified ? 0.875 : 0.845))
 
-        let entries = LocalHighScores.load()
-        let rowCount = qualified ? 6 : 10
-        let rowH = H * 0.035
-        let topY = H * 0.745
-        let leftX = W * 0.30, rightX = W * 0.70
-        if entries.isEmpty {
-            _ = label(Strings.Leaderboard.noScores, H * 0.030, SKColor(white: 0.7, alpha: 1), x: W / 2, y: topY)
+        // The leaderboard is the least important element: it is shown only when
+        // there is no name entry, and is otherwise yielded to the keyboard.
+        if qualified {
+            buildNameEntry()
         } else {
-            for (i, e) in entries.prefix(rowCount).enumerated() {
-                let y = topY - CGFloat(i) * rowH
-                _ = label("\(i + 1). \(e.name)", H * 0.030, .white, x: leftX, y: y, align: .left, bold: false)
-                _ = label("\(e.score)", H * 0.030, .white, x: rightX, y: y, align: .right, bold: false)
+            _ = label(Strings.Leaderboard.header, H * 0.038, SKColor(red: 1, green: 0.92, blue: 0.42, alpha: 1), x: W / 2, y: H * 0.79)
+            let entries = LocalHighScores.load()
+            let rowH = H * 0.035, topY = H * 0.745
+            let leftX = W * 0.30, rightX = W * 0.70
+            if entries.isEmpty {
+                _ = label(Strings.Leaderboard.noScores, H * 0.030, SKColor(white: 0.7, alpha: 1), x: W / 2, y: topY)
+            } else {
+                for (i, e) in entries.prefix(10).enumerated() {
+                    let y = topY - CGFloat(i) * rowH
+                    _ = label("\(i + 1). \(e.name)", H * 0.030, .white, x: leftX, y: y, align: .left, bold: false)
+                    _ = label("\(e.score)", H * 0.030, .white, x: rightX, y: y, align: .right, bold: false)
+                }
             }
         }
-
-        if qualified { buildNameEntry() }
         buildButtons()
     }
 
     private func buildNameEntry() {
         let W = screen.width, H = screen.height
         _ = label(Strings.Leaderboard.newHighScoreTitle + "  " + Strings.Leaderboard.enterUsernamePrompt,
-                  H * 0.032, SKColor(red: 0.3, green: 0.85, blue: 1, alpha: 1), x: W / 2, y: H * 0.49)
+                  H * 0.030, SKColor(red: 0.3, green: 0.85, blue: 1, alpha: 1), x: W / 2, y: H * 0.80)
 
-        let fieldW = W * 0.6, fieldH = H * 0.06
-        box(CGRect(x: (W - fieldW) / 2, y: H * 0.45 - fieldH / 2, width: fieldW, height: fieldH),
+        let fieldW = W * 0.6, fieldH = H * 0.065, fieldY = H * 0.73
+        box(CGRect(x: (W - fieldW) / 2, y: fieldY - fieldH / 2, width: fieldW, height: fieldH),
             fill: SKColor(white: 0.96, alpha: 1), stroke: SKColor(white: 0.6, alpha: 1), line: 1, radius: 6)
         nameLabel.fontName = font
-        nameLabel.fontSize = H * 0.034
+        nameLabel.fontSize = H * 0.036
         nameLabel.fontColor = SKColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1)
         nameLabel.horizontalAlignmentMode = .left
         nameLabel.verticalAlignmentMode = .center
-        nameLabel.position = CGPoint(x: (W - fieldW) / 2 + 14, y: H * 0.45)
+        nameLabel.position = CGPoint(x: (W - fieldW) / 2 + 14, y: fieldY)
         nameLabel.zPosition = zPosition + 3
         addChild(nameLabel)
         caretLabel.text = "|"
         caretLabel.fontName = font
-        caretLabel.fontSize = H * 0.034
+        caretLabel.fontSize = H * 0.036
         caretLabel.fontColor = nameLabel.fontColor
         caretLabel.horizontalAlignmentMode = .left
         caretLabel.verticalAlignmentMode = .center
@@ -138,10 +142,10 @@ final class GameOverScreen: SKNode {
 
         // On-screen keyboard.
         let rows = ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
-        let keyW = min(W * 0.085, (W * 0.92) / 10)
-        let gap = keyW * 0.12
-        let keyH = keyW * 0.95
-        var y = H * 0.38
+        let keyW = min(W * 0.072, (W * 0.86) / 10)
+        let gap = keyW * 0.14
+        let keyH = keyW * 0.62
+        var y = H * 0.63
         for row in rows {
             let chars = Array(row)
             let rowW = CGFloat(chars.count) * keyW + CGFloat(chars.count - 1) * gap
@@ -170,13 +174,18 @@ final class GameOverScreen: SKNode {
 
     private func buildButtons() {
         let W = screen.width, H = screen.height
-        let bw = W * 0.30, bh = H * 0.075, by = H * 0.055
+        // Taller buttons, lifted off the panel edge. When there is no name entry
+        // they ride up into the open space below the leaderboard; with the
+        // keyboard present they sit just inside the bottom border, below it.
+        let bw = W * 0.30
+        let bh = H * (qualified ? 0.095 : 0.13)
+        let by = H * (qualified ? 0.085 : 0.25)
         playRect = CGRect(x: W * 0.16, y: by - bh / 2, width: bw, height: bh)
-        box(playRect, fill: SKColor(red: 0.12, green: 0.5, blue: 0.18, alpha: 1), radius: 12)
-        _ = label("PLAY", bh * 0.5, .white, x: playRect.midX, y: by)
+        box(playRect, fill: SKColor(red: 0.12, green: 0.5, blue: 0.18, alpha: 1), radius: 14)
+        _ = label("PLAY", bh * 0.42, .white, x: playRect.midX, y: by)
         escRect = CGRect(x: W * 0.54, y: by - bh / 2, width: bw, height: bh)
-        box(escRect, fill: SKColor(red: 0.5, green: 0.18, blue: 0.18, alpha: 1), radius: 12)
-        _ = label("ESC", bh * 0.5, .white, x: escRect.midX, y: by)
+        box(escRect, fill: SKColor(red: 0.5, green: 0.18, blue: 0.18, alpha: 1), radius: 14)
+        _ = label("ESC", bh * 0.42, .white, x: escRect.midX, y: by)
     }
 
     private func refreshName() {
