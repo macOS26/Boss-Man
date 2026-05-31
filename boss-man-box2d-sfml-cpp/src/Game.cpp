@@ -540,6 +540,15 @@ void Game::update(float dt) {
 }
 
 void Game::render() {
+    // Hide the cursor only during active play (shown on title / pause / game-over
+    // / editor), matching the Xcode build. Synced on state change; no-op on WASM
+    // (the browser owns the cursor) and on touch devices.
+    bool hideCursor = (gameState == GameState::Playing);
+    if (hideCursor != cursorHidden) {
+        window.setMouseCursorVisible(!hideCursor);
+        cursorHidden = hideCursor;
+    }
+
     window.clear(sf::Color(15, 15, 18));
 
     if (gameState == GameState::Title) {

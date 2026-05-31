@@ -49,6 +49,7 @@ private:
     int   touchFinger = -1;
     float touchStartX = 0.f, touchStartY = 0.f;
     bool  touchMoved = false;
+    bool  cursorHidden = false; // cursor hidden only during active play (desktop)
     void update(float dt);
     void render();
     void toggleFullscreen();
