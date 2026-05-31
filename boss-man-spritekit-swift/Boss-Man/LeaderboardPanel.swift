@@ -213,7 +213,7 @@ final class LeaderboardPanel: SKNode {
                 y: y,
                 left: leftEdge,
                 right: rightEdge,
-                color: .systemBlue
+                color: .black
             ))
         }
     }

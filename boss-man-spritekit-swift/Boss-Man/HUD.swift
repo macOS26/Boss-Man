@@ -5,7 +5,7 @@ import SpriteKit
 final class HUD {
     static let startingLives = 3
     static let maxLives = 5
-    static let panelHeight: CGFloat = 100
+    static let panelHeight: CGFloat = 122
 
     private let statusLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let tpsLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
@@ -44,7 +44,7 @@ final class HUD {
         statusLabel.fontSize = 19
         statusLabel.horizontalAlignmentMode = .left
         statusLabel.verticalAlignmentMode = .center
-        statusLabel.position = CGPoint(x: 16, y: size.height - 22)
+        statusLabel.position = CGPoint(x: 16, y: size.height - 24)
         statusLabel.zPosition = 21
         statusLabel.fontColor = .white
         scene.addChild(statusLabel)
@@ -52,7 +52,7 @@ final class HUD {
         tpsLabel.fontSize = 19
         tpsLabel.horizontalAlignmentMode = .left
         tpsLabel.verticalAlignmentMode = .center
-        tpsLabel.position = CGPoint(x: 16, y: size.height - 52)
+        tpsLabel.position = CGPoint(x: 16, y: size.height - 61)
         tpsLabel.zPosition = 21
         tpsLabel.fontColor = .white
         scene.addChild(tpsLabel)
@@ -60,7 +60,7 @@ final class HUD {
         livesLabel.fontSize = 19
         livesLabel.horizontalAlignmentMode = .left
         livesLabel.verticalAlignmentMode = .center
-        livesLabel.position = CGPoint(x: 16, y: size.height - 84)
+        livesLabel.position = CGPoint(x: 16, y: size.height - 98)
         livesLabel.zPosition = 21
         livesLabel.fontColor = .systemGreen
         livesLabel.text = Strings.HUD.livesPrefix
@@ -82,7 +82,7 @@ final class HUD {
         for i in 0..<HUD.maxLives {
             let icon = SpriteFactory.petePerson()
             icon.setScale(0.45)
-            icon.position = CGPoint(x: iconStartX + CGFloat(i) * iconSpacing, y: size.height - 84)
+            icon.position = CGPoint(x: iconStartX + CGFloat(i) * iconSpacing, y: size.height - 98)
             icon.zPosition = 21
             scene.addChild(icon)
             lifeIcons.append(icon)
@@ -91,16 +91,16 @@ final class HUD {
         messageLabel.fontSize = 19
         messageLabel.horizontalAlignmentMode = .right
         messageLabel.verticalAlignmentMode = .center
-        messageLabel.position = CGPoint(x: size.width - 16, y: size.height - 52)
+        messageLabel.position = CGPoint(x: size.width - 16, y: size.height - 61)
         messageLabel.zPosition = 21
         messageLabel.fontColor = .systemYellow
         scene.addChild(messageLabel)
 
-        levelEmojisContainer.position = CGPoint(x: size.width - 25, y: size.height - 22)
+        levelEmojisContainer.position = CGPoint(x: size.width - 25, y: size.height - 24)
         levelEmojisContainer.zPosition = 21
         scene.addChild(levelEmojisContainer)
 
-        let iconPos = CGPoint(x: size.width - 14, y: size.height - 84)
+        let iconPos = CGPoint(x: size.width - 14, y: size.height - 98)
         waterGunIconLabel.fontSize = 19
         waterGunIconLabel.horizontalAlignmentMode = .right
         waterGunIconLabel.verticalAlignmentMode = .center
@@ -131,7 +131,7 @@ final class HUD {
         waterGunAmmoLabel.fontSize = 19
         waterGunAmmoLabel.horizontalAlignmentMode = .right
         waterGunAmmoLabel.verticalAlignmentMode = .center
-        waterGunAmmoLabel.position = CGPoint(x: lf.minX - 6, y: size.height - 84)
+        waterGunAmmoLabel.position = CGPoint(x: lf.minX - 6, y: size.height - 98)
         waterGunAmmoLabel.zPosition = 21
         waterGunAmmoLabel.fontColor = .systemBlue
         waterGunAmmoLabel.isHidden = true

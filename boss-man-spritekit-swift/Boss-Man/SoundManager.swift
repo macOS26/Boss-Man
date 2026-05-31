@@ -111,8 +111,8 @@ final class SoundManager {
     private var musicEnabled = false
     private var goldDiscBassActive = false   // bass stands in for the music during blue mode; the two never overlap
 
-    private let normalEffectsVolume: Float = 0.6
-    private let duckedEffectsVolume: Float = 0.15
+    private let normalEffectsVolume: Float = 0.5
+    private let duckedEffectsVolume: Float = 0.12
     private let normalMusicVolume: Float = 1.0
     private let duckedMusicVolume: Float = 0.25   // match the wasm duck factor (0.25)
 
@@ -569,14 +569,12 @@ final class SoundManager {
         buffer.frameLength = frames
         let data = buffer.floatChannelData![0]
         let attack: Float = 0.004
+        let release: Float = 0.012   // fade the tail so the note doesn't cut off with a click ("ting") on phone speakers
+        let dur = Float(duration)
         for i in 0..<Int(frames) {
             let t = Float(i) / Float(sampleRate)
-            let env: Float
-            if t < attack {
-                env = t / attack
-            } else {
-                env = exp(-decay * (t - attack))
-            }
+            var env: Float = t < attack ? t / attack : exp(-decay * (t - attack))
+            if t > dur - release { env *= max(0, (dur - t) / release) }
             data[i] = sin(2 * .pi * frequency * t) * volume * env
         }
         return buffer
@@ -773,9 +771,12 @@ final class SoundManager {
         for (idx, bassF) in bassPattern.enumerated() {
             let leadF = leadPattern[idx]
             let start = idx * perFrames
+            let slotDur = Float(perFrames) / Float(sampleRate)
+            let release: Float = 0.012   // fade each note's tail so it doesn't cut off with a click on phone speakers
             for j in 0..<perFrames {
                 let t = Float(j) / Float(sampleRate)
-                let env = exp(-6 * t) * (t < 0.005 ? t / 0.005 : 1)
+                var env = exp(-6 * t) * (t < 0.005 ? t / 0.005 : 1)
+                if t > slotDur - release { env *= max(0, (slotDur - t) / release) }
                 let bass = sin(2 * .pi * bassF * t) * 0.12 * env
                 let lead = leadF == 0 ? 0 : sin(2 * .pi * leadF * t) * 0.06 * env * 0.7
                 data[start + j] = bass + lead

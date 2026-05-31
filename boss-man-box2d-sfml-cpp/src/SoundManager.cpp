@@ -36,12 +36,11 @@ SoundManager::SoundManager() {}
 sf::SoundBuffer SoundManager::tone(float freq, float dur, float vol, float decay) {
     int frames = (int)(sampleRate * dur);
     std::vector<int16_t> samples(frames);
-    float attack = 0.004f;
+    float attack = 0.004f, release = 0.012f; // fade the tail so the note doesn't click ("ting") on phone speakers
     for (int i = 0; i < frames; ++i) {
         float t = (float)i / sampleRate;
-        float env;
-        if (t < attack) env = t / attack;
-        else env = expf(-decay * (t - attack));
+        float env = (t < attack) ? (t / attack) : expf(-decay * (t - attack));
+        if (t > dur - release) env *= std::max(0.0f, (dur - t) / release);
         samples[i] = (int16_t)(sinf(2 * M_PI * freq * t) * vol * env * 32767);
     }
     sf::SoundBuffer buf;
@@ -72,12 +71,15 @@ sf::SoundBuffer SoundManager::sequence(const std::vector<float>& notes, float pe
     int totalFrames = (int)(sampleRate * perNote * notes.size());
     std::vector<int16_t> samples(totalFrames, 0);
     int perFrames = (int)(sampleRate * perNote);
+    const float slotDur = (float)perFrames / sampleRate;
+    const float release = 0.012f; // fade each note's tail so it doesn't click on phone speakers
     for (size_t idx = 0; idx < notes.size(); ++idx) {
         float freq = notes[idx];
         int start = (int)(idx * perFrames);
         for (int j = 0; j < perFrames && start + j < totalFrames; ++j) {
             float t = (float)j / sampleRate;
             float env = expf(-8 * t) * (t < 0.003f ? t / 0.003f : 1.0f);
+            if (t > slotDur - release) env *= std::max(0.0f, (slotDur - t) / release);
             samples[start + j] = (int16_t)(sinf(2 * M_PI * freq * t) * vol * env * 32767);
         }
     }
@@ -160,7 +162,7 @@ void SoundManager::playVoiceRandom(const std::string& prefix) {
 
 void SoundManager::applyDuck(bool ducked) {
     voiceDucked = ducked;
-    float sfx = ducked ? 15.0f : 60.0f; // SFX trimmed (too loud on mobile); SpriteKit normal 0.6 / ducked 0.15
+    float sfx = ducked ? 12.0f : 50.0f; // SFX trimmed (too loud on mobile); SpriteKit normal 0.6 / ducked 0.15
     for (auto& s : sounds) s.setVolume(sfx);
     if (musicEnabled) musicSound.setVolume(ducked ? 18.0f : 100.0f); // 0.18
     // Bass is intentionally not ducked, matching SpriteKit's setDucked.
@@ -172,7 +174,7 @@ void SoundManager::updateDucking() {
 }
 
 void SoundManager::playBuffer(const sf::SoundBuffer& buf) {
-    float vol = voiceDucked ? 15.0f : 60.0f;
+    float vol = voiceDucked ? 12.0f : 50.0f;
     // Find a stopped sound or add a new one
     for (auto& s : sounds) {
         if (s.getStatus() != sf::Sound::Playing) {

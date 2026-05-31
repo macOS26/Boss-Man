@@ -705,28 +705,36 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         sound.playGameOver()
         workerController.resetMotion()
         bossController.stopAll()
+        var allowEntry = !state.practiceMode
         #if os(macOS)
         inputController.unhideCursor()
         if !state.practiceMode {
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
         }
-        let defaultName = GKLocalPlayer.local.isAuthenticated
-            ? (LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName())
-            : (LocalHighScores.savedUsername ?? "")
+        let defaultName: String
+        if GKLocalPlayer.local.isAuthenticated {
+            // Game Center owns the identity: record locally under the GC name and
+            // skip the on-screen username entry entirely.
+            defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
+            if !state.practiceMode { LocalHighScores.record(name: defaultName, score: state.score) }
+            allowEntry = false
+        } else {
+            defaultName = LocalHighScores.savedUsername ?? ""
+        }
         #elseif os(WASI)
         let defaultName = LocalHighScores.savedUsername ?? ""
         #endif
-        presentGameOverScreen(defaultName: defaultName)
+        presentGameOverScreen(defaultName: defaultName, allowEntry: allowEntry)
     }
 
-    private func presentGameOverScreen(defaultName: String) {
+    private func presentGameOverScreen(defaultName: String, allowEntry: Bool) {
         let screen = GameOverScreen(
             size: size,
             font: Strings.Font.menloBold,
             score: state.score,
             highScore: state.highScore,
             defaultName: defaultName,
-            allowEntry: !state.practiceMode,
+            allowEntry: allowEntry,
             onPlay: { [weak self] in self?.dismissGameOverScreen(); self?.restartGame() },
             onEsc:  { [weak self] in self?.dismissGameOverScreen(); self?.returnToTitleScene() }
         )
