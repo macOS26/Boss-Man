@@ -106,7 +106,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Leaderboard sticky-note panel (drawn first; title sits on top if overlapping) ---
     const float panelW = 320.f, panelH = 400.f;
     const float panelCX = panelW / 2.f + 32.f;
-    const float panelCY = H * 0.5f;
+    const float panelCY = H * 0.5f - 15.f;
     const float panelLeft = panelCX - panelW / 2.f;
     const float panelTop = panelCY - panelH / 2.f;
 
@@ -203,8 +203,8 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Controls + fullscreen hints, bottom of screen, HUD mono font ---
     drawText(target, fontMono_, "Cursor key to Move \xC2\xB7 Space to Fire Water Pistol", 16, ink,
              W / 2.f, H - 18.f, 1);
-    // Bottom-right toggle column, 80px apart, anchored at "F for Fullscreen"
-    // (larger + taller again so it's tappable on mobile).
+    // Window controls hug the bottom-right corner; the gameplay toggles hug the
+    // bottom-left. 80px apart, large + tappable on mobile.
     fullscreenRect_ = drawText(target, fontMono_, "F for Fullscreen", 25, ink, W - 20.f, H - 18.f, 2);
     windowRect_     = drawText(target, fontMono_, "ESC for Window", 25, ink, W - 20.f, H - 98.f, 2);
     // baselineRef pins these to a fixed (descender-free) baseline so toggling the
@@ -212,10 +212,10 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // glyph-box-bottom anchor). Descenders simply hang below the shared baseline.
     bossTracksRect_ = drawText(target, fontMono_,
         std::string("Boss Tracks: ") + (Settings::bossTracksSquare() ? "Square" : "Smooth"),
-        25, ink, W - 20.f, H - 178.f, 2, 0.f, 255, "Boss Tracks: Smooth");
+        25, ink, 20.f, H - 18.f, 0, 0.f, 255, "Boss Tracks: Smooth");
     waterGunRect_   = drawText(target, fontMono_,
         std::string("Water Gun: ") + (Settings::waterGunHide() ? "Hide" : (Settings::waterGunLeft() ? "Left" : "Right")),
-        25, ink, W - 20.f, H - 258.f, 2, 0.f, 255, "Water Gun: Hide");
+        25, ink, 20.f, H - 98.f, 0, 0.f, 255, "Water Gun: Hide");
 }
 
 TitleScreen::Hit TitleScreen::hitTest(float x, float y) const {

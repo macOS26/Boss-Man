@@ -79,7 +79,7 @@ final class TitleScene: SKScene {
             titleFont: Strings.Font.markerFeltThin,
             bodyFont: Strings.Font.menloBold
         )
-        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5)
+        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5 + 15)
         addChild(panel)
 
         let controlsHint = SKLabelNode(fontNamed: Strings.Font.menloBold)
@@ -90,12 +90,12 @@ final class TitleScene: SKScene {
         controlsHint.position = CGPoint(x: size.width / 2, y: 18)
         addChild(controlsHint)
 
-        // Bottom-right toggle column, 80px apart, anchored at "F for Fullscreen"
-        // (larger + taller again so it's tappable on mobile).
+        // Window controls hug the bottom-right corner; the gameplay toggles
+        // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
         fullscreenLabel = makeHint("F for Fullscreen", y: 18)
         escWindowLabel  = makeHint("ESC for Window", y: 98)
-        bossTracksLabel = makeHint(bossTracksText(), y: 178)
-        waterGunLabel   = makeHint(waterGunText(), y: 258)
+        bossTracksLabel = makeHint(bossTracksText(), y: 18, left: true)
+        waterGunLabel   = makeHint(waterGunText(), y: 98, left: true)
     }
 
     // MARK: - Settings text
@@ -150,13 +150,13 @@ final class TitleScene: SKScene {
         return CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2, width: s.width, height: s.height)
     }
 
-    private func makeHint(_ text: String, y: CGFloat) -> SKLabelNode {
+    private func makeHint(_ text: String, y: CGFloat, left: Bool = false) -> SKLabelNode {
         let label = SKLabelNode(fontNamed: Strings.Font.menloBold)
         label.text = text
         label.fontSize = 25
         label.fontColor = .black
-        label.horizontalAlignmentMode = .right
-        label.position = CGPoint(x: size.width - 20, y: y)
+        label.horizontalAlignmentMode = left ? .left : .right
+        label.position = CGPoint(x: left ? 20 : size.width - 20, y: y)
         addChild(label)
         return label
     }
