@@ -19,6 +19,12 @@ endif()
 # Dependencies via FetchContent
 include(FetchContent)
 
+# Android has no static-SFML support and the game ships as a NativeActivity .so,
+# so force shared libs there (Gradle packages every built .so into the APK).
+if(ANDROID)
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+endif()
+
 # SFML
 find_package(SFML 2.6 COMPONENTS graphics window system audio network QUIET)
 if(NOT SFML_FOUND)
@@ -113,15 +119,23 @@ if(WIN32)
     list(APPEND SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/app.rc)
 endif()
 
-add_executable(boss-man-pc ${SOURCES})
-
-# Per-platform output names: Boss-Man-mac (.app), Boss-Man.exe, Boss-Man (Linux).
-if(APPLE)
-    set(BM_OUTPUT_NAME "Boss-Man-mac")
+# Android: the game is a shared lib the NativeActivity loads (android.app.lib_name
+# = sfml-game); everywhere else it's a normal executable.
+if(ANDROID)
+    add_library(boss-man-pc SHARED ${SOURCES})
+    set_target_properties(boss-man-pc PROPERTIES OUTPUT_NAME "sfml-game")
+    # sfml-main supplies ANativeActivity_onCreate (which calls our main()).
+    target_link_libraries(boss-man-pc PRIVATE sfml-main android log EGL GLESv1_CM OpenSLES)
 else()
-    set(BM_OUTPUT_NAME "Boss-Man") # Boss-Man.exe on Windows, Boss-Man on Linux
+    add_executable(boss-man-pc ${SOURCES})
+    # Per-platform output names: Boss-Man-mac (.app), Boss-Man.exe, Boss-Man (Linux).
+    if(APPLE)
+        set(BM_OUTPUT_NAME "Boss-Man-mac")
+    else()
+        set(BM_OUTPUT_NAME "Boss-Man") # Boss-Man.exe on Windows, Boss-Man on Linux
+    endif()
+    set_target_properties(boss-man-pc PROPERTIES OUTPUT_NAME "${BM_OUTPUT_NAME}")
 endif()
-set_target_properties(boss-man-pc PROPERTIES OUTPUT_NAME "${BM_OUTPUT_NAME}")
 
 if(APPLE)
     set_target_properties(boss-man-pc PROPERTIES

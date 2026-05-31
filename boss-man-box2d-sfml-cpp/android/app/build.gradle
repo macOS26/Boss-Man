@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.starplayrx.bossman'
+    compileSdk 34
+    ndkVersion '26.3.11579264'
+
+    defaultConfig {
+        applicationId 'com.starplayrx.bossman'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+
+        externalNativeBuild {
+            cmake {
+                // SFML 2.6 + the NDK require the shared libc++ runtime.
+                arguments '-DANDROID_STL=c++_shared'
+            }
+        }
+        ndk {
+            // arm first (real devices), x86_64 for the emulator.
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    // Build the game's own CMakeLists; it produces libsfml-game.so (+ the SFML/
+    // Box2D .so it pulls in via FetchContent). Gradle packs every built .so into
+    // the APK's lib/<abi>/.
+    externalNativeBuild {
+        cmake {
+            path '../../CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

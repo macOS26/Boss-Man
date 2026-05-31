@@ -1,0 +1,51 @@
+name: Build Android (C++)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'boss-man-box2d-sfml-cpp/**'
+      - '.github/workflows/build-android.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: boss-man-box2d-sfml-cpp/android
+
+jobs:
+  build:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install NDK + CMake
+        run: sdkmanager "ndk;26.3.11579264" "cmake;3.22.1"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      # SFML 2.6 + Box2D cross-compile from source via FetchContent under the NDK
+      # toolchain Gradle's externalNativeBuild supplies. Debug build = auto-signed
+      # with the debug key, so the APK installs directly.
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Bundle artifact
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk dist/Boss-Man-Android.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boss-man-android
+          path: boss-man-box2d-sfml-cpp/android/dist
+          if-no-files-found: error
