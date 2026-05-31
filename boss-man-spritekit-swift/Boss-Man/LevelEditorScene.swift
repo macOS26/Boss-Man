@@ -849,10 +849,12 @@ final class LevelEditorScene: SKScene {
                 return
             }
 
-            let name = hitNodes.first?.name ?? Strings.empty
-            if name.hasPrefix("btn_") {
-                flashButton(named: name)
-                runButtonAction(name)
+            // Scan every hit node (not just the frontmost) for the button name:
+            // each button's text label is a higher-z sibling of the button shape,
+            // so a click landing on the label would otherwise miss the button.
+            if let buttonName = hitNodes.compactMap({ $0.name }).first(where: { $0.hasPrefix("btn_") }) {
+                flashButton(named: buttonName)
+                runButtonAction(buttonName)
                 return
             }
         }
