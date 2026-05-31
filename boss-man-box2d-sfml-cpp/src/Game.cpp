@@ -551,6 +551,11 @@ void Game::render() {
 
     window.clear(sf::Color(15, 15, 18));
 
+    // Monotonic wall-clock for animation (the dt `clock` is restarted every tick,
+    // so it can't drive continuous motion — that froze the dot/pickup pulses and
+    // the spinning water shot).
+    float animT = animClock.getElapsedTime().asSeconds();
+
     if (gameState == GameState::Title) {
         titleScreen.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT, state.highScore, leaderboard.entries());
     } else if (gameState == GameState::Editor) {
@@ -558,8 +563,8 @@ void Game::render() {
     } else {
         if (mazeRenderer) {
             mazeRenderer->drawBackground(window);
-            mazeRenderer->drawDots(window, clock.getElapsedTime().asSeconds());
-            mazeRenderer->drawPickups(window, clock.getElapsedTime().asSeconds());
+            mazeRenderer->drawDots(window, animT);
+            mazeRenderer->drawPickups(window, animT);
         }
 
         for (auto& tr : travelerSpawner.travelers) {
@@ -598,7 +603,7 @@ void Game::render() {
         // In-flight water shot: a systemCyan core with a systemBlue stroke plus a
         // white specular highlight that orbits the core (0.4s/rev) so it reads as
         // spinning through the air, matching the SpriteKit WaterDropletVisual.
-        float dropSpin = clock.getElapsedTime().asSeconds() * (6.2831853f / 0.4f);
+        float dropSpin = animT * (6.2831853f / 0.4f);
         for (auto& d : waterGun.droplets) {
             if (!d.active) continue;
             const float R = 5.f;

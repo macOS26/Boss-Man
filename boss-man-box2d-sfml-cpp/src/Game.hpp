@@ -102,7 +102,8 @@ private:
     std::unordered_map<std::string, std::vector<std::string>> levelData;
     std::vector<std::string> officeMaps;
 
-    sf::Clock clock;
+    sf::Clock clock;       // per-frame dt (restarted every tick)
+    sf::Clock animClock;   // monotonic since launch; drives render-time animation
     sf::Time timeSinceLastUpdate;
     const sf::Time TIME_PER_UPDATE = sf::seconds(1.0f / 120.0f);
 };
