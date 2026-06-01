@@ -15,6 +15,7 @@ import SpriteKit
 final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate {
     private let tileSize: CGFloat = 32
     private let goldDiscDuration: TimeInterval = 20
+    private var frightenSecondsLeft: TimeInterval = 0
     private let requiredItems = Strings.Machine.required
     private let reportItemPoints = [10, 25, 50, 100]
     private let dropletDodgeRange = 8
@@ -63,7 +64,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var fireButtonHidden = false
     private let fireButtonRadius: CGFloat = 112.5
     private var contactCooldown: TimeInterval = 0
-    private var frightenSecondsLeft: TimeInterval = 0
     private var waterDroplets: [WaterDroplet] = []
     private let waterDropletSpeed: CGFloat = 12 * 32
     private let waterHitPoints = 50
@@ -594,20 +594,24 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     #endif
 
     // MARK: - Update loop (wasm: drives movement; macOS: SKAction-driven)
-    #if os(WASI)
     override func update(_ currentTime: TimeInterval) {
         guard workerController != nil else { return }
-        if isGameOver || isUserPaused { return }
+        if isGameOver { return }
         let dt: TimeInterval = 1.0 / 60.0
 
+        #if os(WASI)
+        if isUserPaused { return }
         workerController.advance(dt)
         bossController.advance(dt)
         stepWaterDroplets(dt: dt)
+        #endif
 
         if frightenSecondsLeft > 0 {
             frightenSecondsLeft -= dt
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
+
+        #if os(WASI)
         if contactCooldown > 0 {
             contactCooldown -= dt
         } else if let bossNode = bossOnPete() {
@@ -620,8 +624,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
                 contactCooldown = 1.2
             }
         }
+        #endif
     }
 
+    #if os(WASI)
     private func bossOnPete() -> PixelPerson? {
         let r = tileSize * 0.55
         let r2 = r * r
@@ -714,7 +720,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         waterGun.deactivate()
         waterGunPickedUp = false
         sound.stopGoldDiscBass()
-        removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
+        frightenSecondsLeft = 0
         removeAllActions()
         removeAllChildren()
         buildLevel()
@@ -846,14 +852,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         goldDisc.activate()
         bossController.setGoldDiscActive(true)
         sound.startGoldDiscBass()
-        #if os(macOS)
-        run(.sequence([
-            .wait(forDuration: goldDiscDuration),
-            .run { [weak self] in self?.endGoldDiscMode() }
-        ]), withKey: Strings.ActionKey.goldDiscExpiry)
-        #elseif os(WASI)
         frightenSecondsLeft = goldDiscDuration
-        #endif
         hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
         refreshHUD()
     }
@@ -862,10 +861,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         goldDisc.deactivate()
         bossController.setGoldDiscActive(false)
         sound.stopGoldDiscBass()
-        removeAction(forKey: Strings.ActionKey.goldDiscExpiry)
-        #if os(WASI)
         frightenSecondsLeft = 0
-        #endif
         hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
         refreshHUD()
     }
