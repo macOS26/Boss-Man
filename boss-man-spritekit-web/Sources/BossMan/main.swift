@@ -39,11 +39,3 @@ public nonisolated func boot() {
 public nonisolated func frame(_ dtMs: Double) {
     MainActor.assumeIsolated { view?.tick(dtMs) }
 }
-
-// MARK: - TileMover conformances
-// The kit's tile-movement protocols are wasm-only and this game's grid types
-// already satisfy them, so these conformances are empty. They live here rather
-// than in the common type files to stay out of the apple build.
-extension GridMap: TileMap {}
-extension MoveDirection: TileDirection {}
-extension PixelPerson: TileWalkAnimating {}

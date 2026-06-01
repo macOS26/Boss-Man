@@ -175,3 +175,7 @@ public final class TileMover<D: TileDirection> {
         }
     }
 }
+
+extension GridMap: TileMap {}
+extension MoveDirection: TileDirection {}
+extension PixelPerson: TileWalkAnimating {}

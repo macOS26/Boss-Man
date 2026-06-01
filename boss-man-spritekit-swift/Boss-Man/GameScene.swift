@@ -601,7 +601,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
         #if os(WASI)
         if isUserPaused { return }
+        #endif
+
         workerController.advance(dt)
+
+        #if os(WASI)
         bossController.advance(dt)
         stepWaterDroplets(dt: dt)
         #endif
