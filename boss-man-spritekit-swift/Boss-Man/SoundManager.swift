@@ -19,6 +19,7 @@ final class SoundManager {
     private var mibGoldDiscBeatBuffer: AVAudioPCMBuffer?
     private var bufferCache: [String: AVAudioPCMBuffer] = [:]
     private let speech = AVSpeechSynthesizer()
+    var isSpeaking: Bool { speech.isSpeaking }
     #if os(macOS)
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
     #else

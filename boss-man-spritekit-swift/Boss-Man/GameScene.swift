@@ -14,7 +14,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let waterHitPoints = 50
     private var pendingCatch: PixelPerson?
     private var deferredBossSpawn: (() -> Void)?
-    private var bossSpawnDelay: TimeInterval = 0
+    private var bossSpawnGrace: TimeInterval = 0
+    private var bossSpawnMax: TimeInterval = 0
     private var nextBossSpawnSeconds: TimeInterval = 0
     private let requiredItems = Strings.Machine.required
     private let reportItemPoints = [10, 25, 50, 100]
@@ -524,9 +525,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func delayBossSpawn(after seconds: TimeInterval, _ action: @escaping () -> Void) {
-        if seconds <= 0 { action(); return }
-        bossSpawnDelay = seconds
+        if seconds <= 0 && !sound.isSpeaking { action(); return }
         deferredBossSpawn = action
+        bossSpawnGrace = 0.4
+        bossSpawnMax = max(seconds, 0) + 2.5
     }
 
     private func bossCaughtWorker() {
@@ -617,8 +619,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             bossCaughtWorker()
         }
         if let action = deferredBossSpawn {
-            bossSpawnDelay -= dt
-            if bossSpawnDelay <= 0 {
+            bossSpawnGrace -= dt
+            bossSpawnMax -= dt
+            if (bossSpawnGrace <= 0 && !sound.isSpeaking) || bossSpawnMax <= 0 {
                 deferredBossSpawn = nil
                 action()
             }
