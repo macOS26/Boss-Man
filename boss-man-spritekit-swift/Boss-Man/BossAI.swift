@@ -100,6 +100,6 @@ final class BossAI {
         if let previousGrid, options.count > 1 {
             options.removeAll { $0 == previousGrid }
         }
-        return options.randomElement()
+        return options.randomElement(using: &GameRandom.shared)
     }
 }

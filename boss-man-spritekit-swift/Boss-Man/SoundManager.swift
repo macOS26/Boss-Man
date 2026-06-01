@@ -239,22 +239,22 @@ final class SoundManager {
         play(buffer: cached("\(Strings.SoundCache.captureBossPrefix)\(count)") {
             self.sequence(notes: Array(arp.prefix(count)), perNote: 0.08, volume: 0.35)
         })
-        speak(bossCaptureLines.randomElement() ?? Strings.Speech.fallback, priority: false)
+        speak(bossCaptureLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.fallback, priority: false)
     }
 
     func playCaughtByBoss() {
         play(buffer: cached(Strings.SoundCache.caughtByBoss) { self.sweep(from: 330, to: 60, duration: 0.7, volume: 0.4) })
-        speak(caughtLines.randomElement() ?? Strings.Speech.caughtFallback, priority: true)
+        speak(caughtLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.caughtFallback, priority: true)
     }
 
     func playFishOrTreat() {
         play(buffer: cached(Strings.SoundCache.fishOrTreat) { self.sequence(notes: [1320, 1760, 2093], perNote: 0.08, volume: 0.3) })
-        speak(fishLines.randomElement() ?? Strings.Speech.fishFallback, priority: false)
+        speak(fishLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.fishFallback, priority: false)
     }
 
     func playTpsDeliver() {
         play(buffer: cached(Strings.SoundCache.tpsDeliver) { self.sequence(notes: [660, 880, 1320], perNote: 0.12, volume: 0.35) })
-        speak(tpsLines.randomElement() ?? Strings.Speech.tpsFallback, priority: false)
+        speak(tpsLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.tpsFallback, priority: false)
     }
 
     func playTpsMissingItems(_ items: [String]) {
@@ -264,7 +264,7 @@ final class SoundManager {
 
     func playGameOver() {
         play(buffer: cached(Strings.SoundCache.gameOver) { self.sequence(notes: [392, 311, 261, 196], perNote: 0.18, volume: 0.4) })
-        speak(gameOverLines.randomElement() ?? Strings.Speech.gameOverFallback, priority: true)
+        speak(gameOverLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.gameOverFallback, priority: true)
     }
 
     func playMachine(named name: String) {
@@ -313,15 +313,15 @@ final class SoundManager {
         for i in 0..<frames { data[i] = 0 }
         if bursts <= 1 {
             for i in 0..<frames {
-                data[i] = Float.random(in: -1...1)
+                data[i] = Float.random(in: -1...1, using: &GameRandom.shared)
             }
         } else {
             for _ in 0..<bursts {
-                let startFrame = Int.random(in: 0..<max(1, frames - 1024))
-                let len = Int.random(in: Int(sampleRate * 0.01)...Int(sampleRate * 0.04))
+                let startFrame = Int.random(in: 0..<max(1, frames - 1024), using: &GameRandom.shared)
+                let len = Int.random(in: Int(sampleRate * 0.01)...Int(sampleRate * 0.04), using: &GameRandom.shared)
                 for j in 0..<len where startFrame + j < frames {
                     let t = Float(j) / Float(len)
-                    data[startFrame + j] += Float.random(in: -1...1) * sin(.pi * t)
+                    data[startFrame + j] += Float.random(in: -1...1, using: &GameRandom.shared) * sin(.pi * t)
                 }
             }
         }
@@ -345,7 +345,7 @@ final class SoundManager {
 
     func playLevelStart() {
         play(buffer: cached(Strings.SoundCache.levelStart) { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3) })
-        speak(levelStartLines.randomElement() ?? Strings.Speech.fallback, priority: false)
+        speak(levelStartLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.fallback, priority: false)
     }
 
     func startBackgroundMusic(theme: MusicTheme = .normal) {
@@ -551,7 +551,7 @@ final class SoundManager {
             phaseAsc += 2 * .pi * ascFreq * dt
             phaseDesc += 2 * .pi * descFreq * dt
             let env = sin(.pi * progress)
-            let shimmer = Float.random(in: -1...1) * 0.06
+            let shimmer = Float.random(in: -1...1, using: &GameRandom.shared) * 0.06
             data[i] = (sin(phaseAsc) * 0.20 + sin(phaseDesc) * 0.15 + shimmer) * env
         }
         return buffer
@@ -650,7 +650,7 @@ final class SoundManager {
         for j in 0..<whirFrames where whirStart + j < Int(buffer.frameLength) {
             let t = Float(j) / Float(sampleRate)
             let env = exp(-8 * t)
-            let hum = sin(2 * .pi * 110 * t) * 0.06 + Float.random(in: -1...1) * 0.04
+            let hum = sin(2 * .pi * 110 * t) * 0.06 + Float.random(in: -1...1, using: &GameRandom.shared) * 0.04
             data[whirStart + j] = hum * env
         }
         return buffer
@@ -695,15 +695,15 @@ final class SoundManager {
 
         let crackleCount = 50
         for _ in 0..<crackleCount {
-            let startFrame = Int.random(in: 0..<(frames - 256))
-            let crackleLen = Int.random(in: Int(sampleRate * 0.003)...Int(sampleRate * 0.018))
-            let amp = Float.random(in: 0.15...0.55)
+            let startFrame = Int.random(in: 0..<(frames - 256), using: &GameRandom.shared)
+            let crackleLen = Int.random(in: Int(sampleRate * 0.003)...Int(sampleRate * 0.018), using: &GameRandom.shared)
+            let amp = Float.random(in: 0.15...0.55, using: &GameRandom.shared)
             for j in 0..<crackleLen {
                 let idx = startFrame + j
                 if idx >= frames { break }
                 let t = Float(j) / Float(crackleLen)
                 let env: Float = sin(.pi * t)
-                data[idx] += Float.random(in: -1...1) * env * amp
+                data[idx] += Float.random(in: -1...1, using: &GameRandom.shared) * env * amp
             }
         }
 
@@ -740,7 +740,7 @@ final class SoundManager {
             let start = b * (perBurst + perGap)
             for j in 0..<perBurst {
                 let env: Float = sin(.pi * Float(j) / Float(perBurst))
-                let n = Float.random(in: -1...1)
+                let n = Float.random(in: -1...1, using: &GameRandom.shared)
                 prev = 0.4 * n + 0.6 * prev
                 data[start + j] = prev * env * 0.32
             }
@@ -853,7 +853,7 @@ final class SoundManager {
                 }
                 var click: Float = 0
                 if idx % 4 == 0 && j < Int(sampleRate * 0.012) {
-                    let n = Float.random(in: -1...1)
+                    let n = Float.random(in: -1...1, using: &GameRandom.shared)
                     let clickEnv = exp(-90 * t)
                     click = n * clickEnv * 0.06
                 }

@@ -226,12 +226,12 @@ final class TravelerSpawner {
         }
         guard !candidates.isEmpty else { return }
         let next: CGPoint
-        if Int.random(in: 0..<10) < 6, let towardExit = candidates.min(by: {
+        if Int.random(in: 0..<10, using: &GameRandom.shared) < 6, let towardExit = candidates.min(by: {
             Pathfinder.manhattanDistance($0, exitGrid) < Pathfinder.manhattanDistance($1, exitGrid)
         }) {
             next = towardExit
         } else {
-            next = candidates.randomElement()!
+            next = candidates.randomElement(using: &GameRandom.shared)!
         }
         let dx = next.x - grid.x
         if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {
