@@ -1,4 +1,4 @@
-import KitABI
+import SpriteKit
 
 // Time-based tile-stepper: interpolates a node one grid cell at a time over a
 // fixed `step` duration, with the lerp bounded 0..1 so it can't overshoot (a
@@ -36,6 +36,7 @@ public protocol TileWalkAnimating: AnyObject {
 }
 
 public final class TileMover<D: TileDirection> {
+    deinit {}
     public var grid: CGPoint
     public var dir: D? = nil
     public var moveT: TimeInterval = 0
