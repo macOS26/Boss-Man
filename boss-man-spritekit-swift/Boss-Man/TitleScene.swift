@@ -1,7 +1,5 @@
 import SpriteKit
-#if os(macOS)
 import AppKit
-#endif
 
 // Title screen, shared by both ports: BOSS-MAN wordmark tilted slightly, red
 // stapler illustration, green "(P)lay" + blue "(E)ditor" buttons, high score,
@@ -228,7 +226,6 @@ final class TitleScene: SKScene {
     // MARK: - Stapler
     private func makeStapler() -> SKNode {
         let maxSize = CGSize(width: 380, height: 290)
-        #if os(macOS)
         if let url = Bundle.main.url(forResource: Strings.Resource.redStaplerFile,
                                       withExtension: Strings.Resource.redStaplerExtension),
            let image = NSImage(contentsOf: url) {
@@ -236,13 +233,6 @@ final class TitleScene: SKScene {
             let fitted = CGSize(width: image.size.width * scale, height: image.size.height * scale)
             return SKSpriteNode(texture: SKTexture(image: image), size: fitted)
         }
-        #elseif os(WASI)
-        if let tex = textureNamed(Strings.Resource.redStaplerFile) {
-            let scale = min(maxSize.width / tex.size.width, maxSize.height / tex.size.height)
-            let fitted = CGSize(width: tex.size.width * scale, height: tex.size.height * scale)
-            return SKSpriteNode(texture: tex, size: fitted)
-        }
-        #endif
         return makeFallbackStapler()
     }
 

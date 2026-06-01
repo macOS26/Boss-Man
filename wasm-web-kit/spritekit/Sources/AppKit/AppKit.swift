@@ -21,13 +21,22 @@ public extension SKColor {
 }
 
 // NSImage: an opaque handle to a pre-loaded asset (looked up by name via the kit's
-// asset table). `init(named:)` mirrors NSImage(named:); the image is never decoded
-// in Swift — it lives in the runtime as a managed texture.
+// asset table). The image is never decoded in Swift — it lives in the runtime as a
+// managed texture. init?(named:) mirrors NSImage(named:) and fails when the asset
+// is absent (so `NSImage(named:) ?? fallback` works as on Apple); size reads the
+// real pixel dimensions back through the texture so aspect math is correct.
 public final class NSImage {
     public let name: String
-    public init(named name: String) { self.name = name }
-    public init?(contentsOfFile path: String) { self.name = path }
-    public var size: CGSize { .zero }   // unknown until drawn
+    public init?(named name: String) {
+        guard textureNamed(name) != nil else { return nil }
+        self.name = name
+    }
+    public init?(contentsOfFile path: String) {
+        guard textureNamed(path) != nil else { return nil }
+        self.name = path
+    }
+    public convenience init?(contentsOf url: URL) { self.init(named: url.resource) }
+    public var size: CGSize { textureNamed(name)?.size ?? .zero }
 }
 
 // NSFont: name + size only; SKLabelNode resolves the font through the kit's

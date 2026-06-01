@@ -1,7 +1,5 @@
 import SpriteKit
-#if os(macOS)
 import AppKit
-#endif
 
 // One spawner per game: owns the active traveler node, the spawn/exit grid
 // coords, and the self-chaining stepper that walks the traveler tile-by-tile
@@ -185,23 +183,14 @@ final class TravelerSpawner {
     }
 
     private func imageSprite(named name: String, height: CGFloat) -> SKSpriteNode? {
-        #if os(macOS)
         guard let img = NSImage(named: name) ?? loadBundleImage(named: name) else { return nil }
         let sprite = SKSpriteNode(texture: SKTexture(image: img))
-        let aspect = img.size.width / img.size.height
-        sprite.size = CGSize(width: height * aspect, height: height)
-        return sprite
-        #elseif os(WASI)
-        guard let tex = textureNamed(name) else { return nil }
-        let sprite = SKSpriteNode(texture: tex)
-        let s = tex.size
+        let s = img.size
         let aspect = s.height > 0 ? s.width / s.height : 1
         sprite.size = CGSize(width: height * aspect, height: height)
         return sprite
-        #endif
     }
 
-    #if os(macOS)
     private func loadBundleImage(named name: String) -> NSImage? {
         for ext in [Strings.Resource.redStaplerExtension,
                     Strings.Resource.travelerStaplerExtension] {
@@ -212,7 +201,6 @@ final class TravelerSpawner {
         }
         return nil
     }
-    #endif
 
     // Self-chaining walk: pick the next tile, animate one move, re-fire at
     // completion — no inter-tile gap. Biased random walk over 4-dir walkable

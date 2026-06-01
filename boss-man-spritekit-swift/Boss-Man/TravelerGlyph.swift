@@ -1,7 +1,5 @@
 import SpriteKit
-#if os(macOS)
 import AppKit
-#endif
 
 enum TravelerGlyph {
     static func makeNode(for traveler: LevelTraveler, pointSize: CGFloat) -> SKNode {
@@ -19,23 +17,14 @@ enum TravelerGlyph {
     }
 
     private static func imageSprite(named name: String, pointSize: CGFloat) -> SKSpriteNode? {
-        #if os(macOS)
         guard let img = NSImage(named: name) ?? loadBundleImage(named: name) else { return nil }
         let sprite = SKSpriteNode(texture: SKTexture(image: img))
-        let aspect = img.size.width / img.size.height
-        sprite.size = CGSize(width: pointSize * aspect * 0.8, height: pointSize)
-        return sprite
-        #elseif os(WASI)
-        guard let tex = textureNamed(name) else { return nil }
-        let sprite = SKSpriteNode(texture: tex)
-        let s = tex.size
+        let s = img.size
         let aspect = s.height > 0 ? s.width / s.height : 1
         sprite.size = CGSize(width: pointSize * aspect * 0.8, height: pointSize)
         return sprite
-        #endif
     }
 
-    #if os(macOS)
     private static func loadBundleImage(named name: String) -> NSImage? {
         for ext in [Strings.Resource.redStaplerExtension,
                     Strings.Resource.travelerStaplerExtension] {
@@ -46,5 +35,4 @@ enum TravelerGlyph {
         }
         return nil
     }
-    #endif
 }
