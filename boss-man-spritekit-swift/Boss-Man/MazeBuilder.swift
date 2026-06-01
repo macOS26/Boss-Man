@@ -262,7 +262,9 @@ final class MazeBuilder {
     private func addWallPhysics(centers: [CGPoint], in scene: SKNode) {
         guard !centers.isEmpty else { return }
         let bodySize = CGSize(width: map.tileSize, height: map.tileSize)
-        #if os(WASI)
+        // One static body per wall cell. A compound body (SKPhysicsBody(bodies:))
+        // would be lighter on Apple, but the wasm Box2D bridge doesn't support
+        // compound shapes, so both platforms use individual cells.
         for c in centers {
             let bodyNode = SKNode()
             bodyNode.position = c
@@ -274,15 +276,6 @@ final class MazeBuilder {
             bodyNode.physicsBody = body
             scene.addChild(bodyNode)
         }
-        #else
-        let parts = centers.map { SKPhysicsBody(rectangleOf: bodySize, center: $0) }
-        let compound = SKPhysicsBody(bodies: parts)
-        compound.isDynamic = false
-        compound.categoryBitMask = PhysicsCategory.wall
-        let node = SKNode()
-        node.physicsBody = compound
-        scene.addChild(node)
-        #endif
     }
 
 
