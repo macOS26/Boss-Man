@@ -5,7 +5,7 @@
 
 # Boss-Man
 
-The a office maze arcade game, Runs on Mac, Windows, Linux, Web (mobile friendly), Android (coming soon). An *Office Space* inspired maze game built using Swift and ported to C++. One interesting aspect is we are actively creating 2 WebAssembly game engines for Swift and C++. Swift focuses on porting SpriteKit to the web branded "SuperBox64 SpriteKit," and our C++ port focusing on using existing C/C++ code with minimal to no code changes. Both WASM game engines use WASI Preview 1.
+The office maze arcade game, Runs on Mac, Windows, Linux, Web (mobile friendly), Android (coming soon). An *Office Space* inspired maze game built using Swift and ported to C++. One interesting aspect is we are actively creating 2 WebAssembly game engines for Swift and C++. Swift focuses on porting SpriteKit to the web branded "SuperBox64 SpriteKit," and our C++ port focusing on using existing C/C++ code with minimal to no code changes. Both WASM game engines use WASI Preview 1.
 
 It now runs far beyond the Mac: one shared codebase ships to the browser as WebAssembly (via SuperBox64 SpriteKit) and to Windows, Linux, Android, and the web through a C++ port. See [The Tech](#the-tech-one-game-three-ports-one-framework) below.
 
