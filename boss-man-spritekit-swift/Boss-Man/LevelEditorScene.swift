@@ -195,15 +195,9 @@ final class LevelEditorScene: SKScene {
     var gridCols = 0
     var mapRows: [String] = []
     var selectedTile: EditorTile = .wall
-    #if os(macOS)
-    var currentLevelIndex = UserDefaults.standard.integer(forKey: "LevelEditor_LastLevelIndex") {
-        didSet { UserDefaults.standard.set(currentLevelIndex, forKey: "LevelEditor_LastLevelIndex") }
+    var currentLevelIndex = UserDefaults.standard.integer(forKey: Strings.DefaultsKey.editorLastLevelIndex) {
+        didSet { UserDefaults.standard.set(currentLevelIndex, forKey: Strings.DefaultsKey.editorLastLevelIndex) }
     }
-    #elseif os(WASI)
-    var currentLevelIndex = Persistence.int(forKey: Strings.DefaultsKey.editorLastLevelIndex) {
-        didSet { Persistence.set(currentLevelIndex, forKey: Strings.DefaultsKey.editorLastLevelIndex) }
-    }
-    #endif
 
     let panelWidth: CGFloat = 148
     let margin: CGFloat = 12

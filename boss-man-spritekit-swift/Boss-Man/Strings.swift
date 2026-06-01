@@ -187,6 +187,7 @@ enum Strings {
         static let bossTracksSquare = "Boss-Man.bossTracksSquare"
         static let waterGunLeft     = "Boss-Man.waterGunLeft"
         static let waterGunHide     = "Boss-Man.waterGunHide"
+        static let editorLastLevelIndex = "LevelEditor_LastLevelIndex"
 #elseif os(WASI)
         static let highScore              = "BossMan.highScore"
         static let leaderboard            = "BossMan.leaderboard"
