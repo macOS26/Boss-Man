@@ -61,21 +61,6 @@ public final class NSBezierPath {
     public func close() { cgPath.closeSubpath() }
 }
 
-// NSEvent: only the bits SpriteKit games typically read. Modifier flags + key
-// codes are routed through SKScene.keyDown/keyUp already; this type exists so
-// `NSEvent.ModifierFlags` references compile.
-public struct NSEvent {
-    public struct ModifierFlags: OptionSet, Sendable {
-        public let rawValue: UInt
-        public init(rawValue: UInt) { self.rawValue = rawValue }
-        public static let shift   = ModifierFlags(rawValue: 1 << 0)
-        public static let control = ModifierFlags(rawValue: 1 << 1)
-        public static let option  = ModifierFlags(rawValue: 1 << 2)
-        public static let command = ModifierFlags(rawValue: 1 << 3)
-        public static let function = ModifierFlags(rawValue: 1 << 4)
-    }
-}
-
 // NSScreen / NSWindow stubs so module-level references compile. Games that
 // query window size should read SKScene.size instead.
 public final class NSScreen {

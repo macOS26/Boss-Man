@@ -3,9 +3,8 @@ import AppKit
 
 // Title screen, shared by both ports: BOSS-MAN wordmark tilted slightly, red
 // stapler illustration, green "(P)lay" + blue "(E)ditor" buttons, high score,
-// the leaderboard panel docked left, and a bottom-right toggle column. Layout +
-// builders are common; the only platform branches are input (NSEvent vs the
-// kit's keyCode/point callbacks), fullscreen, and loading the stapler image.
+// the leaderboard panel docked left, and a bottom-right toggle column. Layout,
+// builders, and input are all common across platforms.
 final class TitleScene: SKScene {
     private var playButtonRect = CGRect.zero
     private var editorButtonRect = CGRect.zero
@@ -198,13 +197,8 @@ final class TitleScene: SKScene {
     }
 
     // MARK: - Input (platform event shapes funnel into the shared actions)
-    #if os(macOS)
     override func keyDown(with event: NSEvent) { handleKey(Int(event.keyCode)) }
     override func mouseDown(with event: NSEvent) { handleTap(at: event.location(in: self)) }
-    #elseif os(WASI)
-    override func keyDown(_ key: Int) { handleKey(key) }
-    override func mouseDown(at p: CGPoint) { handleTap(at: p) }
-    #endif
 
     private func handleKey(_ key: Int) {
         switch key {
