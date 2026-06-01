@@ -13,7 +13,12 @@ enum MusicTheme {
 @MainActor
 final class SoundManager {
     private let engine = AVAudioEngine()
-    private let effectsPlayer = AVAudioPlayerNode()
+    // A pool of effect voices, round-robined per SFX. One shared node queues
+    // buffers (at: nil) behind whatever is still playing, so rapid sound effects
+    // drift further and further behind the action on Apple; spreading them across
+    // players lets each fire immediately and overlap (matching the wasm voices).
+    private let effectsPlayers: [AVAudioPlayerNode] = (0..<8).map { _ in AVAudioPlayerNode() }
+    private var effectsRR = 0
     private let musicPlayer = AVAudioPlayerNode()
     private let bassPlayer = AVAudioPlayerNode()
     private var goldDiscBeatBuffer: AVAudioPCMBuffer?
@@ -120,15 +125,17 @@ final class SoundManager {
 
     init() {
         format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
-        engine.attach(effectsPlayer)
+        for p in effectsPlayers {
+            engine.attach(p)
+            engine.connect(p, to: engine.mainMixerNode, format: format)
+            p.volume = normalEffectsVolume
+        }
         engine.attach(musicPlayer)
         engine.attach(bassPlayer)
-        engine.connect(effectsPlayer, to: engine.mainMixerNode, format: format)
         engine.connect(musicPlayer, to: engine.mainMixerNode, format: format)
         engine.connect(bassPlayer, to: engine.mainMixerNode, format: format)
         bassPlayer.volume = 0.9
         engine.mainMixerNode.outputVolume = 0.55
-        effectsPlayer.volume = normalEffectsVolume
         musicPlayer.volume = normalMusicVolume
         #if os(macOS)
         speechDuck.owner = self
@@ -164,7 +171,8 @@ final class SoundManager {
 
     // MARK: - Speech ducking
     fileprivate func setDucked(_ ducked: Bool) {
-        effectsPlayer.volume = ducked ? duckedEffectsVolume : normalEffectsVolume
+        let effectsVol = ducked ? duckedEffectsVolume : normalEffectsVolume
+        for p in effectsPlayers { p.volume = effectsVol }
         let base = ducked ? duckedMusicVolume : normalMusicVolume
         musicPlayer.volume = base * themeMusicMultiplier(currentMusicTheme)
     }
@@ -379,20 +387,20 @@ final class SoundManager {
     func stopAllAudio() {
         stopBackgroundMusic()
         stopGoldDiscBass()
-        effectsPlayer.stop()
+        effectsPlayers.forEach { $0.stop() }
         speech.stopSpeaking(at: .immediate)
     }
 
     func pauseAudio() {
         if musicPlayer.isPlaying { musicPlayer.pause() }
-        if effectsPlayer.isPlaying { effectsPlayer.pause() }
+        for p in effectsPlayers where p.isPlaying { p.pause() }
         if bassPlayer.isPlaying { bassPlayer.pause() }
         if speech.isSpeaking { speech.pauseSpeaking(at: .word) }
     }
 
     func resumeAudio() {
         if musicEnabled && !goldDiscBassActive { musicPlayer.play() }   // keep music silent while the bass owns blue mode
-        effectsPlayer.play()
+        effectsPlayers.forEach { $0.play() }
         bassPlayer.play()
         if speech.isPaused { speech.continueSpeaking() }
     }
@@ -513,10 +521,11 @@ final class SoundManager {
         if teleportPlaying { return }
         teleportPlaying = true
         let buffer = cached(Strings.SoundCache.teleport) { self.buildTeleport() }
-        effectsPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
-            runOnMain { self?.teleportPlaying = false }
+        let p = nextEffectsPlayer()
+        p.scheduleBuffer(buffer, at: nil, options: []) { [] in
+            runOnMain { self.teleportPlaying = false }
         }
-        if !effectsPlayer.isPlaying { effectsPlayer.play() }
+        if !p.isPlaying { p.play() }
     }
 
     private func buildTeleport() -> AVAudioPCMBuffer {
@@ -548,9 +557,15 @@ final class SoundManager {
     }
 
     // MARK: - Synthesis
+    private func nextEffectsPlayer() -> AVAudioPlayerNode {
+        defer { effectsRR = (effectsRR + 1) % effectsPlayers.count }
+        return effectsPlayers[effectsRR]
+    }
+
     private func play(buffer: AVAudioPCMBuffer) {
-        effectsPlayer.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
-        if !effectsPlayer.isPlaying { effectsPlayer.play() }
+        let p = nextEffectsPlayer()
+        p.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil)
+        if !p.isPlaying { p.play() }
     }
 
     private func tone(frequency: Float, duration: TimeInterval, volume: Float, decay: Float = 12) -> AVAudioPCMBuffer {
