@@ -407,17 +407,11 @@ final class SoundManager {
         }
         guard let buffer = useMIB ? mibGoldDiscBeatBuffer : goldDiscBeatBuffer else { return }
         goldDiscBassActive = true
-        // Silence the background loop while the bass stands in for it. On wasm the
-        // kit's pause()/play() are GLOBAL (snd_pause_all / snd_resume_all), so a
-        // merely-paused loop is revived the instant any node resumes (the bass's
-        // own play() did exactly that, leaking the music under the bass). Stop the
-        // voice outright on wasm and reschedule it on exit; macOS keeps a seamless
-        // per-player pause/resume.
-        #if os(macOS)
-        if musicPlayer.isPlaying { musicPlayer.pause() }
-        #elseif os(WASI)
+        // Silence the background loop while the bass stands in for it. Stop the
+        // voice (don't pause) and reschedule on exit: the kit's pause/resume is
+        // global, so a merely-paused loop would leak back the instant the bass
+        // resumes anything.
         musicPlayer.stop()
-        #endif
         bassPlayer.stop()
         bassPlayer.volume = 0.9 * (useMIB ? 0.75 : 1.0) * 1.15   // 15% louder while standing in for the music
         bassPlayer.scheduleBuffer(buffer, at: nil, options: [.loops], completionHandler: nil)
@@ -428,17 +422,13 @@ final class SoundManager {
         let wasActive = goldDiscBassActive
         goldDiscBassActive = false
         bassPlayer.stop()
-        // Restore the background loop at its unchanged volume. Guarded by wasActive
-        // so teardown paths (game over, stop-all) never revive it. On wasm the loop
-        // was stopped (not paused), so it must be rescheduled rather than resumed.
+        // Restore the background loop. Guarded by wasActive so teardown paths (game
+        // over, stop-all) never revive it. The loop was stopped (not paused), so
+        // reschedule from the top rather than resuming.
         if wasActive && musicEnabled {
-            #if os(macOS)
-            musicPlayer.play()
-            #elseif os(WASI)
             let theme = currentMusicTheme
             musicEnabled = false
             startBackgroundMusic(theme: theme)
-            #endif
         }
     }
 
