@@ -71,6 +71,15 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var pauseOverlay: SKNode? = nil
     #endif
 
+    // MARK: - Joystick (on-screen movement control)
+    private let joystickRadius: CGFloat = 90
+    private let joystickKnobRadius: CGFloat = 36
+    private let joystickDeadzone: CGFloat = 26
+    private var joystickCenter = CGPoint.zero
+    private var joystickHidden = false
+    private var joystickActive = false
+    private var joystickThumb: SKShapeNode?
+
     // MARK: - Lifecycle
     #if os(macOS)
     override func didMove(to view: SKView) {
@@ -96,6 +105,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         view.window?.acceptsMouseMovedEvents = true
         inputController.hideCursor()
         installFireButton()
+        installJoystick()
     }
 
     override func willMove(from view: SKView) {
@@ -134,6 +144,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         bossController.delegate = self
         buildLevel()
         installFireButton()
+        installJoystick()
         if state.practiceMode { hud.showMessage(Strings.Message.practiceMode, duration: 3) }
     }
 
@@ -255,7 +266,24 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             return
         }
         guard !isPaused, !isGameOver else { return }
+        let p = event.location(in: self)
+        if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
+            joystickActive = true
+            moveJoystickThumb(to: p)
+            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) {
+                workerController.queueDirection(d)
+                workerController.node.setFacing(d)
+            }
+            return
+        }
         fireWaterGun()
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if joystickActive {
+            joystickActive = false
+            recenterJoystickThumb()
+        }
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -263,6 +291,15 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseDragged(with event: NSEvent) {
+        let p = event.location(in: self)
+        if joystickActive {
+            moveJoystickThumb(to: p)
+            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) {
+                workerController.queueDirection(d)
+                workerController.node.setFacing(d)
+            }
+            return
+        }
         inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
     }
 
@@ -289,6 +326,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             return
         }
         if isGameOver || isUserPaused { return }
+        if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
+            joystickActive = true
+            moveJoystickThumb(to: p)
+            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
+            swipeStart = nil
+            moveAnchor = nil
+            return
+        }
         moveAnchor = p
         if !fireButtonHidden, fireButtonCenter.distance(to: p) <= fireButtonRadius {
             fireWaterGun()
@@ -300,6 +345,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseMoved(to p: CGPoint) {
+        if joystickActive {
+            moveJoystickThumb(to: p)
+            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
+            return
+        }
         if isGameOver || isUserPaused { moveAnchor = p; return }
         if let start = swipeStart {
             if !swipeFired, let d = swipeDirection(p.x - start.x, p.y - start.y) {
@@ -314,6 +364,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseUp(at p: CGPoint) {
+        if joystickActive {
+            joystickActive = false
+            recenterJoystickThumb()
+            return
+        }
         if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused,
            let d = swipeDirection(p.x - start.x, p.y - start.y) {
             steer(d)
@@ -939,6 +994,57 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         #endif
     }
 
+    // MARK: - Joystick
+    private func installJoystick() {
+        #if os(macOS)
+        let fireOnLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        #elseif os(WASI)
+        let fireOnLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        #endif
+        let onLeft = !fireOnLeft
+        joystickCenter = CGPoint(x: onLeft ? joystickRadius : size.width - joystickRadius, y: joystickRadius)
+
+        let base = SKShapeNode(circleOfRadius: joystickRadius)
+        base.position = joystickCenter
+        base.fillColor = SKColor(white: 1, alpha: 0.10)
+        base.strokeColor = SKColor(white: 1, alpha: 0.5)
+        base.lineWidth = 2
+        base.zPosition = 50
+        addChild(base)
+
+        let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
+        thumb.position = joystickCenter
+        thumb.fillColor = SKColor(white: 1, alpha: 0.28)
+        thumb.strokeColor = SKColor(white: 1, alpha: 0.6)
+        thumb.lineWidth = 2
+        thumb.zPosition = 51
+        addChild(thumb)
+        joystickThumb = thumb
+    }
+
+    private func joystickDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
+        guard (dx * dx + dy * dy).squareRoot() >= joystickDeadzone else { return nil }
+        if abs(dx) >= abs(dy) { return dx > 0 ? .right : .left }
+        return dy > 0 ? .up : .down
+    }
+
+    private func moveJoystickThumb(to p: CGPoint) {
+        let dx = p.x - joystickCenter.x
+        let dy = p.y - joystickCenter.y
+        let mag = (dx * dx + dy * dy).squareRoot()
+        let limit = joystickRadius - joystickKnobRadius
+        if mag > limit, mag > 0 {
+            let s = limit / mag
+            joystickThumb?.position = CGPoint(x: joystickCenter.x + dx * s, y: joystickCenter.y + dy * s)
+        } else {
+            joystickThumb?.position = p
+        }
+    }
+
+    private func recenterJoystickThumb() {
+        joystickThumb?.position = joystickCenter
+    }
+
     // MARK: - Boss water-droplet dodge (BossControllerDelegate)
     func dropletAxisThreatening(_ bossGrid: CGPoint) -> MoveDirection? {
         for line in activeDropletLines() where dropletThreatens(dropletGrid: line.grid, dir: line.dir, boss: bossGrid) {
@@ -1012,6 +1118,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
 #if os(macOS)
 extension GameScene: PointerInputControllerDelegate {}
+
+private extension CGPoint {
+    func distance(to other: CGPoint) -> CGFloat { hypot(x - other.x, y - other.y) }
+}
 #elseif os(WASI)
 extension GameScene: SKPhysicsContactDelegate {}
 #endif
