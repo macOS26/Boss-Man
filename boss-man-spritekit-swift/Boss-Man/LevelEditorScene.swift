@@ -743,12 +743,7 @@ final class LevelEditorScene: SKScene {
     }
 
     private func brightened(_ c: SKColor, _ f: CGFloat = 0.45) -> SKColor {
-        #if os(macOS)
-        return c.blended(withFraction: f, of: .white) ?? c
-        #else
-        return SKColor(red: c.r + (1 - c.r) * f, green: c.g + (1 - c.g) * f,
-                       blue: c.b + (1 - c.b) * f, alpha: c.a)
-        #endif
+        c.blended(withFraction: f, of: .white) ?? c
     }
 
     private func flashButton(named name: String) {
