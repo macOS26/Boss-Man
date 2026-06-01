@@ -199,29 +199,22 @@ final class TitleScene: SKScene {
 
     // MARK: - Input (platform event shapes funnel into the shared actions)
     #if os(macOS)
-    override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 35, 49: startGame()        // P or Space
-        case 14:     startEditor()      // E
-        case 3:      enterFullscreen()  // F
-        case 53:     exitToWindow()     // Esc -> windowed
-        default:     break
-        }
-    }
+    override func keyDown(with event: NSEvent) { handleKey(Int(event.keyCode)) }
     override func mouseDown(with event: NSEvent) { handleTap(at: event.location(in: self)) }
     #elseif os(WASI)
-    override func keyDown(_ key: Int) {
-        switch key {
-        case 15:     startGame()              // P
-        case 4:      startEditor()            // E
-        case 5:      enterFullscreen()        // F
-        case 36:     exitToWindow()           // Esc
-        case 57:     startGame()              // Space (gamepad A maps here)
-        default:     break
-        }
-    }
+    override func keyDown(_ key: Int) { handleKey(key) }
     override func mouseDown(at p: CGPoint) { handleTap(at: p) }
     #endif
+
+    private func handleKey(_ key: Int) {
+        switch key {
+        case KeyCode.keyP, KeyCode.space: startGame()
+        case KeyCode.keyE:                startEditor()
+        case KeyCode.keyF:                enterFullscreen()
+        case KeyCode.esc:                 exitToWindow()
+        default:                          break
+        }
+    }
 
     // MARK: - Stapler
     private func makeStapler() -> SKNode {

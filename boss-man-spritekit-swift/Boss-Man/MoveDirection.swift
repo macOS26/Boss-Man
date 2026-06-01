@@ -38,6 +38,11 @@ enum KeyCode {
     static let keyD = 2
     static let keyS = 1
     static let keyW = 13
+    static let keyP = 35
+    static let keyE = 14
+    static let keyF = 3
+    static let esc = 53
+    static let space = 49
 #elseif os(WASI)
     static let arrowLeft  = 71
     static let arrowRight = 72
@@ -47,5 +52,10 @@ enum KeyCode {
     static let keyD = 3
     static let keyS = 18
     static let keyW = 22
+    static let keyP = 15
+    static let keyE = 4
+    static let keyF = 5
+    static let esc = 36
+    static let space = 57
 #endif
 }
