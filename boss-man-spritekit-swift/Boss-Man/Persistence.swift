@@ -1,15 +1,10 @@
-#if os(macOS)
-import Foundation
-#elseif os(WASI)
 import SpriteKit
-#endif
 
 // Key/value persistence with one API surface for shared code (LocalHighScores,
-// HUD, title). The engine below is platform-neutral: numbers and bools are
-// encoded as strings on top of a single raw string get/set primitive. The ONLY
-// platform-specific code is `Backend` at the bottom — UserDefaults on apple,
-// the framework's LocalStore (window.localStorage) on wasm — so adding a
-// platform means writing two functions, not editing every accessor.
+// HUD, title). The engine is platform-neutral: numbers and bools are encoded as
+// strings on top of a single raw string get/set primitive. The backend is
+// UserDefaults on every platform — Foundation's on Apple, the framework's
+// localStorage-backed shim on wasm — so this whole file is common.
 enum Persistence {
     // MARK: - Reads
     static func int(forKey key: String) -> Int {
@@ -39,13 +34,8 @@ enum Persistence {
     static func setString(_ value: String, forKey key: String) { Backend.setString(value, forKey: key) }
 }
 
-// MARK: - Platform backend (the only per-platform code)
+// MARK: - Backend (common: UserDefaults on every platform)
 private enum Backend {
-    #if os(macOS)
     static func string(forKey key: String) -> String? { UserDefaults.standard.string(forKey: key) }
     static func setString(_ value: String, forKey key: String) { UserDefaults.standard.set(value, forKey: key) }
-    #elseif os(WASI)
-    static func string(forKey key: String) -> String? { LocalStore.string(forKey: key) }
-    static func setString(_ value: String, forKey key: String) { LocalStore.setString(value, forKey: key) }
-    #endif
 }
