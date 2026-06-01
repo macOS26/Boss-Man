@@ -1,8 +1,6 @@
 import SpriteKit
 #if os(macOS)
 import AppKit
-#elseif os(WASI)
-import KitABI
 #endif
 
 // Title screen, shared by both ports: BOSS-MAN wordmark tilted slightly, red
@@ -176,22 +174,8 @@ final class TitleScene: SKScene {
         view?.presentScene(editor, transition: .fade(withDuration: 0.3))
     }
 
-    private func enterFullscreen() {
-        #if os(macOS)
-        guard let w = view?.window, !w.styleMask.contains(.fullScreen) else { return }
-        w.toggleFullScreen(nil)
-        #elseif os(WASI)
-        win_request_fullscreen()
-        #endif
-    }
-    private func exitToWindow() {
-        #if os(macOS)
-        guard let w = view?.window, w.styleMask.contains(.fullScreen) else { return }
-        w.toggleFullScreen(nil)
-        #elseif os(WASI)
-        win_exit_fullscreen()
-        #endif
-    }
+    private func enterFullscreen() { view?.enterFullscreen() }
+    private func exitToWindow()    { view?.exitFullscreen() }
 
     // Shared tap routing — both ports funnel their pointer event through here.
     private func handleTap(at p: CGPoint) {

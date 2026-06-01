@@ -95,6 +95,13 @@ public final class SKView {
     }
     public func texture(from node: SKNode, crop: CGRect) -> SKTexture? { texture(from: node) }
 
+    // Fullscreen, forwarded to the host (Element.requestFullscreen / exitFullscreen
+    // with the runtime's pseudo-fullscreen fallback). The Apple build supplies the
+    // same two methods via an AppKit window-toggling SKView extension, so a game
+    // calls view?.enterFullscreen() / exitFullscreen() with no platform branch.
+    public func enterFullscreen() { win_request_fullscreen() }
+    public func exitFullscreen()  { win_exit_fullscreen() }
+
     public func tick(_ dtMs: Double) {
         guard let s = scene else { return }
         // Clamp the frame delta to one 60 Hz step. On the web a dropped frame,
