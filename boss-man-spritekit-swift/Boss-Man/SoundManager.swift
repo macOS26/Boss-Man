@@ -242,9 +242,10 @@ final class SoundManager {
         speak(bossCaptureLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.fallback, priority: false)
     }
 
-    func playCaughtByBoss() {
+    @discardableResult
+    func playCaughtByBoss() -> TimeInterval {
         play(buffer: cached(Strings.SoundCache.caughtByBoss) { self.sweep(from: 330, to: 60, duration: 0.7, volume: 0.4) })
-        speak(caughtLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.caughtFallback, priority: true)
+        return speak(caughtLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.caughtFallback, priority: true)
     }
 
     func playFishOrTreat() {
@@ -343,9 +344,10 @@ final class SoundManager {
         return buffer
     }
 
-    func playLevelStart() {
+    @discardableResult
+    func playLevelStart() -> TimeInterval {
         play(buffer: cached(Strings.SoundCache.levelStart) { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3) })
-        speak(levelStartLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.fallback, priority: false)
+        return speak(levelStartLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.fallback, priority: false)
     }
 
     func startBackgroundMusic(theme: MusicTheme = .normal) {
@@ -864,9 +866,10 @@ final class SoundManager {
     }
 
     // MARK: - Voice
-    private func speak(_ text: String, priority: Bool) {
+    @discardableResult
+    private func speak(_ text: String, priority: Bool) -> TimeInterval {
         let now = CACurrentMediaTime()
-        if !priority, now - lastSpeechTime < speechCooldown { return }
+        if !priority, now - lastSpeechTime < speechCooldown { return 0 }
         lastSpeechTime = now
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
@@ -875,6 +878,7 @@ final class SoundManager {
         utterance.volume = 1.0
         if priority { speech.stopSpeaking(at: .immediate) }
         speech.speak(utterance)
+        return Double(text.count) * 0.08 + 0.4
     }
 }
 

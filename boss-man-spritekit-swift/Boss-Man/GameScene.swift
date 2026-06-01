@@ -13,6 +13,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var frightenSecondsLeft: TimeInterval = 0
     private let waterHitPoints = 50
     private var pendingCatch: PixelPerson?
+    private var deferredBossSpawn: (() -> Void)?
+    private var bossSpawnDelay: TimeInterval = 0
+    private var nextBossSpawnSeconds: TimeInterval = 0
     private let requiredItems = Strings.Machine.required
     private let reportItemPoints = [10, 25, 50, 100]
     private let dropletDodgeRange = 8
@@ -168,8 +171,13 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         workerController.delegate = self
         addChild(workerController.node)
         workerController.applySpawnShield()
-        bossController.spawn(forLevel: state.level,
-                             spawnOverrides: mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
+        let bossSpawnSeconds = nextBossSpawnSeconds
+        nextBossSpawnSeconds = 0
+        delayBossSpawn(after: bossSpawnSeconds) { [weak self] in
+            guard let self else { return }
+            self.bossController.spawn(forLevel: self.state.level,
+                                      spawnOverrides: self.mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
+        }
         refreshHUD()
         #if os(macOS)
         let scheduledLevel = state.level
@@ -515,8 +523,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         hud.showMessage(Strings.Message.bossCaptured(name: name, points: points), duration: 2)
     }
 
+    private func delayBossSpawn(after seconds: TimeInterval, _ action: @escaping () -> Void) {
+        if seconds <= 0 { action(); return }
+        bossSpawnDelay = seconds
+        deferredBossSpawn = action
+    }
+
     private func bossCaughtWorker() {
-        sound.playCaughtByBoss()
+        let caughtSpeech = sound.playCaughtByBoss()
         state.lives -= 1
         if goldDisc.isActive { endGoldDiscMode() }
 
@@ -533,10 +547,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         workerController.resetMotion()
         workerController.teleport(to: mazeBuilder.workerSpawn ?? firstWalkableCell())
         workerController.applySpawnShield()
-        bossController.teleportAllToSpawn()
         if state.lives <= 0 {
             triggerGameOver()
         } else {
+            delayBossSpawn(after: caughtSpeech) { [weak self] in self?.bossController.teleportAllToSpawn() }
             hud.showMessage(Strings.Message.bossCaughtYou(state.lives), duration: 3)
         }
     }
@@ -592,6 +606,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // MARK: - Update loop (wasm: drives movement; macOS: SKAction-driven)
     override func update(_ currentTime: TimeInterval) {
         guard workerController != nil else { return }
+        let dt: TimeInterval = 1.0 / 60.0
         if let caughtBy = pendingCatch {
             pendingCatch = nil
             #if os(macOS)
@@ -601,8 +616,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             bossController.relocateAfterCatch(boss: caughtBy)
             bossCaughtWorker()
         }
+        if let action = deferredBossSpawn {
+            bossSpawnDelay -= dt
+            if bossSpawnDelay <= 0 {
+                deferredBossSpawn = nil
+                action()
+            }
+        }
         if isGameOver { return }
-        let dt: TimeInterval = 1.0 / 60.0
 
         #if os(WASI)
         if isUserPaused { return }
@@ -652,13 +673,13 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private func startNextLevel() {
         state.advanceLevel()
         #if os(macOS)
+        nextBossSpawnSeconds = sound.playLevelStart()
         resetSceneAndBuild()
-        sound.playLevelStart()
         #elseif os(WASI)
         // wasm reuses the worker / HUD / fire button across levels — only the
         // maze, bosses and traveler are swapped (apple rebuilds the whole scene).
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
-        sound.playLevelStart()
+        let levelSpeech = sound.playLevelStart()
         bossController.clear()
         mazeRoot.removeAllChildren()
         travelerSpawner.reset()
@@ -670,8 +691,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         workerController.resetMotion()
         workerController.teleport(to: spawn)
-        bossController.spawn(forLevel: state.level,
-                             spawnOverrides: mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
+        delayBossSpawn(after: levelSpeech) { [weak self] in
+            guard let self else { return }
+            self.bossController.spawn(forLevel: self.state.level,
+                                      spawnOverrides: self.mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
+        }
         refreshHUD()
         #endif
         hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
