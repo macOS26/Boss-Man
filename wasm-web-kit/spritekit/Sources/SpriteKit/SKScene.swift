@@ -70,9 +70,3 @@ public struct NSEvent {
     }
     public func location(in node: SKNode) -> CGPoint { point }
 }
-
-// Runs main-actor work from an audio/asset completion. On wasm the completion
-// already fires on the single main thread, so the work runs inline (a deferred
-// main-queue hop would never drain here). The macOS build supplies its own
-// version that hops to the main queue, since its completions fire off-thread.
-@MainActor public func runOnMain(_ work: @escaping @MainActor () -> Void) { work() }

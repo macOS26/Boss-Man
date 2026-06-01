@@ -18,6 +18,12 @@ import KitABI
 // mix (player.volume x mainMixer.outputVolume) reproduces on web.
 nonisolated(unsafe) var _avMasterVolume: Float = 1.0
 
+// Runs main-actor work from an audio completion. On wasm the completion fires on
+// the single main thread, so the work runs inline (a deferred main-queue hop
+// would never drain here). The macOS build supplies its own version that hops to
+// the main queue, since its AVFoundation completions fire off-thread.
+@MainActor public func runOnMain(_ work: @escaping @MainActor () -> Void) { work() }
+
 // ---- AVAudioPlayerDelegate ------------------------------------------------
 public protocol AVAudioPlayerDelegate: AnyObject {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool)
