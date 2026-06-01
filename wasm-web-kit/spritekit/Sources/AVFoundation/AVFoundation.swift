@@ -24,6 +24,22 @@ nonisolated(unsafe) var _avMasterVolume: Float = 1.0
 // the main queue, since its AVFoundation completions fire off-thread.
 @MainActor public func runOnMain(_ work: @escaping @MainActor () -> Void) { work() }
 
+// Hands the game's voice-name preference lists to the runtime, which owns voice
+// selection on the web (priority order, robotic-excluded, female-last). The
+// macOS build ranks voices in-process instead and supplies a no-op counterpart.
+public func applySpeechVoicePreferences(preferred: [String], robotic: [String], female: [String]) {
+    sendVoiceCSV(preferred.joined(separator: ","), tts_set_preferred_voices)
+    sendVoiceCSV(robotic.joined(separator: ","),   tts_set_robotic_voices)
+    sendVoiceCSV(female.joined(separator: ","),    tts_set_female_voices)
+}
+private func sendVoiceCSV(_ s: String, _ f: (UnsafePointer<CChar>?, Int32) -> Void) {
+    let bytes = Array(s.utf8)
+    bytes.withUnsafeBufferPointer { buf in
+        guard let base = buf.baseAddress else { return }
+        base.withMemoryRebound(to: CChar.self, capacity: buf.count) { f($0, Int32(buf.count)) }
+    }
+}
+
 // ---- AVAudioPlayerDelegate ------------------------------------------------
 public protocol AVAudioPlayerDelegate: AnyObject {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool)
