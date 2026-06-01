@@ -41,11 +41,7 @@ final class WorkerController {
         node.addChild(tag)
         node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
         node.physicsBody?.allowsRotation = false
-        #if os(macOS)
-        node.physicsBody?.isDynamic = true
-        #elseif os(WASI)
         node.physicsBody?.isDynamic = false
-        #endif
         node.physicsBody?.affectedByGravity = false
         node.physicsBody?.velocity = CGVector.zero
         node.physicsBody?.categoryBitMask = PhysicsCategory.worker
