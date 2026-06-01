@@ -28,15 +28,12 @@ final class BossController {
         let moveInterval: TimeInterval
         let moveDuration: TimeInterval
         var lastMove: TimeInterval
-        var mustExitDoorway: Bool = false
         var isInFleeMode: Bool = false
         var captureCount: Int = 0
         var isImmobilized: Bool = false
         let blueprintIndex: Int
-        #if os(WASI)
         var mover: TileMover<MoveDirection>! = nil
         var frightenedStep: TimeInterval = 0
-        #endif
     }
 
     // The `spawn` slot here is a placeholder (.zero) only. A boss's home/spawn
@@ -130,11 +127,8 @@ final class BossController {
             node.setShoeOutlineColor(Self.bossShoeGoldColor)
             node.setEyeColor(SpriteFactory.fleeEyeColor)
             node.setSkinColor(SpriteFactory.fleeSkinColor)
-            #if os(WASI)
             entities[index].mover?.step = entities[index].frightenedStep
-            #endif
         }
-        scheduleStepper(for: entities[index])
         applySpawnFreeze(at: index)
         if goldDiscActive { refreshTags(goldDiscActive: true) }
     }
@@ -207,7 +201,6 @@ final class BossController {
         )
         entities.append(entity)
 
-        #if os(WASI)
         let idx = entities.count - 1
         let mover = TileMover<MoveDirection>(node: node, spawn: blueprint.spawn, map: gridMap,
                                              step: entityDuration, containerOriginX: containerOriginX,
@@ -217,7 +210,6 @@ final class BossController {
         if hold > 0 { mover.holdTime = hold }
         entities[idx].mover = mover
         entities[idx].frightenedStep = 0.22 / speed
-        #endif
     }
 
     private func relocateToSpawn(at index: Int) {
@@ -227,9 +219,7 @@ final class BossController {
         node.stopWalking()
         entity.ai.teleport(to: entity.spawn)
         node.position = gridMap.point(for: entity.spawn)
-        #if os(WASI)
         entity.mover?.reset(to: entity.spawn)
-        #endif
         node.setBodyColor(entity.baseColor)
         node.setTieColor(entity.tieColor)
         node.setTieOutline(color: nil)
@@ -239,13 +229,6 @@ final class BossController {
         node.setSkinColor(Self.baseSkinColor)
         entities[index].captureCount = 0
         entities[index].isInFleeMode = false
-        entities[index].mustExitDoorway = false
-    }
-
-    private func respawn(at index: Int) {
-        relocateToSpawn(at: index)
-        scheduleStepper(for: entities[index])
-        applySpawnFreeze(at: index)
     }
 
     private func rebuildEntity(at index: Int) {
@@ -322,9 +305,7 @@ final class BossController {
             entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
             entities[i].node.setEyeColor(active ? SpriteFactory.fleeEyeColor : .black)
             entities[i].node.setSkinColor(active ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
-            #if os(WASI)
             entities[i].mover?.step = active ? entities[i].frightenedStep : entities[i].moveDuration
-            #endif
         }
         refreshTags(goldDiscActive: active)
         if !active { applyFleeThawTransition() }
@@ -378,105 +359,11 @@ final class BossController {
         }
     }
 
-    // MARK: - Stepping (apple: SKAction-driven per boss; wasm: TileMover via advance)
-    private func scheduleStepper(for entity: Entity) {
-        #if os(macOS)
-        let bossNode = entity.node
-        let stepper = SKAction.repeatForever(.sequence([
-            .wait(forDuration: entity.moveInterval),
-            .run { [weak self, weak bossNode] in
-                guard let self, let bossNode,
-                      let index = self.entities.firstIndex(where: { $0.node === bossNode })
-                else { return }
-                self.stepOne(at: index)
-            }
-        ]))
-        entity.node.run(stepper, withKey: Strings.ActionKey.bossStepper)
-        #endif
-    }
-
-    #if os(macOS)
-    private func stepOne(at index: Int) {
-        guard let delegate, !entities[index].isImmobilized else { return }
-        let boss = entities[index]
-        let blinkyGrid = firstBossGrid
-
-        let move: BossAI.Move
-        if entities[index].mustExitDoorway, let exit = forcedExit(from: boss.ai.grid) {
-            let from = boss.ai.grid
-            boss.ai.teleport(to: exit)
-            entities[index].mustExitDoorway = false
-            move = BossAI.Move(from: from, to: exit)
-        } else if let planned = boss.ai.planNextStep(
-            workerGrid: delegate.workerGrid,
-            workerDirection: delegate.workerDirection,
-            blinkyGrid: blinkyGrid,
-            flee: delegate.isGoldDiscMode,
-            dodgeAxis: delegate.dropletAxisThreatening(boss.ai.grid)
-        ) {
-            move = planned
-        } else {
-            boss.node.stopWalking()
-            return
-        }
-
-        boss.node.startWalking()
-        let dx = move.to.x - move.from.x
-        let dy = move.to.y - move.from.y
-        let look: MoveDirection? = {
-            if abs(dx) > abs(dy) { return dx < 0 ? .left : .right }
-            if dy != 0 { return dy > 0 ? .up : .down }
-            return nil
-        }()
-        if let look { boss.node.setFacingSmoothed(look) }
-        let isPartnerEdge = abs(move.to.x - move.from.x) + abs(move.to.y - move.from.y) > 1
-        if isPartnerEdge {
-            boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
-            boss.node.position = gridMap.point(for: move.to)
-        } else {
-            let touchesDoorway =
-                gridMap.tunnelPartner(of: move.from) != nil ||
-                gridMap.tunnelPartner(of: move.to) != nil
-            let stepDuration = touchesDoorway ? boss.moveDuration * 2.0 : boss.moveDuration
-
-            boss.node.run(.sequence([
-                SKAction.move(to: gridMap.point(for: move.to), duration: stepDuration),
-                .run { [weak self, weak bossNode = boss.node] in
-                    guard let self, let bossNode,
-                          let i = self.entities.firstIndex(where: { $0.node === bossNode }) else { return }
-                    if let partner = self.gridMap.tunnelPartner(of: move.to),
-                       self.gridMap.isWalkable(partner) {
-                        self.entities[i].node.position = self.gridMap.point(for: partner)
-                        self.entities[i].ai.teleport(to: partner)
-                        self.entities[i].mustExitDoorway = true
-                    }
-                }
-            ]), withKey: Strings.ActionKey.bossMove)
-        }
-        // Catch + frightened-capture happen on actual overlap via the physics
-        // contact (onBossTouchedWorker). The old grid test here fired the moment
-        // the boss merely TARGETED Pete's tile (still a tile away mid-glide),
-        // which conflicted with the contact catch and made the hit distance
-        // inconsistent — "a square away" sometimes, touching others.
-    }
-
-    private func forcedExit(from grid: CGPoint) -> CGPoint? {
-        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-            let next = CGPoint(x: grid.x + CGFloat(dx), y: grid.y + CGFloat(dy))
-            if gridMap.isWalkable(next), gridMap.tunnelPartner(of: next) == nil {
-                return next
-            }
-        }
-        return nil
-    }
-    #endif
-
-    #if os(WASI)
-    // Per-frame continuous stepper for the wasm port: each boss steps through a
-    // TileMover (gap-free, no per-tile SKAction restart), driven from
-    // GameScene.update. Pete-grid / heading / flee come from the delegate, the
-    // BLINKY anchor from entities.first — same inputs the macOS SKAction stepper
-    // reads in stepOne.
+    // MARK: - Stepping
+    // Each boss steps through its own TileMover, advanced once per frame from the
+    // scene update. The AI plans the next target tile from Pete's position, heading,
+    // and the flee state; the mover owns glide, per-tile dwell, tunnel wrap, and
+    // slow-in-tunnels.
     func advance(_ dt: TimeInterval) {
         guard let delegate else { return }
         let peteGrid = delegate.workerGrid
@@ -502,7 +389,6 @@ final class BossController {
             })
         }
     }
-    #endif
 
     func capture(boss node: PixelPerson) {
         guard let index = entities.firstIndex(where: { $0.node === node }) else { return }
@@ -518,12 +404,9 @@ final class BossController {
         let powerActive = delegate?.isGoldDiscMode ?? false
 
         boss.ai.teleport(to: boss.spawn)
-        boss.node.removeAction(forKey: Strings.ActionKey.bossMove)
         boss.node.stopWalking()
-        #if os(WASI)
         entities[index].isImmobilized = true
         boss.mover?.reset(to: boss.spawn)
-        #endif
         let homePoint = gridMap.point(for: boss.spawn)
         let bossNode = boss.node
 
@@ -547,13 +430,11 @@ final class BossController {
                     .fadeIn(withDuration: 0.2)
                 ])
             ]
-            #if os(WASI)
             seq.append(.run { [weak self, weak bossNode] in
                 guard let self, let bossNode,
                       let i = self.entities.firstIndex(where: { $0.node === bossNode }) else { return }
                 self.entities[i].isImmobilized = false
             })
-            #endif
             bossNode.run(.sequence(seq))
             boss.node.setBodyColor(powerActive ? SpriteFactory.fleeBodyColor : boss.baseColor)
             boss.node.setTieColor(powerActive ? SpriteFactory.fleeTieColor : boss.tieColor)

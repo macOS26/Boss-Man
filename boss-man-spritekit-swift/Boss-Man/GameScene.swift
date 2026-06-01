@@ -605,7 +605,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    // MARK: - Update loop (wasm: drives movement; macOS: SKAction-driven)
+    // MARK: - Update loop
     override func update(_ currentTime: TimeInterval) {
         guard workerController != nil else { return }
         let dt: TimeInterval = 1.0 / 60.0
@@ -633,9 +633,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         #endif
 
         workerController.advance(dt)
+        bossController.advance(dt)
 
         #if os(WASI)
-        bossController.advance(dt)
         stepWaterDroplets(dt: dt)
         #endif
 
