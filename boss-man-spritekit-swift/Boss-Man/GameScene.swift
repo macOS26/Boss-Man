@@ -4,18 +4,14 @@ import GameKit
 #endif
 import SpriteKit
 
-// Gameplay scene, common to the macOS master and the wasm port. The pure game
-// logic (collection, scoring via RoundState, TPS reports, gold-disc, boss
-// catch, level flow) is shared; the platform I/O is forked behind #if:
-//   - macOS: NSEvent input + PointerInputController, ContactRouter, GameKit,
-//     SKAction-driven movement, gold-disc expiry via a scene SKAction.
-//   - wasm: kit CGPoint/Int input overrides, didBegin contacts, TileMover
-//     movement driven from update(), gold-disc expiry via a frame countdown,
-//     maze centred through gridMap x/yOffset.
+// Gameplay scene, common to the macOS master and the wasm port. The game logic
+// is shared; only platform input, movement timing, and Game Center fork behind
+// #if.
 final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate {
     private let tileSize: CGFloat = 32
     private let goldDiscDuration: TimeInterval = 20
     private var frightenSecondsLeft: TimeInterval = 0
+    private let waterHitPoints = 50
     private let requiredItems = Strings.Machine.required
     private let reportItemPoints = [10, 25, 50, 100]
     private let dropletDodgeRange = 8
@@ -52,7 +48,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     #if os(macOS)
     private let workerSpawn = CGPoint(x: 18, y: 7)
     private let inputController = PointerInputController()
-    private let contactRouter = ContactRouter()
     #elseif os(WASI)
     private let mazeRoot = SKNode()
     private var containerOriginX: CGFloat = 0
@@ -65,7 +60,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let fireButtonRadius: CGFloat = 112.5
     private var waterDroplets: [WaterDroplet] = []
     private let waterDropletSpeed: CGFloat = 12 * 32
-    private let waterHitPoints = 50
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     #endif
@@ -86,7 +80,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         backgroundColor = SpriteFactory.mazeBackground
         anchorPoint = CGPoint(x: 0, y: 0)
         physicsWorld.gravity = .zero
-        physicsWorld.contactDelegate = contactRouter
+        physicsWorld.contactDelegate = self
 
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         gridMap.yOffset = 0
@@ -96,7 +90,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound)
         bossController.delegate = self
-        wireContactRouter()
         buildLevel()
         hud.showMessage(state.practiceMode ? Strings.Message.practiceMode : Strings.Message.intro, duration: 3)
         inputController.delegate = self
@@ -548,56 +541,37 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     // MARK: - Contacts (platform-specific)
-    #if os(macOS)
-    private func wireContactRouter() {
-        contactRouter.shouldIgnoreContact = { [weak self] in self?.isGameOver ?? true }
-        contactRouter.onBossTouchedWorker = { [weak self] node in
-            guard let self else { return }
-            guard let bossNode = node as? PixelPerson else { return }
-            if self.bossController.isImmobilized(boss: bossNode) { return }
-            if self.bossController.isInFleeMode(boss: bossNode) {
-                self.bossController.capture(boss: bossNode)
-            } else if !self.workerController.isShielded {
-                bossNode.alpha = 0
-                bossNode.removeAllActions()
-                self.bossController.relocateAfterCatch(boss: bossNode)
-                self.bossCaughtWorker()
-            }
-        }
-        contactRouter.onFishTouchedWorker = { [weak self] node in self?.catchTraveler(node) }
-        contactRouter.onDropletTouchedBoss = { [weak self] dropletBody, bossBody in
-            dropletBody.node?.removeFromParent()
-            guard let self else { return }
-            if let bossNode = bossBody.node as? PixelPerson {
-                let pos = bossNode.position
-                self.bossController.splash(boss: bossNode)
-                self.sound.playWaterGunSplash()
-                self.state.bumpScore(by: 50)
-                ScorePopup.show(50, at: pos, in: self)
-                self.spawnWaterSplash(at: pos)
-                self.hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
-                self.refreshHUD()
-            }
-        }
-    }
-    #elseif os(WASI)
     func didBegin(_ contact: SKPhysicsContact) {
         if isGameOver { return }
         let bodies = [contact.bodyA, contact.bodyB]
 
         if let dropletNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet })?.node,
            let bossNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss })?.node as? PixelPerson {
-            state.bumpScore(by: waterHitPoints)
-            ScorePopup.show(waterHitPoints, at: bossNode.position, in: self,
-                            color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
-            spawnWaterSplash(at: bossNode.position)
-            sound.playWaterGunSplash()
+            let pos = bossNode.position
             bossController.splash(boss: bossNode)
-            refreshHUD()
+            sound.playWaterGunSplash()
+            state.bumpScore(by: waterHitPoints)
+            spawnWaterSplash(at: pos)
+            #if os(macOS)
+            ScorePopup.show(waterHitPoints, at: pos, in: self)
+            hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
+            #elseif os(WASI)
+            ScorePopup.show(waterHitPoints, at: pos, in: self,
+                            color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
             if let idx = waterDroplets.firstIndex(where: { $0 === dropletNode }) { waterDroplets.remove(at: idx) }
+            #endif
+            refreshHUD()
             dropletNode.removeFromParent()
             return
         }
+
+        #if os(macOS)
+        if let dropletNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet })?.node,
+           bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.wall }) {
+            dropletNode.removeFromParent()
+            return
+        }
+        #endif
 
         guard bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) else { return }
         if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
@@ -609,12 +583,15 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             if bossController.isInFleeMode(boss: bossNode) {
                 bossController.capture(boss: bossNode)
             } else if !workerController.isShielded {
+                #if os(macOS)
+                bossNode.alpha = 0
+                bossNode.removeAllActions()
+                #endif
                 bossController.relocateAfterCatch(boss: bossNode)
                 bossCaughtWorker()
             }
         }
     }
-    #endif
 
     // MARK: - Update loop (wasm: drives movement; macOS: SKAction-driven)
     override func update(_ currentTime: TimeInterval) {
@@ -1067,12 +1044,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 }
 
+extension GameScene: SKPhysicsContactDelegate {}
+
 #if os(macOS)
 extension GameScene: PointerInputControllerDelegate {}
 
 private extension CGPoint {
     func distance(to other: CGPoint) -> CGFloat { hypot(x - other.x, y - other.y) }
 }
-#elseif os(WASI)
-extension GameScene: SKPhysicsContactDelegate {}
 #endif
