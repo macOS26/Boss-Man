@@ -12,6 +12,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let goldDiscDuration: TimeInterval = 20
     private var frightenSecondsLeft: TimeInterval = 0
     private let waterHitPoints = 50
+    private var pendingCatch: PixelPerson?
     private let requiredItems = Strings.Machine.required
     private let reportItemPoints = [10, 25, 50, 100]
     private let dropletDodgeRange = 8
@@ -583,12 +584,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             if bossController.isInFleeMode(boss: bossNode) {
                 bossController.capture(boss: bossNode)
             } else if !workerController.isShielded {
-                #if os(macOS)
-                bossNode.alpha = 0
-                bossNode.removeAllActions()
-                #endif
-                bossController.relocateAfterCatch(boss: bossNode)
-                bossCaughtWorker()
+                pendingCatch = bossNode
             }
         }
     }
@@ -596,6 +592,15 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // MARK: - Update loop (wasm: drives movement; macOS: SKAction-driven)
     override func update(_ currentTime: TimeInterval) {
         guard workerController != nil else { return }
+        if let caughtBy = pendingCatch {
+            pendingCatch = nil
+            #if os(macOS)
+            caughtBy.alpha = 0
+            caughtBy.removeAllActions()
+            #endif
+            bossController.relocateAfterCatch(boss: caughtBy)
+            bossCaughtWorker()
+        }
         if isGameOver { return }
         let dt: TimeInterval = 1.0 / 60.0
 
