@@ -635,12 +635,8 @@ final class LevelEditorScene: SKScene {
         let traveler = levelTravelers[currentLevelIndex % levelTravelers.count]
         let glyph = TravelerGlyph.makeNode(for: traveler, pointSize: lbl.fontSize)
         if traveler.image != nil { glyph.xScale = -1 }
-        #if os(macOS)
         let lblFrame = lbl.calculateAccumulatedFrame()
         glyph.position = CGPoint(x: lblFrame.maxX + 14, y: lblFrame.midY)
-        #elseif os(WASI)
-        glyph.position = CGPoint(x: lbl.position.x + lbl.measuredWidth() / 2 + 14, y: lbl.position.y)
-        #endif
         glyph.zPosition = lbl.zPosition
         uiContainer.addChild(glyph)
         levelHeadingGlyph = glyph
