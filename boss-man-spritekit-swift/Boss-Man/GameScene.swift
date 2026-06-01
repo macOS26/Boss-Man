@@ -61,7 +61,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let swipeThreshold: CGFloat = 24
     private var fireButtonCenter = CGPoint.zero
     private var fireButtonHidden = false
-    private let fireButtonRadius: CGFloat = 90
+    private let fireButtonRadius: CGFloat = 112.5
     private var contactCooldown: TimeInterval = 0
     private var frightenSecondsLeft: TimeInterval = 0
     private var waterDroplets: [WaterDroplet] = []
@@ -72,9 +72,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     #endif
 
     // MARK: - Joystick (on-screen movement control)
-    private let joystickRadius: CGFloat = 90
-    private let joystickKnobRadius: CGFloat = 36
-    private let joystickDeadzone: CGFloat = 26
+    private let joystickRadius: CGFloat = 112.5
+    private let joystickKnobRadius: CGFloat = 45
+    private let joystickDeadzone: CGFloat = 32.5
     private var joystickCenter = CGPoint.zero
     private var joystickHidden = false
     private var joystickActive = false
@@ -971,8 +971,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         #if os(macOS)
         if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
         let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        let center = CGPoint(x: onLeft ? 90 : size.width - 90, y: 90)
-        let ring = SKShapeNode(circleOfRadius: 90)
+        let center = CGPoint(x: onLeft ? 112.5 : size.width - 112.5, y: 127.5)
+        let ring = SKShapeNode(circleOfRadius: 112.5)
         ring.position = center
         ring.fillColor = NSColor(white: 1, alpha: 0.14)
         ring.strokeColor = NSColor(white: 1, alpha: 0.5)
@@ -983,7 +983,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         fireButtonHidden = Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide)
         if fireButtonHidden { return }
         let onLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius)
+        fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter
         ring.fillColor = SKColor(white: 1, alpha: 0.14)
@@ -1002,7 +1002,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         let fireOnLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
         #endif
         let onLeft = !fireOnLeft
-        joystickCenter = CGPoint(x: onLeft ? joystickRadius : size.width - joystickRadius, y: joystickRadius)
+        joystickCenter = CGPoint(x: onLeft ? joystickRadius : size.width - joystickRadius, y: joystickRadius + 15)
 
         let base = SKShapeNode(circleOfRadius: joystickRadius)
         base.position = joystickCenter
