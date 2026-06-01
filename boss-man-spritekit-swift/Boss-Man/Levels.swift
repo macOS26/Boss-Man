@@ -17,21 +17,12 @@ enum Levels {
     static func invalidateCache() { _cache = nil }
 
     private static func loadFromAsset() -> [[String]]? {
-#if os(macOS)
-        guard let url = Bundle.main.url(forResource: Strings.Resource.levelsFile,
-                                         withExtension: Strings.Resource.levelsExtension),
-              let data = try? Data(contentsOf: url),
-              let dict = try? JSONDecoder().decode([String: [String]].self, from: data)
-        else { return nil }
-        return levelNames.map { dict[$0] ?? emptyLevelRows() }
-#elseif os(WASI)
         guard let text = SKSceneLoader.loadAssetText("levels.json"),
               let obj = parseJSON(text) as? [String: Any] else { return nil }
         return levelNames.map { name in
             guard let rowsAny = obj[name] as? [Any] else { return emptyLevelRows() }
             return rowsAny.compactMap { $0 as? String }
         }
-#endif
     }
 
     private static func emptyLevelRows() -> [String] {

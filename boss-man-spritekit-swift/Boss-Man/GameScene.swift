@@ -258,7 +258,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
         guard !isPaused else { return }
         if event.keyCode == 49 { fireWaterGun(); return }
-        guard let direction = MoveDirection(keyCode: event.keyCode), !event.isARepeat else { return }
+        guard let direction = MoveDirection(keyCode: Int(event.keyCode)), !event.isARepeat else { return }
         workerController.queueDirection(direction)
     }
 

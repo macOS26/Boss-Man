@@ -137,13 +137,8 @@ enum Strings {
         static let enterUsernamePrompt = "Enter your username:"
         static let usernamePlaceholder = "Player"
         static let noScores = "No local scores yet."
-#if os(macOS)
         static let saveButton = "Save"
         static let skipButton = "Skip"
-#elseif os(WASI)
-        static let saveButton = "Save  (Enter)"
-        static let skipButton = "Skip  (Esc)"
-#endif
     }
 
     // MARK: - Editor button identifiers (used as SKNode.name + click dispatch)
@@ -168,18 +163,9 @@ enum Strings {
     }
 
     // MARK: - Persistence keys (UserDefaults on macOS, localStorage on wasm).
-    // Per-platform on purpose: changing a key re-keys persisted data.
+    // Shared key strings on both platforms; only the storage backend differs.
+    // Changing a key re-keys persisted data.
     enum DefaultsKey {
-#if os(macOS)
-        static let highScore        = "Boss-Man.highScore"
-        static let startFullscreen  = "Boss-Man.startFullscreen"
-        static let localHighScores  = "Boss-Man.localHighScores"
-        static let localLeaderboardUsername = "Boss-Man.localLeaderboardUsername"
-        static let bossTracksSquare = "Boss-Man.bossTracksSquare"
-        static let waterGunLeft     = "Boss-Man.waterGunLeft"
-        static let waterGunHide     = "Boss-Man.waterGunHide"
-        static let editorLastLevelIndex = "LevelEditor_LastLevelIndex"
-#elseif os(WASI)
         static let highScore              = "BossMan.highScore"
         static let leaderboard            = "BossMan.leaderboard"
         static let localHighScores        = "BossMan.leaderboard"
@@ -191,7 +177,6 @@ enum Strings {
         static let waterGunHide           = "BossMan.waterGunHide"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
         static let editorLevelPrefix      = "BossMan.editorLevel."
-#endif
     }
 
     // MARK: - Game Center
