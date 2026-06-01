@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
                 self?.presentGameCenterAuth(viewController)
                 return
             }
+            GameCenterClient.authenticationResolved = true
             if let error {
                 NSLog(Strings.App.gameCenterAuthFailed(error.localizedDescription))
             }

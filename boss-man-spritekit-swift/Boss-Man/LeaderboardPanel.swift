@@ -13,8 +13,6 @@ final class LeaderboardPanel: SKNode {
     private let bodyFontName: String
     private let entriesNode = SKNode()
     private let titleLabel = SKLabelNode()
-    private var notAuthRetries = 0
-    private let maxNotAuthRetries = 3
 
     init(size: CGSize, titleFont: String, bodyFont: String) {
         self.panelSize = size
@@ -41,9 +39,7 @@ final class LeaderboardPanel: SKNode {
 
 #if canImport(ObjectiveC)
     @objc private func authStateChanged() {
-        if GKLocalPlayer.local.isAuthenticated {
-            fetchEntries()
-        }
+        refreshFromGameCenter()
     }
 #endif
 
@@ -153,21 +149,25 @@ final class LeaderboardPanel: SKNode {
 
     private func load() {
         #if os(macOS)
-        // Xcode/macOS: always try the Game Center board first and keep showing
-        // "Loading" until it resolves. fetchEntries falls back to the local board
-        // only if the online load errors out or comes back empty. No timeout —
-        // the result drives the fallback, not a timer.
         showStatus(Strings.App.loading)
-        fetchEntries()
+        refreshFromGameCenter()
         #else
+        renderLocalFallback()
+        #endif
+    }
+
+    #if os(macOS)
+    private func refreshFromGameCenter() {
         if GKLocalPlayer.local.isAuthenticated {
             showStatus(Strings.App.loading)
             fetchEntries()
-        } else {
+        } else if GameCenterClient.authenticationResolved {
             renderLocalFallback()
+        } else {
+            showStatus(Strings.App.loading)
         }
-        #endif
     }
+    #endif
 
     private func fetchEntries() {
         Task { @MainActor in

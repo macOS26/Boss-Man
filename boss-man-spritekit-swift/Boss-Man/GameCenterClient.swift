@@ -3,6 +3,8 @@ import GameKit
 
 @MainActor
 enum GameCenterClient {
+    static var authenticationResolved = false
+
     static func currentPlayerName() -> String {
         let displayName = GKLocalPlayer.local.displayName
         if GKLocalPlayer.local.isAuthenticated, displayName.count > 3 {
