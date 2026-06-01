@@ -1,8 +1,11 @@
-<img width="2560" height="1440" alt="Ms. Pac-Man Walka Walka" src="https://github.com/user-attachments/assets/6a0bd808-9927-4d79-8b94-014fdb9f6392" />
+<img width="1247" height="587" alt="image" src="https://github.com/user-attachments/assets/1bfd708b-f376-405a-91c4-01611dd7519c" />
+
+<img width="2561" height="1440" alt="image" src="https://github.com/user-attachments/assets/622014ae-e4b9-431b-b63b-8ea3adc68228" />
+
 
 # Boss-Man
 
-The Video Game, native on macOS 14.6 or later. An *Office Space* inspired maze game built in Swift with SpriteKit.
+The office maze arcade game, runs on Mac, Windows, Linux, Web (mobile friendly), Android (coming soon). An *Office Space* inspired maze game built using Swift and ported to C++. One interesting aspect is we are actively creating 2 WebAssembly game engines for Swift and C++. Swift focuses on porting SpriteKit to the web branded "SuperBox64 SpriteKit," and our C++ port focusing on using existing C/C++ code with minimal to no code changes. Both WASM game engines use WASI Preview 1.
 
 It now runs far beyond the Mac: one shared codebase ships to the browser as WebAssembly (via SuperBox64 SpriteKit) and to Windows, Linux, Android, and the web through a C++ port. See [The Tech](#the-tech-one-game-three-ports-one-framework) below.
 
