@@ -63,7 +63,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var fireButtonCenter = CGPoint.zero
     private var fireButtonHidden = false
     private let fireButtonRadius: CGFloat = 112.5
-    private var contactCooldown: TimeInterval = 0
     private var waterDroplets: [WaterDroplet] = []
     private let waterDropletSpeed: CGFloat = 12 * 32
     private let waterHitPoints = 50
@@ -585,10 +584,19 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     func didBegin(_ contact: SKPhysicsContact) {
         if isGameOver { return }
         let bodies = [contact.bodyA, contact.bodyB]
-        let hasWorker = bodies.contains { $0.categoryBitMask == PhysicsCategory.worker }
-        if hasWorker, let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
+        guard bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) else { return }
+        if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
            fishBody.node != nil {
             catchTraveler(fishBody.node)
+        }
+        if let bossNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss })?.node as? PixelPerson,
+           !bossController.isImmobilized(boss: bossNode) {
+            if bossController.isInFleeMode(boss: bossNode) {
+                bossController.capture(boss: bossNode)
+            } else if !workerController.isShielded {
+                bossController.relocateAfterCatch(boss: bossNode)
+                bossCaughtWorker()
+            }
         }
     }
     #endif
@@ -610,36 +618,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             frightenSecondsLeft -= dt
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
-
-        #if os(WASI)
-        if contactCooldown > 0 {
-            contactCooldown -= dt
-        } else if let bossNode = bossOnPete() {
-            if bossController.isInFleeMode(boss: bossNode) {
-                bossController.capture(boss: bossNode)
-                contactCooldown = 0.4
-            } else if !workerController.isShielded {
-                bossController.relocateAfterCatch(boss: bossNode)
-                bossCaughtWorker()
-                contactCooldown = 1.2
-            }
-        }
-        #endif
     }
 
     #if os(WASI)
-    private func bossOnPete() -> PixelPerson? {
-        let r = tileSize * 0.55
-        let r2 = r * r
-        for e in bossController.entities {
-            if e.isImmobilized { continue }
-            let dx = e.node.position.x - workerController.node.position.x
-            let dy = e.node.position.y - workerController.node.position.y
-            if dx * dx + dy * dy < r2 { return e.node }
-        }
-        return nil
-    }
-
     private func gridCellAtScenePoint(_ p: CGPoint) -> CGPoint {
         let localX = p.x - containerOriginX
         let col = Int(localX / tileSize)

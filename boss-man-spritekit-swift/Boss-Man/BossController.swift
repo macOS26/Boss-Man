@@ -162,14 +162,14 @@ final class BossController {
         // that r=10 (20px) gave.
         node.physicsBody = SKPhysicsBody(circleOfRadius: 5)
         node.physicsBody?.allowsRotation = false
-        #if os(macOS)
         node.physicsBody?.isDynamic = true
-        #elseif os(WASI)
-        node.physicsBody?.isDynamic = false
-        #endif
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
+        #if os(macOS)
         node.physicsBody?.collisionBitMask = PhysicsCategory.wall
+        #elseif os(WASI)
+        node.physicsBody?.collisionBitMask = 0
+        #endif
         node.zPosition = 11
         scene.addChild(node)
 
