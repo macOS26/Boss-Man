@@ -891,7 +891,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func spawnWaterSplash(at center: CGPoint) {
-        #if os(macOS)
         let count = 10
         for i in 0..<count {
             let angle = CGFloat(i) / CGFloat(count) * .pi * 2
@@ -916,29 +915,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
                 .removeFromParent()
             ]))
         }
-        #elseif os(WASI)
-        let burst = SKNode()
-        burst.position = center
-        burst.zPosition = 8
-        addChild(burst)
-        let dist: CGFloat = tileSize * 0.45
-        // Hand-rolled unit vectors (60 deg apart) to avoid linking libm on wasm.
-        let unit: [(CGFloat, CGFloat)] = [
-            ( 1.0,  0.0), ( 0.5,  0.866025), (-0.5,  0.866025),
-            (-1.0,  0.0), (-0.5, -0.866025), ( 0.5, -0.866025),
-        ]
-        for (ux, uy) in unit {
-            let dot = SKShapeNode(circleOfRadius: 3.5)
-            dot.fillColor = SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 0.9)
-            dot.strokeColor = .clear
-            burst.addChild(dot)
-            dot.run(.group([
-                .move(by: CGVector(dx: ux * dist, dy: uy * dist), duration: 0.35),
-                .fadeOut(withDuration: 0.4),
-            ]))
-        }
-        burst.run(.sequence([.wait(forDuration: 0.45), .removeFromParent()]))
-        #endif
     }
 
     // MARK: - Fire button

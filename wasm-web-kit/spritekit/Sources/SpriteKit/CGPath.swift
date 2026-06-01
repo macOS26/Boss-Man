@@ -92,6 +92,8 @@ public func sincos(_ a: Double) -> (Double, Double) {
     return (c, s)
 }
 public func atan2c(_ y: CGFloat, _ x: CGFloat) -> CGFloat { CGFloat(sb64_atan2(Double(y), Double(x))) }
+public func cos(_ x: CGFloat) -> CGFloat { sb64_cos(x) }
+public func sin(_ x: CGFloat) -> CGFloat { sb64_sin(x) }
 
 // 32-entry quarter-rotation unit circle for coarse ellipse/arc flattening.
 func unitCircle(_ i: Int, of n: Int) -> (Double, Double) {
