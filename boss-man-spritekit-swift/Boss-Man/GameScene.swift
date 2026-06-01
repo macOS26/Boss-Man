@@ -894,9 +894,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         let count = 10
         for i in 0..<count {
             let angle = CGFloat(i) / CGFloat(count) * .pi * 2
-            let radius = CGFloat.random(in: 22...48)
-            let drop = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6))
-            drop.fillColor = Bool.random() ? .systemCyan : .systemBlue
+            let radius = CGFloat.random(in: 22...48, using: &GameRandom.shared)
+            let drop = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6, using: &GameRandom.shared))
+            drop.fillColor = Bool.random(using: &GameRandom.shared) ? .systemCyan : .systemBlue
             drop.strokeColor = .clear
             drop.position = center
             drop.zPosition = 15
