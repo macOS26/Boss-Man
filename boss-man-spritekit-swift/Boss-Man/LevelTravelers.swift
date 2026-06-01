@@ -3,10 +3,8 @@ import Foundation
 // Bonus "traveler" pickups: the emoji that flies across the maze each level for
 // a bonus. Each level cycles through this table to pick the next one; the HUD
 // shows the upcoming sequence in the top-right corner. Shared verbatim across
-// apple + wasm — the only per-platform value is the stapler image, which
-// resolves through Strings.Resource.travelerStaplerFile (apple uses the base
-// PNG, wasm uses the 160x244 variant). The per-platform level-map loader stays
-// in each port's own Levels.swift.
+// apple + wasm. The per-platform level-map loader stays in each port's own
+// Levels.swift.
 enum TravelerSound {
     case water, glaze, crunch, alienBleep, jelly, crispTap, bellDing, radioStatic, magicChime, ufoWhoosh, eyeDrone, bigEye
 }

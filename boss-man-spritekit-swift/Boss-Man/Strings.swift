@@ -55,21 +55,16 @@ enum Strings {
         static let initCoderUnsupported = "init(coder:) is not supported"
     }
 
-    // MARK: - Font names. The runtime's font preloader registers each .ttf by
-    // its filename basename on wasm; on macOS the same logical fonts resolve to
-    // their PostScript / family names — hence the per-platform Marker Felt spelling.
+    // MARK: - Font names. PostScript names resolve the same face on both: the
+    // wasm preloader registers each .ttf by its basename, and CoreText accepts
+    // the PostScript name on macOS.
     enum Font {
         static let menloBold       = "Menlo-Bold"
         static let menlo           = "Menlo"
         static let helveticaBold   = "Helvetica-Bold"
         static let jetBrainsMono   = "JetBrainsMono-Bold"
-#if os(macOS)
-        static let markerFeltThin  = "Marker Felt Thin"
-        static let markerFeltWide  = "Marker Felt Wide"
-#elseif os(WASI)
         static let markerFeltThin  = "MarkerFelt-Thin"
         static let markerFeltWide  = "MarkerFelt-Wide"
-#endif
     }
 
     // MARK: - Bundle resources (filename + extension passed to Bundle.url on
@@ -83,11 +78,7 @@ enum Strings {
         static let redStaplerExtension = "png"
         static let travelerStaplerExtension = "png"
         static let quarantineAttribute = "com.apple.quarantine"
-#if os(macOS)
         static let travelerStaplerFile = "shinyredstapler-emoji"
-#elseif os(WASI)
-        static let travelerStaplerFile = "shinyredstapler-emoji-160x244"
-#endif
     }
 
     // MARK: - Level Editor copy / labels
