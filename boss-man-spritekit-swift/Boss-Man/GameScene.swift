@@ -50,6 +50,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     var workerGrid: CGPoint { workerController.grid }
     var workerDirection: MoveDirection? { workerController.direction }
 
+    private var waterDroplets: [WaterDroplet] = []
+    private let waterDropletSpeed: CGFloat = 12 * 32
+
     #if os(macOS)
     private let workerSpawn = CGPoint(x: 18, y: 7)
     private let inputController = PointerInputController()
@@ -63,8 +66,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var fireButtonCenter = CGPoint.zero
     private var fireButtonHidden = false
     private let fireButtonRadius: CGFloat = 112.5
-    private var waterDroplets: [WaterDroplet] = []
-    private let waterDropletSpeed: CGFloat = 12 * 32
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     #endif
@@ -569,26 +570,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             sound.playWaterGunSplash()
             state.bumpScore(by: waterHitPoints)
             spawnWaterSplash(at: pos)
-            #if os(macOS)
-            ScorePopup.show(waterHitPoints, at: pos, in: self)
-            hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
-            #elseif os(WASI)
             ScorePopup.show(waterHitPoints, at: pos, in: self,
                             color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
+            hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
             if let idx = waterDroplets.firstIndex(where: { $0 === dropletNode }) { waterDroplets.remove(at: idx) }
-            #endif
             refreshHUD()
             dropletNode.removeFromParent()
             return
         }
-
-        #if os(macOS)
-        if let dropletNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet })?.node,
-           bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.wall }) {
-            dropletNode.removeFromParent()
-            return
-        }
-        #endif
 
         guard bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) else { return }
         if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
@@ -634,23 +623,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
         workerController.advance(dt)
         bossController.advance(dt)
-
-        #if os(WASI)
         stepWaterDroplets(dt: dt)
-        #endif
 
         if frightenSecondsLeft > 0 {
             frightenSecondsLeft -= dt
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
-    }
-
-    #if os(WASI)
-    private func gridCellAtScenePoint(_ p: CGPoint) -> CGPoint {
-        let localX = p.x - containerOriginX
-        let col = Int(localX / tileSize)
-        let row = Int((p.y - gridMap.yOffset) / tileSize)
-        return CGPoint(x: col, y: row)
     }
 
     private func stepWaterDroplets(dt: TimeInterval) {
@@ -659,10 +637,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         while i >= 0 {
             let drop = waterDroplets[i]
             var consumed = drop.step(dt: dt)
-            if !consumed {
-                let g = gridCellAtScenePoint(drop.position)
-                if !gridMap.isWalkable(g) { consumed = true }
-            }
+            if !consumed, !gridMap.isWalkable(dropletGrid(drop.position)) { consumed = true }
             if consumed {
                 drop.removeFromParent()
                 waterDroplets.remove(at: i)
@@ -670,7 +645,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             i -= 1
         }
     }
-    #endif
 
     // MARK: - Level / game flow
     private func startNextLevel() {
@@ -710,6 +684,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         travelerSpawner.reset()
         goldDisc.deactivate()
         waterGun.deactivate()
+        waterDroplets.removeAll()
         waterGunPickedUp = false
         sound.stopGoldDiscBass()
         frightenSecondsLeft = 0
@@ -869,9 +844,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private func endWaterGunMode() {
         guard waterGun.isActive else { return }
         waterGun.deactivate()
-        for child in children where child.name == "waterDroplet" {
-            child.removeFromParent()
-        }
+        for drop in waterDroplets { drop.removeFromParent() }
+        waterDroplets.removeAll()
         hud.updateWaterGun(active: false, pellets: 0)
         hud.showMessage(Strings.Message.waterGunEnded, duration: 2)
     }
@@ -882,25 +856,16 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             hud.showMessage(Strings.Message.waterGunBlueMode, duration: 2)
             return
         }
-        #if os(macOS)
-        guard let direction = workerController.direction else { return }
+        guard let direction = workerController.direction ?? workerController.queuedDirection else { return }
         guard waterGun.consumePellet() else { return }
-        let droplet = WaterDroplet.fire(from: workerController.node.position, direction: direction, tileSize: tileSize)
-        addChild(droplet)
-        sound.playWaterGunShoot()
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
-        if waterGun.pelletsRemaining == 0 { endWaterGunMode() }
-        #elseif os(WASI)
-        guard let h = workerController.direction ?? workerController.queuedDirection else { return }
-        guard waterGun.consumePellet() else { return }
-        let drop = WaterDroplet(direction: h, speed: waterDropletSpeed)
+        let drop = WaterDroplet(direction: direction, speed: waterDropletSpeed)
         drop.position = workerController.node.position
         drop.zPosition = 6
         addChild(drop)
         waterDroplets.append(drop)
         sound.playWaterGunShoot()
         refreshHUD()
-        #endif
+        if waterGun.pelletsRemaining == 0 { endWaterGunMode() }
     }
 
     private func spawnWaterSplash(at center: CGPoint) {
@@ -1049,21 +1014,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func activeDropletLines() -> [(grid: CGPoint, dir: MoveDirection)] {
-        #if os(macOS)
-        return children.compactMap { node in
-            guard node.name == "waterDroplet",
-                  let dx = node.userData?["wdx"] as? Int,
-                  let dy = node.userData?["wdy"] as? Int else { return nil }
-            let dir: MoveDirection = dx > 0 ? .right : dx < 0 ? .left : dy > 0 ? .up : .down
-            return (self.dropletGrid(node.position), dir)
-        }
-        #elseif os(WASI)
-        return waterDroplets.map { d in
+        waterDroplets.map { d in
             let v = d.velocity
             let dir: MoveDirection = abs(v.dx) > abs(v.dy) ? (v.dx > 0 ? .right : .left) : (v.dy > 0 ? .up : .down)
             return (self.dropletGrid(d.position), dir)
         }
-        #endif
     }
 
     // MARK: - HUD

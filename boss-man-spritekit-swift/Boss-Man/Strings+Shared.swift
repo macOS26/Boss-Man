@@ -217,7 +217,6 @@ extension Strings {
         static let spawnThrob       = "spawnThrob"
         static let fleeThaw         = "fleeThaw"
         static let waterGunExpiry   = "waterGunExpiry"
-        static let waterDropletMove = "waterDropletMove"
         static let clear            = "clear"
     }
 }

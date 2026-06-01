@@ -1,12 +1,8 @@
+import AppKit
 import SpriteKit
 
-// Water-shot visual shared by both ports: a cyan core with a systemBlue stroke
-// plus a small white specular highlight, spinning 0.4s/rev so it sparkles in
-// flight. Movement + collision differ per platform and live behind #if: apple
-// glides the node with SKAction and detects hits via an SKPhysics contact body;
-// the wasm port integrates position by hand each frame and lets GameScene test
-// the GridMap, because Box2D contacts need a dynamic body in the pair and both
-// the boss and the droplet are non-dynamic on wasm.
+// Water-shot visual: a cyan core with a systemBlue stroke and a small white
+// specular highlight, spinning so it sparkles in flight.
 enum WaterDropletVisual {
     static let radius: CGFloat = 5
     static func build() -> SKNode {
@@ -26,55 +22,11 @@ enum WaterDropletVisual {
     }
 }
 
-#if os(macOS)
-enum WaterDroplet {
-    private static let radius = WaterDropletVisual.radius
-    private static let speed: CGFloat = 320
-    private static let maxDistance: CGFloat = 576
-
-    static func fire(from position: CGPoint, direction: MoveDirection, tileSize: CGFloat) -> SKNode {
-        let node = SKNode()
-        node.name = "waterDroplet"
-        node.zPosition = 12
-        node.addChild(WaterDropletVisual.build())
-        node.alpha = 1.0
-        // Stash the travel delta so the boss dodge logic can read each droplet's
-        // axis (the SKAction bakes direction into its target, not the node).
-        let dirData = NSMutableDictionary()
-        dirData["wdx"] = direction.delta.dx
-        dirData["wdy"] = direction.delta.dy
-        node.userData = dirData
-
-        let body = SKPhysicsBody(circleOfRadius: radius)
-        body.isDynamic = false
-        body.affectedByGravity = false
-        body.categoryBitMask = PhysicsCategory.waterDroplet
-        body.contactTestBitMask = PhysicsCategory.boss | PhysicsCategory.wall
-        body.collisionBitMask = 0
-        body.usesPreciseCollisionDetection = true
-        node.physicsBody = body
-
-        let dx = CGFloat(direction.delta.dx)
-        let dy = CGFloat(direction.delta.dy)
-        let target = CGPoint(x: position.x + dx * maxDistance,
-                             y: position.y + dy * maxDistance)
-        let duration = TimeInterval(maxDistance / speed)
-
-        node.position = CGPoint(x: position.x + dx * (tileSize / 2 + radius + 2),
-                                y: position.y + dy * (tileSize / 2 + radius + 2))
-
-        let move = SKAction.move(to: target, duration: duration)
-        let remove = SKAction.removeFromParent()
-        node.run(.sequence([move, remove]), withKey: Strings.ActionKey.waterDropletMove)
-
-        return node
-    }
-}
-#elseif os(WASI)
-// One in-flight water shot. Carries its own velocity + spawn time so the
-// GameScene's per-frame integrator can step a list of droplets without keeping
-// per-droplet state on the side. Removes itself after maxLifetime so a shot
-// that flies off into nowhere doesn't leak.
+// One in-flight water shot. It carries its own velocity and age so GameScene's
+// per-frame integrator can step a list of droplets; it despawns after
+// maxLifetime so a shot that flies off into nowhere can't leak. Wall hits are
+// GameScene's job (it owns the GridMap); a boss hit fires as a physics contact,
+// with the droplet as the dynamic body in the pair.
 final class WaterDroplet: SKNode {
     let velocity: CGVector
     private(set) var age: TimeInterval = 0
@@ -94,9 +46,10 @@ final class WaterDroplet: SKNode {
         physicsBody = body
     }
 
-    // Advance one frame; return true if the droplet should be despawned
-    // (lifetime exceeded — wall collision is the GameScene's responsibility
-    // since it knows the GridMap).
+    required init?(coder: NSCoder) { fatalError(Strings.System.initCoderUnsupported) }
+
+    // Advance one frame; returns true when the droplet should be despawned
+    // (lifetime exceeded).
     func step(dt: TimeInterval) -> Bool {
         position.x += velocity.dx * CGFloat(dt)
         position.y += velocity.dy * CGFloat(dt)
@@ -104,4 +57,3 @@ final class WaterDroplet: SKNode {
         return age > maxLifetime
     }
 }
-#endif
