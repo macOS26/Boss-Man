@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 #if os(WASI)
 import KitABI
+import SpriteKit
 #endif
 
 enum MusicTheme {
@@ -523,11 +524,7 @@ final class SoundManager {
         teleportPlaying = true
         let buffer = cached(Strings.SoundCache.teleport) { self.buildTeleport() }
         effectsPlayer.scheduleBuffer(buffer, at: nil, options: []) { [weak self] in
-            #if os(WASI)
-            self?.teleportPlaying = false
-            #else
-            DispatchQueue.main.async { self?.teleportPlaying = false }
-            #endif
+            runOnMain { self?.teleportPlaying = false }
         }
         if !effectsPlayer.isPlaying { effectsPlayer.play() }
     }
