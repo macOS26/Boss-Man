@@ -85,6 +85,13 @@ final class WaterDroplet: SKNode {
         self.velocity = CGVector(dx: CGFloat(dx) * speed, dy: CGFloat(dy) * speed)
         super.init()
         addChild(WaterDropletVisual.build())
+        let body = SKPhysicsBody(circleOfRadius: WaterDropletVisual.radius)
+        body.isDynamic = true
+        body.affectedByGravity = false
+        body.categoryBitMask = PhysicsCategory.waterDroplet
+        body.contactTestBitMask = PhysicsCategory.boss
+        body.collisionBitMask = 0
+        physicsBody = body
     }
 
     // Advance one frame; return true if the droplet should be despawned

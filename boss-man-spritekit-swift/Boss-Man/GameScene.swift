@@ -584,6 +584,21 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     func didBegin(_ contact: SKPhysicsContact) {
         if isGameOver { return }
         let bodies = [contact.bodyA, contact.bodyB]
+
+        if let dropletNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet })?.node,
+           let bossNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss })?.node as? PixelPerson {
+            state.bumpScore(by: waterHitPoints)
+            ScorePopup.show(waterHitPoints, at: bossNode.position, in: self,
+                            color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
+            spawnWaterSplash(at: bossNode.position)
+            sound.playWaterGunSplash()
+            bossController.splash(boss: bossNode)
+            refreshHUD()
+            if let idx = waterDroplets.firstIndex(where: { $0 === dropletNode }) { waterDroplets.remove(at: idx) }
+            dropletNode.removeFromParent()
+            return
+        }
+
         guard bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) else { return }
         if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
            fishBody.node != nil {
@@ -637,23 +652,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             if !consumed {
                 let g = gridCellAtScenePoint(drop.position)
                 if !gridMap.isWalkable(g) { consumed = true }
-                else {
-                    for e in bossController.entities {
-                        let dx = e.node.position.x - drop.position.x
-                        let dy = e.node.position.y - drop.position.y
-                        if dx * dx + dy * dy < (tileSize * 0.45) * (tileSize * 0.45) {
-                            state.bumpScore(by: waterHitPoints)
-                            ScorePopup.show(waterHitPoints, at: e.node.position, in: self,
-                                            color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
-                            spawnWaterSplash(at: e.node.position)
-                            sound.playWaterGunSplash()
-                            bossController.splash(boss: e.node)
-                            refreshHUD()
-                            consumed = true
-                            break
-                        }
-                    }
-                }
             }
             if consumed {
                 drop.removeFromParent()
