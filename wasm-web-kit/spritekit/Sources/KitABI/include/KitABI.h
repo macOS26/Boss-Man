@@ -9,6 +9,9 @@ WABI void gfx_save(void);
 WABI void gfx_restore(void);
 WABI void gfx_translate(float x, float y);
 WABI void gfx_scale(float sx, float sy);
+/* Round the current transform's translation to whole device pixels (keeps a
+ * scrolling pixel grid phase-stable so it doesn't shimmer). */
+WABI void gfx_snap_translation(void);
 WABI void gfx_rotate(float degrees);
 WABI void gfx_set_alpha(float a);
 WABI void gfx_set_blend(int mode);

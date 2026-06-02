@@ -27,7 +27,8 @@ final class WorkerController {
         self.node = SpriteFactory.petePerson(walkExaggeration: 1)
         configureNode()
         mover = TileMover<MoveDirection>(node: node, spawn: spawnGrid, map: gridMap,
-                                         step: moveDuration, containerOriginX: containerOriginX)
+                                         step: moveDuration, containerOriginX: containerOriginX,
+                                         tunnelSlowdown: 4)
     }
 
     private func configureNode() {

@@ -365,6 +365,17 @@ class Runtime {
       gfx_save: () => this.ctx2d().save(),
       gfx_restore: () => this.ctx2d().restore(),
       gfx_translate: (x, y) => this.ctx2d().translate(x, y),
+      gfx_snap_translation: () => {
+        // Round the live transform's translation to whole device pixels. The
+        // scale stays fractional (full-res), but a scrolling camera now shifts
+        // content by whole pixels, so a repeating tile grid keeps a constant
+        // sub-pixel phase instead of shimmering on low-DPR desktops.
+        const c = this.ctx2d();
+        const m = c.getTransform();
+        m.e = Math.round(m.e);
+        m.f = Math.round(m.f);
+        c.setTransform(m);
+      },
       gfx_scale: (sx, sy) => this.ctx2d().scale(sx, sy),
       gfx_rotate: (deg) => this.ctx2d().rotate(deg * Math.PI / 180),
       gfx_set_alpha: (a) => { this.ctx2d().globalAlpha = a; },

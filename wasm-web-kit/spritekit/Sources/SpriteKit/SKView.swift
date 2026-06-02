@@ -173,6 +173,10 @@ public final class SKView {
             gfx_scale(Float(sx), Float(sy))
             if cam.zRotation != 0 { gfx_rotate(Float(cam.zRotation * 180.0 / Double.pi)) }
             gfx_translate(Float(-cam.position.x), Float(-cam.position.y))
+            // Snap the world pass to whole device pixels so the zoomed board's
+            // tile grid keeps a stable sub-pixel phase as it scrolls (kills the
+            // background shimmer on low-DPR desktops) while staying full-res.
+            if cam.zRotation == 0 { gfx_snap_translation() }
         }
         if cam != nil {
             s.renderWorld(skipping: cam, parentAlpha: 1)

@@ -22,24 +22,18 @@ final class SoundManager {
     private var bufferCache: [String: AVAudioPCMBuffer] = [:]
     let speech = AVSpeechSynthesizer()
     var isSpeaking: Bool { speech.isSpeaking }
-    #if os(macOS)
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
-    #elseif os(WASI)
-    // The runtime picks the voice on web (see applyWebVoicePreferences); no
-    // in-process selection, so we skip pickBossVoice entirely. That matters
-    // because its `.lowercased()` calls would link ICU's ~30MB Unicode tables.
-    private let voice: AVSpeechSynthesisVoice? = nil
-    #endif
     // Retains the macOS speech-ducking delegate (nil on wasm, where the runtime
     // ducks automatically). Wiring lives in configureSpeechDucking().
     var speechDuckRetain: AnyObject?
 
-    #if os(macOS)
     // Voice priority. Gender is NOT a filter — female voices are ranked last, not
     // excluded. We walk Strings.Speech.preferredVoiceNames in order (list order =
     // priority), preferring en-US over other English variants. The robotic /
-    // novelty voices are still excluded by name.
+    // novelty voices are still excluded by name. On WASI the web runtime picks the
+    // voice, so this returns nil and the ICU-linking ranking never compiles in.
     private static func pickBossVoice() -> AVSpeechSynthesisVoice? {
+        #if os(macOS)
         let robotic = Strings.Speech.roboticVoiceNames
         let usable = AVSpeechSynthesisVoice.speechVoices().filter {
             let n = $0.name.lowercased()
@@ -50,14 +44,17 @@ final class SoundManager {
         func usOnly(_ a: [AVSpeechSynthesisVoice]) -> [AVSpeechSynthesisVoice] { a.filter { $0.language == Strings.Speech.usEnglish } }
         func anyEn(_ a: [AVSpeechSynthesisVoice])  -> [AVSpeechSynthesisVoice] { a.filter { $0.language.hasPrefix(Strings.Speech.englishPrefix) } }
 
-        // en-US non-female → any-English non-female → female (US, then any English).
         return bestVoice(in: usOnly(nonFemale))
             ?? bestVoice(in: anyEn(nonFemale))
             ?? bestVoice(in: usOnly(female))
             ?? bestVoice(in: anyEn(female))
             ?? AVSpeechSynthesisVoice(language: Strings.Speech.usEnglish)
+        #else
+        return nil
+        #endif
     }
 
+    #if os(macOS)
     // Walks the preferred-name list in order; for each name returns the highest-
     // quality matching voice in the pool, else the best-quality voice in the pool.
     private static func bestVoice(in pool: [AVSpeechSynthesisVoice]) -> AVSpeechSynthesisVoice? {

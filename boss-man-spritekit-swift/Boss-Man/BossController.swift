@@ -213,7 +213,7 @@ final class BossController {
         let idx = entities.count - 1
         let mover = TileMover<MoveDirection>(node: node, spawn: blueprint.spawn, map: gridMap,
                                              step: entityDuration, containerOriginX: containerOriginX,
-                                             slowInTunnels: true)
+                                             tunnelSlowdown: 8)
         mover.directions = MoveDirection.allCases
         let hold = entityInterval - entityDuration
         if hold > 0 { mover.holdTime = hold }

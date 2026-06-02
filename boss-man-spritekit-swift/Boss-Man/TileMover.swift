@@ -46,22 +46,24 @@ public final class TileMover<D: TileDirection> {
     public var target  = CGPoint.zero
     public let node: SKNode
     public var step: TimeInterval
-    public var slowInTunnels: Bool
+    public var tunnelSlowdown: Double
     public var holdTime: TimeInterval = 0   // > 0 = "square" tracks: pause at each tile centre
     public var directions: [D] = []         // candidate headings for direction(toward:)
-    private var moveDur: TimeInterval = 0
+    private var prog: CGFloat = 0
+    private enum StepKind { case normal, enter, exit }
+    private var stepKind: StepKind = .normal
     private var holding = false
     private var holdT: TimeInterval = 0
     public weak var map: TileMap?
     public var containerOriginX: CGFloat
 
     public init(node: SKNode, spawn: CGPoint, map: TileMap, step: TimeInterval,
-                containerOriginX: CGFloat, slowInTunnels: Bool = false) {
+                containerOriginX: CGFloat, tunnelSlowdown: Double = 1) {
         self.node = node
         self.grid = spawn
         self.map = map
         self.step = step
-        self.slowInTunnels = slowInTunnels
+        self.tunnelSlowdown = tunnelSlowdown
         self.containerOriginX = containerOriginX
         self.node.position = centre(of: spawn)
     }
@@ -88,6 +90,18 @@ public final class TileMover<D: TileDirection> {
         return map.isWalkable(n)
     }
 
+    // Speed as a fraction of full for the active step. A tunnel-entry step ramps
+    // full -> slow over its second half; a tunnel-exit step ramps slow -> full
+    // over its first half. Everything else runs at full speed.
+    private func tunnelSpeedFraction(_ p: CGFloat) -> CGFloat {
+        let lo = 1 / CGFloat(tunnelSlowdown)
+        switch stepKind {
+        case .enter:  return p < 0.5 ? 1 : 1 + (lo - 1) * (p - 0.5) * 2
+        case .exit:   return p < 0.5 ? lo + (1 - lo) * p * 2 : 1
+        case .normal: return 1
+        }
+    }
+
     // Clear all motion state and re-home to a tile. Used by host games on
     // teleport / respawn / capture so the mover doesn't keep gliding from the
     // old cell after the node is snapped elsewhere.
@@ -96,6 +110,8 @@ public final class TileMover<D: TileDirection> {
         dir = nil
         moving = false
         moveT = 0
+        prog = 0
+        stepKind = .normal
         holding = false
         holdT = 0
     }
@@ -137,7 +153,7 @@ public final class TileMover<D: TileDirection> {
                     return
                 }
                 (node as? TileWalkAnimating)?.startWalking()
-                // Tunnel wrap: snap to the far mouth instead of interpolating.
+                // Tunnel wrap: jump to the far mouth instead of interpolating.
                 if abs(Int(next.x - grid.x)) > 1 || abs(Int(next.y - grid.y)) > 1 {
                     grid = next
                     node.position = centre(of: next)
@@ -147,21 +163,28 @@ public final class TileMover<D: TileDirection> {
                 target = next
                 fromPos = centre(of: grid)
                 toPos   = centre(of: next)
-                // A step touching a doorway takes 2x as long, so movers crawl
-                // through the tunnels.
-                let touchesDoorway = map.tunnelPartner(of: grid) != nil
-                                  || map.tunnelPartner(of: next) != nil
-                moveDur = (slowInTunnels && touchesDoorway) ? step * 2 : step
-                moveT = moveDur
+                prog = 0
+                if tunnelSlowdown > 1 && map.tunnelPartner(of: next) != nil {
+                    stepKind = .enter
+                } else if tunnelSlowdown > 1 && map.tunnelPartner(of: grid) != nil {
+                    stepKind = .exit
+                } else {
+                    stepKind = .normal
+                }
                 moving = true
             }
-            let s = min(rem, moveT)
-            moveT -= s
-            rem -= s
-            let t = CGFloat(max(0, min(1, 1 - moveT / moveDur)))
-            node.position = CGPoint(x: fromPos.x + (toPos.x - fromPos.x) * t,
-                                    y: fromPos.y + (toPos.y - fromPos.y) * t)
-            if moveT <= 1e-6 {
+            let v = max(0.001, tunnelSpeedFraction(prog))
+            let dp = CGFloat(rem / step) * v
+            if prog + dp < 1 {
+                prog += dp
+                rem = 0
+            } else {
+                rem = max(0, rem - Double((1 - prog) / v) * step)
+                prog = 1
+            }
+            node.position = CGPoint(x: fromPos.x + (toPos.x - fromPos.x) * prog,
+                                    y: fromPos.y + (toPos.y - fromPos.y) * prog)
+            if prog >= 1 {
                 grid = target
                 node.position = toPos
                 moving = false

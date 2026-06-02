@@ -62,6 +62,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // clamped to the scene so the view never scrolls past the maze. Render-only;
     // physics and the grid catch stay in world coordinates, unaffected.
     private var cameraNode: SKCameraNode?
+    private var camPos: CGPoint?
+    private var camVel: CGPoint = .zero
     // Screen-fixed overlay layer (HUD, fire button, joystick, PAUSED, game-over).
     // A scene child at 100%; a camera child at 200% so it stays unscaled while
     // the board zooms. Re-created fresh each buildLevel (removeAllChildren wipes
@@ -134,7 +136,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         state.goldDiscCount = mazeBuilder.goldDiscPositions.count
         setupMazeCamera()
         setupUILayer()
-        hud.install(in: uiLayer, size: size)
+        hud.install(in: uiLayer, size: size, extraRow: cameraNode == nil)
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound, containerOriginX: containerOriginX)
         workerController.delegate = self
@@ -391,8 +393,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         refreshHUD()
         if state.reportItems.count == requiredItems.count {
             hud.showMessage(Strings.Message.tpsReportReady, duration: 6)
-        } else {
-            hud.showMessage(Strings.Message.reportItemCollected(name: name, points: reportItemPoints[itemIndex]), duration: 2)
         }
     }
 
@@ -532,14 +532,18 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // MARK: - Maze camera (200% mode)
     private func setupMazeCamera() {
-        guard Persistence.bool(forKey: Strings.DefaultsKey.maze200) else {
+        camPos = nil
+        camVel = .zero
+        let zoom = MazeZoom.current
+        guard zoom > 100 else {
             camera = nil
             cameraNode = nil
             return
         }
+        let scale = 100 / CGFloat(zoom)
         let cam = SKCameraNode()
-        cam.xScale = 0.5   // 1/0.5 = 2x zoom
-        cam.yScale = 0.5
+        cam.xScale = scale
+        cam.yScale = scale
         addChild(cam)
         camera = cam
         cameraNode = cam
@@ -567,10 +571,36 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private func updateMazeCamera() {
         guard let cam = cameraNode else { return }
         let p = workerController.node.position
-        let halfW = size.width * cam.xScale / 2
-        let halfH = size.height * cam.yScale / 2
-        cam.position = CGPoint(x: min(max(p.x, halfW), size.width - halfW),
-                               y: min(max(p.y, halfH), size.height - halfH))
+        guard var c = camPos else { camPos = p; camVel = .zero; cam.position = p; return }
+        let snapThreshold = tileSize * 4
+        if abs(p.x - c.x) > snapThreshold || abs(p.y - c.y) > snapThreshold {
+            c = p
+            camVel = .zero
+        } else {
+            let dt: CGFloat = 1.0 / 60.0
+            let smoothTime: CGFloat = 0.22
+            c.x = GameScene.smoothDamp(c.x, p.x, &camVel.x, smoothTime, dt)
+            c.y = GameScene.smoothDamp(c.y, p.y, &camVel.y, smoothTime, dt)
+        }
+        camPos = c
+        // No rounding here: the renderer snaps the world pass to whole device
+        // pixels (gfx_snap_translation), so the camera follows smoothly and stays
+        // sharp on its own.
+        cam.position = c
+    }
+
+    // Critically damped follow (Unity-style SmoothDamp): eases in and out toward
+    // the target without overshoot, for a smooth camera that accelerates and
+    // settles instead of snapping.
+    private static func smoothDamp(_ current: CGFloat, _ target: CGFloat,
+                                   _ vel: inout CGFloat, _ smoothTime: CGFloat, _ dt: CGFloat) -> CGFloat {
+        let omega = 2 / smoothTime
+        let x = omega * dt
+        let exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+        let change = current - target
+        let temp = (vel + omega * change) * dt
+        vel = (vel - omega * temp) * exp
+        return target + (change + temp) * exp
     }
 
     // MARK: - Update loop
@@ -728,7 +758,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         speed = isUserPaused ? 0 : 1
         if isUserPaused {
             let dim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
-            dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: cameraNode != nil ? 0.8 : 0.45)
+            dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.1)
             dim.strokeColor = .clear
             dim.zPosition = 40
             uiLayer.addChild(dim)

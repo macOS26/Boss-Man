@@ -173,7 +173,7 @@ enum Strings {
         static let localLeaderboardUsername = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
-        static let maze200                = "BossMan.maze200"
+        static let mazeZoom               = "BossMan.mazeZoom"
         static let waterGunLeft           = "BossMan.waterGunLeft"
         static let waterGunHide           = "BossMan.waterGunHide"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
@@ -298,4 +298,17 @@ extension Strings.Speech {
     static let fishFallback     = "Mmm, yeah."
     static let tpsFallback      = "Sounds great."
     static let gameOverFallback = "yeah right!"
+}
+
+// MARK: - Maze zoom (title-screen camera mode)
+enum MazeZoom {
+    static let cycle = [100, 150, 200]
+    static var current: Int {
+        let z = Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)
+        return cycle.contains(z) ? z : 100
+    }
+    static func advance() {
+        let i = cycle.firstIndex(of: current) ?? 0
+        Persistence.set(cycle[(i + 1) % cycle.count], forKey: Strings.DefaultsKey.mazeZoom)
+    }
 }

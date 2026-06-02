@@ -92,50 +92,48 @@ extension Strings {
 
     // MARK: - In-game messages (transient HUD banners)
     enum Message {
-        static let intro              = "Collect office dots and finish the TPS report!"
-        static let practiceMode       = "PRACTICE MODE — score not saved"
-        static let paused             = "Paused — press P to resume"
-        static let needTPSReport      = "Turn in at least 1 TPS report to complete the level!"
-        static let brownBoxHint       = "Brown boxes collect finished TPS reports."
-        static let tpsReportReady     = "TPS report complete! Deliver it to a brown box."
-        static let newGame            = "New game! Collect dots and TPS reports."
-        static let goldDiscActivated  = "Gold disc! Capture the bosses for 20 seconds."
-        static let goldDiscEnded      = "Gold disc mode ended."
-        static let waterGunActivated  = "Water gun! Shoot the bosses."
-        static let waterGunEnded      = "Water gun empty."
-        static let waterGunExpired    = "Water gun time expired."
-        static let waterGunBlueMode   = "Water pistol unavailable in blue boss mode."
+        static let intro              = "Collect dots and the TPS report!"
+        static let practiceMode       = "Practice mode (no score)"
+        static let paused             = "Paused (P to resume)"
+        static let needTPSReport      = "Turn in 1 TPS report first!"
+        static let brownBoxHint       = "Brown boxes take TPS reports"
+        static let tpsReportReady     = "TPS ready! Drop at a brown box"
+        static let newGame            = "New game!"
+        static let goldDiscActivated  = "Gold disc! Catch the bosses"
+        static let goldDiscEnded      = "Gold disc over"
+        static let waterGunActivated  = "Water gun! Soak the bosses"
+        static let waterGunEnded      = "Out of water"
+        static let waterGunExpired    = "Water gun expired"
+        static let waterGunBlueMode   = "No water gun in blue mode"
         static let bossSplashed       = "SPLASH!"
 
         static func bossCaughtYou(_ livesLeft: Int) -> String {
-            "A boss caught you! \(livesLeft) workers left."
+            "Boss got you! \(livesLeft) left"
         }
 
         static func levelLoaded(_ level: Int) -> String {
-            "Level \(level)! New office floor loaded."
+            "Level \(level)!"
         }
 
-        static func bossCaptured(name: String, points: Int) -> String {
-            "\(name) captured! +\(points)"
+        static func bossCaptured(name: String, points _: Int) -> String {
+            "\(name) captured!"
         }
 
-        static func travelerCaught(emoji: String, points: Int) -> String {
-            "Caught \(emoji)! +\(points)"
+        static func travelerCaught(emoji: String, points _: Int) -> String {
+            "Caught \(emoji)!"
         }
 
-        static func reportItemCollected(name: String, points: Int) -> String {
-            "Collected \(name) page for TPS report +\(points)"
+        static func reportItemCollected(name: String, points _: Int) -> String {
+            "Got \(name)"
         }
 
         static func tpsMissingItems(_ items: [String]) -> String {
             let names = items.map { Machine.displayNames[$0] ?? $0 }
-            return "The TPS report is missing \(names.joined(separator: ", "))."
+            return "Missing: \(names.joined(separator: ", "))"
         }
 
-        static func tpsTurnedIn(points: Int, gainedLife: Bool) -> String {
-            gainedLife
-                ? "TPS report turned in! +\(points), extra worker hired."
-                : "TPS report turned in! +\(points), workers at max."
+        static func tpsTurnedIn(points _: Int, gainedLife: Bool) -> String {
+            gainedLife ? "TPS in! New worker hired" : "TPS turned in!"
         }
     }
 
