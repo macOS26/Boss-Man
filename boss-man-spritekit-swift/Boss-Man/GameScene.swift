@@ -1,5 +1,5 @@
 import AppKit
-#if os(macOS)
+#if canImport(SpriteKit)
 import GameKit
 #endif
 import SpriteKit
@@ -171,7 +171,13 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         return .zero
     }
 
-    // MARK: - Input (platform-specific)
+    // MARK: - Input
+    // Keyboard + pointer handling is common: the framework bridges the web
+    // runtime's Int/CGPoint callbacks into the same (with: NSEvent) overrides
+    // apple calls natively, and KeyCode abstracts the per-platform raw codes. Only
+    // the input device with no counterpart on the other platform stays behind #if:
+    // apple's gamepad / mouse-delta (inputController) and key-repeat filter, web's
+    // touch swipe, and apple's Carbon username-key translation.
     #if os(macOS)
     private func usernameKeyCode(for event: NSEvent) -> Int {
         switch event.keyCode {
@@ -186,80 +192,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             return -1
         }
     }
+    #endif
 
-    override func keyDown(with event: NSEvent) {
-        if let s = gameOverScreen {
-            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
-            return
-        }
-        if isGameOver {
-            switch event.keyCode {
-            case 35: restartGame()
-            case 53: returnToTitleScene()
-            default: break
-            }
-            return
-        }
-        switch event.keyCode {
-        case 35: togglePause(); return
-        case 53: returnToTitleScene(); return
-        default: break
-        }
-        guard !isUserPaused else { return }
-        if event.keyCode == 49 { fireWaterGun(); return }
-        guard let direction = MoveDirection(keyCode: Int(event.keyCode)), !event.isARepeat else { return }
-        workerController.queueDirection(direction)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        if let s = gameOverScreen {
-            s.handleTap(at: event.location(in: self))
-            return
-        }
-        guard !isUserPaused, !isGameOver else { return }
-        let p = event.location(in: self)
-        if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
-            joystickActive = true
-            moveJoystickThumb(to: p)
-            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) {
-                workerController.queueDirection(d)
-                workerController.node.setFacing(d)
-            }
-            return
-        }
-        fireWaterGun()
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        if joystickActive {
-            joystickActive = false
-            recenterJoystickThumb()
-        }
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        let p = event.location(in: self)
-        if joystickActive {
-            moveJoystickThumb(to: p)
-            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) {
-                workerController.queueDirection(d)
-                workerController.node.setFacing(d)
-            }
-            return
-        }
-        inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
-    }
-
-    var isGameOverForInput: Bool { isGameOver }
-
-    func inputControllerDidRequest(_ direction: MoveDirection) {
-        workerController.queueDirection(direction)
-    }
-    #elseif os(WASI)
     private func swipeDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
         guard max(abs(dx), abs(dy)) >= swipeThreshold else { return nil }
         if abs(dx) >= abs(dy) { return dx > 0 ? .right : .left }
@@ -271,12 +205,41 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         workerController.node.setFacing(dir)
     }
 
-    override func mouseDown(at p: CGPoint) {
+    override func keyDown(with event: NSEvent) {
+        let code = Int(event.keyCode)
+        if let s = gameOverScreen {
+            #if os(macOS)
+            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
+            #else
+            s.handleKey(code, shift: false)
+            #endif
+            return
+        }
+        if isGameOver {
+            switch code {
+            case KeyCode.keyP: restartGame()
+            case KeyCode.esc:  returnToTitleScene()
+            default: break
+            }
+            return
+        }
+        if code == KeyCode.keyP  { togglePause(); return }
+        if code == KeyCode.esc   { returnToTitleScene(); return }
+        guard !isUserPaused else { return }
+        if code == KeyCode.space { fireWaterGun(); return }
+        #if os(macOS)
+        guard !event.isARepeat else { return }
+        #endif
+        if let direction = MoveDirection(keyCode: code) { steer(direction) }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let p = event.location(in: self)
         if let s = gameOverScreen {
             s.handleTap(at: p)
             return
         }
-        if isGameOver || isUserPaused { return }
+        guard !isUserPaused, !isGameOver else { return }
         if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
             joystickActive = true
             moveJoystickThumb(to: p)
@@ -285,6 +248,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             moveAnchor = nil
             return
         }
+        #if os(macOS)
+        fireWaterGun()
+        #else
         moveAnchor = p
         if !fireButtonHidden, fireButtonCenter.distance(to: p) <= fireButtonRadius {
             fireWaterGun()
@@ -293,14 +259,36 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
         swipeStart = p
         swipeFired = false
+        #endif
     }
 
-    override func mouseMoved(to p: CGPoint) {
+    override func mouseUp(with event: NSEvent) {
+        if joystickActive {
+            joystickActive = false
+            recenterJoystickThumb()
+            return
+        }
+        #if os(WASI)
+        let p = event.location(in: self)
+        if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused,
+           let d = swipeDirection(p.x - start.x, p.y - start.y) {
+            steer(d)
+        }
+        swipeStart = nil
+        moveAnchor = p
+        #endif
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        let p = event.location(in: self)
         if joystickActive {
             moveJoystickThumb(to: p)
             if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
             return
         }
+        #if os(macOS)
+        inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
+        #else
         if isGameOver || isUserPaused { moveAnchor = p; return }
         if let start = swipeStart {
             if !swipeFired, let d = swipeDirection(p.x - start.x, p.y - start.y) {
@@ -312,42 +300,19 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if let d = swipeDirection(p.x - anchor.x, p.y - anchor.y) {
             steer(d); moveAnchor = p
         }
+        #endif
     }
 
-    override func mouseUp(at p: CGPoint) {
-        if joystickActive {
-            joystickActive = false
-            recenterJoystickThumb()
-            return
-        }
-        if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused,
-           let d = swipeDirection(p.x - start.x, p.y - start.y) {
-            steer(d)
-        }
-        swipeStart = nil
-        moveAnchor = p
+    #if os(macOS)
+    override func mouseMoved(with event: NSEvent) {
+        inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
     }
 
-    override func keyDown(_ key: Int) {
-        if let s = gameOverScreen {
-            s.handleKey(key, shift: false)
-            return
-        }
-        if isGameOver {
-            if key == 15 { restartGame() }
-            else if key == 36 { returnToTitleScene() }
-            return
-        }
-        if key == 36 { returnToTitleScene(); return }
-        if key == 15 { togglePause(); return }
-        if isUserPaused { return }
-        if key == 57 { fireWaterGun(); return }
-        if let dir = MoveDirection(keyCode: key) {
-            workerController.queueDirection(dir)
-            workerController.node.setFacing(dir)
-        }
-    }
+    var isGameOverForInput: Bool { isGameOver }
 
+    func inputControllerDidRequest(_ direction: MoveDirection) {
+        workerController.queueDirection(direction)
+    }
     #endif
 
     // MARK: - WorkerControllerDelegate (shared collection logic)
