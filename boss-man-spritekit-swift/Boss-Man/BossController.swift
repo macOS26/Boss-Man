@@ -154,12 +154,12 @@ final class BossController {
         // r=5 so a catch needs a deeper overlap with Pete (Pete's body is 10,
         // contact fires at centres ~15px apart), not the barely-touching overlap
         // that r=10 (20px) gave.
-        node.physicsBody = SKPhysicsBody(circleOfRadius: 5)
+        node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
         node.physicsBody?.allowsRotation = false
         node.physicsBody?.isDynamic = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
         node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
-        node.physicsBody?.collisionBitMask = PhysicsCategory.wall
+        node.physicsBody?.collisionBitMask = 0 //PhysicsCategory.wall
         node.zPosition = 11
         scene.addChild(node)
 
@@ -249,22 +249,21 @@ final class BossController {
         sound.playTeleport()
         node.run(.fadeIn(withDuration: 1.5), withKey: Strings.ActionKey.spawnFade)
 
+        let pulse = SKAction.sequence([
+            .scale(to: 1.18, duration: 0.16),
+            .scale(to: 1.0, duration: 0.17)
+        ])
+        // Stay immobilized (and harmless: resolveBossContact skips immobilized
+        // bosses) through the throb. Only when the pulse telegraph finishes does
+        // the boss begin moving and become able to catch Pete.
         node.run(.sequence([
             .wait(forDuration: 2.0),
+            .repeat(pulse, count: 3),
             .run { [weak self, weak node] in
                 guard let self, let node,
                       let idx = self.entities.firstIndex(where: { $0.node === node }) else { return }
                 self.entities[idx].isImmobilized = false
             }
-        ]), withKey: Strings.ActionKey.spawnUnfreeze)
-
-        let pulse = SKAction.sequence([
-            .scale(to: 1.18, duration: 0.16),
-            .scale(to: 1.0, duration: 0.17)
-        ])
-        node.run(.sequence([
-            .wait(forDuration: 2.0),
-            .repeat(pulse, count: 3)
         ]), withKey: Strings.ActionKey.spawnThrob)
     }
 

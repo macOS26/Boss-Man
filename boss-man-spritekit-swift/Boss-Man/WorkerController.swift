@@ -46,7 +46,7 @@ final class WorkerController {
         node.physicsBody?.velocity = CGVector.zero
         node.physicsBody?.categoryBitMask = PhysicsCategory.worker
         node.physicsBody?.contactTestBitMask = PhysicsCategory.dot | PhysicsCategory.boss | PhysicsCategory.machine | PhysicsCategory.tpsBox | PhysicsCategory.goldDisc | PhysicsCategory.fish | PhysicsCategory.waterGun | PhysicsCategory.waterPellet
-        node.physicsBody?.collisionBitMask = PhysicsCategory.wall
+        node.physicsBody?.collisionBitMask = 0 //PhysicsCategory.wall
         node.zPosition = 10
     }
 

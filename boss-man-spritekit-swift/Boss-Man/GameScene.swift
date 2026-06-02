@@ -592,8 +592,15 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     private func checkBossCatch() {
         let petePos = workerController.node.position
-        for boss in bossController.entities where boss.node.position.distance(to: petePos) <= bossCatchDistance {
-            resolveBossContact(boss.node)
+        let peteTile = dropletGrid(petePos)
+        for boss in bossController.entities {
+            let bossPos = boss.node.position
+            // Same tile catches a pass-through that pixel distance alone can miss
+            // (a tile swap or tunnel-wrap teleport never samples within 15px);
+            // distance catches the head-on approach mid-glide.
+            if dropletGrid(bossPos) == peteTile || bossPos.distance(to: petePos) <= bossCatchDistance {
+                resolveBossContact(boss.node)
+            }
         }
     }
 
