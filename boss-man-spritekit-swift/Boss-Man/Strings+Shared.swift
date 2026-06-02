@@ -218,5 +218,6 @@ extension Strings {
         static let fleeThaw         = "fleeThaw"
         static let waterGunExpiry   = "waterGunExpiry"
         static let clear            = "clear"
+        static let hudSwap          = "hudSwap"
     }
 }
