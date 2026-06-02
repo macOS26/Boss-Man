@@ -222,7 +222,7 @@ enum Strings {
             "Score: \(score)   High: \(highScore)   Level: \(level)   Dots: \(dots)/\(total)   Reports: \(reports)"
         }
 
-        static func compactScore(_ score: Int) -> String { "Score: \(score)" }
+        static func compactScore(_ score: Int) -> String { "\(score)" }
         static func compactReports(_ reports: Int) -> String { "Reports: \(reports)" }
 
         static let gameOver         = "GAME OVER"
