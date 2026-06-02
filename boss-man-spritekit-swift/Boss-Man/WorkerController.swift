@@ -15,6 +15,11 @@ final class WorkerController {
     private(set) var direction: MoveDirection?
     private(set) var queuedDirection: MoveDirection?
 
+    // The tile Pete is gliding toward this step (nil when stopped). The grid-
+    // intent boss catch tests committed tiles, not pixel proximity, mirroring the
+    // C++ master where grid is set to the step destination the instant it begins.
+    var headingGrid: CGPoint? { mover.moving ? mover.target : nil }
+
     private let gridMap: GridMap
     private let sound: SoundManager
     private let moveDuration: TimeInterval = 0.14

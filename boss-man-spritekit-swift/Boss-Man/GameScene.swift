@@ -1,7 +1,5 @@
 import AppKit
-#if canImport(SpriteKit)
 import GameKit
-#endif
 import SpriteKit
 
 // Gameplay scene, common to the macOS master and the wasm port. The game logic
@@ -12,10 +10,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let goldDiscDuration: TimeInterval = 20
     private var frightenSecondsLeft: TimeInterval = 0
     private let waterHitPoints = 50
-    // Boss body r=10 + Pete body r=10 → catch when their centres are within 20px
-    // (the radii touch). Was 15 (the old r=5 boss), which left a 15–20px gap that
-    // wasm's coarser sampling slipped through — the blind spot.
-    private let bossCatchDistance: CGFloat = 20
     private var pendingCatch: PixelPerson?
     private var deferredBossSpawn: (() -> Void)?
     private var bossSpawnGrace: TimeInterval = 0
@@ -497,10 +491,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    // Boss catch is detected by per-frame proximity in update(), not a physics
-    // contact: Pete and the boss are both TileMover-driven (positions teleported
-    // each frame), and Box2D misses two such bodies swapping tiles in one step,
-    // letting Pete slip straight through. Distance sampling catches the pass.
     private func resolveBossContact(_ bossNode: PixelPerson) {
         guard !bossController.isImmobilized(boss: bossNode) else { return }
         if bossController.isInFleeMode(boss: bossNode) {
@@ -510,42 +500,35 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    // Continuous (swept) catch. Pete and the bosses both move by teleporting their
-    // node position each frame, so sampling only the frame-boundary positions lets
-    // a fast cross or a one-frame tile swap slip straight through (and Box2D can't
-    // help: a SetTransform teleport leaves no motion sweep for its CCD). Instead
-    // test the closest approach of Pete's movement segment against each boss's
-    // movement segment over the frame — if they pass within bossCatchDistance at
-    // any point, it's a catch, no matter how far either teleported. The same-tile
-    // check stays as a cheap guard for the dwell case (both parked on one cell).
-    private func checkBossCatch(petePrev: CGPoint, bossPrev: [ObjectIdentifier: CGPoint]) {
-        let peteNow = workerController.node.position
-        let peteGrid = workerController.grid
+    // Grid-intent catch, ported from the C++ master (which has no run-through):
+    // detect on tile COMMITMENT, not pixel proximity. Each TileMover commits to
+    // its destination cell the moment a step begins, so an entity occupies both
+    // the tile it sits on (grid) and the tile it is gliding toward (heading). Pete
+    // is caught when his occupied tiles meet a boss's — covering boss-onto-Pete,
+    // Pete-onto-boss, a head-on swap, and a shared cell, independent of glide speed
+    // or frame rate (no pixel sampling, so nothing to tunnel through).
+    private func checkBossCatch() {
+        let peteFrom = workerController.grid
+        let peteTo = workerController.headingGrid
         for boss in bossController.entities {
-            let bossNow = boss.node.position
-            let bPrev = bossPrev[ObjectIdentifier(boss.node)] ?? bossNow
-            let bossGrid = boss.mover?.grid ?? dropletGrid(bossNow)
-            if bossGrid == peteGrid || sweptMinDistance(petePrev, peteNow, bPrev, bossNow) <= bossCatchDistance {
+            guard let m = boss.mover else { continue }
+            if tilesMeet(peteFrom, peteTo, m.grid, m.moving ? m.target : nil) {
                 resolveBossContact(boss.node)
             }
         }
     }
 
-    // Minimum distance between two points each moving linearly over t in [0, 1]
-    // (Pete a0->a1, boss b0->b1): the closest point of their relative-motion
-    // segment to the origin, clamped to the frame. Zero-length segments reduce to
-    // a plain point distance, so a parked pair is handled too.
-    private func sweptMinDistance(_ a0: CGPoint, _ a1: CGPoint, _ b0: CGPoint, _ b1: CGPoint) -> CGFloat {
-        let r0x = a0.x - b0.x, r0y = a0.y - b0.y
-        let dx = (a1.x - a0.x) - (b1.x - b0.x)
-        let dy = (a1.y - a0.y) - (b1.y - b0.y)
-        let denom = dx * dx + dy * dy
-        var t: CGFloat = 0
-        if denom > 0 {
-            t = max(0, min(1, -(r0x * dx + r0y * dy) / denom))
+    // True when the two entities' occupied cells (each = a sitting tile plus an
+    // optional heading tile) share any cell. Grid values are exact integer CGFloat
+    // pairs, so == is reliable.
+    private func tilesMeet(_ aFrom: CGPoint, _ aTo: CGPoint?, _ bFrom: CGPoint, _ bTo: CGPoint?) -> Bool {
+        if aFrom == bFrom { return true }
+        if let bTo, aFrom == bTo { return true }
+        if let aTo {
+            if aTo == bFrom { return true }
+            if let bTo, aTo == bTo { return true }
         }
-        let cx = r0x + t * dx, cy = r0y + t * dy
-        return (cx * cx + cy * cy).squareRoot()
+        return false
     }
 
     // MARK: - Update loop
@@ -572,12 +555,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if isGameOver { return }
         if isUserPaused { return }
 
-        let petePrev = workerController.node.position
-        var bossPrev = [ObjectIdentifier: CGPoint]()
-        for boss in bossController.entities { bossPrev[ObjectIdentifier(boss.node)] = boss.node.position }
         workerController.advance(dt)
         bossController.advance(dt)
-        checkBossCatch(petePrev: petePrev, bossPrev: bossPrev)
+        checkBossCatch()
         stepWaterDroplets(dt: dt)
 
         if frightenSecondsLeft > 0 {
