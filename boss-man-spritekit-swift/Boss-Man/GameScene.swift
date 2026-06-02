@@ -10,6 +10,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let goldDiscDuration: TimeInterval = 20
     private var frightenSecondsLeft: TimeInterval = 0
     private let waterHitPoints = 50
+    // Boss r=10 + Pete r=10: catch when their centres are within 20px (bodies
+    // touch). Under a tile (32px), so being one cell away never triggers it.
+    private let bossCatchDistance: CGFloat = 20
     private var pendingCatch: PixelPerson?
     private var deferredBossSpawn: (() -> Void)?
     private var bossSpawnGrace: TimeInterval = 0
@@ -500,35 +503,20 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    // Grid-intent catch, ported from the C++ master (which has no run-through):
-    // detect on tile COMMITMENT, not pixel proximity. Each TileMover commits to
-    // its destination cell the moment a step begins, so an entity occupies both
-    // the tile it sits on (grid) and the tile it is gliding toward (heading). Pete
-    // is caught when his occupied tiles meet a boss's — covering boss-onto-Pete,
-    // Pete-onto-boss, a head-on swap, and a shared cell, independent of glide speed
-    // or frame rate (no pixel sampling, so nothing to tunnel through).
+    // Proximity catch: same tile, or centres within bossCatchDistance (their
+    // bodies overlap). Pure overlap, so it never fires a full tile away — Pete is
+    // only safe from a boss while that boss is flashing in (immobilized during its
+    // spawnGrace), which resolveBossContact guards on; the run-through was the
+    // never-clearing shield, not the detection.
     private func checkBossCatch() {
-        let peteFrom = workerController.grid
-        let peteTo = workerController.headingGrid
+        let petePos = workerController.node.position
+        let peteGrid = workerController.grid
         for boss in bossController.entities {
-            guard let m = boss.mover else { continue }
-            if tilesMeet(peteFrom, peteTo, m.grid, m.moving ? m.target : nil) {
+            let bossGrid = boss.mover?.grid ?? dropletGrid(boss.node.position)
+            if bossGrid == peteGrid || boss.node.position.distance(to: petePos) <= bossCatchDistance {
                 resolveBossContact(boss.node)
             }
         }
-    }
-
-    // True when the two entities' occupied cells (each = a sitting tile plus an
-    // optional heading tile) share any cell. Grid values are exact integer CGFloat
-    // pairs, so == is reliable.
-    private func tilesMeet(_ aFrom: CGPoint, _ aTo: CGPoint?, _ bFrom: CGPoint, _ bTo: CGPoint?) -> Bool {
-        if aFrom == bFrom { return true }
-        if let bTo, aFrom == bTo { return true }
-        if let aTo {
-            if aTo == bFrom { return true }
-            if let bTo, aTo == bTo { return true }
-        }
-        return false
     }
 
     // MARK: - Update loop
@@ -557,6 +545,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
         workerController.advance(dt)
         bossController.advance(dt)
+        // Pete is shielded exactly while a boss is flashing in (spawnGrace), so the
+        // grace ends for worker and boss at the same instant. No standalone timer.
+        workerController.setShielded(bossController.isAnyBossSpawning)
         checkBossCatch()
         stepWaterDroplets(dt: dt)
 

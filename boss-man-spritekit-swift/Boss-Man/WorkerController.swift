@@ -15,11 +15,6 @@ final class WorkerController {
     private(set) var direction: MoveDirection?
     private(set) var queuedDirection: MoveDirection?
 
-    // The tile Pete is gliding toward this step (nil when stopped). The grid-
-    // intent boss catch tests committed tiles, not pixel proximity, mirroring the
-    // C++ master where grid is set to the step destination the instant it begins.
-    var headingGrid: CGPoint? { mover.moving ? mover.target : nil }
-
     private let gridMap: GridMap
     private let sound: SoundManager
     private let moveDuration: TimeInterval = 0.14
@@ -61,10 +56,6 @@ final class WorkerController {
     }
 
     func advance(_ dt: TimeInterval) {
-        if shieldTimer > 0 {
-            shieldTimer -= dt
-            if shieldTimer <= 0 { isShielded = false }
-        }
         mover.advance(dt, decide: { [weak self] e in
             guard let self else { return nil }
             if let q = self.queuedDirection, e.canStep(q) { return q }
@@ -104,21 +95,19 @@ final class WorkerController {
     }
 
     private(set) var isShielded = false
-    private var shieldTimer: TimeInterval = 0
+
+    // Pete's shield is driven by GameScene from the boss-flashing state (a boss is
+    // immobilized while it spawns in), not a standalone timer: invincibility ends
+    // the instant the bosses stop flashing. Mirrors the loop-driven boss
+    // spawnGrace; avoids the wasm SKAction .run-after-wait that never fired and
+    // left Pete permanently shielded.
+    func setShielded(_ shielded: Bool) { isShielded = shielded }
 
     func applySpawnShield() {
-        node.removeAction(forKey: Strings.ActionKey.spawnShield)
         node.removeAction(forKey: Strings.ActionKey.spawnShieldBlink)
         node.setBodyColor(.systemBlue)
         node.setTieColor(.systemOrange)
         node.alpha = 1
-        isShielded = true
-        // Drive the unshield from the game loop (advance), not an SKAction .run:
-        // .run callbacks after a .wait don't fire reliably on wasm, which left
-        // Pete permanently shielded there (so every boss catch was skipped and he
-        // ran straight through). Mirrors the loop-driven boss spawnGrace and the
-        // C++ master's shieldTimer.
-        shieldTimer = 3.0
 
         let blinkCycle = SKAction.sequence([
             .fadeAlpha(to: 0.35, duration: 0.6),

@@ -71,6 +71,9 @@ final class BossController {
 
     var hasFirstBoss: Bool { !entities.isEmpty }
     var firstBossGrid: CGPoint? { entities.first?.ai.grid }
+    // True while any boss is still flashing in (fading + throbbing during its
+    // spawnGrace). Drives Pete's spawn shield so both go live together.
+    var isAnyBossSpawning: Bool { entities.contains { $0.spawnGrace > 0 } }
 
     init(scene: SKScene, gridMap: GridMap, pathfinder: Pathfinder, sound: SoundManager, containerOriginX: CGFloat = 0) {
         self.scene = scene
