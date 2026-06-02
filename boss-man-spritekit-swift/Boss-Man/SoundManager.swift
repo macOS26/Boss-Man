@@ -24,7 +24,7 @@ final class SoundManager {
     var isSpeaking: Bool { speech.isSpeaking }
     #if os(macOS)
     private let voice: AVSpeechSynthesisVoice? = SoundManager.pickBossVoice()
-    #else
+    #elseif os(WASI)
     // The runtime picks the voice on web (see applyWebVoicePreferences); no
     // in-process selection, so we skip pickBossVoice entirely. That matters
     // because its `.lowercased()` calls would link ICU's ~30MB Unicode tables.

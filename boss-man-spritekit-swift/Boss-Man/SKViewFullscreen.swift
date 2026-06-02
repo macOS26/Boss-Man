@@ -1,5 +1,5 @@
-import SpriteKit
 #if os(macOS)
+import SpriteKit
 import AppKit
 
 // macOS half of the framework's SKView fullscreen shim. On wasm SKView.enter/

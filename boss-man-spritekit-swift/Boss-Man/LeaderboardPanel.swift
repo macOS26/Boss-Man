@@ -31,13 +31,11 @@ final class LeaderboardPanel: SKNode {
 #endif
     }
 
-    deinit {
 #if canImport(ObjectiveC)
+    deinit {
         NotificationCenter.default.removeObserver(self)
-#endif
     }
 
-#if canImport(ObjectiveC)
     @objc private func authStateChanged() {
         refreshFromGameCenter()
     }
