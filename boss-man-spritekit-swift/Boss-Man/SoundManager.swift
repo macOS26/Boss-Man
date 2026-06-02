@@ -1,9 +1,5 @@
 import AVFoundation
 import Foundation
-#if os(WASI)
-import KitABI
-import SpriteKit
-#endif
 
 enum MusicTheme {
     case normal

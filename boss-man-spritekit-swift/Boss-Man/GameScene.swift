@@ -62,15 +62,13 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
 
-    #if os(macOS)
-    private let inputController = PointerInputController()
-    #elseif os(WASI)
-    private let mazeRoot = SKNode()
     private var containerOriginX: CGFloat = 0
     private var swipeStart: CGPoint? = nil
     private var swipeFired = false
     private var moveAnchor: CGPoint? = nil
     private let swipeThreshold: CGFloat = 24
+    #if os(macOS)
+    private let inputController = PointerInputController()
     #endif
 
     // MARK: - Joystick (on-screen movement control)
@@ -83,36 +81,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var joystickThumb: SKShapeNode?
 
     // MARK: - Lifecycle
-    #if os(macOS)
-    override func didMove(to view: SKView) {
-        view.preferredFramesPerSecond = 60   // uncapped play, even when launched from the 30fps editor
-        backgroundColor = SpriteFactory.mazeBackground
-        anchorPoint = CGPoint(x: 0, y: 0)
-        physicsWorld.gravity = .zero
-        physicsWorld.contactDelegate = self
-
-        gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
-        gridMap.yOffset = 0
-        pathfinder = Pathfinder(map: gridMap)
-        mazeBuilder = MazeBuilder(map: gridMap)
-        hud = HUD(requiredItems: requiredItems)
-        travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound)
-        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound)
-        bossController.delegate = self
-        buildLevel()
-        hud.showMessage(state.practiceMode ? Strings.Message.practiceMode : Strings.Message.intro, duration: 3)
-        inputController.delegate = self
-        inputController.start()
-        view.window?.acceptsMouseMovedEvents = true
-        inputController.hideCursor()
-        installFireButton()
-        installJoystick()
-    }
-
-    override func willMove(from view: SKView) {
-        inputController.unhideCursor()
-    }
-    #elseif os(WASI)
     override func didMove(to view: SKView) {
         view.preferredFramesPerSecond = 60   // uncapped play, even when launched from the low-fps editor
         backgroundColor = SpriteFactory.mazeBackground
@@ -120,61 +88,52 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = self
 
-        let rows = LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
-        gridMap = GridMap(tileSize: tileSize, rows: rows)
-        pathfinder = Pathfinder(map: gridMap)
-
-        let mazeWidth  = CGFloat(gridMap.columnCount) * tileSize
-        // Bottom-align the maze: the bottom wall row sits on the scene's bottom edge,
-        // so there's no black strip below the walls and the corner fire button lines
-        // up with the maze bottom. The HUD panel reserves the top; the slack falls
-        // between the HUD and the maze top.
+        gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         gridMap.yOffset = 0
+        // Centre the maze horizontally. On a scene sized to the maze (apple) the
+        // offset is 0; on a full-viewport scene (web) it pads the slack so the maze
+        // sits centred. containerOriginX feeds the movers their world origin.
+        let mazeWidth = CGFloat(gridMap.columnCount) * tileSize
         gridMap.xOffset = max(0, (size.width - mazeWidth) / 2)
         containerOriginX = gridMap.xOffset
-
-        mazeRoot.position = .zero
-        addChild(mazeRoot)
-
+        pathfinder = Pathfinder(map: gridMap)
         mazeBuilder = MazeBuilder(map: gridMap)
         hud = HUD(requiredItems: requiredItems)
-        travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound,
-                                          containerOriginX: containerOriginX)
-        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder,
-                                        sound: sound, containerOriginX: containerOriginX)
+        travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound, containerOriginX: containerOriginX)
+        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound, containerOriginX: containerOriginX)
         bossController.delegate = self
         buildLevel()
-        installFireButton()
-        installJoystick()
-        if state.practiceMode { hud.showMessage(Strings.Message.practiceMode, duration: 3) }
+        hud.showMessage(state.practiceMode ? Strings.Message.practiceMode : Strings.Message.intro, duration: 3)
+        #if os(macOS)
+        inputController.delegate = self
+        inputController.start()
+        view.window?.acceptsMouseMovedEvents = true
+        inputController.hideCursor()
+        #endif
     }
 
     override func willMove(from view: SKView) {
         sound.stopAllAudio()
         mazeBuilder.releaseTextures()
+        #if os(macOS)
+        inputController.unhideCursor()
+        #endif
     }
-    #endif
 
     private func buildLevel() {
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
         mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        #if os(macOS)
         gridMap.setRows(currentLevelRows())
-        state.dotCount = mazeBuilder.build(in: self, view: self.view)
-        #elseif os(WASI)
-        state.dotCount = mazeBuilder.build(in: mazeRoot, view: view)
-        #endif
+        state.dotCount = mazeBuilder.build(in: self, view: view)
         state.goldDiscCount = mazeBuilder.goldDiscPositions.count
         hud.install(in: self)
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
-        #if os(macOS)
-        workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
-        #elseif os(WASI)
         workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound, containerOriginX: containerOriginX)
-        #endif
         workerController.delegate = self
         addChild(workerController.node)
         workerController.applySpawnShield()
+        installFireButton()
+        installJoystick()
         let bossSpawnSeconds = nextBossSpawnSeconds
         nextBossSpawnSeconds = 0
         delayBossSpawn(after: bossSpawnSeconds) { [weak self] in
@@ -183,15 +142,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
                                       spawnOverrides: self.mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
         }
         refreshHUD()
-        #if os(macOS)
         let scheduledLevel = state.level
         travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
             guard let self else { return false }
-            return self.state.level == scheduledLevel && !self.isGameOver
+            return self.state.level == scheduledLevel && !self.isGameOver && !self.isUserPaused
         }
-        #elseif os(WASI)
-        scheduleTravelerForCurrentLevel()
-        #endif
     }
 
     private func currentLevelRows() -> [String] {
@@ -393,13 +348,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    private func scheduleTravelerForCurrentLevel() {
-        travelerSpawner.scheduleVisits(of: currentTraveler(),
-                                       whileActive: { [weak self] in
-                                           guard let self else { return false }
-                                           return !self.isGameOver && !self.isUserPaused
-                                       })
-    }
     #endif
 
     // MARK: - WorkerControllerDelegate (shared collection logic)
@@ -667,36 +615,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // MARK: - Level / game flow
     private func startNextLevel() {
         state.advanceLevel()
-        #if os(macOS)
         nextBossSpawnSeconds = sound.playLevelStart()
         resetSceneAndBuild()
-        #elseif os(WASI)
-        // wasm reuses the worker / HUD / fire button across levels — only the
-        // maze, bosses and traveler are swapped (apple rebuilds the whole scene).
-        sound.startBackgroundMusic(theme: musicTheme(for: state.level))
-        let levelSpeech = sound.playLevelStart()
-        bossController.clear()
-        mazeRoot.removeAllChildren()
-        travelerSpawner.reset()
-        gridMap.setRows(currentLevelRows())
-        mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        state.dotCount = mazeBuilder.build(in: mazeRoot, view: view)
-        state.goldDiscCount = mazeBuilder.goldDiscPositions.count
-        scheduleTravelerForCurrentLevel()
-        let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
-        workerController.resetMotion()
-        workerController.teleport(to: spawn)
-        delayBossSpawn(after: levelSpeech) { [weak self] in
-            guard let self else { return }
-            self.bossController.spawn(forLevel: self.state.level,
-                                      spawnOverrides: self.mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
-        }
-        refreshHUD()
-        #endif
         hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
     }
 
-    #if os(macOS)
     private func resetSceneAndBuild() {
         bossController.clear()
         travelerSpawner.reset()
@@ -710,21 +633,15 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         removeAllChildren()
         buildLevel()
     }
-    #endif
 
     private func restartGame() {
-        #if os(macOS)
         hud.hideGameOver()
-        inputController.hideCursor()
         isGameOver = false
         state.resetForNewGame()
         resetSceneAndBuild()
         hud.showMessage(Strings.Message.newGame, duration: 3)
-        #elseif os(WASI)
-        sound.stopAllAudio()
-        let game = GameScene(size: size)
-        game.scaleMode = .aspectFit
-        view?.presentScene(game, transition: .fade(withDuration: 0.4))
+        #if os(macOS)
+        inputController.hideCursor()
         #endif
     }
 
