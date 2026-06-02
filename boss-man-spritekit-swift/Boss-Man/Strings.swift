@@ -173,6 +173,7 @@ enum Strings {
         static let localLeaderboardUsername = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
+        static let maze200                = "BossMan.maze200"
         static let waterGunLeft           = "BossMan.waterGunLeft"
         static let waterGunHide           = "BossMan.waterGunHide"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"

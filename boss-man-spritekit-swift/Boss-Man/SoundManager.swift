@@ -752,8 +752,8 @@ final class SoundManager {
                 let t = Float(j) / Float(sampleRate)
                 var env = exp(-6 * t) * (t < 0.005 ? t / 0.005 : 1)
                 if t > slotDur - release { env *= max(0, (slotDur - t) / release) }
-                let bass = sin(2 * .pi * bassF * t) * 0.12 * env
-                let lead = leadF == 0 ? 0 : sin(2 * .pi * leadF * t) * 0.06 * env * 0.7
+                let bass = sin(2 * .pi * bassF * t) * 0.36 * env
+                let lead = leadF == 0 ? 0 : sin(2 * .pi * leadF * t) * 0.18 * env * 0.7
                 data[start + j] = bass + lead
             }
         }
@@ -817,14 +817,14 @@ final class SoundManager {
                 var bass: Float = 0
                 if bassF > 0 {
                     let s = sin(2 * .pi * bassF * t) + 0.45 * sin(2 * .pi * bassF * 2 * t)
-                    bass = tanh(s * 1.2) * 0.14 * env
+                    bass = tanh(s * 1.2) * 0.36 * env
                 }
                 var lead: Float = 0
                 if leadF > 0 {
                     let phase = leadF * t
                     let saw1 = 2 * (phase - floor(phase + 0.5))
                     let saw2 = 2 * ((leadF * 1.005) * t - floor((leadF * 1.005) * t + 0.5))
-                    lead = (saw1 + saw2) * 0.05 * env
+                    lead = (saw1 + saw2) * 0.13 * env
                 }
                 var click: Float = 0
                 if idx % 4 == 0 && j < Int(sampleRate * 0.012) {

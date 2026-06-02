@@ -12,6 +12,7 @@ final class TitleScene: SKScene {
     private var waterGunLabel: SKLabelNode?
     private var fullscreenLabel: SKLabelNode?
     private var escWindowLabel: SKLabelNode?
+    private var mazeLabel: SKLabelNode?
 
     override func didMove(to view: SKView) {
         // The title is static, so render it at 1 fps: no animation, and it avoids
@@ -89,6 +90,7 @@ final class TitleScene: SKScene {
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
         fullscreenLabel = makeHint("F for Fullscreen", y: 18)
         escWindowLabel  = makeHint("ESC for Window", y: 98)
+        mazeLabel       = makeHint(mazeText(), y: 178)
         bossTracksLabel = makeHint(bossTracksText(), y: 18, left: true)
         waterGunLabel   = makeHint(waterGunText(), y: 98, left: true)
     }
