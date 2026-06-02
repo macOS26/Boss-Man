@@ -1,6 +1,6 @@
 import SpriteKit
-#if os(macOS)
 import AppKit
+#if os(macOS)
 import Darwin
 #endif
 
@@ -682,7 +682,6 @@ final class LevelEditorScene: SKScene {
     }
 
     private func confirmClearLevel() {
-        #if os(macOS)
         let alert = NSAlert()
         alert.messageText = Strings.Editor.clearConfirmTitle
         alert.informativeText = Strings.Editor.clearConfirmBody
@@ -690,7 +689,6 @@ final class LevelEditorScene: SKScene {
         alert.addButton(withTitle: Strings.Editor.clearConfirmDestructive)
         alert.addButton(withTitle: Strings.Editor.clearConfirmCancel)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        #endif
         pushUndoSnapshot()
         mapRows = mapRows.map { _ in String(repeating: Strings.Tile.floor, count: gridCols) }
         rebuildGrid()

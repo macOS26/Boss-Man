@@ -74,6 +74,29 @@ public final class NSWindow {
     public init() {}
 }
 
+// NSAlert shim so a game's confirm dialog can be common. The web has no blocking
+// modal, so runModal() reports the first (destructive/OK) button — matching the
+// web's prior no-prompt behaviour. macOS uses the real AppKit NSAlert.
+public enum NSApplication {
+    public struct ModalResponse: Equatable {
+        public let rawValue: Int
+        public init(rawValue: Int) { self.rawValue = rawValue }
+        public static let alertFirstButtonReturn = ModalResponse(rawValue: 1000)
+        public static let alertSecondButtonReturn = ModalResponse(rawValue: 1001)
+    }
+}
+
+public final class NSAlert {
+    public enum Style { case warning, informational, critical }
+    public var messageText = ""
+    public var informativeText = ""
+    public var alertStyle: Style = .warning
+    private var buttonTitles: [String] = []
+    public init() {}
+    public func addButton(withTitle title: String) { buttonTitles.append(title) }
+    public func runModal() -> NSApplication.ModalResponse { .alertFirstButtonReturn }
+}
+
 // SKTexture(image:) bridge — registers the asset by name with the kit and
 // returns a texture that resolves the same way SKTexture(imageNamed:) does.
 public extension SKTexture {
