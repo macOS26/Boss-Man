@@ -33,16 +33,20 @@ open class SKScene: SKNode {
     open func keyDown(_ key: Int) { keyDown(with: NSEvent(keyCode: UInt16(truncatingIfNeeded: key))) }
     open func keyUp(_ key: Int) {}
     open func mouseDown(at p: CGPoint) { mouseDown(with: NSEvent(location: p)) }
-    open func mouseUp(at p: CGPoint) {}
-    open func mouseMoved(to p: CGPoint) {}
-    open func rightMouseDown(at p: CGPoint) {}
+    open func mouseUp(at p: CGPoint) { mouseUp(with: NSEvent(location: p)) }
+    open func mouseMoved(to p: CGPoint) { mouseDragged(with: NSEvent(location: p)) }
+    open func rightMouseDown(at p: CGPoint) { rightMouseDown(with: NSEvent(location: p)) }
     open func rightMouseUp(at p: CGPoint) {}
 
-    // AppKit-shaped input entry points so a game's keyDown/mouseDown override can
-    // be common with the macOS build (NSResponder uses these signatures). The
-    // Int/CGPoint dispatch above forwards into them.
+    // AppKit-shaped input entry points so a game's input overrides can be common
+    // with the macOS build (NSResponder uses these signatures). The Int/CGPoint
+    // dispatch above forwards into them; a pointer-move maps to mouseDragged (the
+    // host only reports moves while a button is held, matching AppKit's drag).
     open func keyDown(with event: NSEvent) {}
     open func mouseDown(with event: NSEvent) {}
+    open func mouseDragged(with event: NSEvent) {}
+    open func mouseUp(with event: NSEvent) {}
+    open func rightMouseDown(with event: NSEvent) {}
 }
 
 public typealias TimeInterval = Double

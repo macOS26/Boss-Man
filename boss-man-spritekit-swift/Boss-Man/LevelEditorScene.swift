@@ -245,11 +245,7 @@ final class LevelEditorScene: SKScene {
         // CPU. The kit forces a redraw on every input event, so painting stays
         // instant on wasm despite the low cap. (Gameplay reclaims 60 in its own
         // didMove, so launching a playtest from here is not throttled.)
-        #if os(macOS)
-        view.preferredFramesPerSecond = 30
-        #elseif os(WASI)
         view.preferredFramesPerSecond = 10
-        #endif
         backgroundColor = SKColor(white: 0.08, alpha: 1.0)
         anchorPoint = .zero
         addChild(gridContainer)
@@ -257,30 +253,8 @@ final class LevelEditorScene: SKScene {
         buildUI()
         loadCurrentLevel()
         scheduleAutosave()
-        #if os(macOS)
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppWillTerminate),
-            name: NSApplication.willTerminateNotification,
-            object: nil
-        )
-        #endif
-    }
-
-    override func willMove(from view: SKView) {
-        #if os(macOS)
-        NotificationCenter.default.removeObserver(self, name: NSApplication.willTerminateNotification, object: nil)
-        super.willMove(from: view)
-        #elseif os(WASI)
-        autosaveIfDirty()
-        #endif
-    }
-
-    #if os(macOS)
-    @objc private func handleAppWillTerminate() {
         autosaveIfDirty()
     }
-    #endif
 
     private func scheduleAutosave() {
         removeAction(forKey: "autosave")
@@ -790,30 +764,28 @@ final class LevelEditorScene: SKScene {
         }
     }
 
-    // MARK: - Input (platform-specific)
-    #if os(macOS)
+    // MARK: - Input
+    // Mouse is common via the framework's NSEvent bridge: rect-based hit testing
+    // (handleUITap) plus an isPainting drag flag. Only keyDown stays per-platform.
     override func mouseDown(with event: NSEvent) {
+        let p = event.location(in: self)
+        if handleUITap(p) { return }
         pushUndoSnapshot()
-        handleInput(event.location(in: self), begin: true)
+        isPainting = true
+        paint(at: p, tile: selectedTile)
     }
 
     override func mouseDragged(with event: NSEvent) {
-        handleInput(event.location(in: self), begin: false)
+        guard isPainting else { return }
+        paint(at: event.location(in: self), tile: selectedTile)
     }
 
-    override func mouseUp(with event: NSEvent) { }
+    override func mouseUp(with event: NSEvent) { isPainting = false }
 
     override func rightMouseDown(with event: NSEvent) {
-        paintRightClick(at: event.location(in: self))
-    }
-
-    override func rightMouseDragged(with event: NSEvent) {
-        paintRightClick(at: event.location(in: self))
-    }
-
-    private func paintRightClick(at loc: CGPoint) {
-        let col = Int((loc.x - gridOffsetX) / tileSize)
-        let row = gridRows - 1 - Int((loc.y - gridOffsetY) / tileSize)
+        let p = event.location(in: self)
+        let col = Int((p.x - gridOffsetX) / tileSize)
+        let row = gridRows - 1 - Int((p.y - gridOffsetY) / tileSize)
         guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
         let tile: EditorTile
         switch charAt(row: row, col: col) {
@@ -821,40 +793,27 @@ final class LevelEditorScene: SKScene {
         case Strings.Tile.wallChar: tile = .dot
         default:                    tile = .dot
         }
-        paint(at: loc, tile: tile)
+        pushUndoSnapshot()
+        paint(at: p, tile: tile)
     }
 
-    func handleInput(_ loc: CGPoint, begin: Bool) {
-        if begin {
-            let hitNodes = nodes(at: loc)
-            let paletteName = hitNodes.compactMap { node -> String? in
-                if let name = node.name, name.hasPrefix(Strings.NodeName.palettePrefix) { return name }
-                if let name = node.parent?.name, name.hasPrefix(Strings.NodeName.palettePrefix) { return name }
-                if let name = node.parent?.parent?.name, name.hasPrefix(Strings.NodeName.palettePrefix) { return name }
-                return nil
-            }.first
-
-            if let palName = paletteName {
-                let ch = palName.suffix(1).first!
-                if let tile = EditorTile.all.first(where: { $0.character == ch }) {
-                    selectedTile = tile
-                    updatePaletteHighlight()
-                }
-                return
+    private func handleUITap(_ p: CGPoint) -> Bool {
+        for (i, rect) in paletteRects.enumerated() where rect.contains(p) {
+            if i < EditorTile.all.count {
+                selectedTile = EditorTile.all[i]
+                updatePaletteHighlight()
             }
-
-            // Scan every hit node (not just the frontmost) for the button name:
-            // each button's text label is a higher-z sibling of the button shape,
-            // so a click landing on the label would otherwise miss the button.
-            if let buttonName = hitNodes.compactMap({ $0.name }).first(where: { $0.hasPrefix("btn_") }) {
-                flashButton(named: buttonName)
-                runButtonAction(buttonName)
-                return
-            }
+            return true
         }
-        paint(at: loc, tile: selectedTile)
+        for entry in buttonRects where entry.rect.contains(p) {
+            flashButton(named: entry.name)
+            runButtonAction(entry.name)
+            return true
+        }
+        return false
     }
 
+    #if os(macOS)
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
         case 53:
@@ -907,52 +866,6 @@ final class LevelEditorScene: SKScene {
         updatePaletteHighlight()
     }
     #elseif os(WASI)
-    override func mouseDown(at p: CGPoint) {
-        if handleUITap(p) { return }
-        pushUndoSnapshot()
-        isPainting = true
-        paint(at: p, tile: selectedTile)
-    }
-
-    override func mouseMoved(to p: CGPoint) {
-        guard isPainting else { return }
-        paint(at: p, tile: selectedTile)
-    }
-
-    override func mouseUp(at p: CGPoint) {
-        isPainting = false
-    }
-
-    override func rightMouseDown(at p: CGPoint) {
-        let col = Int((p.x - gridOffsetX) / tileSize)
-        let row = gridRows - 1 - Int((p.y - gridOffsetY) / tileSize)
-        guard row >= 0, row < gridRows, col >= 0, col < gridCols else { return }
-        let tile: EditorTile
-        switch charAt(row: row, col: col) {
-        case Strings.Tile.dotChar:  tile = .wall
-        case Strings.Tile.wallChar: tile = .dot
-        default:                    tile = .dot
-        }
-        pushUndoSnapshot()
-        paint(at: p, tile: tile)
-    }
-
-    private func handleUITap(_ p: CGPoint) -> Bool {
-        for (i, rect) in paletteRects.enumerated() where rect.contains(p) {
-            if i < EditorTile.all.count {
-                selectedTile = EditorTile.all[i]
-                updatePaletteHighlight()
-            }
-            return true
-        }
-        for entry in buttonRects where entry.rect.contains(p) {
-            flashButton(named: entry.name)
-            runButtonAction(entry.name)
-            return true
-        }
-        return false
-    }
-
     override func keyDown(_ key: Int) {
         switch key {
         case 36:
