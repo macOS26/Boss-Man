@@ -20,20 +20,18 @@ final class SpeechDuckDelegate: NSObject, AVSpeechSynthesizerDelegate {
 // macOS ranks voices in-process (pickBossVoice), so the runtime handoff that the
 // framework performs on wasm is a no-op here.
 func applySpeechVoicePreferences(preferred: [String], robotic: [String], female: [String]) {}
+#endif
 
 extension SoundManager {
-    // Wires speech ducking. macOS rides the @objc delegate; wasm ducks in the
-    // runtime, so there's nothing to install.
+    // Wires speech ducking. macOS rides the @objc AVSpeechSynthesizer delegate;
+    // wasm ducks in the runtime (and its isSpeaking never resets, so we can't
+    // poll), so there's nothing to install in-process there.
     func configureSpeechDucking() {
+        #if os(macOS)
         let duck = SpeechDuckDelegate()
         duck.owner = self
         speech.delegate = duck
         speechDuckRetain = duck
+        #endif
     }
 }
-#elseif os(WASI)
-extension SoundManager {
-    // wasm ducks in the runtime, so there's nothing to install in-process.
-    func configureSpeechDucking() {}
-}
-#endif
