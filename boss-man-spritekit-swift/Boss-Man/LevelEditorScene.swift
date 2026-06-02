@@ -813,101 +813,46 @@ final class LevelEditorScene: SKScene {
         return false
     }
 
-    #if os(macOS)
-    override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 53:
-            autosaveIfDirty()
-            let title = TitleScene(size: size)
-            title.scaleMode = .aspectFit
-            view?.presentScene(title, transition: .fade(withDuration: 0.3))
-            return
-        case 123:
-            autosaveIfDirty()
-            let count = Levels.levelNames.count
-            currentLevelIndex = (currentLevelIndex - 1 + count) % count
-            pendingFlashName = Strings.EditorButton.prev
-            loadCurrentLevel()
-            return
-        case 124:
-            autosaveIfDirty()
-            currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
-            pendingFlashName = Strings.EditorButton.next
-            loadCurrentLevel()
-            return
-        case 51:
-            flashButton(named: Strings.EditorButton.clear)
-            confirmClearLevel()
-            return
-        default: break
-        }
+    override func keyDown(with event: NSEvent) { handleKey(Int(event.keyCode)) }
 
-        if let chars = event.characters?.lowercased() {
-            switch chars {
-            case Strings.Key.digit1: selectedTile = .wall
-            case Strings.Key.digit2: selectedTile = .dot
-            case Strings.Key.digit3: selectedTile = .hideout
-            case Strings.Key.digit4: selectedTile = .printer
-            case Strings.Key.digit5: selectedTile = .fax
-            case Strings.Key.digit6: selectedTile = .copy
-            case Strings.Key.digit7: selectedTile = .collator
-            case Strings.Key.digit8: selectedTile = .brownBox
-            case Strings.Key.digit0: selectedTile = .empty
-            case "s": flashButton(named: Strings.EditorButton.save);  saveCurrentLevel()
-            case "p": flashButton(named: Strings.EditorButton.play);  playCurrentLevel()
-            case "c": flashButton(named: Strings.EditorButton.copy);  copyLevel()
-            case "v": flashButton(named: Strings.EditorButton.paste); pasteLevel()
-            case "z": flashButton(named: Strings.EditorButton.undo);  undo()
-            case "y": flashButton(named: Strings.EditorButton.redo);  redo()
-            case "r": flashButton(named: Strings.EditorButton.reset); resetCurrentLevel()
-            default: break
-            }
-        }
-        updatePaletteHighlight()
-    }
-    #elseif os(WASI)
-    override func keyDown(_ key: Int) {
+    private func handleKey(_ key: Int) {
         switch key {
-        case 36:
+        case KeyCode.esc:
             autosaveIfDirty()
             let title = TitleScene(size: size)
             title.scaleMode = .aspectFit
             view?.presentScene(title, transition: .fade(withDuration: 0.3))
-            return
-        case 71:
+        case KeyCode.arrowLeft:
             autosaveIfDirty()
             let count = Levels.levelNames.count
             currentLevelIndex = (currentLevelIndex - 1 + count) % count
             pendingFlashName = Strings.EditorButton.prev
             loadCurrentLevel()
-            return
-        case 72:
+        case KeyCode.arrowRight:
             autosaveIfDirty()
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
-            return
-        case 27, 76: selectedTile = .wall;     updatePaletteHighlight(); return
-        case 28, 77: selectedTile = .dot;      updatePaletteHighlight(); return
-        case 29, 78: selectedTile = .hideout;  updatePaletteHighlight(); return
-        case 30, 79: selectedTile = .printer;  updatePaletteHighlight(); return
-        case 31, 80: selectedTile = .fax;      updatePaletteHighlight(); return
-        case 32, 81: selectedTile = .copy;     updatePaletteHighlight(); return
-        case 33, 82: selectedTile = .collator; updatePaletteHighlight(); return
-        case 34, 83: selectedTile = .brownBox; updatePaletteHighlight(); return
-        case 26, 75: selectedTile = .empty;    updatePaletteHighlight(); return
-        case 18: flashButton(named: Strings.EditorButton.save);   saveCurrentLevel()
-        case 15: flashButton(named: Strings.EditorButton.play);   playCurrentLevel()
-        case 2:  flashButton(named: Strings.EditorButton.copy);   copyLevel()
-        case 21: flashButton(named: Strings.EditorButton.paste);  pasteLevel()
-        case 25: flashButton(named: Strings.EditorButton.undo);   undo()
-        case 24: flashButton(named: Strings.EditorButton.redo);   redo()
-        case 17: flashButton(named: Strings.EditorButton.reset);  resetCurrentLevel()
-        case 59: flashButton(named: Strings.EditorButton.clear);  confirmClearLevel()
+        case KeyCode.delete: flashButton(named: Strings.EditorButton.clear); confirmClearLevel()
+        case KeyCode.digit1: selectedTile = .wall;     updatePaletteHighlight()
+        case KeyCode.digit2: selectedTile = .dot;      updatePaletteHighlight()
+        case KeyCode.digit3: selectedTile = .hideout;  updatePaletteHighlight()
+        case KeyCode.digit4: selectedTile = .printer;  updatePaletteHighlight()
+        case KeyCode.digit5: selectedTile = .fax;      updatePaletteHighlight()
+        case KeyCode.digit6: selectedTile = .copy;     updatePaletteHighlight()
+        case KeyCode.digit7: selectedTile = .collator; updatePaletteHighlight()
+        case KeyCode.digit8: selectedTile = .brownBox; updatePaletteHighlight()
+        case KeyCode.digit0: selectedTile = .empty;    updatePaletteHighlight()
+        case KeyCode.keyS: flashButton(named: Strings.EditorButton.save);  saveCurrentLevel()
+        case KeyCode.keyP: flashButton(named: Strings.EditorButton.play);  playCurrentLevel()
+        case KeyCode.keyC: flashButton(named: Strings.EditorButton.copy);  copyLevel()
+        case KeyCode.keyV: flashButton(named: Strings.EditorButton.paste); pasteLevel()
+        case KeyCode.keyZ: flashButton(named: Strings.EditorButton.undo);  undo()
+        case KeyCode.keyY: flashButton(named: Strings.EditorButton.redo);  redo()
+        case KeyCode.keyR: flashButton(named: Strings.EditorButton.reset); resetCurrentLevel()
         default: break
         }
     }
-    #endif
 
     // MARK: - Play / save
     func playCurrentLevel() {
