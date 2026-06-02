@@ -741,7 +741,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         sound.playGameOver()
         workerController.resetMotion()
         bossController.stopAll()
-        var allowEntry = !state.practiceMode
+        let allowEntry = !state.practiceMode
         #if os(macOS)
         inputController.unhideCursor()
         if !state.practiceMode {
@@ -749,11 +749,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
         let defaultName: String
         if GKLocalPlayer.local.isAuthenticated {
-            // Game Center owns the identity: record locally under the GC name and
-            // skip the on-screen username entry entirely.
+            // Game Center owns the cloud identity, but the board shown here is the
+            // local one — still let the player enter a name (pre-filled with the
+            // GC name) so a qualifying score lands on the local leaderboard.
             defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
-            if !state.practiceMode { LocalHighScores.record(name: defaultName, score: state.score) }
-            allowEntry = false
         } else {
             defaultName = LocalHighScores.savedUsername ?? ""
         }
