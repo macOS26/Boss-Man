@@ -12,6 +12,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let goldDiscDuration: TimeInterval = 20
     private var frightenSecondsLeft: TimeInterval = 0
     private let waterHitPoints = 50
+    private let bossCatchDistance: CGFloat = 15
     private var pendingCatch: PixelPerson?
     private var deferredBossSpawn: (() -> Void)?
     private var bossSpawnGrace: TimeInterval = 0
@@ -574,13 +575,25 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
            fishBody.node != nil {
             catchTraveler(fishBody.node)
         }
-        if let bossNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss })?.node as? PixelPerson,
-           !bossController.isImmobilized(boss: bossNode) {
-            if bossController.isInFleeMode(boss: bossNode) {
-                bossController.capture(boss: bossNode)
-            } else if !workerController.isShielded {
-                pendingCatch = bossNode
-            }
+    }
+
+    // Boss catch is detected by per-frame proximity in update(), not a physics
+    // contact: Pete and the boss are both TileMover-driven (positions teleported
+    // each frame), and Box2D misses two such bodies swapping tiles in one step,
+    // letting Pete slip straight through. Distance sampling catches the pass.
+    private func resolveBossContact(_ bossNode: PixelPerson) {
+        guard !bossController.isImmobilized(boss: bossNode) else { return }
+        if bossController.isInFleeMode(boss: bossNode) {
+            bossController.capture(boss: bossNode)
+        } else if !workerController.isShielded {
+            pendingCatch = bossNode
+        }
+    }
+
+    private func checkBossCatch() {
+        let petePos = workerController.node.position
+        for boss in bossController.entities where boss.node.position.distance(to: petePos) <= bossCatchDistance {
+            resolveBossContact(boss.node)
         }
     }
 
@@ -610,6 +623,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
         workerController.advance(dt)
         bossController.advance(dt)
+        checkBossCatch()
         stepWaterDroplets(dt: dt)
 
         if frightenSecondsLeft > 0 {
