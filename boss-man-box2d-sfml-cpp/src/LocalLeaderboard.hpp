@@ -100,6 +100,15 @@ private:
     void sortTrim() {
         std::stable_sort(entries_.begin(), entries_.end(),
             [](const LeaderboardEntry& a, const LeaderboardEntry& b) { return a.score > b.score; });
+        // One row per player (their best): after the high-to-low sort the first
+        // occurrence of each name is the highest, so drop later duplicates.
+        // Matches the SpriteKit LocalHighScores, which logs one entry per name.
+        std::vector<LeaderboardEntry> deduped;
+        for (const auto& e : entries_)
+            if (std::none_of(deduped.begin(), deduped.end(),
+                             [&](const LeaderboardEntry& d) { return d.name == e.name; }))
+                deduped.push_back(e);
+        entries_.swap(deduped);
         if ((int)entries_.size() > MAX_ENTRIES) entries_.resize(MAX_ENTRIES);
     }
 };

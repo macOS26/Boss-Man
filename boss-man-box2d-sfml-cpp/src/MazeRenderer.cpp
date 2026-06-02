@@ -115,15 +115,8 @@ void MazeRenderer::buildBackground() {
     int rowCount = (int)map.rows.size();
     float tile = map.tileSize;
 
-    // Supersample 2x: render the maze into a texture twice the logical size, then
-    // blit it back at 0.5 scale (below). On a 2x/Retina canvas the texels land
-    // 1:1 on backing pixels instead of being upscaled and blurred. The view maps
-    // logical draw coords onto the full hi-res texture so the code below is
-    // unchanged.
-    const int ss = 2;
-    if (!backgroundTexture.create(cols * (int)tile * ss, rowCount * (int)tile * ss))
+    if (!backgroundTexture.create(cols * (int)tile, rowCount * (int)tile))
         return;
-    backgroundTexture.setView(sf::View(sf::FloatRect(0, 0, cols * tile, rowCount * tile)));
 
     backgroundTexture.clear(sf::Color::Transparent);
 
@@ -189,8 +182,7 @@ void MazeRenderer::buildBackground() {
     }
 
     backgroundTexture.display();
-    backgroundSprite.setTexture(backgroundTexture.getTexture(), true);
-    backgroundSprite.setScale(1.f / ss, 1.f / ss);
+    backgroundSprite.setTexture(backgroundTexture.getTexture());
     backgroundSprite.setPosition(0, map.yOffset);
 }
 
