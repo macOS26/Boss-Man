@@ -86,11 +86,11 @@ final class HUD {
         lastWaterGunActive = false
         lastWaterGunBlueMode = false
 
-        let lifeStartX: CGFloat = pad + 150
-        let lifeSpacing: CGFloat = 21
+        let lifeStartX: CGFloat = pad + 72
+        let lifeSpacing: CGFloat = 24
         for i in 0..<HUD.maxLives {
             let icon = SpriteFactory.petePerson()
-            icon.setScale(0.368)
+            icon.setScale(0.46)
             icon.position = CGPoint(x: lifeStartX + CGFloat(i) * lifeSpacing, y: rowY)
             icon.zPosition = 1
             root.addChild(icon)
