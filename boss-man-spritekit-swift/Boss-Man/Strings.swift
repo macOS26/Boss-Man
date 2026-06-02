@@ -225,7 +225,8 @@ enum Strings {
         static func compactScore(_ score: Int) -> String { "\(score)" }
         static let reportBooks = ["📙", "📘", "📗", "📕"]
         static func compactReports(_ reports: Int) -> String {
-            (0..<max(0, reports)).map { reportBooks[$0 % reportBooks.count] }.joined()
+            let shown = reports <= 0 ? 0 : (reports - 1) % reportBooks.count + 1
+            return (0..<shown).map { reportBooks[$0] }.joined()
         }
 
         static let gameOver         = "GAME OVER"

@@ -186,8 +186,8 @@ final class HUD {
         let neverPickedUp = !active && pellets < 0
         waterGunAmmoLabel.isHidden = neverPickedUp
         guard !neverPickedUp else { return }
-        let dots = (0..<8).map { $0 < pellets ? "\u{25CF}" : "\u{25CB}" }.joined()
-        waterGunAmmoLabel.text = "\(Strings.Emoji.waterGun)\(dots)"
+        let dots = (0..<8).map { $0 < pellets ? "\u{25CF}" : "\u{25CB}" }.joined(separator: " ")
+        waterGunAmmoLabel.text = "\(dots)  \(Strings.Emoji.waterGun)"
         let empty = !active || pellets == 0
         if blueMode {
             waterGunAmmoLabel.fontColor = NSColor.systemBlue.withAlphaComponent(0.5)
