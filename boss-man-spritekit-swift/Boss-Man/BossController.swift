@@ -157,10 +157,13 @@ final class BossController {
         // that r=10 (20px) gave.
         node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
         node.physicsBody?.allowsRotation = false
-        node.physicsBody?.isDynamic = false
+        // Dynamic sensor: a Box2D contact needs one dynamic body in the pair, so
+        // dynamic + collisionBitMask 0 lets boss/worker contacts fire (the catch
+        // backup) without any collision response to fight TileMover.
+        node.physicsBody?.isDynamic = true
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
-        node.physicsBody?.contactTestBitMask = PhysicsCategory.waterDroplet // PhysicsCategory.worker |
-        node.physicsBody?.collisionBitMask = 0 //PhysicsCategory.wall
+        node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
+        node.physicsBody?.collisionBitMask = 0
         node.zPosition = 11
         scene.addChild(node)
 

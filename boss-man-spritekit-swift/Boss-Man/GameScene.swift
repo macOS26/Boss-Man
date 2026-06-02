@@ -170,8 +170,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         #if os(macOS)
         workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound)
         #elseif os(WASI)
-        workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound,
-                                            containerOriginX: containerOriginX)
+        workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound, containerOriginX: containerOriginX)
         #endif
         workerController.delegate = self
         addChild(workerController.node)
@@ -577,6 +576,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
            fishBody.node != nil {
             catchTraveler(fishBody.node)
+        }
+        // Physics-contact backup to the per-frame proximity catch: a dynamic-sensor
+        // boss overlapping Pete fires this. Both funnel into resolveBossContact.
+        if let bossNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss })?.node as? PixelPerson {
+            resolveBossContact(bossNode)
         }
     }
 
