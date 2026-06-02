@@ -590,18 +590,25 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
+    private var prevPeteGrid = CGPoint(x: -1, y: -1)
+    private var prevBossGrid: [ObjectIdentifier: CGPoint] = [:]
+
     private func checkBossCatch() {
         let petePos = workerController.node.position
-        let peteTile = dropletGrid(petePos)
+        let peteGrid = workerController.grid
         for boss in bossController.entities {
-            let bossPos = boss.node.position
-            // Same tile catches a pass-through that pixel distance alone can miss
-            // (a tile swap or tunnel-wrap teleport never samples within 15px);
-            // distance catches the head-on approach mid-glide.
-            if dropletGrid(bossPos) == peteTile || bossPos.distance(to: petePos) <= bossCatchDistance {
+            let id = ObjectIdentifier(boss.node)
+            let bossGrid = boss.mover?.grid ?? dropletGrid(boss.node.position)
+            // Catch on: same logical tile; a swap (Pete and the boss exchanged
+            // tiles in one step — a tunnel-wrap teleport or head-on crossing that
+            // never samples close); or near in pixels mid-glide.
+            let swapped = bossGrid == prevPeteGrid && prevBossGrid[id] == peteGrid
+            if bossGrid == peteGrid || swapped || boss.node.position.distance(to: petePos) <= bossCatchDistance {
                 resolveBossContact(boss.node)
             }
+            prevBossGrid[id] = bossGrid
         }
+        prevPeteGrid = peteGrid
     }
 
     // MARK: - Update loop

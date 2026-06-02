@@ -34,6 +34,7 @@ final class BossController {
         let blueprintIndex: Int
         var mover: TileMover<MoveDirection>! = nil
         var frightenedStep: TimeInterval = 0
+        var spawnGrace: TimeInterval = 0
     }
 
     // The `spawn` slot here is a placeholder (.zero) only. A boss's home/spawn
@@ -242,6 +243,12 @@ final class BossController {
 
     private func applySpawnFreeze(at index: Int) {
         entities[index].isImmobilized = true
+        // The boss stays immobilized (and harmless: resolveBossContact skips
+        // immobilized bosses) until spawnGrace counts down in advance(). Driving
+        // the unfreeze from the game loop, not an SKAction .run, keeps the timing
+        // reliable on wasm (loop-driven, like the deferred boss spawn). Covers the
+        // fade-in plus the throb telegraph.
+        entities[index].spawnGrace = 3.0
         let node = entities[index].node
         node.alpha = 0
         node.setScale(1.0)
@@ -253,17 +260,9 @@ final class BossController {
             .scale(to: 1.18, duration: 0.16),
             .scale(to: 1.0, duration: 0.17)
         ])
-        // Stay immobilized (and harmless: resolveBossContact skips immobilized
-        // bosses) through the throb. Only when the pulse telegraph finishes does
-        // the boss begin moving and become able to catch Pete.
         node.run(.sequence([
             .wait(forDuration: 2.0),
-            .repeat(pulse, count: 3),
-            .run { [weak self, weak node] in
-                guard let self, let node,
-                      let idx = self.entities.firstIndex(where: { $0.node === node }) else { return }
-                self.entities[idx].isImmobilized = false
-            }
+            .repeat(pulse, count: 3)
         ]), withKey: Strings.ActionKey.spawnThrob)
     }
 
@@ -366,6 +365,11 @@ final class BossController {
         let blinky = firstBossGrid
         let flee = delegate.isGoldDiscMode
         for i in entities.indices {
+            if entities[i].spawnGrace > 0 {
+                entities[i].spawnGrace -= dt
+                if entities[i].spawnGrace <= 0 { entities[i].isImmobilized = false }
+                continue
+            }
             if entities[i].isImmobilized { continue }
             guard let mover = entities[i].mover else { continue }
             let ai = entities[i].ai
