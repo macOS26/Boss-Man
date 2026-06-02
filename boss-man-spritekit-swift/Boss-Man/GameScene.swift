@@ -510,20 +510,42 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    // Called twice per frame — after Pete moves and after the bosses move — so a
-    // simultaneous cell swap (Pete steps onto a boss's tile while it steps onto
-    // his) is caught at the intermediate state where they briefly share a tile.
-    // This is the classic Pac-Man "passing through a ghost" fix; physics contacts
-    // can't do it here (sensor bodies moved by SetTransform get no Box2D CCD).
-    private func checkBossCatch() {
-        let petePos = workerController.node.position
+    // Continuous (swept) catch. Pete and the bosses both move by teleporting their
+    // node position each frame, so sampling only the frame-boundary positions lets
+    // a fast cross or a one-frame tile swap slip straight through (and Box2D can't
+    // help: a SetTransform teleport leaves no motion sweep for its CCD). Instead
+    // test the closest approach of Pete's movement segment against each boss's
+    // movement segment over the frame — if they pass within bossCatchDistance at
+    // any point, it's a catch, no matter how far either teleported. The same-tile
+    // check stays as a cheap guard for the dwell case (both parked on one cell).
+    private func checkBossCatch(petePrev: CGPoint, bossPrev: [ObjectIdentifier: CGPoint]) {
+        let peteNow = workerController.node.position
         let peteGrid = workerController.grid
         for boss in bossController.entities {
-            let bossGrid = boss.mover?.grid ?? dropletGrid(boss.node.position)
-            if bossGrid == peteGrid || boss.node.position.distance(to: petePos) <= bossCatchDistance {
+            let bossNow = boss.node.position
+            let bPrev = bossPrev[ObjectIdentifier(boss.node)] ?? bossNow
+            let bossGrid = boss.mover?.grid ?? dropletGrid(bossNow)
+            if bossGrid == peteGrid || sweptMinDistance(petePrev, peteNow, bPrev, bossNow) <= bossCatchDistance {
                 resolveBossContact(boss.node)
             }
         }
+    }
+
+    // Minimum distance between two points each moving linearly over t in [0, 1]
+    // (Pete a0->a1, boss b0->b1): the closest point of their relative-motion
+    // segment to the origin, clamped to the frame. Zero-length segments reduce to
+    // a plain point distance, so a parked pair is handled too.
+    private func sweptMinDistance(_ a0: CGPoint, _ a1: CGPoint, _ b0: CGPoint, _ b1: CGPoint) -> CGFloat {
+        let r0x = a0.x - b0.x, r0y = a0.y - b0.y
+        let dx = (a1.x - a0.x) - (b1.x - b0.x)
+        let dy = (a1.y - a0.y) - (b1.y - b0.y)
+        let denom = dx * dx + dy * dy
+        var t: CGFloat = 0
+        if denom > 0 {
+            t = max(0, min(1, -(r0x * dx + r0y * dy) / denom))
+        }
+        let cx = r0x + t * dx, cy = r0y + t * dy
+        return (cx * cx + cy * cy).squareRoot()
     }
 
     // MARK: - Update loop
@@ -550,10 +572,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if isGameOver { return }
         if isUserPaused { return }
 
+        let petePrev = workerController.node.position
+        var bossPrev = [ObjectIdentifier: CGPoint]()
+        for boss in bossController.entities { bossPrev[ObjectIdentifier(boss.node)] = boss.node.position }
         workerController.advance(dt)
-        checkBossCatch()
         bossController.advance(dt)
-        checkBossCatch()
+        checkBossCatch(petePrev: petePrev, bossPrev: bossPrev)
         stepWaterDroplets(dt: dt)
 
         if frightenSecondsLeft > 0 {
