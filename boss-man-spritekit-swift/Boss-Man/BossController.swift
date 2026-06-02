@@ -158,7 +158,7 @@ final class BossController {
         node.physicsBody?.allowsRotation = false
         node.physicsBody?.isDynamic = false
         node.physicsBody?.categoryBitMask = PhysicsCategory.boss
-        node.physicsBody?.contactTestBitMask = PhysicsCategory.worker | PhysicsCategory.waterDroplet
+        node.physicsBody?.contactTestBitMask = PhysicsCategory.waterDroplet // PhysicsCategory.worker |
         node.physicsBody?.collisionBitMask = 0 //PhysicsCategory.wall
         node.zPosition = 11
         scene.addChild(node)
