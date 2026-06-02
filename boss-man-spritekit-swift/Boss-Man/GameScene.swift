@@ -12,7 +12,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let goldDiscDuration: TimeInterval = 20
     private var frightenSecondsLeft: TimeInterval = 0
     private let waterHitPoints = 50
-    private let bossCatchDistance: CGFloat = 15
+    // Boss body r=10 + Pete body r=10 → catch when their centres are within 20px
+    // (the radii touch). Was 15 (the old r=5 boss), which left a 15–20px gap that
+    // wasm's coarser sampling slipped through — the blind spot.
+    private let bossCatchDistance: CGFloat = 20
     private var pendingCatch: PixelPerson?
     private var deferredBossSpawn: (() -> Void)?
     private var bossSpawnGrace: TimeInterval = 0
