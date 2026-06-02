@@ -268,7 +268,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             recenterJoystickThumb()
             return
         }
-        #if os(WASI)
+        // Swipe release. Dormant on apple (mouseDown fires there and never arms
+        // swipeStart), so the guard short-circuits and the writes are harmless.
         let p = event.location(in: self)
         if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused,
            let d = swipeDirection(p.x - start.x, p.y - start.y) {
@@ -276,7 +277,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
         swipeStart = nil
         moveAnchor = p
-        #endif
     }
 
     override func mouseDragged(with event: NSEvent) {
