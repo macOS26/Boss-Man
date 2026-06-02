@@ -888,7 +888,10 @@ void Game::drawGameOver() {
         r.setOutlineColor(stroke);
         r.setOutlineThickness(1.f);
         window.draw(r);
-        goText(window, lbl, fs, sf::Color::White, k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1);
+        // SpriteKit: letter/number keys + DEL/SPACE are Menlo (body); only the
+        // ESC/PLAY action buttons are Marker Felt.
+        bool keyBold = (k.kind == 3 || k.kind == 4);
+        goText(window, lbl, fs, sf::Color::White, k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1, keyBold);
     }
 }
 
