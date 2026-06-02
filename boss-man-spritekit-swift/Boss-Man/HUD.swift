@@ -55,7 +55,7 @@ final class HUD {
         scoreLabel.fontSize = 16
         scoreLabel.horizontalAlignmentMode = .left
         scoreLabel.verticalAlignmentMode = .center
-        scoreLabel.position = CGPoint(x: pad + 14, y: rowY)
+        scoreLabel.position = CGPoint(x: pad + 150, y: rowY)
         scoreLabel.zPosition = 1
         scoreLabel.fontColor = .white
         root.addChild(scoreLabel)
@@ -71,7 +71,7 @@ final class HUD {
         reportsLabel.fontSize = 16
         reportsLabel.horizontalAlignmentMode = .right
         reportsLabel.verticalAlignmentMode = .center
-        reportsLabel.position = CGPoint(x: size.width - pad - 14, y: rowY)
+        reportsLabel.position = CGPoint(x: size.width - pad - 14 - 270, y: rowY)
         reportsLabel.zPosition = 1
         reportsLabel.fontColor = .systemYellow
         root.addChild(reportsLabel)
@@ -86,11 +86,11 @@ final class HUD {
         lastWaterGunActive = false
         lastWaterGunBlueMode = false
 
-        let lifeStartX: CGFloat = pad + 72
-        let lifeSpacing: CGFloat = 24
+        let lifeStartX: CGFloat = pad + 18
+        let lifeSpacing: CGFloat = 26
         for i in 0..<HUD.maxLives {
             let icon = SpriteFactory.petePerson()
-            icon.setScale(0.46)
+            icon.setScale(0.529)
             icon.position = CGPoint(x: lifeStartX + CGFloat(i) * lifeSpacing, y: rowY)
             icon.zPosition = 1
             root.addChild(icon)
@@ -114,7 +114,7 @@ final class HUD {
         messageLabel.fontColor = .systemYellow
         root.addChild(messageLabel)
 
-        levelEmojisContainer.position = CGPoint(x: size.width - pad - 14, y: top - 8 - panelHeight - 34)
+        levelEmojisContainer.position = CGPoint(x: size.width - pad - 14, y: rowY)
         levelEmojisContainer.zPosition = 1
         root.addChild(levelEmojisContainer)
     }
@@ -155,8 +155,8 @@ final class HUD {
         lastLevelEmojisText = key
 
         levelEmojisContainer.removeAllChildren()
-        let pointSize: CGFloat = 14
-        let spacing:   CGFloat = 20
+        let pointSize: CGFloat = 16
+        let spacing:   CGFloat = 22
         let count = travelers.count
         for (i, t) in travelers.enumerated() {
             let glyph = TravelerGlyph.makeNode(for: t, pointSize: pointSize)
