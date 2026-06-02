@@ -52,6 +52,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     private var waterDroplets: [WaterDroplet] = []
     private let waterDropletSpeed: CGFloat = 12 * 32
+    private var fireButtonCenter = CGPoint.zero
+    private var fireButtonHidden = false
+    private let fireButtonRadius: CGFloat = 112.5
 
     #if os(macOS)
     private let workerSpawn = CGPoint(x: 18, y: 7)
@@ -63,9 +66,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var swipeFired = false
     private var moveAnchor: CGPoint? = nil
     private let swipeThreshold: CGFloat = 24
-    private var fireButtonCenter = CGPoint.zero
-    private var fireButtonHidden = false
-    private let fireButtonRadius: CGFloat = 112.5
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     #endif
@@ -897,21 +897,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // MARK: - Fire button
     private func installFireButton() {
-        #if os(macOS)
-        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
-        let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        let center = CGPoint(x: onLeft ? 112.5 : size.width - 112.5, y: 127.5)
-        let ring = SKShapeNode(circleOfRadius: 112.5)
-        ring.position = center
-        ring.fillColor = NSColor(white: 1, alpha: 0.14)
-        ring.strokeColor = NSColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2
-        ring.zPosition = 50
-        addChild(ring)
-        #elseif os(WASI)
-        fireButtonHidden = Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide)
+        fireButtonHidden = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide)
         if fireButtonHidden { return }
-        let onLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
         fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter
@@ -920,16 +908,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         ring.lineWidth = 2
         ring.zPosition = 50
         addChild(ring)
-        #endif
     }
 
     // MARK: - Joystick
     private func installJoystick() {
-        #if os(macOS)
+        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
         let fireOnLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        #elseif os(WASI)
-        let fireOnLeft = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        #endif
         let onLeft = !fireOnLeft
         joystickCenter = CGPoint(x: onLeft ? joystickRadius : size.width - joystickRadius, y: joystickRadius + 15)
 
