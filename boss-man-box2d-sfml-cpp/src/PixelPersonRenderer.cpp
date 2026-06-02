@@ -93,20 +93,29 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
         return c;
     };
 
-    // Rounded/plain rect. To emulate SpriteKit's centered stroke (half in / half out),
-    // SFML can only expand the outline outward, so we shrink the fill by the line width
-    // and let the outline grow back to the original silhouette.
+    // Rounded/plain rect with a SpriteKit-style centered stroke. SFML's
+    // setOutlineThickness grows outward and renders unevenly at the rounded
+    // corners, so instead draw two filled rounded rects: the outer one in the
+    // stroke colour (the w x h path grown by lw/2 each side) and the fill inset by
+    // lw/2 on top. That yields a uniform-width border with clean rounded corners,
+    // matching the SpriteKit master (half-in / half-out on the w x h path).
     auto drawR = [&](float offX, float offY, float w, float h, sf::Color fill,
                      sf::Color out = sf::Color::Transparent, float lw = 0.f, float radius = 0.f) {
-        float sw = w - lw;
-        float sh = h - lw;
-        float rad = (radius > 0.f) ? std::max(0.f, radius - lw * 0.5f) : 0.f;
-        RoundedRect shape({sw, sh}, rad);
-        shape.setFillColor(fade(fill));
-        shape.setOutlineColor(fade(out));
-        shape.setOutlineThickness(lw);
-        shape.setPosition(position.x + offX - sw / 2.f, position.y + offY - sh / 2.f);
-        target.draw(shape, states);
+        if (lw > 0.f && out.a > 0) {
+            RoundedRect outer({w + lw, h + lw}, radius > 0.f ? radius + lw * 0.5f : 0.f);
+            outer.setFillColor(fade(out));
+            outer.setPosition(position.x + offX - (w + lw) / 2.f, position.y + offY - (h + lw) / 2.f);
+            target.draw(outer, states);
+            RoundedRect inner({w - lw, h - lw}, radius > 0.f ? std::max(0.f, radius - lw * 0.5f) : 0.f);
+            inner.setFillColor(fade(fill));
+            inner.setPosition(position.x + offX - (w - lw) / 2.f, position.y + offY - (h - lw) / 2.f);
+            target.draw(inner, states);
+        } else {
+            RoundedRect shape({w, h}, radius);
+            shape.setFillColor(fade(fill));
+            shape.setPosition(position.x + offX - w / 2.f, position.y + offY - h / 2.f);
+            target.draw(shape, states);
+        }
     };
 
     auto drawC = [&](float offX, float offY, float radius, sf::Color fill) {
