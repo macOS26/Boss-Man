@@ -11,19 +11,26 @@
 namespace bm {
 
 namespace {
-sf::Font& gameOverFont() {
-    static sf::Font font;
-    static bool loaded = false;
-    if (!loaded) loaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
-    return font;
+// The game-over screen mirrors the SpriteKit master: Marker Felt Wide for the
+// title / score / prompts / keys (bold), Menlo Bold for the typed name and the
+// leaderboard rows (body).
+sf::Font& gameOverFont(bool bold) {
+    static sf::Font wide, menlo;
+    static bool wideLoaded = false, menloLoaded = false;
+    if (bold) {
+        if (!wideLoaded) wideLoaded = loadFont(wide, "assets/fonts/MarkerFelt-Wide.ttf");
+        return wide;
+    }
+    if (!menloLoaded) menloLoaded = loadFont(menlo, "assets/fonts/Menlo-Bold.ttf");
+    return menlo;
 }
 // halign: 0 left, 1 center, 2 right (about x). Rasterizes at uiScale and
 // counter-scales so text stays crisp on Retina. Returns the logical text width.
 float goText(sf::RenderTarget& t, const std::string& s, float sizePx, sf::Color color,
-             float x, float centerY, int halign) {
+             float x, float centerY, int halign, bool bold = true) {
     float dpi = uiScale();
     sf::Text txt;
-    txt.setFont(gameOverFont());
+    txt.setFont(gameOverFont(bold));
     txt.setString(s);
     txt.setCharacterSize((unsigned)(sizePx * dpi));
     txt.setFillColor(color);
@@ -840,9 +847,14 @@ void Game::drawGameOver() {
         field.setOutlineColor(sf::Color(150, 150, 150));
         field.setOutlineThickness(1.f);
         window.draw(field);
-        float tw = goText(window, goName, 24.f, sf::Color(13, 13, 26), fx + 14.f, fy, 0);
+        float tw = goText(window, goName, 24.f, sf::Color(13, 13, 26), fx + 14.f, fy, 0, false);
         if (std::fmod(animClock.getElapsedTime().asSeconds(), 0.9f) < 0.45f) {
-            goText(window, "|", 24.f, sf::Color(13, 13, 26), fx + 16.f + tw, fy, 0);
+            // Thin rectangle caret (matches SpriteKit; tucks against the last
+            // letter with no glyph side-bearing, unlike a "|").
+            sf::RectangleShape caret(sf::Vector2f(3.f, fh * 0.6f));
+            caret.setFillColor(sf::Color(13, 13, 26));
+            caret.setPosition(fx + 16.f + tw, fy - fh * 0.3f);
+            window.draw(caret);
         }
     } else {
         goText(window, "LEADERBOARD", 22.f, sf::Color(255, 235, 107), W / 2, 158.f, 1);
@@ -853,8 +865,8 @@ void Game::drawGameOver() {
         } else {
             for (int i = 0; i < (int)entries.size() && i < 10; ++i) {
                 float y = topY + (float)i * rowH;
-                goText(window, std::to_string(i + 1) + ". " + entries[i].name, 20.f, sf::Color::White, W * 0.30f, y, 0);
-                goText(window, std::to_string(entries[i].score), 20.f, sf::Color::White, W * 0.70f, y, 2);
+                goText(window, std::to_string(i + 1) + ". " + entries[i].name, 20.f, sf::Color::White, W * 0.30f, y, 0, false);
+                goText(window, std::to_string(entries[i].score), 20.f, sf::Color::White, W * 0.70f, y, 2, false);
             }
         }
     }
