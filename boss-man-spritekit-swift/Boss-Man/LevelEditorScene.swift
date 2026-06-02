@@ -1,8 +1,5 @@
 import SpriteKit
 import AppKit
-#if os(macOS)
-import Darwin
-#endif
 
 // Level editor, common to the macOS master and the wasm port. The editor is the
 // "wasm is master" exception: its panel layout, key commands and behaviour come
@@ -45,108 +42,9 @@ struct EditorTile: Equatable {
 }
 
 // MARK: - Level store (platform-specific persistence)
-#if os(macOS)
-// macOS: a levels.json dict in Application Support, edited per-name. The static
-// index-based wrappers below give the shared editor + GameScene a uniform call
-// shape (the wasm store is index-keyed).
-final class LevelStore {
-    static let shared = LevelStore()
-
-    static var fileURL: URL {
-        let fm = FileManager.default
-        let dir = (try? fm.url(for: .applicationSupportDirectory,
-                                in: .userDomainMask,
-                                appropriateFor: nil,
-                                create: true))?
-            .appendingPathComponent(Strings.App.bundleName, isDirectory: true)
-            ?? URL(fileURLWithPath: NSHomeDirectory())
-                .appendingPathComponent("Library/Application Support/\(Strings.App.bundleName)",
-                                        isDirectory: true)
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent(Strings.Resource.levelsJSON, isDirectory: false)
-    }
-
-    private func loadCustomLevels() -> [String: [String]] {
-        guard let data = try? Data(contentsOf: Self.fileURL) else { return [:] }
-        return (try? JSONDecoder().decode([String: [String]].self, from: data)) ?? [:]
-    }
-
-    private func saveCustomLevels(_ levels: [String: [String]]) {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(levels) else { return }
-        try? data.write(to: Self.fileURL, options: .atomic)
-        Self.dequarantine(Self.fileURL)
-    }
-
-    static func dequarantine(_ url: URL) {
-        _ = url.path.withCString { removexattr($0, Strings.Resource.quarantineAttribute, 0) }
-    }
-
-    static let mapCols = 37
-    static let mapRows = 17
-
-    private static func normalize(_ rows: [String]) -> [String] {
-        var out = rows.map { row -> String in
-            if row.count == mapCols { return row }
-            if row.count <  mapCols { return row + String(repeating: Strings.Tile.floor, count: mapCols - row.count) }
-            return String(row.prefix(mapCols))
-        }
-        while out.count < mapRows {
-            out.append(String(repeating: Strings.Tile.floor, count: mapCols))
-        }
-        if out.count > mapRows { out = Array(out.prefix(mapRows)) }
-        return out
-    }
-
-    func loadLevel(name: String) -> [String]? {
-        if let custom = loadCustomLevels()[name] { return Self.normalize(custom) }
-        guard let idx = Levels.levelNames.firstIndex(of: name) else { return nil }
-        return Self.normalize(Levels.officeMaps[idx])
-    }
-
-    func loadLevel(index: Int) -> [String] {
-        guard index >= 0 && index < Levels.levelNames.count else {
-            return Self.normalize(Levels.officeMaps[0])
-        }
-        return loadLevel(name: Levels.levelNames[index]) ?? Self.normalize(Levels.officeMaps[index])
-    }
-
-    func saveLevel(name: String, rows: [String]) {
-        var custom = loadCustomLevels()
-        custom[name] = rows
-        saveCustomLevels(custom)
-    }
-
-    func resetLevel(name: String) {
-        var custom = loadCustomLevels()
-        custom.removeValue(forKey: name)
-        saveCustomLevels(custom)
-    }
-
-    func revealInFinder() {
-        let url = Self.fileURL
-        if !FileManager.default.fileExists(atPath: url.path) {
-            try? Data(Strings.Resource.emptyJSON.utf8).write(to: url)
-        }
-        Self.dequarantine(url)
-        NSWorkspace.shared.activateFileViewerSelecting([url])
-    }
-
-    static func loadLevel(index: Int) -> [String] { shared.loadLevel(index: index) }
-    static func saveLevel(index: Int, rows: [String]) {
-        guard index >= 0, index < Levels.levelNames.count else { return }
-        shared.saveLevel(name: Levels.levelNames[index], rows: rows)
-    }
-    static func resetLevel(index: Int) {
-        guard index >= 0, index < Levels.levelNames.count else { return }
-        shared.resetLevel(name: Levels.levelNames[index])
-    }
-}
-#elseif os(WASI)
-// wasm: no filesystem write — each edited level is stored under its own
-// localStorage key as the rows joined by newlines. Built-in levels seed from
-// the read-only Levels.officeMaps asset.
+// Custom edited levels live under their own Persistence key (UserDefaults on
+// macOS, localStorage on wasm) as the rows joined by newlines; built-in levels
+// seed from the read-only Levels.officeMaps asset.
 enum LevelStore {
     static let mapCols = 37
     static let mapRows = 17
@@ -185,7 +83,6 @@ enum LevelStore {
         Persistence.setString("", forKey: key(index))
     }
 }
-#endif
 
 // MARK: - Level editor scene
 final class LevelEditorScene: SKScene {
@@ -378,11 +275,6 @@ final class LevelEditorScene: SKScene {
             (Strings.Editor.copy,  SKColor(red: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
             (Strings.Editor.paste, SKColor(red: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
         ]
-        // The Reveal File ("Show") button is macOS-only: it opens the levels.json
-        // in Finder. The web port has no filesystem, so it isn't offered.
-        #if os(macOS)
-        btnData.append((Strings.Editor.revealFile, SKColor(red: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal))
-        #endif
         btnData.append((Strings.Editor.play, SKColor(red: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), Strings.EditorButton.play))
         btnData.append((Strings.Editor.back, SKColor(red: 0.45, green: 0.4,  blue: 0.15, alpha: 1.0), Strings.EditorButton.back))
 
@@ -738,10 +630,6 @@ final class LevelEditorScene: SKScene {
         case Strings.EditorButton.save:   saveCurrentLevel()
         case Strings.EditorButton.copy:   copyLevel()
         case Strings.EditorButton.paste:  pasteLevel()
-        case Strings.EditorButton.reveal:
-            #if os(macOS)
-            LevelStore.shared.revealInFinder()
-            #endif
         case Strings.EditorButton.play:   playCurrentLevel()
         case Strings.EditorButton.back:
             autosaveIfDirty()

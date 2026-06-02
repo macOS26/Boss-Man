@@ -193,16 +193,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func currentLevelRows() -> [String] {
-        #if os(macOS)
-        let idx = (state.level - 1) % Levels.levelNames.count
-        let name = Levels.levelNames[idx]
-        if let custom = LevelStore.shared.loadLevel(name: name) {
-            return custom
-        }
-        return Levels.officeMaps[idx % Levels.officeMaps.count]
-        #elseif os(WASI)
-        return LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
-        #endif
+        LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
     }
 
     private func musicTheme(for level: Int) -> MusicTheme {
