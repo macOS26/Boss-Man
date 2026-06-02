@@ -592,23 +592,52 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     private var prevPeteGrid = CGPoint(x: -1, y: -1)
     private var prevBossGrid: [ObjectIdentifier: CGPoint] = [:]
+    private var prevPetePos = CGPoint(x: -10000, y: -10000)
+    private var prevBossPos: [ObjectIdentifier: CGPoint] = [:]
 
     private func checkBossCatch() {
         let petePos = workerController.node.position
         let peteGrid = workerController.grid
+        if prevPetePos.x < -9999 { prevPetePos = petePos }
         for boss in bossController.entities {
             let id = ObjectIdentifier(boss.node)
-            let bossGrid = boss.mover?.grid ?? dropletGrid(boss.node.position)
-            // Catch on: same logical tile; a swap (Pete and the boss exchanged
-            // tiles in one step — a tunnel-wrap teleport or head-on crossing that
-            // never samples close); or near in pixels mid-glide.
+            let bossPos = boss.node.position
+            let bossGrid = boss.mover?.grid ?? dropletGrid(bossPos)
+            // Catch on: same logical tile; a swap (exchanged tiles in one step — a
+            // tunnel-wrap teleport that never samples close); or a swept closest-
+            // approach within range, which sweeps prev->cur so a mid-frame crossing
+            // can't slip between the per-frame samples.
             let swapped = bossGrid == prevPeteGrid && prevBossGrid[id] == peteGrid
-            if bossGrid == peteGrid || swapped || boss.node.position.distance(to: petePos) <= bossCatchDistance {
+            let close = sweptClose(prevPetePos, petePos, prevBossPos[id] ?? bossPos, bossPos,
+                                   within: bossCatchDistance)
+            if bossGrid == peteGrid || swapped || close {
                 resolveBossContact(boss.node)
             }
             prevBossGrid[id] = bossGrid
+            prevBossPos[id] = bossPos
         }
         prevPeteGrid = peteGrid
+        prevPetePos = petePos
+    }
+
+    // Minimum distance between Pete and a boss as each moves linearly from its
+    // previous to current position this frame; <= within means they crossed
+    // closely even if neither endpoint sampled within range. A teleport (tunnel
+    // wrap) makes the segment meaningless, so fall back to the endpoint there.
+    private func sweptClose(_ a0: CGPoint, _ a1: CGPoint, _ b0: CGPoint, _ b1: CGPoint, within: CGFloat) -> Bool {
+        let jump = tileSize * 1.5
+        if abs(a1.x - a0.x) > jump || abs(a1.y - a0.y) > jump
+            || abs(b1.x - b0.x) > jump || abs(b1.y - b0.y) > jump {
+            return a1.distance(to: b1) <= within
+        }
+        let r0x = a0.x - b0.x, r0y = a0.y - b0.y
+        let r1x = a1.x - b1.x, r1y = a1.y - b1.y
+        let vx = r1x - r0x, vy = r1y - r0y
+        let a = vx * vx + vy * vy
+        var t: CGFloat = 0
+        if a > 1e-9 { t = max(0, min(1, -(r0x * vx + r0y * vy) / a)) }
+        let cx = r0x + t * vx, cy = r0y + t * vy
+        return cx * cx + cy * cy <= within * within
     }
 
     // MARK: - Update loop
