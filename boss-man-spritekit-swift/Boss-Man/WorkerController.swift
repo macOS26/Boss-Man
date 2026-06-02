@@ -61,6 +61,10 @@ final class WorkerController {
     }
 
     func advance(_ dt: TimeInterval) {
+        if shieldTimer > 0 {
+            shieldTimer -= dt
+            if shieldTimer <= 0 { isShielded = false }
+        }
         mover.advance(dt, decide: { [weak self] e in
             guard let self else { return nil }
             if let q = self.queuedDirection, e.canStep(q) { return q }
@@ -100,6 +104,7 @@ final class WorkerController {
     }
 
     private(set) var isShielded = false
+    private var shieldTimer: TimeInterval = 0
 
     func applySpawnShield() {
         node.removeAction(forKey: Strings.ActionKey.spawnShield)
@@ -108,6 +113,12 @@ final class WorkerController {
         node.setTieColor(.systemOrange)
         node.alpha = 1
         isShielded = true
+        // Drive the unshield from the game loop (advance), not an SKAction .run:
+        // .run callbacks after a .wait don't fire reliably on wasm, which left
+        // Pete permanently shielded there (so every boss catch was skipped and he
+        // ran straight through). Mirrors the loop-driven boss spawnGrace and the
+        // C++ master's shieldTimer.
+        shieldTimer = 3.0
 
         let blinkCycle = SKAction.sequence([
             .fadeAlpha(to: 0.35, duration: 0.6),
@@ -117,13 +128,6 @@ final class WorkerController {
             .repeat(blinkCycle, count: 1),
             .run { [weak self] in self?.node.alpha = 1 }
         ]), withKey: Strings.ActionKey.spawnShieldBlink)
-
-        let waitBeforeUnshield: TimeInterval = 3.0
-
-        node.run(.sequence([
-            .wait(forDuration: waitBeforeUnshield),
-            .run { [weak self] in self?.isShielded = false }
-        ]), withKey: Strings.ActionKey.spawnShield)
     }
 
     private static func lerpColor(from a: NSColor, to b: NSColor, progress t: CGFloat) -> NSColor {
