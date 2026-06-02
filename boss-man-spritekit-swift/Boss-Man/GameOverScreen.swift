@@ -97,7 +97,7 @@ final class GameOverScreen: SKNode {
         if qualified {
             buildNameEntry()
         } else {
-            _ = label(Strings.Leaderboard.header, H * 0.038, SKColor(red: 1, green: 0.92, blue: 0.42, alpha: 1), x: W / 2, y: H * 0.79)
+            _ = label("HALL OF FAME", H * 0.038, SKColor(red: 1, green: 0.92, blue: 0.42, alpha: 1), x: W / 2, y: H * 0.79)
             let entries = LocalHighScores.load()
             let rowH = H * 0.035, topY = H * 0.745
             let leftX = W * 0.30, rightX = W * 0.70
