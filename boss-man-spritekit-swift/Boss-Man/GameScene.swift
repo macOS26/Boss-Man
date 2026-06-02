@@ -58,6 +58,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let fireButtonRadius: CGFloat = 112.5
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
+    // Maze 200% mode (title toggle): an SKCameraNode zoomed 2x that follows Pete,
+    // clamped to the scene so the view never scrolls past the maze. Render-only;
+    // physics and the grid catch stay in world coordinates, unaffected.
+    private var cameraNode: SKCameraNode?
 
     private var containerOriginX: CGFloat = 0
     private var swipeStart: CGPoint? = nil
@@ -131,6 +135,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         workerController.applySpawnShield()
         installFireButton()
         installJoystick()
+        setupMazeCamera()
         let bossSpawnSeconds = nextBossSpawnSeconds
         nextBossSpawnSeconds = 0
         delayBossSpawn(after: bossSpawnSeconds) { [weak self] in
@@ -519,6 +524,33 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
+    // MARK: - Maze camera (200% mode)
+    private func setupMazeCamera() {
+        guard Persistence.bool(forKey: Strings.DefaultsKey.maze200) else {
+            camera = nil
+            cameraNode = nil
+            return
+        }
+        let cam = SKCameraNode()
+        cam.xScale = 0.5   // 1/0.5 = 2x zoom
+        cam.yScale = 0.5
+        addChild(cam)
+        camera = cam
+        cameraNode = cam
+    }
+
+    // Follow Pete, clamped so the (zoomed) viewport never scrolls past the scene
+    // edges — it stays inside the maze area of the 100% view, scrolling x/y with
+    // the player.
+    private func updateMazeCamera() {
+        guard let cam = cameraNode else { return }
+        let p = workerController.node.position
+        let halfW = size.width * cam.xScale / 2
+        let halfH = size.height * cam.yScale / 2
+        cam.position = CGPoint(x: min(max(p.x, halfW), size.width - halfW),
+                               y: min(max(p.y, halfH), size.height - halfH))
+    }
+
     // MARK: - Update loop
     override func update(_ currentTime: TimeInterval) {
         guard workerController != nil else { return }
@@ -549,6 +581,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         // grace ends for worker and boss at the same instant. No standalone timer.
         workerController.setShielded(bossController.isAnyBossSpawning)
         checkBossCatch()
+        updateMazeCamera()
         stepWaterDroplets(dt: dt)
 
         if frightenSecondsLeft > 0 {

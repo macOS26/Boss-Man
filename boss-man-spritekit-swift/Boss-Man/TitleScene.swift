@@ -123,6 +123,12 @@ final class TitleScene: SKScene {
     private func isSquareTracks() -> Bool {
         Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
     }
+    private func isMaze200() -> Bool {
+        Persistence.bool(forKey: Strings.DefaultsKey.maze200)
+    }
+    private func mazeText() -> String {
+        "Maze: \(isMaze200() ? "200%" : "100%")"
+    }
 
     // MARK: - Builders
     @discardableResult
@@ -182,6 +188,11 @@ final class TitleScene: SKScene {
         if editorButtonRect.contains(p) { startEditor(); return }
         if let fs = fullscreenLabel, labelHit(fs, p) { enterFullscreen(); return }
         if let esc = escWindowLabel, labelHit(esc, p) { exitToWindow();   return }
+        if let m = mazeLabel, labelHit(m, p) {
+            Persistence.set(!isMaze200(), forKey: Strings.DefaultsKey.maze200)
+            m.text = mazeText()
+            return
+        }
         if let t = bossTracksLabel, labelHit(t, p) {
             Persistence.set(!isSquareTracks(), forKey: Strings.DefaultsKey.bossTracksSquare)
             t.text = bossTracksText()
