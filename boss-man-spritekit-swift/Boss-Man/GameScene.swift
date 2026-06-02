@@ -728,21 +728,16 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         speed = isUserPaused ? 0 : 1
         if isUserPaused {
             let dim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
-            dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.45)
+            dim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: cameraNode != nil ? 0.8 : 0.45)
             dim.strokeColor = .clear
             dim.zPosition = 40
-            let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
-            label.text = "PAUSED"
-            label.fontSize = 72
-            label.fontColor = .white
-            label.position = CGPoint(x: size.width / 2, y: size.height * 0.5)
-            label.zPosition = 41
-            dim.addChild(label)
             uiLayer.addChild(dim)
             pauseOverlay = dim
+            hud.showPaused(true)
         } else {
             pauseOverlay?.removeFromParent()
             pauseOverlay = nil
+            hud.showPaused(false)
         }
     }
 

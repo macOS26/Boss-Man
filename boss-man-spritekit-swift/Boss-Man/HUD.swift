@@ -72,7 +72,7 @@ final class HUD {
         reportsLabel.fontSize = 16
         reportsLabel.horizontalAlignmentMode = .right
         reportsLabel.verticalAlignmentMode = .center
-        reportsLabel.position = CGPoint(x: size.width - pad - 14 - 270, y: rowY)
+        reportsLabel.position = CGPoint(x: size.width - pad - 14 - 280, y: rowY)
         reportsLabel.zPosition = 1
         reportsLabel.fontColor = .systemYellow
         root.addChild(reportsLabel)
@@ -101,7 +101,7 @@ final class HUD {
         waterGunAmmoLabel.fontSize = 11
         waterGunAmmoLabel.horizontalAlignmentMode = .right
         waterGunAmmoLabel.verticalAlignmentMode = .center
-        waterGunAmmoLabel.position = CGPoint(x: size.width - pad - 14, y: top - 8 - panelHeight - 12)
+        waterGunAmmoLabel.position = CGPoint(x: size.width - pad - 14 - 370, y: rowY)
         waterGunAmmoLabel.zPosition = 1
         waterGunAmmoLabel.fontColor = .systemBlue
         waterGunAmmoLabel.isHidden = true
@@ -211,6 +211,20 @@ final class HUD {
             .wait(forDuration: duration),
             .fadeOut(withDuration: fade)
         ]), withKey: Strings.ActionKey.hudSwap)
+    }
+
+    func showPaused(_ paused: Bool) {
+        tpsLabel.removeAction(forKey: Strings.ActionKey.hudSwap)
+        messageLabel.removeAction(forKey: Strings.ActionKey.hudSwap)
+        let fade: TimeInterval = 0.2
+        if paused {
+            messageLabel.text = Strings.HUD.paused
+            tpsLabel.run(.fadeOut(withDuration: fade), withKey: Strings.ActionKey.hudSwap)
+            messageLabel.run(.fadeIn(withDuration: fade), withKey: Strings.ActionKey.hudSwap)
+        } else {
+            messageLabel.run(.fadeOut(withDuration: fade), withKey: Strings.ActionKey.hudSwap)
+            tpsLabel.run(.fadeIn(withDuration: fade), withKey: Strings.ActionKey.hudSwap)
+        }
     }
 
     func showGameOver(in scene: SKScene) {

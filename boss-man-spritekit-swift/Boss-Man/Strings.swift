@@ -223,6 +223,7 @@ enum Strings {
         }
 
         static func compactScore(_ score: Int) -> String { "\(score)" }
+        static let paused = "PAUSED"
         static let reportBooks = ["📙", "📘", "📗", "📕"]
         static func compactReports(_ reports: Int) -> String {
             let shown = reports <= 0 ? 0 : (reports - 1) % reportBooks.count + 1
