@@ -101,7 +101,7 @@ A traveler enters the maze every ~30 seconds from the right tunnel and wanders t
 | 3     | ☕️ Coffee                              | 400    |
 | 4     | 🥤 Soda Cup                            | 800    |
 | 5     | 🍎 Apple                               | 1,000  |
-| 6     | <img src="Boss-Man/Resources/shinyredstapler-emoji.png" width="32" alt="Shiny Red Stapler"/> **Shiny Red Stapler** (PNG sprite) | 2,000  |
+| 6     | <img src="[Boss-Man/Resources/shinyredstapler-emoji.png](https://boss-man.us/play/assets/images/shinyredstapler-emoji.png)" width="32" alt="Shiny Red Stapler"/> **Shiny Red Stapler** (PNG sprite) | 2,000  |
 | 7     | 🍉 Watermelon                          | 3,000  |
 | 8     | 🧇 Waffle                              | 4,000  |
 | 9     | 🍦 Ice Cream                           | 5,000  |
