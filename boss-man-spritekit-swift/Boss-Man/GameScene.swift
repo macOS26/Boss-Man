@@ -55,9 +55,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var fireButtonCenter = CGPoint.zero
     private var fireButtonHidden = false
     private let fireButtonRadius: CGFloat = 112.5
+    private var isUserPaused = false
+    private var pauseOverlay: SKNode? = nil
 
     #if os(macOS)
-    private let workerSpawn = CGPoint(x: 18, y: 7)
     private let inputController = PointerInputController()
     #elseif os(WASI)
     private let mazeRoot = SKNode()
@@ -66,8 +67,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var swipeFired = false
     private var moveAnchor: CGPoint? = nil
     private let swipeThreshold: CGFloat = 24
-    private var isUserPaused = false
-    private var pauseOverlay: SKNode? = nil
     #endif
 
     // MARK: - Joystick (on-screen movement control)
@@ -248,7 +247,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         case 53: returnToTitleScene(); return
         default: break
         }
-        guard !isPaused else { return }
+        guard !isUserPaused else { return }
         if event.keyCode == 49 { fireWaterGun(); return }
         guard let direction = MoveDirection(keyCode: Int(event.keyCode)), !event.isARepeat else { return }
         workerController.queueDirection(direction)
@@ -259,7 +258,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             s.handleTap(at: event.location(in: self))
             return
         }
-        guard !isPaused, !isGameOver else { return }
+        guard !isUserPaused, !isGameOver else { return }
         let p = event.location(in: self)
         if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
             joystickActive = true
@@ -607,10 +606,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             }
         }
         if isGameOver { return }
-
-        #if os(WASI)
         if isUserPaused { return }
-        #endif
 
         workerController.advance(dt)
         bossController.advance(dt)
@@ -768,19 +764,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func togglePause() {
-        #if os(macOS)
-        if isPaused {
-            isPaused = false
-            sound.resumeAudio()
-            inputController.hideCursor()
-            hud.showMessage(Strings.HUD.empty, duration: 0.1)
-        } else {
-            hud.showMessage(Strings.Message.paused, duration: 9999)
-            inputController.unhideCursor()
-            isPaused = true
-            sound.pauseAudio()
-        }
-        #elseif os(WASI)
         isUserPaused.toggle()
         if isUserPaused { sound.pauseAudio() } else { sound.resumeAudio() }
         speed = isUserPaused ? 0 : 1
@@ -802,7 +785,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             pauseOverlay?.removeFromParent()
             pauseOverlay = nil
         }
-        #endif
     }
 
     // MARK: - Gold disc
