@@ -223,7 +223,6 @@ enum Strings {
         }
 
         static func compactScore(_ score: Int) -> String { "\(score)" }
-        static func compactDots(_ dots: Int, _ total: Int) -> String { "\(dots)/\(total)" }
         static let reportBooks = ["📙", "📘", "📗", "📕"]
         static func compactReports(_ reports: Int) -> String {
             (0..<max(0, reports)).map { reportBooks[$0 % reportBooks.count] }.joined()

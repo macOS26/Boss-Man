@@ -10,7 +10,6 @@ final class HUD {
     private let root = SKNode()
     private let scoreLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let tpsLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
-    private let progressLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let reportsLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let messageLabel = SKLabelNode(fontNamed: Strings.Font.menloBold)
     private let levelEmojisContainer = SKNode()
@@ -20,7 +19,6 @@ final class HUD {
     private var gameOverOverlay: SKNode?
     private var lastScoreText: String?
     private var lastTpsText: String?
-    private var lastProgressText: String?
     private var lastReportsText: String?
     private var lastLevelEmojisText: String?
     private var lastLivesCount: Int = -1
@@ -68,28 +66,8 @@ final class HUD {
         tpsLabel.position = CGPoint(x: size.width / 2, y: rowY)
         tpsLabel.zPosition = 1
         tpsLabel.fontColor = .white
-        root.addChild(tpsLabel)
-
-        progressLabel.fontSize = 16
-        progressLabel.horizontalAlignmentMode = .center
-        progressLabel.verticalAlignmentMode = .center
-        progressLabel.position = CGPoint(x: size.width / 2, y: rowY)
-        progressLabel.zPosition = 2
-        progressLabel.fontColor = .white
-        progressLabel.alpha = 0
-        root.addChild(progressLabel)
-
-        let hold: TimeInterval = 2.6
-        let fade: TimeInterval = 0.5
         tpsLabel.alpha = 1
-        tpsLabel.run(.repeatForever(.sequence([
-            .wait(forDuration: hold), .fadeOut(withDuration: fade),
-            .wait(forDuration: hold), .fadeIn(withDuration: fade)
-        ])), withKey: Strings.ActionKey.hudSwap)
-        progressLabel.run(.repeatForever(.sequence([
-            .wait(forDuration: hold), .fadeIn(withDuration: fade),
-            .wait(forDuration: hold), .fadeOut(withDuration: fade)
-        ])), withKey: Strings.ActionKey.hudSwap)
+        root.addChild(tpsLabel)
 
         reportsLabel.fontSize = 16
         reportsLabel.horizontalAlignmentMode = .right
@@ -132,9 +110,10 @@ final class HUD {
         messageLabel.fontSize = 15
         messageLabel.horizontalAlignmentMode = .center
         messageLabel.verticalAlignmentMode = .center
-        messageLabel.position = CGPoint(x: size.width / 2, y: top - 8 - panelHeight - 16)
-        messageLabel.zPosition = 1
-        messageLabel.fontColor = .systemYellow
+        messageLabel.position = CGPoint(x: size.width / 2, y: rowY)
+        messageLabel.zPosition = 2
+        messageLabel.fontColor = .white
+        messageLabel.alpha = 0
         root.addChild(messageLabel)
 
         levelEmojisContainer.position = CGPoint(x: size.width - pad - 14, y: rowY)
@@ -169,11 +148,6 @@ final class HUD {
         if reportsText != lastReportsText {
             reportsLabel.text = reportsText
             lastReportsText = reportsText
-        }
-        let progressText = Strings.HUD.compactDots(dots, total)
-        if progressText != lastProgressText {
-            progressLabel.text = progressText
-            lastProgressText = progressText
         }
     }
 
@@ -224,11 +198,19 @@ final class HUD {
 
     func showMessage(_ text: String, duration: TimeInterval) {
         messageLabel.text = text
-        messageLabel.removeAction(forKey: Strings.ActionKey.clear)
-        messageLabel.run(.sequence([
+        tpsLabel.removeAction(forKey: Strings.ActionKey.hudSwap)
+        messageLabel.removeAction(forKey: Strings.ActionKey.hudSwap)
+        let fade: TimeInterval = 0.3
+        tpsLabel.run(.sequence([
+            .fadeOut(withDuration: fade),
             .wait(forDuration: duration),
-            .run { [weak self] in self?.messageLabel.text = Strings.HUD.empty }
-        ]), withKey: Strings.ActionKey.clear)
+            .fadeIn(withDuration: fade)
+        ]), withKey: Strings.ActionKey.hudSwap)
+        messageLabel.run(.sequence([
+            .fadeIn(withDuration: fade),
+            .wait(forDuration: duration),
+            .fadeOut(withDuration: fade)
+        ]), withKey: Strings.ActionKey.hudSwap)
     }
 
     func showGameOver(in scene: SKScene) {
