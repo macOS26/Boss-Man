@@ -1,16 +1,13 @@
 #pragma once
 #include <string>
 #include "AppPaths.hpp"
-#if !defined(BOSS_MAN_WEB)
+#if defined(BOSS_MAN_WEB)
+#include "WebStore.hpp"
+#else
 #include <fstream>
 #endif
 
 namespace bm {
-
-#if defined(BOSS_MAN_WEB)
-std::string storeGet(const std::string& key);
-void storeSet(const std::string& key, const std::string& value);
-#endif
 
 // Title-screen toggles, persisted like the high score (settings.txt = "S,L,H").
 // bossTracksSquare defaults true (classic glide-then-dwell cadence, matching the
