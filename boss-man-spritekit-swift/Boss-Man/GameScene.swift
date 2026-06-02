@@ -62,6 +62,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // clamped to the scene so the view never scrolls past the maze. Render-only;
     // physics and the grid catch stay in world coordinates, unaffected.
     private var cameraNode: SKCameraNode?
+    // Screen-fixed overlay layer (HUD, fire button, joystick, PAUSED, game-over).
+    // A scene child at 100%; a camera child at 200% so it stays unscaled while
+    // the board zooms. Re-created fresh each buildLevel (removeAllChildren wipes
+    // the previous one).
+    private var uiLayer = SKNode()
 
     private var containerOriginX: CGFloat = 0
     private var swipeStart: CGPoint? = nil
@@ -127,7 +132,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         gridMap.setRows(currentLevelRows())
         state.dotCount = mazeBuilder.build(in: self, view: view)
         state.goldDiscCount = mazeBuilder.goldDiscPositions.count
-        hud.install(in: self)
+        setupMazeCamera()
+        setupUILayer()
+        hud.install(in: uiLayer, size: size)
         let spawn = mazeBuilder.workerSpawn ?? firstWalkableCell()
         workerController = WorkerController(spawnGrid: spawn, gridMap: gridMap, sound: sound, containerOriginX: containerOriginX)
         workerController.delegate = self
@@ -135,7 +142,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         workerController.applySpawnShield()
         installFireButton()
         installJoystick()
-        setupMazeCamera()
         let bossSpawnSeconds = nextBossSpawnSeconds
         nextBossSpawnSeconds = 0
         delayBossSpawn(after: bossSpawnSeconds) { [weak self] in
@@ -539,6 +545,22 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         cameraNode = cam
     }
 
+    // Host for all screen-fixed UI. Under the camera (200%) it is offset by
+    // -half the scene so its scene-style child coords land at the same on-screen
+    // spot as at 100%; with no camera it sits at the scene origin. A brand-new
+    // node each call, since removeAllChildren cleared the previous one.
+    private func setupUILayer() {
+        uiLayer = SKNode()
+        uiLayer.zPosition = 1000
+        if let cam = cameraNode {
+            uiLayer.position = CGPoint(x: -size.width / 2, y: -size.height / 2)
+            cam.addChild(uiLayer)
+        } else {
+            uiLayer.position = .zero
+            addChild(uiLayer)
+        }
+    }
+
     // Follow Pete, clamped so the (zoomed) viewport never scrolls past the scene
     // edges — it stays inside the maze area of the 100% view, scrolling x/y with
     // the player.
@@ -691,7 +713,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             onEsc:  { [weak self] in self?.dismissGameOverScreen(); self?.returnToTitleScene() }
         )
         screen.position = .zero
-        addChild(screen)
+        uiLayer.addChild(screen)
         gameOverScreen = screen
     }
 
@@ -716,7 +738,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             label.position = CGPoint(x: size.width / 2, y: size.height * 0.5)
             label.zPosition = 41
             dim.addChild(label)
-            addChild(dim)
+            uiLayer.addChild(dim)
             pauseOverlay = dim
         } else {
             pauseOverlay?.removeFromParent()
@@ -817,7 +839,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         ring.strokeColor = SKColor(white: 1, alpha: 0.5)
         ring.lineWidth = 2
         ring.zPosition = 50
-        addChild(ring)
+        uiLayer.addChild(ring)
     }
 
     // MARK: - Joystick
@@ -833,7 +855,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         base.strokeColor = SKColor(white: 1, alpha: 0.5)
         base.lineWidth = 2
         base.zPosition = 50
-        addChild(base)
+        uiLayer.addChild(base)
 
         let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
         thumb.position = joystickCenter
@@ -841,7 +863,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         thumb.strokeColor = SKColor(white: 1, alpha: 0.6)
         thumb.lineWidth = 2
         thumb.zPosition = 51
-        addChild(thumb)
+        uiLayer.addChild(thumb)
         joystickThumb = thumb
     }
 

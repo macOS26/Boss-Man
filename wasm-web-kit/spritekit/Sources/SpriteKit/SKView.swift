@@ -158,14 +158,15 @@ public final class SKView {
 
     private func render(_ s: SKScene) {
         gfx_clear(s.backgroundColor.rgba)
+        let cam = s.camera
+        // World pass: under the camera's inverse so the scene appears as if shot
+        // through its lens (cam.position centred, scaled/rotated by the inverse),
+        // but SKIP the camera node's own subtree — its children are screen-fixed
+        // UI drawn in the second pass.
         gfx_save()
         gfx_translate(0, Float(s.size.height))   // map world y-up -> screen y-down
         gfx_scale(1, -1)
-        // Apply the camera's inverse so the scene appears as if shot through
-        // its lens: translate the world so cam.position sits at scene center,
-        // then rotate/scale by the camera's inverse. We render the camera node
-        // itself (so its children act as UI overlays riding along).
-        if let cam = s.camera {
+        if let cam {
             gfx_translate(Float(s.size.width / 2), Float(s.size.height / 2))
             let sx = cam.xScale == 0 ? 1 : 1 / cam.xScale
             let sy = cam.yScale == 0 ? 1 : 1 / cam.yScale
@@ -173,11 +174,29 @@ public final class SKView {
             if cam.zRotation != 0 { gfx_rotate(Float(cam.zRotation * 180.0 / Double.pi)) }
             gfx_translate(Float(-cam.position.x), Float(-cam.position.y))
         }
-        s.renderTree(parentAlpha: 1)
+        if cam != nil {
+            s.renderWorld(skipping: cam, parentAlpha: 1)
+        } else {
+            s.renderTree(parentAlpha: 1)
+        }
         // Apple-style showsPhysics overlay: strokes every Box2D body's
         // outline on top of the scene. Lives inside the same y-up
         // transform so positions read straight from Box2D coordinates.
         if s.physicsWorld.showsPhysics { s.physicsWorld.renderDebug() }
         gfx_restore()
+        // Camera-children pass: screen-fixed overlays (HUD, PAUSED, joystick,
+        // fire button, game-over). Same y-flip + scene-centring, but no zoom,
+        // no camera rotation, no -cam.position — so they ignore the camera the
+        // way SKCameraNode children do on native SpriteKit.
+        if let cam {
+            gfx_save()
+            gfx_translate(0, Float(s.size.height))
+            gfx_scale(1, -1)
+            gfx_translate(Float(s.size.width / 2), Float(s.size.height / 2))
+            for c in cam.children.sorted(by: { $0.zPosition < $1.zPosition }) {
+                c.renderTree(parentAlpha: cam.alpha)
+            }
+            gfx_restore()
+        }
     }
 }

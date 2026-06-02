@@ -47,6 +47,18 @@ open class SKScene: SKNode {
     open func mouseDragged(with event: NSEvent) {}
     open func mouseUp(with event: NSEvent) {}
     open func rightMouseDown(with event: NSEvent) {}
+
+    // Render the scene's direct child subtrees, optionally skipping one node
+    // (the active camera, whose own children draw screen-fixed in a separate
+    // pass). The scene root carries an identity transform and draws nothing, so
+    // this equals renderTree minus that one subtree.
+    func renderWorld(skipping skip: SKNode?, parentAlpha: CGFloat) {
+        let eff = parentAlpha * alpha
+        let ordered = children.count > 1
+            ? children.sorted(by: { $0.zPosition < $1.zPosition })
+            : children
+        for c in ordered where c !== skip { c.renderTree(parentAlpha: eff) }
+    }
 }
 
 public typealias TimeInterval = Double
