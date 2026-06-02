@@ -103,6 +103,12 @@ final class BossController {
 
     private var currentSpawnOverrides: [(blueprintIndex: Int, position: CGPoint)] = []
 
+    // Loop-driven respawns for splashed bosses (the C++ master's respawnTimer).
+    // An SKAction .wait+.run fires unreliably on wasm — a splashed boss would
+    // respawn late, looking spontaneous "from before" — so count down in advance.
+    private struct PendingSpawn { let blueprintIndex: Int; let spawn: CGPoint; var timer: TimeInterval }
+    private var pendingSpawns: [PendingSpawn] = []
+
     private func themed(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), level: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
         guard isMIBLevel(level) else { return blueprint }
         return (
@@ -278,6 +284,7 @@ final class BossController {
             e.node.removeFromParent()
         }
         entities.removeAll()
+        pendingSpawns.removeAll()
         captureStreak = 0
     }
 
@@ -366,6 +373,17 @@ final class BossController {
     // slow-in-tunnels.
     func advance(_ dt: TimeInterval) {
         guard let delegate else { return }
+        if !pendingSpawns.isEmpty {
+            for i in pendingSpawns.indices { pendingSpawns[i].timer -= dt }
+            let ready = pendingSpawns.filter { $0.timer <= 0 }
+            pendingSpawns.removeAll { $0.timer <= 0 }
+            let goldActive = delegate.isGoldDiscMode
+            for p in ready where p.blueprintIndex >= 0 && p.blueprintIndex < Self.blueprints.count {
+                var blueprint = Self.blueprints[p.blueprintIndex]
+                blueprint.spawn = p.spawn
+                createAndFreeze(from: themed(blueprint, level: currentLevel), blueprintIndex: p.blueprintIndex, goldDiscActive: goldActive)
+            }
+        }
         let peteGrid = delegate.workerGrid
         let peteDirection = delegate.workerDirection
         let blinky = firstBossGrid
@@ -462,20 +480,8 @@ final class BossController {
         boss.node.removeFromParent()
         entities.remove(at: index)
 
-        let blueprintIndex = boss.blueprintIndex
-        let spawn = boss.spawn
-        let timer = SKNode()
-        scene?.addChild(timer)
-        timer.run(.sequence([
-            .wait(forDuration: 5.0),
-            .run { [weak self, weak timer] in
-                timer?.removeFromParent()
-                guard let self, blueprintIndex >= 0, blueprintIndex < Self.blueprints.count else { return }
-                var blueprint = Self.blueprints[blueprintIndex]
-                blueprint.spawn = spawn
-                let goldActive = self.delegate?.isGoldDiscMode ?? false
-                self.createAndFreeze(from: self.themed(blueprint, level: self.currentLevel), blueprintIndex: blueprintIndex, goldDiscActive: goldActive)
-            }
-        ]))
+        // Loop-driven respawn (advance counts it down), not an SKAction timer:
+        // .run-after-.wait fires unreliably on wasm and respawned the boss late.
+        pendingSpawns.append(PendingSpawn(blueprintIndex: boss.blueprintIndex, spawn: boss.spawn, timer: 5.0))
     }
 }
