@@ -72,11 +72,12 @@ wasmweb_build() {
   echo "wasm-web-kit: compiling ${#srcs[@]} sources -> $WASMWEB_OUT"
   "$CLANGXX" \
     --target=wasm32-wasip1 --sysroot="$SYSROOT" -mexec-model=reactor \
-    -std="$STD" -O2 -fno-rtti $EXC \
+    -std="$STD" -Os -fno-rtti $EXC \
     "${def[@]}" "${inc[@]}" \
     "${srcs[@]}" \
     -Wl,--allow-undefined \
     -Wl,-z,stack-size=8388608 \
+    -Wl,--strip-all \
     -Wl,--export=_initialize -Wl,--export=boot -Wl,--export=frame -Wl,--export=memory \
     -o "$WASMWEB_OUT"
   echo "wasm-web-kit: built $WASMWEB_OUT ($(du -h "$WASMWEB_OUT" | cut -f1))"

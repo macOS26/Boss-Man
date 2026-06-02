@@ -19,7 +19,7 @@ CONFIG_ARGS=()
 PASSTHROUGH=()
 for arg in "$@"; do
   case "$arg" in
-    release) CONFIG_ARGS=(-c release) ;;
+    release) CONFIG_ARGS=(-c release -Xswiftc -Osize -Xlinker -s) ;;  # -Osize + strip symbols: ~44% smaller wasm (11.7MB->6.6MB), no behaviour change
     debug)   CONFIG_ARGS=(-c debug)   ;;
     *)       PASSTHROUGH+=("$arg")    ;;
   esac
