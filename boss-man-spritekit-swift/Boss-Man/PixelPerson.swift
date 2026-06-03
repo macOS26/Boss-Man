@@ -13,7 +13,11 @@ final class PixelPerson: SKNode {
     // the camera then magnifies (soft at 150/200). Author every shape this many
     // times larger and shrink the body container by the same factor so the cache
     // is supersampled: same on-screen size/layout/animation, crisp under zoom.
+    #if os(macOS)
     private static let pxRenderScale: CGFloat = 8
+    #else
+    private static let pxRenderScale: CGFloat = 1
+    #endif
 
     private let torso: SKShapeNode
     private let leftArm: SKShapeNode

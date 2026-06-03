@@ -34,7 +34,7 @@ final class WorkerController {
     private func configureNode() {
         node.name = Strings.Worker.pete
         node.position = gridMap.point(for: grid)
-        let tagScale: CGFloat = 8
+        let tagScale = SpriteFactory.worldRenderScale
         let tag = SKLabelNode(fontNamed: Strings.Font.menloBold)
         tag.text = Strings.Worker.pete
         tag.fontSize = 9 * tagScale

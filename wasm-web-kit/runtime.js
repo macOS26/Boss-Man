@@ -441,6 +441,7 @@ class Runtime {
         const dv = this.dv();
         c.strokeStyle = this.css(rgba);
         c.lineWidth = thickness;
+        c.lineJoin = 'round';
         c.beginPath();
         c.moveTo(dv.getFloat32(xyPtr, true), dv.getFloat32(xyPtr + 4, true));
         for (let i = 1; i < npts; i++) {

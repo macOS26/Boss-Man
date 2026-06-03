@@ -176,7 +176,7 @@ final class BossController {
         node.zPosition = 11
         scene.addChild(node)
 
-        let tagScale: CGFloat = 8
+        let tagScale = SpriteFactory.worldRenderScale
         let tag = SKLabelNode(fontNamed: Strings.Font.menloBold)
         tag.text = blueprint.name
         tag.fontSize = 9 * tagScale

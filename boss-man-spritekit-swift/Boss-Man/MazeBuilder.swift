@@ -209,22 +209,25 @@ final class MazeBuilder {
         // scene-res bake into a soft, rounded blur. Capped at 5x to bound the
         // texture memory. WASM (view==scene) bakes at ~zoom and stays crisp.
         let frame = staticTree.calculateAccumulatedFrame()
+        // Apple bakes the maze to a bitmap, so it must be baked at the display's
+        // pixel density (full screen, so a windowed->fullscreen toggle isn't soft)
+        // for the camera to magnify a sharp sheet. WASM redraws the maze live, so
+        // it bakes 1:1 with no scaling — supersampling there only mis-sized it.
+        #if os(macOS)
         let zoom = max(1, CGFloat(MazeZoom.current) / 100)
         let sceneW = max(1, frame.width)
-        // Bake against the full screen (not the current window) so a windowed->
-        // fullscreen toggle after the level builds doesn't leave a stale, soft
-        // sheet. WASM draws the maze live, so it just uses the scene width.
-        #if os(macOS)
         let displayW = NSScreen.main?.frame.width ?? (view?.bounds.width ?? sceneW)
-        #else
-        let displayW = view?.bounds.width ?? sceneW
-        #endif
         let bakeScale = min(5, max(zoom, displayW / sceneW * zoom))
+        #else
+        let bakeScale: CGFloat = 1
+        #endif
         staticTree.setScale(bakeScale)
         let baked = view?.texture(from: staticTree)
         staticTree.setScale(1)
         if let baked {
+            #if os(macOS)
             baked.filteringMode = .linear
+            #endif
             let sheet = SKSpriteNode(texture: baked)
             sheet.setScale(1 / bakeScale)
             sheet.position = CGPoint(x: frame.midX, y: frame.midY)

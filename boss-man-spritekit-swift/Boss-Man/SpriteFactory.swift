@@ -12,11 +12,15 @@ enum SpriteFactory {
 
     static let bossShoeGoldColor = SKColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
 
-    // World pickups/glyphs are magnified by the maze camera at 150/200, so their
-    // SKShapeNode/SKLabelNode caches must be supersampled: build the art this many
-    // times larger inside a node scaled back down by the same factor. The returned
-    // outer node stays scale 1 so callers can still pulse/flip it.
+    // Apple SpriteKit caches SKShapeNode/SKLabelNode to a bitmap, so art that the
+    // maze camera magnifies must be supersampled (built this many times larger in
+    // a node scaled back down). WASM redraws live every frame at the final
+    // resolution, so it needs no supersampling — keep it at 1 there.
+    #if os(macOS)
     static let worldRenderScale: CGFloat = 8
+    #else
+    static let worldRenderScale: CGFloat = 1
+    #endif
 
     // MARK: - Pickups
     // Returns an SKNode containing halo + core + specular. Caller sets position,

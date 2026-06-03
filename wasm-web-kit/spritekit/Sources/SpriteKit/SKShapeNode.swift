@@ -106,9 +106,6 @@ public final class SKShapeNode: SKNode {
         gfx_set_alpha(Float(alpha))
         let hasFill = fillColor.a > 0
         let hasStroke = strokeColor.a > 0 && lineWidth > 0
-        // Honor lineJoin/lineCap so the game's stroke styling is identical to
-        // Apple's (set inside the per-node gfx_save/restore, so it can't leak).
-        if hasStroke { gfx_set_line_style(lineJoin.abiCode, lineCap.abiCode, Float(miterLimit)) }
         // Activate Canvas2D shadowBlur for this draw if the node opted in. dy
         // is negated because SpriteKit's y-up shadow offset (positive = above)
         // maps to Canvas2D's y-down shadowOffsetY (positive = below). Cleared
