@@ -192,17 +192,27 @@ final class BonusScene: SKScene {
         panel.strokeColor = .clear; panel.zPosition = 29
         addChild(panel)
 
+        let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
+        // One dark floor backing for the whole maze instead of a tile per cell, and
+        // flat-fill wall squares instead of the grained cubicle tile: at minimap
+        // scale they read identically, but Apple draws a call per SKShapeNode, so the
+        // full tiles (≈5600 nodes) crawl while the live-node web build stays fast.
+        let floorBack = SKShapeNode(rect: CGRect(x: 0, y: 0, width: mapW, height: mapH))
+        floorBack.fillColor = SpriteFactory.floorTileA
+        floorBack.strokeColor = .clear; floorBack.isAntialiased = false; floorBack.zPosition = 0
+        mapLayer.addChild(floorBack)
+
         let cubicle = SpriteFactory.cubicleColors[0]
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
                 let center = mapLocal(Double(c) + 0.5, Double(r) + 0.5)
-                let floor = SpriteFactory.floorTile(size: mapCell, alternate: (c + r) % 2 == 0)
-                floor.position = center; floor.zPosition = 0; mapLayer.addChild(floor)
                 var pickup: SKNode?
                 switch ch {
                 case Strings.Tile.wallChar:
-                    let wall = SpriteFactory.wallTile(size: mapCell, color: cubicle)
-                    wall.position = center; wall.zPosition = 1; mapLayer.addChild(wall)
+                    let wall = SKShapeNode(rect: CGRect(x: center.x - mapCell / 2, y: center.y - mapCell / 2, width: mapCell, height: mapCell))
+                    wall.fillColor = cubicle; wall.strokeColor = SpriteFactory.floorTileStroke
+                    wall.lineWidth = 1; wall.isAntialiased = false; wall.zPosition = 1
+                    mapLayer.addChild(wall)
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     pickup = SpriteFactory.dotVisual(size: mapCell * 0.2)
                 case Strings.Tile.goldDiscChar:
@@ -230,8 +240,7 @@ final class BonusScene: SKScene {
         mapLayer.addChild(mapPete)
         mapPete.startWalking()
 
-        let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
-        mapScale = (radarH - 8) / mapH * CGFloat(MazeZoom.current) / 100
+        mapScale = (radarH - 8) / mapH
         mapLayer.setScale(mapScale)
         mapLayer.position = CGPoint(x: (size.width - mapW * mapScale) / 2, y: 4)
         mapLayer.zPosition = 30
