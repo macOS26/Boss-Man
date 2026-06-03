@@ -99,7 +99,9 @@ final class BonusScene: SKScene {
     private func buildSky() {
         // 2D office palette: a dark ceiling (maze background) blending toward the
         // horizon over the dark checker-floor colour. One thin band per device row
-        // so the gradient is smooth, no banding. Drawn once.
+        // so the gradient is smooth, then baked to a single sprite (the bands are
+        // static, so this is ~240 fewer draw calls per frame on Apple).
+        let tree = SKNode()
         let horC: (CGFloat, CGFloat, CGFloat) = (0.10, 0.10, 0.13)   // maze background, lit at horizon
         let topC: (CGFloat, CGFloat, CGFloat) = (0.02, 0.02, 0.035)  // darker toward the ceiling
         let skyBottom = viewMidY, skyTop = size.height
@@ -110,13 +112,29 @@ final class BonusScene: SKScene {
                               green: horC.1 + (topC.1 - horC.1) * t,
                               blue: horC.2 + (topC.2 - horC.2) * t, alpha: 1)
             let band = SKShapeNode(rect: CGRect(x: 0, y: skyBottom + CGFloat(i), width: size.width, height: 2))
-            band.fillColor = col; band.strokeColor = .clear; band.zPosition = -3
-            addChild(band)
+            band.fillColor = col; band.strokeColor = .clear
+            tree.addChild(band)
         }
         let ground = SKShapeNode(rect: CGRect(x: 0, y: radarH, width: size.width, height: viewMidY - radarH))
         ground.fillColor = SKColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1)   // floor-tile colour
-        ground.strokeColor = .clear; ground.zPosition = -3
-        addChild(ground)
+        ground.strokeColor = .clear
+        tree.addChild(ground)
+        addBaked(tree, to: self, z: -3)
+    }
+
+    // Bake a static node tree to one texture and add it as a single sprite (one
+    // draw call). Falls back to the live tree if no view is available to bake with.
+    private func addBaked(_ tree: SKNode, to parent: SKNode, z: CGFloat) {
+        if let tex = view?.texture(from: tree) {
+            let sprite = SKSpriteNode(texture: tex)
+            let f = tree.calculateAccumulatedFrame()
+            sprite.position = CGPoint(x: f.midX, y: f.midY)
+            sprite.zPosition = z
+            parent.addChild(sprite)
+        } else {
+            tree.zPosition = z
+            parent.addChild(tree)
+        }
     }
 
     private func buildColumns() {
@@ -194,35 +212,50 @@ final class BonusScene: SKScene {
 
         let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
         let cubicle = SpriteFactory.cubicleColors[0]
+
+        // The maze floor, cubicle walls and stationary bosses never change, so we
+        // bake them to ONE texture and draw a single sprite — the MazeBuilder trick
+        // the 100% game uses — instead of ~2000 per-cell SKShapeNodes (Apple pays a
+        // draw call per shape). Only the collectible pickups and Pete stay live.
+        let bakeTree = SKNode()
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
                 let center = mapLocal(Double(c) + 0.5, Double(r) + 0.5)
                 let floor = SpriteFactory.floorTile(size: mapCell, alternate: (c + r) % 2 == 0)
-                floor.position = center; floor.zPosition = 0; mapLayer.addChild(floor)
+                floor.position = center; bakeTree.addChild(floor)
+                let stationary: SKNode?
+                switch ch {
+                case Strings.Tile.wallChar:  stationary = SpriteFactory.wallTile(size: mapCell, color: cubicle)
+                case Strings.Tile.boss1Char: stationary = SpriteFactory.bossPersonForBlueprint(0)
+                case Strings.Tile.boss2Char: stationary = SpriteFactory.bossPersonForBlueprint(1)
+                case Strings.Tile.boss3Char: stationary = SpriteFactory.bossPersonForBlueprint(2)
+                case Strings.Tile.boss4Char: stationary = SpriteFactory.bossPersonForBlueprint(3)
+                default: stationary = nil
+                }
+                if let stationary { stationary.position = center; bakeTree.addChild(stationary) }
+            }
+        }
+        addBaked(bakeTree, to: mapLayer, z: 0)
+
+        // Dots all share one baked texture so they batch into ~one draw call; gold
+        // and water keep their own node so each can be hidden when collected.
+        let dotTex = view?.texture(from: SpriteFactory.dotVisual(size: mapCell * 0.2))
+        for r in 0..<rowsCount {
+            for (c, ch) in map[r].enumerated() {
+                let center = mapLocal(Double(c) + 0.5, Double(r) + 0.5)
                 var pickup: SKNode?
                 switch ch {
-                case Strings.Tile.wallChar:
-                    let wall = SpriteFactory.wallTile(size: mapCell, color: cubicle, textured: false)
-                    wall.position = center; wall.zPosition = 1; mapLayer.addChild(wall)
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
-                    pickup = SpriteFactory.dotVisual(size: mapCell * 0.2)
+                    pickup = dotTex.map { SKSpriteNode(texture: $0) } ?? SpriteFactory.dotVisual(size: mapCell * 0.2)
                 case Strings.Tile.goldDiscChar:
                     pickup = SpriteFactory.goldDiscVisual(radius: mapCell * 0.28)
                 case Strings.Tile.waterPelletChar:
                     pickup = SpriteFactory.waterPelletVisual(radius: mapCell * 0.32)
-                case Strings.Tile.boss1Char: pickup = SpriteFactory.bossPersonForBlueprint(0)
-                case Strings.Tile.boss2Char: pickup = SpriteFactory.bossPersonForBlueprint(1)
-                case Strings.Tile.boss3Char: pickup = SpriteFactory.bossPersonForBlueprint(2)
-                case Strings.Tile.boss4Char: pickup = SpriteFactory.bossPersonForBlueprint(3)
                 default: break
                 }
                 if let pickup {
                     pickup.position = center; pickup.zPosition = 2; mapLayer.addChild(pickup)
-                    switch ch {
-                    case Strings.Tile.dotChar, Strings.Tile.hideoutChar, Strings.Tile.goldDiscChar, Strings.Tile.waterPelletChar:
-                        mapPickups[mapKey(c, r)] = pickup
-                    default: break
-                    }
+                    mapPickups[mapKey(c, r)] = pickup
                 }
             }
         }
