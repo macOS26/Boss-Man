@@ -136,10 +136,13 @@ final class MazeBuilder {
 
                 case Strings.Tile.waterGunChar:
                     waterGunPositions.append(grid)
-                    let gun = SKLabelNode(text: Strings.Emoji.waterGun)
-                    gun.fontSize = map.tileSize * 0.55
-                    gun.verticalAlignmentMode = .center
-                    gun.horizontalAlignmentMode = .center
+                    let gun = SKNode()
+                    let gunGlyph = SKLabelNode(text: Strings.Emoji.waterGun)
+                    gunGlyph.fontSize = map.tileSize * 0.55 * SpriteFactory.worldRenderScale
+                    gunGlyph.verticalAlignmentMode = .center
+                    gunGlyph.horizontalAlignmentMode = .center
+                    gunGlyph.setScale(1 / SpriteFactory.worldRenderScale)
+                    gun.addChild(gunGlyph)
                     gun.position = position
                     gun.zPosition = 6
                     gun.run(.repeatForever(.sequence([
@@ -294,9 +297,10 @@ final class MazeBuilder {
     // no pulse (matches bossman-apple's machine glyphs).
     private func addMachineEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) -> SKNode {
         let label = SKLabelNode(text: emoji)
-        label.fontSize = 26
+        label.fontSize = 26 * SpriteFactory.worldRenderScale
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
+        label.setScale(1 / SpriteFactory.worldRenderScale)
         label.position = position
         label.zPosition = 6
         scene.addChild(label)
@@ -307,9 +311,10 @@ final class MazeBuilder {
     // z-layer below the other machines, matching bossman-apple.
     private func addBrownBoxEmoji(_ emoji: String, at position: CGPoint, in scene: SKNode) -> SKNode {
         let label = SKLabelNode(text: emoji)
-        label.fontSize = 28
+        label.fontSize = 28 * SpriteFactory.worldRenderScale
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
+        label.setScale(1 / SpriteFactory.worldRenderScale)
         label.position = position
         label.zPosition = 4
         scene.addChild(label)

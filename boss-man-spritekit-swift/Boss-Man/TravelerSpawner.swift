@@ -151,10 +151,11 @@ final class TravelerSpawner {
 
         let points = SKLabelNode(fontNamed: Strings.Font.menloBold)
         points.text = "\(traveler.points)"
-        points.fontSize = 11
+        points.fontSize = 11 * SpriteFactory.worldRenderScale
         points.fontColor = .systemYellow
         points.verticalAlignmentMode = .baseline
         points.horizontalAlignmentMode = .center
+        points.setScale(1 / SpriteFactory.worldRenderScale)
         points.position = CGPoint(x: 0, y: 24)
         wrapper.addChild(points)
 
@@ -173,13 +174,16 @@ final class TravelerSpawner {
         if let imageName = traveler.image, let sprite = imageSprite(named: imageName, height: targetHeight) {
             return sprite
         }
+        let wrap = SKNode()
         let label = SKLabelNode()
         label.text = traveler.emoji
-        label.fontSize = 36
+        label.fontSize = 36 * SpriteFactory.worldRenderScale
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
+        label.setScale(1 / SpriteFactory.worldRenderScale)
         if traveler.emoji == "\u{2702}\u{FE0F}" { label.zRotation = -.pi / 2 }
-        return label
+        wrap.addChild(label)
+        return wrap
     }
 
     private func imageSprite(named name: String, height: CGFloat) -> SKSpriteNode? {

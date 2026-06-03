@@ -12,44 +12,58 @@ enum SpriteFactory {
 
     static let bossShoeGoldColor = SKColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
 
+    // World pickups/glyphs are magnified by the maze camera at 150/200, so their
+    // SKShapeNode/SKLabelNode caches must be supersampled: build the art this many
+    // times larger inside a node scaled back down by the same factor. The returned
+    // outer node stays scale 1 so callers can still pulse/flip it.
+    static let worldRenderScale: CGFloat = 8
+
     // MARK: - Pickups
     // Returns an SKNode containing halo + core + specular. Caller sets position,
     // zPosition, physicsBody, name, and animations.
     static func goldDiscVisual(radius: CGFloat) -> SKNode {
         let node = SKNode()
-        let halo = SKShapeNode(circleOfRadius: radius * 1.35)
+        let inner = SKNode()
+        inner.setScale(1 / worldRenderScale)
+        node.addChild(inner)
+        let r = radius * worldRenderScale
+        let halo = SKShapeNode(circleOfRadius: r * 1.35)
         halo.fillColor = SKColor.systemYellow.withAlphaComponent(0.30)
         halo.strokeColor = .clear
-        node.addChild(halo)
-        let core = SKShapeNode(circleOfRadius: radius)
+        inner.addChild(halo)
+        let core = SKShapeNode(circleOfRadius: r)
         core.fillColor = SKColor.systemYellow.withAlphaComponent(0.85)
         core.strokeColor = bossShoeGoldColor
-        core.lineWidth = 1
-        node.addChild(core)
-        let specular = SKShapeNode(circleOfRadius: radius * 0.3)
+        core.lineWidth = 1 * worldRenderScale
+        inner.addChild(core)
+        let specular = SKShapeNode(circleOfRadius: r * 0.3)
         specular.fillColor = SKColor(calibratedWhite: 1, alpha: 0.75)
         specular.strokeColor = .clear
-        specular.position = CGPoint(x: -radius * 0.28, y: radius * 0.28)
-        node.addChild(specular)
+        specular.position = CGPoint(x: -r * 0.28, y: r * 0.28)
+        inner.addChild(specular)
         return node
     }
 
     static func waterPelletVisual(radius: CGFloat) -> SKNode {
         let node = SKNode()
-        let halo = SKShapeNode(circleOfRadius: radius * 1.35)
+        let inner = SKNode()
+        inner.setScale(1 / worldRenderScale)
+        node.addChild(inner)
+        let r = radius * worldRenderScale
+        let halo = SKShapeNode(circleOfRadius: r * 1.35)
         halo.fillColor = SKColor.systemCyan.withAlphaComponent(0.25)
         halo.strokeColor = .clear
-        node.addChild(halo)
-        let core = SKShapeNode(circleOfRadius: radius)
+        inner.addChild(halo)
+        let core = SKShapeNode(circleOfRadius: r)
         core.fillColor = SKColor.systemCyan.withAlphaComponent(0.85)
         core.strokeColor = .systemBlue
-        core.lineWidth = 1.5
-        node.addChild(core)
-        let specular = SKShapeNode(circleOfRadius: radius * 0.3)
+        core.lineWidth = 1.5 * worldRenderScale
+        inner.addChild(core)
+        let specular = SKShapeNode(circleOfRadius: r * 0.3)
         specular.fillColor = SKColor(calibratedWhite: 1, alpha: 0.75)
         specular.strokeColor = .clear
-        specular.position = CGPoint(x: -radius * 0.28, y: radius * 0.28)
-        node.addChild(specular)
+        specular.position = CGPoint(x: -r * 0.28, y: r * 0.28)
+        inner.addChild(specular)
         return node
     }
 
