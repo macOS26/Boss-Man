@@ -55,7 +55,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let waterDropletSpeed: CGFloat = 12 * 32
     private var fireButtonCenter = CGPoint.zero
     private var fireButtonHidden = false
-    private let fireButtonRadius: CGFloat = 112.5
+    private let fireButtonRadius: CGFloat = 129.375
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     // Maze 200% mode (title toggle): an SKCameraNode zoomed 2x that follows Pete,
@@ -80,9 +80,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     #endif
 
     // MARK: - Joystick (on-screen movement control)
-    private let joystickRadius: CGFloat = 112.5
-    private let joystickKnobRadius: CGFloat = 45
-    private let joystickDeadzone: CGFloat = 32.5
+    private let joystickRadius: CGFloat = 129.375
+    private let joystickKnobRadius: CGFloat = 51.75
+    private let joystickDeadzone: CGFloat = 37.375
     private var joystickCenter = CGPoint.zero
     private var joystickHidden = false
     private var joystickActive = false

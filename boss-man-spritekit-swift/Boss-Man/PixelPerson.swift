@@ -123,6 +123,7 @@ final class PixelPerson: SKNode {
         collar.fillColor = .white
         collar.strokeColor = .clear
         collar.position = CGPoint(x: 0, y: 5 * rs)
+        collar.isHidden = backView
         torso.addChild(collar)
 
         if needsBacking {
@@ -158,6 +159,7 @@ final class PixelPerson: SKNode {
         lh.fillColor = skin
         lh.strokeColor = .clear
         lh.position = CGPoint(x: 0, y: -8 * rs)
+        lh.zPosition = backView ? -1 : 0           // from behind, the sleeve sits in front of the hand
         leftArm.addChild(lh)
         leftHand = lh
 
@@ -165,10 +167,25 @@ final class PixelPerson: SKNode {
         rh.fillColor = skin
         rh.strokeColor = .clear
         rh.position = CGPoint(x: 0, y: -8 * rs)
+        rh.zPosition = backView ? -1 : 0
         rightArm.addChild(rh)
         rightHand = rh
 
-        let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
+        let hd: SKShapeNode
+        if backView {
+            let w = 14 * rs, h = 12 * rs, rTop = 6 * rs, rBot = 2 * rs
+            let l = -w / 2, r = w / 2, b = -h / 2, t = h / 2
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: l, y: b + rBot))
+            path.addArc(tangent1End: CGPoint(x: l, y: t), tangent2End: CGPoint(x: r, y: t), radius: rTop)
+            path.addArc(tangent1End: CGPoint(x: r, y: t), tangent2End: CGPoint(x: r, y: b), radius: rTop)
+            path.addArc(tangent1End: CGPoint(x: r, y: b), tangent2End: CGPoint(x: l, y: b), radius: rBot)
+            path.addArc(tangent1End: CGPoint(x: l, y: b), tangent2End: CGPoint(x: l, y: t), radius: rBot)
+            path.closeSubpath()
+            hd = SKShapeNode(path: path)
+        } else {
+            hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
+        }
         hd.fillColor = backView ? hairColor : skin
         hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
         hd.lineWidth = 1 * rs
@@ -177,11 +194,23 @@ final class PixelPerson: SKNode {
         bodyContainer.addChild(hd)
         head = hd
 
-        let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
-        hair.fillColor = hairColor
-        hair.strokeColor = .clear
-        hair.position = CGPoint(x: 0, y: 4 * rs)
-        head.addChild(hair)
+        if !backView {
+            let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
+            hair.fillColor = hairColor
+            hair.strokeColor = .clear
+            hair.position = CGPoint(x: 0, y: 4 * rs)
+            head.addChild(hair)
+        } else {
+            let earSize = CGSize(width: 3 * rs, height: 6 * rs)
+            for sx: CGFloat in [-1, 1] {
+                let ear = SKShapeNode(rectOf: earSize, cornerRadius: 1 * rs)
+                ear.fillColor = skin
+                ear.strokeColor = .clear
+                ear.position = CGPoint(x: sx * 5 * rs, y: -1 * rs)
+                ear.zPosition = 1
+                head.addChild(ear)
+            }
+        }
 
         if wearsSunglasses {
             let shades = SKLabelNode(text: Strings.Emoji.sunglasses)

@@ -66,17 +66,20 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private let sound = SoundManager()
 
     // MARK: - On-screen controls (same layout/sizing as the 100% game)
-    private let joystickRadius: CGFloat = 112.5
-    private let joystickKnobRadius: CGFloat = 45
-    private let joystickDeadzone: CGFloat = 32.5
+    private let joystickRadius: CGFloat = 129.375
+    private let joystickKnobRadius: CGFloat = 51.75
+    private let joystickDeadzone: CGFloat = 37.375
     private var joystickCenter = CGPoint.zero
     private var joystickActive = false
     private var joystickThumb: SKShapeNode?
     private var fireButtonCenter = CGPoint.zero
-    private let fireButtonRadius: CGFloat = 112.5
+    private let fireButtonRadius: CGFloat = 129.375
     private var controlsShown = false
 
     private let spriteLayer = SKNode()
+    private let nameLayer = SKNode()
+    private var bossNames: [ObjectIdentifier: SKLabelNode] = [:]
+    private var peteName: SKLabelNode!
     private var pete: PixelPerson!
     private var peteBaseY: CGFloat = 0
     private var bob = 0.0
@@ -111,6 +114,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
         buildColumns()
         spriteLayer.zPosition = 1
         addChild(spriteLayer)
+        nameLayer.zPosition = 150            // nameplates ride above all billboards, below the HUD
+        addChild(nameLayer)
         buildBillboards()
         buildPete()
         buildMap()
@@ -247,6 +252,19 @@ final class DoomScene: SKScene, BossControllerDelegate {
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY)
         spriteLayer.addChild(pete)
         pete.startWalking()
+        peteName = makeNameplate(Strings.Worker.pete)
+        peteName.position = CGPoint(x: size.width / 2, y: peteBaseY + target / 2 + 16)
+        nameLayer.addChild(peteName)
+    }
+
+    private func makeNameplate(_ text: String) -> SKLabelNode {
+        let l = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        l.text = text
+        l.fontSize = 22
+        l.fontColor = .white
+        l.horizontalAlignmentMode = .center
+        l.verticalAlignmentMode = .center
+        return l
     }
 
     private func buildHUD() {
@@ -499,9 +517,13 @@ final class DoomScene: SKScene, BossControllerDelegate {
         for (id, mn) in bossMapNodes where !live.contains(id) {
             mn.removeFromParent(); bossMapNodes.removeValue(forKey: id); bossNativeH.removeValue(forKey: id)
         }
+        for (id, lbl) in bossNames where !live.contains(id) {
+            lbl.removeFromParent(); bossNames.removeValue(forKey: id)
+        }
         for e in bossController.entities {
             let id = ObjectIdentifier(e.node)
             if e.node.parent !== spriteLayer {
+                e.tag.isHidden = true                                                 // 3D uses overlay nameplates (readable at any depth), not the in-world tag
                 e.node.removeFromParent(); e.node.physicsBody = nil; e.node.isHidden = true
                 bossNativeH[id] = max(1, e.node.calculateAccumulatedFrame().height)   // cache native height before projection scales it
                 spriteLayer.addChild(e.node)
@@ -536,6 +558,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         var cDist = [Double](repeating: 0, count: columns)
         var cSide = [Int](repeating: 0, count: columns)
         var cOpen = [Bool](repeating: false, count: columns)
+        var cFace = [Int](repeating: -1, count: columns)
         for i in 0..<columns {
             let cameraX = 2.0 * (Double(i) + 0.5) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
@@ -557,15 +580,19 @@ final class DoomScene: SKScene, BossControllerDelegate {
             cTop[i] = viewMidY + lineH / 2
             cBot[i] = viewMidY - lineH / 2
             cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall
+            // Identity of the exact wall FACE hit (grid line + axis). Two columns share a
+            // face only if they land on the same line; depth deltas vary with distance, so
+            // keying on depth falsely splits far columns (jagged) and merges near corners.
+            cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1
             zbuf[i] = d
         }
         let w = size.width / CGFloat(columns)
-        let faceGap = 0.4   // depth jump above this = a 90° corner: keep the edge VERTICAL (no bevel)
         for i in 0..<columns {
             let xL = CGFloat(i) * w, xR = CGFloat(i + 1) * w + 1   // 1px overlap hides AA seams
-            // Smooth only within one wall face (gradual depth); a corner / opening stays a sharp vertical edge.
-            let smoothL = i > 0 && !cOpen[i] && !cOpen[i - 1] && abs(cDist[i] - cDist[i - 1]) < faceGap
-            let smoothR = i < columns - 1 && !cOpen[i] && !cOpen[i + 1] && abs(cDist[i] - cDist[i + 1]) < faceGap
+            // Smooth only across columns on the SAME wall face; a corner / opening (different
+            // face key) stays a sharp vertical edge with no bevel.
+            let smoothL = i > 0 && cFace[i] != -1 && cFace[i] == cFace[i - 1]
+            let smoothR = i < columns - 1 && cFace[i] != -1 && cFace[i] == cFace[i + 1]
             let tL = smoothL ? (cTop[i] + cTop[i - 1]) / 2 : cTop[i]
             let tR = smoothR ? (cTop[i] + cTop[i + 1]) / 2 : cTop[i]
             let bL = smoothL ? (cBot[i] + cBot[i - 1]) / 2 : cBot[i]
@@ -587,20 +614,22 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
         let bossMaxH = viewH * 0.42   // never larger on-screen than Pete's fixed avatar
-        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat)] = []
+        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?)] = []
         for b in billboards where b.alive {
-            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude))
+            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil))
         }
         for e in bossController.entities {
             guard let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
             let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1   // gridMap bottom-up -> raster top-down (smooth)
-            all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by, bossMaxH))
+            all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by, bossMaxH, e.name))
         }
         for s in shots where s.alive {
-            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude))
+            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil))
         }
         for item in all {
             let node = item.node
+            let label = item.name.map { bossNameplate(for: node, text: $0) }
+            label?.isHidden = true
             let relX = item.x - camX, relY = item.y - camY
             let tX = invDet * (dirY * relX - dirX * relY)
             let tY = invDet * (-planeY * relX + planeX * relY)   // depth
@@ -619,7 +648,21 @@ final class DoomScene: SKScene, BossControllerDelegate {
             let floorY = viewMidY - (viewH / CGFloat(tY)) / 2
             node.position = CGPoint(x: screenX, y: floorY + targetH / 2)
             node.zPosition = min(40, CGFloat(2 + 30 / tY))      // nearer over farther, but always behind Pete
+            if let label = label {
+                label.isHidden = false
+                label.fontSize = max(13, min(24, targetH * 0.16))
+                label.position = CGPoint(x: screenX, y: floorY + targetH + label.fontSize * 0.7)
+            }
         }
+    }
+
+    private func bossNameplate(for node: SKNode, text: String) -> SKLabelNode {
+        let id = ObjectIdentifier(node)
+        if let l = bossNames[id] { return l }
+        let l = makeNameplate(text)
+        bossNames[id] = l
+        nameLayer.addChild(l)
+        return l
     }
 
     private func updateMap() {
