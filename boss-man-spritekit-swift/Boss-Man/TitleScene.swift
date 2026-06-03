@@ -188,7 +188,7 @@ final class TitleScene: SKScene {
 
     private func startBonus() {
         view?.preferredFramesPerSecond = 60
-        let bonus = BonusScene(size: size)
+        let bonus = DoomScene(size: size)
         bonus.scaleMode = .aspectFit
         view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
     }

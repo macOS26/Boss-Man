@@ -6,7 +6,7 @@ import AppKit
 // sunset sky, and billboarded game sprites (pellets, gold discs, bosses) standing
 // in the corridors. The camera trails behind Pete so you see him walking ahead of
 // you. A top-down radar sits at the bottom. Common to both ports.
-final class BonusScene: SKScene, BossControllerDelegate {
+final class DoomScene: SKScene, BossControllerDelegate {
 
     // MARK: - Maze (level 1)
     private let map: [[Character]] = Levels.officeMaps.first.map { $0.map(Array.init) } ?? []
@@ -60,6 +60,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
     private struct Shot { var x, y: Double; let dir: (x: Int, y: Int); let node: SKNode; let nativeH: CGFloat; let mapNode: SKNode; var alive: Bool }
     private var shots: [Shot] = []
     private var gameOver = false
+    private var gameOverScreen: GameOverScreen?
     private var pressed = Set<Int>()
     private var collected = Set<Int>()
     private let sound = SoundManager()
@@ -313,7 +314,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
         if goldDisc.isActive { endGoldDiscMode() }
         state.lives -= 1
         refreshHUD()
-        if state.lives <= 0 { gameOver = true; exit(); return }
+        if state.lives <= 0 { gameOver = true; showGameOver(); return }
         px = spawnPx; py = spawnPy; wantDir = nil; pressed.removeAll()
         let sc = Int(spawnPx.rounded(.down)), sr = Int(spawnPy.rounded(.down))
         for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) { moveDir = d; break }
@@ -324,7 +325,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
                             .run { [weak self] in self?.pete.alpha = 1 }]), withKey: "shield")
     }
 
-    // Grid-space catch (BonusScene has no physics worker body, so same-tile is the
+    // Grid-space catch (DoomScene has no physics worker body, so same-tile is the
     // catch); honors spawnGrace immobilization + the shield, like GameScene.
     private func checkBossCatch() {
         let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
@@ -528,47 +529,55 @@ final class BonusScene: SKScene, BossControllerDelegate {
         while back > 0.05 && isWall(px - dirX * back, py - dirY * back) { back -= 0.1 }
         camX = px - dirX * back; camY = py - dirY * back
 
-        // Cast a ray at every column boundary, then connect adjacent tops/bottoms
-        // into sloped quads so wall silhouettes are continuous lines, not stairs.
-        var topY = [CGFloat](repeating: 0, count: columns + 1)
-        var botY = [CGFloat](repeating: 0, count: columns + 1)
-        var dist = [Double](repeating: 0, count: columns + 1)
-        var sides = [Int](repeating: 0, count: columns + 1)
-        for j in 0...columns {
-            let cameraX = 2.0 * Double(j) / Double(columns) - 1.0
+        // One ray per column CENTRE. A column whose ray exits the map through an
+        // opening (tunnel / no wall) is "open" -> drawn as nothing (black), not a wall.
+        var cTop = [CGFloat](repeating: 0, count: columns)
+        var cBot = [CGFloat](repeating: 0, count: columns)
+        var cDist = [Double](repeating: 0, count: columns)
+        var cSide = [Int](repeating: 0, count: columns)
+        var cOpen = [Bool](repeating: false, count: columns)
+        for i in 0..<columns {
+            let cameraX = 2.0 * (Double(i) + 0.5) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
             var mapX = Int(camX.rounded(.down)), mapY = Int(camY.rounded(.down))
             let ddx = rdx == 0 ? 1e30 : abs(1 / rdx), ddy = rdy == 0 ? 1e30 : abs(1 / rdy)
             var stepX = 0, stepY = 0, sideX = 0.0, sideY = 0.0
             if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
             if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
-            var side = 0, guardN = 0
-            while guardN < 200 {
+            var side = 0, guardN = 0, hitWall = false
+            while guardN < 256 {
                 guardN += 1
                 if sideX < sideY { sideX += ddx; mapX += stepX; side = 0 } else { sideY += ddy; mapY += stepY; side = 1 }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
-                if map[mapY][mapX] == Strings.Tile.wallChar { break }
+                if map[mapY][mapX] == Strings.Tile.wallChar { hitWall = true; break }
             }
             let perp = side == 0 ? (sideX - ddx) : (sideY - ddy)
-            let d = max(0.05, perp)
-            dist[j] = d; sides[j] = side
+            let d = hitWall ? max(0.05, perp) : 1e9   // exited an opening -> no wall (black), not a blue dead end
             let lineH = min(viewH * 4, viewH / CGFloat(d))
-            topY[j] = viewMidY + lineH / 2
-            botY[j] = viewMidY - lineH / 2
+            cTop[i] = viewMidY + lineH / 2
+            cBot[i] = viewMidY - lineH / 2
+            cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall
+            zbuf[i] = d
         }
         let w = size.width / CGFloat(columns)
+        let faceGap = 0.4   // depth jump above this = a 90° corner: keep the edge VERTICAL (no bevel)
         for i in 0..<columns {
-            let xL = CGFloat(i) * w, xR = CGFloat(i + 1) * w + 1   // 1px overlap hides AA seams between quads
+            let xL = CGFloat(i) * w, xR = CGFloat(i + 1) * w + 1   // 1px overlap hides AA seams
+            // Smooth only within one wall face (gradual depth); a corner / opening stays a sharp vertical edge.
+            let smoothL = i > 0 && !cOpen[i] && !cOpen[i - 1] && abs(cDist[i] - cDist[i - 1]) < faceGap
+            let smoothR = i < columns - 1 && !cOpen[i] && !cOpen[i + 1] && abs(cDist[i] - cDist[i + 1]) < faceGap
+            let tL = smoothL ? (cTop[i] + cTop[i - 1]) / 2 : cTop[i]
+            let tR = smoothR ? (cTop[i] + cTop[i + 1]) / 2 : cTop[i]
+            let bL = smoothL ? (cBot[i] + cBot[i - 1]) / 2 : cBot[i]
+            let bR = smoothR ? (cBot[i] + cBot[i + 1]) / 2 : cBot[i]
             let p = CGMutablePath()
-            p.move(to: CGPoint(x: xL, y: botY[i]))
-            p.addLine(to: CGPoint(x: xL, y: topY[i]))
-            p.addLine(to: CGPoint(x: xR, y: topY[i + 1]))
-            p.addLine(to: CGPoint(x: xR, y: botY[i + 1]))
+            p.move(to: CGPoint(x: xL, y: bL))
+            p.addLine(to: CGPoint(x: xL, y: tL))
+            p.addLine(to: CGPoint(x: xR, y: tR))
+            p.addLine(to: CGPoint(x: xR, y: bR))
             p.closeSubpath()
             bars[i].path = p
-            let d = (dist[i] + dist[i + 1]) / 2
-            zbuf[i] = min(dist[i], dist[i + 1])
-            let f = CGFloat(max(0.12, min(1.0, 1.0 - d / 16))) * (sides[i] == 1 ? 0.62 : 1.0)
+            let f = CGFloat(max(0.12, min(1.0, 1.0 - cDist[i] / 16))) * (cSide[i] == 1 ? 0.62 : 1.0)
             bars[i].fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
         }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
@@ -771,7 +780,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
     // +point popup, same as the 100% game's ScorePopup, in BOTH views: on Pete in
     // the 3D corridor, and on Pete in the mini-map (a matching rise+fade label).
     private func popPoints(_ n: Int) {
-        ScorePopup.show(n, at: pete.position, in: self)
+        ScorePopup.show(n, at: CGPoint(x: size.width / 2, y: peteBaseY + viewH * 0.30), in: self)   // above Pete's avatar, not behind it
         let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
         mini.text = Strings.Score.popup(n)
         mini.fontSize = 40; mini.fontColor = .systemYellow
@@ -831,9 +840,32 @@ final class BonusScene: SKScene, BossControllerDelegate {
         view?.presentScene(TitleScene(size: size), transition: .fade(withDuration: 0.5))
     }
 
+    // Same game-over screen as the 2D levels (score + high score; name entry skipped).
+    private func showGameOver() {
+        sound.stopAllAudio()
+        let screen = GameOverScreen(
+            size: size, font: Strings.Font.menloBold,
+            score: state.score, highScore: state.highScore,
+            defaultName: "", allowEntry: false,
+            onPlay: { [weak self] in self?.restartDoom() },
+            onEsc:  { [weak self] in self?.exit() })
+        screen.zPosition = 2000
+        addChild(screen)
+        gameOverScreen = screen
+    }
+    private func restartDoom() {
+        gameOverScreen?.removeFromParent(); gameOverScreen = nil
+        view?.presentScene(DoomScene(size: size), transition: .fade(withDuration: 0.5))
+    }
+
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
+        if gameOverScreen != nil {                    // game-over screen: Space/P replay, ESC title
+            if code == KeyCode.space || code == KeyCode.keyP { restartDoom() }
+            else if code == KeyCode.esc { exit() }
+            return
+        }
         switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
@@ -876,6 +908,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
+        if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self)); return }
         guard controlsShown, !isUserPaused else { return }
         let p = event.location(in: self)
         if radius(p, joystickCenter) <= joystickRadius {

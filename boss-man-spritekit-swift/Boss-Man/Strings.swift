@@ -309,7 +309,7 @@ enum MazeZoom {
         return cycle.contains(z) ? z : 100
     }
     static var isDoom: Bool { current == doom }
-    static var label: String { isDoom ? "d00m" : "\(current)%" }
+    static var label: String { isDoom ? "𝚍00m" : "\(current)%" }
     static func advance() {
         let i = cycle.firstIndex(of: current) ?? 0
         Persistence.set(cycle[(i + 1) % cycle.count], forKey: Strings.DefaultsKey.mazeZoom)
