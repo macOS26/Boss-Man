@@ -66,6 +66,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
     private var bossController: BossController!
     private var bossMapNodes: [ObjectIdentifier: PixelPerson] = [:]   // radar mirror per boss node
     private var bossNativeH: [ObjectIdentifier: CGFloat] = [:]        // cached unscaled height for projection
+    private var bossGrid: [ObjectIdentifier: (Double, Double)] = [:]  // smooth (continuous) grid pos per boss, captured pre-projection
     private var peteShielded = false
     private struct Shot { var x, y: Double; let dir: (x: Int, y: Int); let node: SKNode; let nativeH: CGFloat; let mapNode: SKNode; var alive: Bool }
     private var shots: [Shot] = []
@@ -500,8 +501,8 @@ final class BonusScene: SKScene, BossControllerDelegate {
             all.append((b.node, b.nativeH, b.worldH, b.x, b.y))
         }
         for e in bossController.entities {
-            let g = e.mover?.grid ?? e.ai.grid
-            let bx = Double(g.x) + 0.5, by = Double(rowsCount) - 0.5 - Double(g.y)   // gridMap bottom-up -> raster top-down
+            guard let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
+            let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1   // gridMap bottom-up -> raster top-down (smooth)
             all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by))
         }
         for s in shots where s.alive {
@@ -534,9 +535,8 @@ final class BonusScene: SKScene, BossControllerDelegate {
         mapPete.position = mapLocal(px, py)
         mapPete.setFacing(facing(moveDir))
         for e in bossController.entities {
-            guard let mn = bossMapNodes[ObjectIdentifier(e.node)] else { continue }
-            let g = e.mover?.grid ?? e.ai.grid
-            mn.position = mapLocal(Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y))
+            guard let mn = bossMapNodes[ObjectIdentifier(e.node)], let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
+            mn.position = mapLocal(g.0 + 0.5, Double(rowsCount) - 0.5 - g.1)
             if let d = e.mover?.dir { mn.setFacing(d) }
         }
         for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
@@ -591,6 +591,13 @@ final class BonusScene: SKScene, BossControllerDelegate {
         moveShots()
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
         syncBossNodes()
+        // Capture each boss's SMOOTH interpolated world position (set by TileMover in
+        // advance) as continuous grid coords, before projectSprites overwrites node.position.
+        bossGrid.removeAll(keepingCapacity: true)
+        for e in bossController.entities {
+            let p = e.node.position
+            bossGrid[ObjectIdentifier(e.node)] = (Double(p.x) / 32.0 - 0.5, Double(p.y) / 32.0 - 0.5)
+        }
         peteShielded = bossController.isAnyBossSpawning   // shielded exactly while bosses flash in (spawnGrace)
         checkBossCatch()
         let moving = tdir != nil
