@@ -53,7 +53,13 @@ final class BonusScene: SKScene {
 
     private let statusLabel = SKLabelNode()
     private var isUserPaused = false
-    private var radarScale: CGFloat = 6, radarOX: CGFloat = 16, radarOY: CGFloat = 0
+
+    // MARK: - Minimap (the real 2D level, centered at the bottom)
+    private let mapLayer = SKNode()
+    private var mapPete: PixelPerson!
+    private var mapPickups: [Int: SKNode] = [:]
+    private let mapCell: CGFloat = 32
+    private var mapScale: CGFloat = 1
 
     override func didMove(to view: SKView) {
         view.preferredFramesPerSecond = 60
@@ -67,7 +73,7 @@ final class BonusScene: SKScene {
         addChild(spriteLayer)
         buildBillboards()
         buildPete()
-        buildRadar()
+        buildMap()
         buildHUD()
         render()
     }
@@ -175,27 +181,60 @@ final class BonusScene: SKScene {
         if isUserPaused { pete.stopWalking() } else { pete.startWalking() }
     }
 
-    private var playerDot = SKShapeNode(circleOfRadius: 3)
-    private var heading = SKShapeNode()
-    private func buildRadar() {
+    private func mapKey(_ c: Int, _ r: Int) -> Int { r * colsCount + c }
+    private func mapLocal(_ x: Double, _ y: Double) -> CGPoint {
+        CGPoint(x: CGFloat(x) * mapCell, y: (CGFloat(rowsCount) - CGFloat(y)) * mapCell)
+    }
+    private func buildMap() {
         let panel = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: radarH))
-        panel.fillColor = SKColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
-        panel.strokeColor = .clear; panel.zPosition = 30
+        panel.fillColor = SKColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1)
+        panel.strokeColor = .clear; panel.zPosition = 29
         addChild(panel)
-        radarScale = min((size.width - 32) / CGFloat(max(1, colsCount)), (radarH - 16) / CGFloat(max(1, rowsCount)))
-        radarOX = 16; radarOY = radarH - 8
-        let cell = radarScale
+
+        let cubicle = SpriteFactory.cubicleColors[0]
         for r in 0..<rowsCount {
-            for c in 0..<map[r].count where map[r][c] == Strings.Tile.wallChar {
-                let n = SKShapeNode(rect: CGRect(x: radarOX + CGFloat(c) * cell, y: radarOY - CGFloat(r + 1) * cell, width: cell, height: cell))
-                n.fillColor = SKColor(red: 0.20, green: 0.45, blue: 1.0, alpha: 0.9); n.strokeColor = .clear; n.zPosition = 31
-                addChild(n)
+            for (c, ch) in map[r].enumerated() {
+                let center = mapLocal(Double(c) + 0.5, Double(r) + 0.5)
+                let floor = SpriteFactory.floorTile(size: mapCell, alternate: (c + r) % 2 == 0)
+                floor.position = center; floor.zPosition = 0; mapLayer.addChild(floor)
+                var pickup: SKNode?
+                switch ch {
+                case Strings.Tile.wallChar:
+                    let wall = SpriteFactory.wallTile(size: mapCell, color: cubicle)
+                    wall.position = center; wall.zPosition = 1; mapLayer.addChild(wall)
+                case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
+                    pickup = SpriteFactory.dotVisual(size: mapCell * 0.2)
+                case Strings.Tile.goldDiscChar:
+                    pickup = SpriteFactory.goldDiscVisual(radius: mapCell * 0.28)
+                case Strings.Tile.waterPelletChar:
+                    pickup = SpriteFactory.waterPelletVisual(radius: mapCell * 0.32)
+                case Strings.Tile.boss1Char: pickup = SpriteFactory.bossPersonForBlueprint(0)
+                case Strings.Tile.boss2Char: pickup = SpriteFactory.bossPersonForBlueprint(1)
+                case Strings.Tile.boss3Char: pickup = SpriteFactory.bossPersonForBlueprint(2)
+                case Strings.Tile.boss4Char: pickup = SpriteFactory.bossPersonForBlueprint(3)
+                default: break
+                }
+                if let pickup {
+                    pickup.position = center; pickup.zPosition = 2; mapLayer.addChild(pickup)
+                    switch ch {
+                    case Strings.Tile.dotChar, Strings.Tile.hideoutChar, Strings.Tile.goldDiscChar, Strings.Tile.waterPelletChar:
+                        mapPickups[mapKey(c, r)] = pickup
+                    default: break
+                    }
+                }
             }
         }
-        playerDot.fillColor = .systemYellow; playerDot.strokeColor = .black; playerDot.lineWidth = 1; playerDot.zPosition = 33
-        addChild(playerDot)
-        heading.strokeColor = .systemYellow; heading.lineWidth = 1.5; heading.zPosition = 33
-        addChild(heading)
+        mapPete = SpriteFactory.petePerson(walkExaggeration: 1)
+        mapPete.zPosition = 5
+        mapLayer.addChild(mapPete)
+        mapPete.startWalking()
+
+        let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
+        mapScale = (radarH - 8) / mapH
+        mapLayer.setScale(mapScale)
+        mapLayer.position = CGPoint(x: (size.width - mapW * mapScale) / 2, y: 4)
+        mapLayer.zPosition = 30
+        addChild(mapLayer)
     }
 
     // MARK: - Per-frame
@@ -257,7 +296,7 @@ final class BonusScene: SKScene {
             bars[i].fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
         }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
-        renderRadar(dirX: dirX, dirY: dirY)
+        updateMap()
     }
 
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
@@ -289,13 +328,10 @@ final class BonusScene: SKScene {
         }
     }
 
-    private func renderRadar(dirX: Double, dirY: Double) {
-        let cell = radarScale
-        playerDot.position = CGPoint(x: radarOX + CGFloat(px) * cell, y: radarOY - CGFloat(py) * cell)
-        let hp = CGMutablePath()
-        hp.move(to: playerDot.position)
-        hp.addLine(to: CGPoint(x: playerDot.position.x + CGFloat(dirX) * cell * 2.5, y: playerDot.position.y - CGFloat(dirY) * cell * 2.5))
-        heading.path = hp
+    private func updateMap() {
+        mapPete.position = mapLocal(px, py)
+        let dir: MoveDirection = moveDir.x > 0 ? .right : moveDir.x < 0 ? .left : moveDir.y > 0 ? .down : .up
+        mapPete.setFacing(dir)
     }
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
@@ -322,6 +358,7 @@ final class BonusScene: SKScene {
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
                 billboards[i].alive = false; billboards[i].node.isHidden = true
+                mapPickups[mapKey(Int(billboards[i].x), Int(billboards[i].y))]?.isHidden = true
             }
         }
         bob += 0.22
