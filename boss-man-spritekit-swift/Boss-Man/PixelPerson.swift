@@ -9,6 +9,12 @@ final class PixelPerson: SKNode {
 
     private let bodyContainer = SKNode()
 
+    // SpriteKit rasterizes each SKShapeNode to a bitmap at its native size, which
+    // the camera then magnifies (soft at 150/200). Author every shape this many
+    // times larger and shrink the body container by the same factor so the cache
+    // is supersampled: same on-screen size/layout/animation, crisp under zoom.
+    private static let pxRenderScale: CGFloat = 4
+
     private let torso: SKShapeNode
     private let leftArm: SKShapeNode
     private let rightArm: SKShapeNode
@@ -50,151 +56,153 @@ final class PixelPerson: SKNode {
         self.baseSkinColor = skin
         let shoeColor = NSColor(calibratedRed: 0.12, green: 0.08, blue: 0.05, alpha: 1)
 
-        leftLeg = SKShapeNode(rectOf: CGSize(width: 6, height: 8))
-        rightLeg = SKShapeNode(rectOf: CGSize(width: 6, height: 8))
-        torso = SKShapeNode(rectOf: CGSize(width: 18, height: 16), cornerRadius: 2)
-        tie = SKShapeNode(rectOf: CGSize(width: 4, height: 12))
-        leftArm = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
-        rightArm = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
-        leftShoe = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
-        rightShoe = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
+        let rs = PixelPerson.pxRenderScale
+        leftLeg = SKShapeNode(rectOf: CGSize(width: 6 * rs, height: 8 * rs))
+        rightLeg = SKShapeNode(rectOf: CGSize(width: 6 * rs, height: 8 * rs))
+        torso = SKShapeNode(rectOf: CGSize(width: 18 * rs, height: 16 * rs), cornerRadius: 1 * rs)
+        tie = SKShapeNode(rectOf: CGSize(width: 4 * rs, height: 12 * rs))
+        leftArm = SKShapeNode(rectOf: CGSize(width: 5 * rs, height: 14 * rs), cornerRadius: 1 * rs)
+        rightArm = SKShapeNode(rectOf: CGSize(width: 5 * rs, height: 14 * rs), cornerRadius: 1 * rs)
+        leftShoe = SKShapeNode(rectOf: CGSize(width: 8 * rs, height: 3 * rs))
+        rightShoe = SKShapeNode(rectOf: CGSize(width: 8 * rs, height: 3 * rs))
         super.init()
         addChild(bodyContainer)
+        bodyContainer.setScale(1 / rs)
 
         leftLeg.fillColor = pantsColor
         leftLeg.strokeColor = .clear
-        leftLeg.position = CGPoint(x: -4, y: -14)
+        leftLeg.position = CGPoint(x: -4 * rs, y: -14 * rs)
         leftLeg.zPosition = 1
         bodyContainer.addChild(leftLeg)
 
         rightLeg.fillColor = leftLeg.fillColor
         rightLeg.strokeColor = .clear
-        rightLeg.position = CGPoint(x: 4, y: -14)
+        rightLeg.position = CGPoint(x: 4 * rs, y: -14 * rs)
         rightLeg.zPosition = 1
         bodyContainer.addChild(rightLeg)
 
         leftShoe.fillColor = shoeColor
         leftShoe.strokeColor = shoeOutlineColor
-        leftShoe.lineWidth = 1
-        leftShoe.position = CGPoint(x: 1, y: -5)
+        leftShoe.lineWidth = 1 * rs
+        leftShoe.position = CGPoint(x: 1 * rs, y: -5 * rs)
         leftLeg.addChild(leftShoe)
 
         rightShoe.fillColor = shoeColor
         rightShoe.strokeColor = shoeOutlineColor
-        rightShoe.lineWidth = 1
-        rightShoe.position = CGPoint(x: 1, y: -5)
+        rightShoe.lineWidth = 1 * rs
+        rightShoe.position = CGPoint(x: 1 * rs, y: -5 * rs)
         rightLeg.addChild(rightShoe)
 
         let needsBacking = bodyColor.alphaComponent < 1.0
         if needsBacking {
-            let torsoBack = SKShapeNode(rectOf: CGSize(width: 18, height: 16), cornerRadius: 2)
+            let torsoBack = SKShapeNode(rectOf: CGSize(width: 18 * rs, height: 16 * rs), cornerRadius: 2 * rs)
             torsoBack.fillColor = .white
             torsoBack.strokeColor = .clear
-            torsoBack.position = CGPoint(x: 0, y: -2)
+            torsoBack.position = CGPoint(x: 0, y: -2 * rs)
             torsoBack.zPosition = 1.5
             bodyContainer.addChild(torsoBack)
         }
 
         torso.fillColor = bodyColor
         torso.strokeColor = .white
-        torso.lineWidth = 1.5
-        torso.position = CGPoint(x: 0, y: -2)
+        torso.lineWidth = 1.5 * rs
+        torso.position = CGPoint(x: 0, y: -2 * rs)
         torso.zPosition = 2
         bodyContainer.addChild(torso)
 
         tie.fillColor = tieColor
         tie.strokeColor = wearsSunglasses ? .white : .clear
-        tie.lineWidth = wearsSunglasses ? 1 : 0
-        tie.position = CGPoint(x: 0, y: -2)
+        tie.lineWidth = (wearsSunglasses ? 1 : 0) * rs
+        tie.position = CGPoint(x: 0, y: -2 * rs)
         tie.zPosition = 3
         bodyContainer.addChild(tie)
 
-        let collar = SKShapeNode(rectOf: CGSize(width: 8, height: 3))
+        let collar = SKShapeNode(rectOf: CGSize(width: 8 * rs, height: 3 * rs))
         collar.fillColor = .white
         collar.strokeColor = .clear
-        collar.position = CGPoint(x: 0, y: 5)
+        collar.position = CGPoint(x: 0, y: 5 * rs)
         torso.addChild(collar)
 
         if needsBacking {
-            let leftArmBack = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
+            let leftArmBack = SKShapeNode(rectOf: CGSize(width: 5 * rs, height: 14 * rs), cornerRadius: 1 * rs)
             leftArmBack.fillColor = .white
             leftArmBack.strokeColor = .clear
-            leftArmBack.position = CGPoint(x: -11, y: -2)
+            leftArmBack.position = CGPoint(x: -11 * rs, y: -2 * rs)
             leftArmBack.zPosition = 2.5
             bodyContainer.addChild(leftArmBack)
-            let rightArmBack = SKShapeNode(rectOf: CGSize(width: 5, height: 14), cornerRadius: 1)
+            let rightArmBack = SKShapeNode(rectOf: CGSize(width: 5 * rs, height: 14 * rs), cornerRadius: 1 * rs)
             rightArmBack.fillColor = .white
             rightArmBack.strokeColor = .clear
-            rightArmBack.position = CGPoint(x: 11, y: -2)
+            rightArmBack.position = CGPoint(x: 11 * rs, y: -2 * rs)
             rightArmBack.zPosition = 2.5
             bodyContainer.addChild(rightArmBack)
         }
 
         leftArm.fillColor = bodyColor
         leftArm.strokeColor = .white
-        leftArm.lineWidth = 1
-        leftArm.position = CGPoint(x: -11, y: -2)
+        leftArm.lineWidth = 1 * rs
+        leftArm.position = CGPoint(x: -11 * rs, y: -2 * rs)
         leftArm.zPosition = 3
         bodyContainer.addChild(leftArm)
 
         rightArm.fillColor = bodyColor
         rightArm.strokeColor = .white
-        rightArm.lineWidth = 1
-        rightArm.position = CGPoint(x: 11, y: -2)
+        rightArm.lineWidth = 1 * rs
+        rightArm.position = CGPoint(x: 11 * rs, y: -2 * rs)
         rightArm.zPosition = 3
         bodyContainer.addChild(rightArm)
 
-        let lh = SKShapeNode(circleOfRadius: 2.5)
+        let lh = SKShapeNode(circleOfRadius: 2.5 * rs)
         lh.fillColor = skin
         lh.strokeColor = .clear
-        lh.position = CGPoint(x: 0, y: -8)
+        lh.position = CGPoint(x: 0, y: -8 * rs)
         leftArm.addChild(lh)
         leftHand = lh
 
-        let rh = SKShapeNode(circleOfRadius: 2.5)
+        let rh = SKShapeNode(circleOfRadius: 2.5 * rs)
         rh.fillColor = skin
         rh.strokeColor = .clear
-        rh.position = CGPoint(x: 0, y: -8)
+        rh.position = CGPoint(x: 0, y: -8 * rs)
         rightArm.addChild(rh)
         rightHand = rh
 
-        let hd = SKShapeNode(rectOf: CGSize(width: 14, height: 12), cornerRadius: 2)
+        let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
         hd.fillColor = skin
         hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
-        hd.lineWidth = 1
-        hd.position = CGPoint(x: 0, y: 13 + headYOffset)
+        hd.lineWidth = 1 * rs
+        hd.position = CGPoint(x: 0, y: (13 + headYOffset) * rs)
         hd.zPosition = 4
         bodyContainer.addChild(hd)
         head = hd
 
-        let hair = SKShapeNode(rectOf: CGSize(width: 14, height: 4))
+        let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
         hair.fillColor = hairColor
         hair.strokeColor = .clear
-        hair.position = CGPoint(x: 0, y: 4)
+        hair.position = CGPoint(x: 0, y: 4 * rs)
         head.addChild(hair)
 
         if wearsSunglasses {
             let shades = SKLabelNode(text: Strings.Emoji.sunglasses)
-            shades.fontSize = 11
+            shades.fontSize = 11 * rs
             shades.verticalAlignmentMode = .center
             shades.horizontalAlignmentMode = .center
             shades.position = CGPoint(x: 0, y: 0)
             shades.zPosition = 5
             head.addChild(shades)
         } else {
-            let l = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            let l = SKShapeNode(rectOf: CGSize(width: 2 * rs, height: 2 * rs))
             l.fillColor = .black
             l.strokeColor = .clear
-            l.position = Self.leftEyeBase
+            l.position = CGPoint(x: Self.leftEyeBase.x * rs, y: Self.leftEyeBase.y * rs)
             head.addChild(l)
             leftEye = l
 
-            let r = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
-            r.fillColor = .black
-            r.strokeColor = .clear
-            r.position = Self.rightEyeBase
-            head.addChild(r)
-            rightEye = r
+            let rEye = SKShapeNode(rectOf: CGSize(width: 2 * rs, height: 2 * rs))
+            rEye.fillColor = .black
+            rEye.strokeColor = .clear
+            rEye.position = CGPoint(x: Self.rightEyeBase.x * rs, y: Self.rightEyeBase.y * rs)
+            head.addChild(rEye)
+            rightEye = rEye
         }
     }
 
@@ -222,7 +230,7 @@ final class PixelPerson: SKNode {
     func setTieOutline(color: NSColor?, lineWidth: CGFloat = 1) {
         if let color {
             tie.strokeColor = color
-            tie.lineWidth = lineWidth
+            tie.lineWidth = lineWidth * Self.pxRenderScale
         } else {
             tie.strokeColor = .clear
             tie.lineWidth = 0
@@ -244,7 +252,7 @@ final class PixelPerson: SKNode {
     }
 
     func face(left: Bool) {
-        bodyContainer.xScale = left ? -1 : 1
+        bodyContainer.xScale = (left ? -1 : 1) / Self.pxRenderScale
         facingRight = !left
     }
 
@@ -287,9 +295,10 @@ final class PixelPerson: SKNode {
         case .down:         offset = CGPoint(x: 0, y: -1)
         case .none:         offset = .zero
         }
-        leftEye.position  = CGPoint(x: Self.leftEyeBase.x  + offset.x, y: Self.leftEyeBase.y  + offset.y)
-        rightEye.position = CGPoint(x: Self.rightEyeBase.x + offset.x, y: Self.rightEyeBase.y + offset.y)
-        tie.position = CGPoint(x: Self.tieBase.x + offset.x, y: Self.tieBase.y + offset.y)
+        let rs = Self.pxRenderScale
+        leftEye.position  = CGPoint(x: (Self.leftEyeBase.x  + offset.x) * rs, y: (Self.leftEyeBase.y  + offset.y) * rs)
+        rightEye.position = CGPoint(x: (Self.rightEyeBase.x + offset.x) * rs, y: (Self.rightEyeBase.y + offset.y) * rs)
+        tie.position = CGPoint(x: (Self.tieBase.x + offset.x) * rs, y: (Self.tieBase.y + offset.y) * rs)
     }
 
     private static let tieBase = CGPoint(x: 0, y: -2)
@@ -310,8 +319,8 @@ final class PixelPerson: SKNode {
         }
         guard !walkActionsAttached else { return }
         let stepDuration: TimeInterval = 0.16
-        let legLift: CGFloat = 3 + walkExaggeration
-        let armSwing: CGFloat = 2 + walkExaggeration
+        let legLift: CGFloat = (3 + walkExaggeration) * Self.pxRenderScale
+        let armSwing: CGFloat = (2 + walkExaggeration) * Self.pxRenderScale
 
         let legCycle = SKAction.repeatForever(.sequence([
             SKAction.moveBy(x: 0, y: legLift, duration: stepDuration),

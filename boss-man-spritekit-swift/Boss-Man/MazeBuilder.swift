@@ -196,17 +196,28 @@ final class MazeBuilder {
 
         addWallPhysics(centers: wallCenters, in: scene)
 
-        // Collapse the static floor+wall tree into a single baked sprite.
-        if let view, let tex = view.texture(from: staticTree) {
-            let frame = staticTree.calculateAccumulatedFrame()
-            // Centre-anchored at the frame centre (the kit's default anchor,
-            // same as the dot sprites that already line up) — anchorPoint=.zero
-            // mis-placed the sheet vertically.
-            let sheet = SKSpriteNode(texture: tex)
+        // Collapse the static floor+wall tree into a single baked sprite. Bake at
+        // the live DISPLAY pixel density (view size vs scene size, e.g. fullscreen
+        // on a 5K panel) times the maze zoom, so the camera magnifies a matching-
+        // resolution texture (crisp, square cubicle edges) instead of upscaling a
+        // scene-res bake into a soft, rounded blur. Capped at 5x to bound the
+        // texture memory. WASM (view==scene) bakes at ~zoom and stays crisp.
+        let frame = staticTree.calculateAccumulatedFrame()
+        let zoom = max(1, CGFloat(MazeZoom.current) / 100)
+        let sceneW = max(1, frame.width)
+        let viewW = view?.bounds.width ?? sceneW
+        let bakeScale = min(5, max(zoom, viewW / sceneW * zoom))
+        staticTree.setScale(bakeScale)
+        let baked = view?.texture(from: staticTree)
+        staticTree.setScale(1)
+        if let baked {
+            baked.filteringMode = .nearest
+            let sheet = SKSpriteNode(texture: baked)
+            sheet.setScale(1 / bakeScale)
             sheet.position = CGPoint(x: frame.midX, y: frame.midY)
             sheet.zPosition = -9
             scene.addChild(sheet)
-            mazeSheetTexture = tex
+            mazeSheetTexture = baked
         } else {
             // No view to bake with: fall back to the live (slower) node tree.
             for child in staticTree.children { child.removeFromParent(); scene.addChild(child) }
