@@ -102,6 +102,11 @@ final class LevelEditorScene: SKScene {
     var gridContainer = SKNode()
     var uiContainer = SKNode()
     var tileNodes: [[SKNode]] = []
+    // One baked texture per (tile char, floor parity); every grid cell is a single
+    // SKSpriteNode sharing these, so hundreds of cells batch instead of building a
+    // fresh ~14-node tree each (6000+ live nodes crawled at ~1fps). Cleared on every
+    // rebuildGrid (tile size / cubicle colour can change).
+    private var tileTexCache: [String: SKTexture] = [:]
     var paletteNodes: [SKShapeNode] = []
     var paletteRects: [CGRect] = []
     var buttonRects: [(rect: CGRect, name: String)] = []
@@ -327,6 +332,7 @@ final class LevelEditorScene: SKScene {
     func rebuildGrid() {
         gridContainer.removeAllChildren()
         tileNodes = []
+        tileTexCache = [:]
 
         let availWidth = size.width - panelWidth - margin * 2 - 8
         let availHeight = size.height - margin * 2
@@ -345,12 +351,18 @@ final class LevelEditorScene: SKScene {
             for col in 0..<gridCols {
                 let x = gridOffsetX + CGFloat(col) * tileSize
                 let y = gridOffsetY + CGFloat(gridRows - 1 - row) * tileSize
-                let container = SKNode()
-                container.position = CGPoint(x: x + tileSize / 2, y: y + tileSize / 2)
-                container.zPosition = 10
-                gridContainer.addChild(container)
-                renderTileInto(container, row: row, col: col, size: tileSize)
-                rowNodes.append(container)
+                let node: SKNode
+                if let tex = tileTexture(char: charAt(row: row, col: col), parity: row + col) {
+                    node = SKSpriteNode(texture: tex)
+                } else {
+                    let container = SKNode()
+                    renderTileInto(container, row: row, col: col, size: tileSize)
+                    node = container
+                }
+                node.position = CGPoint(x: x + tileSize / 2, y: y + tileSize / 2)
+                node.zPosition = 10
+                gridContainer.addChild(node)
+                rowNodes.append(node)
             }
             tileNodes.append(rowNodes)
         }
@@ -373,9 +385,33 @@ final class LevelEditorScene: SKScene {
 
     func updateTileVisual(row: Int, col: Int) {
         guard row < tileNodes.count, col < tileNodes[row].count else { return }
-        let container = tileNodes[row][col]
-        container.removeAllChildren()
-        renderTileInto(container, row: row, col: col, size: tileSize)
+        let old = tileNodes[row][col]
+        let node: SKNode
+        if let tex = tileTexture(char: charAt(row: row, col: col), parity: row + col) {
+            node = SKSpriteNode(texture: tex)
+        } else {
+            let container = SKNode()
+            renderTileInto(container, row: row, col: col, size: tileSize)
+            node = container
+        }
+        node.position = old.position
+        node.zPosition = old.zPosition
+        old.removeFromParent()
+        gridContainer.addChild(node)
+        tileNodes[row][col] = node
+    }
+
+    // Bakes a tile (floor + content) to a texture once, keyed by char + parity, so
+    // every cell of that kind shares one texture. nil if there's no view to bake with.
+    private func tileTexture(char: Character, parity: Int) -> SKTexture? {
+        let key = "\(char)-\(parity % 2)"
+        if let t = tileTexCache[key] { return t }
+        let tree = SKNode()
+        addFloor(to: tree, size: tileSize, parity: parity)
+        addContent(to: tree, char: char, size: tileSize)
+        guard let t = view?.texture(from: tree) else { return nil }
+        tileTexCache[key] = t
+        return t
     }
 
     // MARK: - Rendering (matches the in-game MazeBuilder visuals)
