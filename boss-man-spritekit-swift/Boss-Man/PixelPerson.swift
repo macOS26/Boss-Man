@@ -182,13 +182,15 @@ final class PixelPerson: SKNode {
         bodyContainer.addChild(hd)
         head = hd
 
-        if !backView {
-            let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
-            hair.fillColor = hairColor
-            hair.strokeColor = .clear
-            hair.position = CGPoint(x: 0, y: 4 * rs)
-            head.addChild(hair)
-        } else {
+        // The flat hair strip squares off the head's rounded top corners; the back view
+        // reuses it (hair-coloured, so it just flattens the top exactly like the front).
+        let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
+        hair.fillColor = hairColor
+        hair.strokeColor = .clear
+        hair.position = CGPoint(x: 0, y: 4 * rs)
+        head.addChild(hair)
+
+        if backView {
             let earSize = CGSize(width: 3 * rs, height: 6 * rs)
             for sx: CGFloat in [-1, 1] {
                 let ear = SKShapeNode(rectOf: earSize, cornerRadius: 1 * rs)
