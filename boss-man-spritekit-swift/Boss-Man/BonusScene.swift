@@ -46,6 +46,14 @@ final class BonusScene: SKScene {
     // MARK: - Billboards (pooled: built once, projected each frame)
     private struct Billboard { let node: SKNode; let nativeH: CGFloat; let worldH: CGFloat; let x, y: Double; var alive: Bool }
     private var billboards: [Billboard] = []
+
+    // MARK: - Bosses (chase Pete through the lanes) + water-gun shots
+    private struct Boss { var x, y, tx, ty: Double; var dir: (x: Int, y: Int); let sx, sy: Double; let node: SKNode; let nativeH: CGFloat; let mapNode: PixelPerson }
+    private var bosses: [Boss] = []
+    private struct Shot { var x, y: Double; let dir: (x: Int, y: Int); let node: SKNode; let nativeH: CGFloat; let mapNode: SKNode; var alive: Bool }
+    private var shots: [Shot] = []
+    private var gameOver = false
+
     private let spriteLayer = SKNode()
     private var pete: PixelPerson!
     private var peteBaseY: CGFloat = 0
@@ -74,6 +82,7 @@ final class BonusScene: SKScene {
         buildBillboards()
         buildPete()
         buildMap()
+        buildBosses()
         buildHUD()
         render()
     }
@@ -157,10 +166,6 @@ final class BonusScene: SKScene {
                     node = SpriteFactory.goldDiscVisual(radius: 10); worldH = 0.4
                 case Strings.Tile.waterPelletChar:
                     node = SpriteFactory.waterPelletVisual(radius: 10); worldH = 0.4
-                case Strings.Tile.boss1Char: node = SpriteFactory.bossPersonForBlueprint(0); worldH = 0.9
-                case Strings.Tile.boss2Char: node = SpriteFactory.bossPersonForBlueprint(1); worldH = 0.9
-                case Strings.Tile.boss3Char: node = SpriteFactory.bossPersonForBlueprint(2); worldH = 0.9
-                case Strings.Tile.boss4Char: node = SpriteFactory.bossPersonForBlueprint(3); worldH = 0.9
                 default: continue
                 }
                 guard let n = node else { continue }
@@ -213,26 +218,20 @@ final class BonusScene: SKScene {
         let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
         let cubicle = SpriteFactory.cubicleColors[0]
 
-        // The maze floor, cubicle walls and stationary bosses never change, so we
-        // bake them to ONE texture and draw a single sprite — the MazeBuilder trick
-        // the 100% game uses — instead of ~2000 per-cell SKShapeNodes (Apple pays a
-        // draw call per shape). Only the collectible pickups and Pete stay live.
+        // The maze floor and cubicle walls never change, so we bake them to ONE
+        // texture and draw a single sprite — the MazeBuilder trick the 100% game
+        // uses — instead of ~2000 per-cell SKShapeNodes (Apple pays a draw call per
+        // shape). Pickups, Pete and the chasing bosses stay live on top.
         let bakeTree = SKNode()
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
                 let center = mapLocal(Double(c) + 0.5, Double(r) + 0.5)
                 let floor = SpriteFactory.floorTile(size: mapCell, alternate: (c + r) % 2 == 0)
                 floor.position = center; bakeTree.addChild(floor)
-                let stationary: SKNode?
-                switch ch {
-                case Strings.Tile.wallChar:  stationary = SpriteFactory.wallTile(size: mapCell, color: cubicle)
-                case Strings.Tile.boss1Char: stationary = SpriteFactory.bossPersonForBlueprint(0)
-                case Strings.Tile.boss2Char: stationary = SpriteFactory.bossPersonForBlueprint(1)
-                case Strings.Tile.boss3Char: stationary = SpriteFactory.bossPersonForBlueprint(2)
-                case Strings.Tile.boss4Char: stationary = SpriteFactory.bossPersonForBlueprint(3)
-                default: stationary = nil
+                if ch == Strings.Tile.wallChar {
+                    let wall = SpriteFactory.wallTile(size: mapCell, color: cubicle)
+                    wall.position = center; bakeTree.addChild(wall)
                 }
-                if let stationary { stationary.position = center; bakeTree.addChild(stationary) }
             }
         }
         addBaked(bakeTree, to: mapLayer, z: 0)
@@ -269,6 +268,32 @@ final class BonusScene: SKScene {
         mapLayer.position = CGPoint(x: (size.width - mapW * mapScale) / 2, y: 4)
         mapLayer.zPosition = 30
         addChild(mapLayer)
+    }
+
+    private func buildBosses() {
+        for r in 0..<rowsCount {
+            for (c, ch) in map[r].enumerated() {
+                let bp: Int
+                switch ch {
+                case Strings.Tile.boss1Char: bp = 0
+                case Strings.Tile.boss2Char: bp = 1
+                case Strings.Tile.boss3Char: bp = 2
+                case Strings.Tile.boss4Char: bp = 3
+                default: continue
+                }
+                let x = Double(c) + 0.5, y = Double(r) + 0.5
+                let node = SpriteFactory.bossPersonForBlueprint(bp)
+                node.isHidden = true; spriteLayer.addChild(node)
+                let mapNode = SpriteFactory.bossPersonForBlueprint(bp)
+                mapNode.position = mapLocal(x, y); mapNode.zPosition = 4; mapLayer.addChild(mapNode)
+                var dir = (x: 1, y: 0)
+                for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(c + d.x, r + d.y) {
+                    dir = d; break
+                }
+                bosses.append(Boss(x: x, y: y, tx: x, ty: y, dir: dir, sx: x, sy: y,
+                                   node: node, nativeH: max(1, node.calculateAccumulatedFrame().height), mapNode: mapNode))
+            }
+        }
     }
 
     // MARK: - Per-frame
@@ -339,6 +364,12 @@ final class BonusScene: SKScene {
         for b in billboards where b.alive {
             all.append((b.node, b.nativeH, b.worldH, b.x, b.y))
         }
+        for b in bosses {
+            all.append((b.node, b.nativeH, 0.9, b.x, b.y))
+        }
+        for s in shots where s.alive {
+            all.append((s.node, s.nativeH, 0.32, s.x, s.y))
+        }
         for item in all {
             let node = item.node
             let relX = item.x - camX, relY = item.y - camY
@@ -364,8 +395,16 @@ final class BonusScene: SKScene {
 
     private func updateMap() {
         mapPete.position = mapLocal(px, py)
-        let dir: MoveDirection = moveDir.x > 0 ? .right : moveDir.x < 0 ? .left : moveDir.y > 0 ? .down : .up
-        mapPete.setFacing(dir)
+        mapPete.setFacing(facing(moveDir))
+        for b in bosses {
+            b.mapNode.position = mapLocal(b.x, b.y)
+            b.mapNode.setFacing(facing(b.dir))
+        }
+        for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
+    }
+
+    private func facing(_ d: (x: Int, y: Int)) -> MoveDirection {
+        d.x > 0 ? .right : d.x < 0 ? .left : d.y > 0 ? .down : .up
     }
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
@@ -395,8 +434,66 @@ final class BonusScene: SKScene {
                 mapPickups[mapKey(Int(billboards[i].x), Int(billboards[i].y))]?.isHidden = true
             }
         }
+        moveShots()
+        moveBosses()
         bob += 0.22
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY + CGFloat(sin(bob) * 4))
+    }
+
+    // Greedy lane chase: at each tile centre a boss picks the open, non-reversing
+    // neighbour that gets it closest to Pete (Pac-Man style), then slides to it.
+    private func moveBosses() {
+        let speed = 0.035
+        for i in bosses.indices {
+            var b = bosses[i]
+            let dx = b.tx - b.x, dy = b.ty - b.y
+            let d = (dx * dx + dy * dy).squareRoot()
+            if d <= speed {
+                b.x = b.tx; b.y = b.ty
+                let col = Int(b.x.rounded(.down)), row = Int(b.y.rounded(.down))
+                let opts = [(x: 1, y: 0), (x: -1, y: 0), (x: 0, y: 1), (x: 0, y: -1)].filter { open(col + $0.x, row + $0.y) }
+                let fwd = opts.filter { !($0.x == -b.dir.x && $0.y == -b.dir.y) }
+                let cand = fwd.isEmpty ? opts : fwd
+                var best = b.dir, bestD = Double.greatestFiniteMagnitude
+                for o in cand {
+                    let cx = Double(col + o.x) + 0.5, cy = Double(row + o.y) + 0.5
+                    let dd = (cx - px) * (cx - px) + (cy - py) * (cy - py)
+                    if dd < bestD { bestD = dd; best = o }
+                }
+                b.dir = best
+                b.tx = Double(col + best.x) + 0.5; b.ty = Double(row + best.y) + 0.5
+            } else {
+                b.x += dx / d * speed; b.y += dy / d * speed
+            }
+            bosses[i] = b
+            if abs(b.x - px) < 0.55 && abs(b.y - py) < 0.55, !gameOver { gameOver = true; exit() }
+        }
+    }
+
+    private func moveShots() {
+        let speed = 0.22
+        for i in shots.indices where shots[i].alive {
+            shots[i].x += Double(shots[i].dir.x) * speed
+            shots[i].y += Double(shots[i].dir.y) * speed
+            if isWall(shots[i].x, shots[i].y) { shots[i].alive = false; continue }
+            for j in bosses.indices where abs(bosses[j].x - shots[i].x) < 0.6 && abs(bosses[j].y - shots[i].y) < 0.6 {
+                bosses[j].x = bosses[j].sx; bosses[j].y = bosses[j].sy
+                bosses[j].tx = bosses[j].sx; bosses[j].ty = bosses[j].sy
+                shots[i].alive = false
+                break
+            }
+        }
+        for s in shots where !s.alive { s.node.removeFromParent(); s.mapNode.removeFromParent() }
+        shots.removeAll { !$0.alive }
+    }
+
+    private func fire() {
+        let pellet = SpriteFactory.waterPelletVisual(radius: 9)
+        pellet.isHidden = true; spriteLayer.addChild(pellet)
+        let mapNode = SpriteFactory.waterPelletVisual(radius: mapCell * 0.22)
+        mapNode.position = mapLocal(px, py); mapNode.zPosition = 3; mapLayer.addChild(mapNode)
+        shots.append(Shot(x: px, y: py, dir: moveDir, node: pellet,
+                          nativeH: max(1, pellet.calculateAccumulatedFrame().height), mapNode: mapNode, alive: true))
     }
 
     private func exit() {
@@ -408,6 +505,7 @@ final class BonusScene: SKScene {
         switch Int(event.keyCode) {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
+        case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
         case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
         case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)
