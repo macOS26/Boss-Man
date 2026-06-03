@@ -224,7 +224,7 @@ final class MazeBuilder {
         let baked = view?.texture(from: staticTree)
         staticTree.setScale(1)
         if let baked {
-            baked.filteringMode = .nearest
+            baked.filteringMode = .linear
             let sheet = SKSpriteNode(texture: baked)
             sheet.setScale(1 / bakeScale)
             sheet.position = CGPoint(x: frame.midX, y: frame.midY)
