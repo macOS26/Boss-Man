@@ -46,8 +46,11 @@ public final class SKLabelNode: SKNode {
     // water-gun ammo dots + crop overlay), so the zero-size rect SKNode returns
     // would stack them on top of the label.
     public override var frame: CGRect {
-        let w = measuredWidth()
-        let h = fontSize
+        // Frame is in the parent's coordinate space, so fold in the node's own
+        // scale (Apple does this). A supersampled label (big fontSize, setScale
+        // 1/N) must report its true on-screen size or frame-based hit-tests miss.
+        let w = measuredWidth() * abs(xScale)
+        let h = fontSize * abs(yScale)
         let minX: CGFloat
         switch horizontalAlignmentMode {
         case .center: minX = position.x - w / 2
