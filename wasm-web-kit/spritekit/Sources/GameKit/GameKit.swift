@@ -71,6 +71,12 @@ public final class GKLeaderboard {
                             range: NSRange) async throws -> (Entry?, [Entry], Int) {
         (nil, [], 0)
     }
+    // Modern score submission (no Game Center on web): the player is never
+    // authenticated, so callers no-op before reaching here, but shim it anyway so
+    // unmodified macOS submit code compiles and runs.
+    public static func submitScore(_ score: Int, context: Int, player: GKLocalPlayer,
+                                   leaderboardIDs: [String],
+                                   completionHandler h: @escaping (Error?) -> Void) { h(nil) }
 }
 
 public struct NSRange {
