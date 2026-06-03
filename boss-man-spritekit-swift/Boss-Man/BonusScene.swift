@@ -52,8 +52,6 @@ final class BonusScene: SKScene {
     private var bob = 0.0
 
     private let statusLabel = SKLabelNode()
-    private var pauseDim = SKShapeNode()
-    private let pausedLabel = SKLabelNode()
     private var isUserPaused = false
     private var radarScale: CGFloat = 6, radarOX: CGFloat = 16, radarOY: CGFloat = 0
 
@@ -71,7 +69,6 @@ final class BonusScene: SKScene {
         buildPete()
         buildRadar()
         buildHUD()
-        buildPauseOverlay()
         render()
     }
 
@@ -173,26 +170,7 @@ final class BonusScene: SKScene {
         addChild(statusLabel)
     }
 
-    private func buildPauseOverlay() {
-        pauseDim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
-        pauseDim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.45)
-        pauseDim.strokeColor = .clear; pauseDim.zPosition = 60; pauseDim.isHidden = true
-        addChild(pauseDim)
-        pausedLabel.fontName = Strings.Font.markerFeltWide
-        pausedLabel.fontSize = 64; pausedLabel.fontColor = .white
-        pausedLabel.text = Strings.HUD.paused
-        pausedLabel.horizontalAlignmentMode = .center
-        pausedLabel.verticalAlignmentMode = .center
-        pausedLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        pausedLabel.zPosition = 61; pausedLabel.isHidden = true
-        addChild(pausedLabel)
-    }
-
-    private func togglePause() {
-        isUserPaused.toggle()
-        pauseDim.isHidden = !isUserPaused
-        pausedLabel.isHidden = !isUserPaused
-    }
+    private func togglePause() { isUserPaused.toggle() }
 
     private var playerDot = SKShapeNode(circleOfRadius: 3)
     private var heading = SKShapeNode()
