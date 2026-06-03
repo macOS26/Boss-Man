@@ -139,18 +139,18 @@ enum SpriteFactory {
         return n
     }
 
-    // A solid yellow cube in 1-point perspective for the 3D bonus pellets: a bright
-    // front square plus a closed top lid and right side that both recede to a single
-    // vanishing point. No open interior — it reads as a closed box.
+    // A solid box in head-on 1-point perspective for the 3D bonus pellets: the
+    // front is a true square (yellow) and the only other visible face is the top,
+    // a symmetric trapezoid (gold) whose side edges converge straight up to a single
+    // vanishing point centered above the box. No side faces, no open interior.
     static func pelletCube(size: CGFloat) -> SKNode {
         let n = SKNode()
         let h = size / 2
-        let vp = CGPoint(x: size * 0.55, y: size * 1.35)   // single vanishing point, up and right
-        let t: CGFloat = 0.40
-        func toVP(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x + (vp.x - p.x) * t, y: p.y + (vp.y - p.y) * t) }
+        let topH = size * 0.42       // height of the visible top face
+        let backHalf = h * 0.5       // back-top edge half-width — converges to the VP above center
         let fbl = CGPoint(x: -h, y: -h), fbr = CGPoint(x: h, y: -h)
         let ftl = CGPoint(x: -h, y: h),  ftr = CGPoint(x: h, y: h)
-        let btl = toVP(ftl), btr = toVP(ftr), bbr = toVP(fbr)
+        let btl = CGPoint(x: -backHalf, y: h + topH), btr = CGPoint(x: backHalf, y: h + topH)
         func face(_ pts: [CGPoint], _ color: SKColor, _ z: CGFloat) {
             let p = CGMutablePath()
             p.move(to: pts[0]); for q in pts.dropFirst() { p.addLine(to: q) }; p.closeSubpath()
@@ -158,8 +158,7 @@ enum SpriteFactory {
             sh.fillColor = color; sh.strokeColor = .clear; sh.isAntialiased = false; sh.zPosition = z
             n.addChild(sh)
         }
-        face([fbr, ftr, btr, bbr], SKColor(calibratedRed: 0.80, green: 0.62, blue: 0.0,  alpha: 1), 0)
-        face([ftl, ftr, btr, btl], SKColor(calibratedRed: 1.0,  green: 0.95, blue: 0.55, alpha: 1), 0)
+        face([ftl, ftr, btr, btl], SKColor(calibratedRed: 0.82, green: 0.62, blue: 0.08, alpha: 1), 0)
         face([fbl, fbr, ftr, ftl], .systemYellow, 1)
         return n
     }
