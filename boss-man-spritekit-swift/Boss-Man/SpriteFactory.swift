@@ -139,36 +139,28 @@ enum SpriteFactory {
         return n
     }
 
-    // A little pseudo-3D yellow cube (lit top, plain front, shaded right) for the
-    // 3D bonus pellets. Three shaded faces read as a cube without any outline.
+    // A solid yellow cube in 1-point perspective for the 3D bonus pellets: a bright
+    // front square plus a closed top lid and right side that both recede to a single
+    // vanishing point. No open interior — it reads as a closed box.
     static func pelletCube(size: CGFloat) -> SKNode {
         let n = SKNode()
-        let s = size, d = size * 0.42
-        let front = SKShapeNode(rect: CGRect(x: -s / 2, y: -s / 2, width: s, height: s))
-        front.fillColor = .systemYellow; front.strokeColor = .clear
-        front.isAntialiased = false; front.zPosition = 2
-
-        let top = CGMutablePath()
-        top.move(to: CGPoint(x: -s / 2, y: s / 2))
-        top.addLine(to: CGPoint(x: s / 2, y: s / 2))
-        top.addLine(to: CGPoint(x: s / 2 + d, y: s / 2 + d))
-        top.addLine(to: CGPoint(x: -s / 2 + d, y: s / 2 + d))
-        top.closeSubpath()
-        let topFace = SKShapeNode(path: top)
-        topFace.fillColor = SKColor(calibratedRed: 1.0, green: 0.95, blue: 0.55, alpha: 1)
-        topFace.strokeColor = .clear; topFace.isAntialiased = false; topFace.zPosition = 1
-
-        let right = CGMutablePath()
-        right.move(to: CGPoint(x: s / 2, y: s / 2))
-        right.addLine(to: CGPoint(x: s / 2, y: -s / 2))
-        right.addLine(to: CGPoint(x: s / 2 + d, y: -s / 2 + d))
-        right.addLine(to: CGPoint(x: s / 2 + d, y: s / 2 + d))
-        right.closeSubpath()
-        let rightFace = SKShapeNode(path: right)
-        rightFace.fillColor = SKColor(calibratedRed: 0.80, green: 0.62, blue: 0.0, alpha: 1)
-        rightFace.strokeColor = .clear; rightFace.isAntialiased = false; rightFace.zPosition = 1
-
-        n.addChild(rightFace); n.addChild(topFace); n.addChild(front)
+        let h = size / 2
+        let vp = CGPoint(x: size * 0.55, y: size * 1.35)   // single vanishing point, up and right
+        let t: CGFloat = 0.40
+        func toVP(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x + (vp.x - p.x) * t, y: p.y + (vp.y - p.y) * t) }
+        let fbl = CGPoint(x: -h, y: -h), fbr = CGPoint(x: h, y: -h)
+        let ftl = CGPoint(x: -h, y: h),  ftr = CGPoint(x: h, y: h)
+        let btl = toVP(ftl), btr = toVP(ftr), bbr = toVP(fbr)
+        func face(_ pts: [CGPoint], _ color: SKColor, _ z: CGFloat) {
+            let p = CGMutablePath()
+            p.move(to: pts[0]); for q in pts.dropFirst() { p.addLine(to: q) }; p.closeSubpath()
+            let sh = SKShapeNode(path: p)
+            sh.fillColor = color; sh.strokeColor = .clear; sh.isAntialiased = false; sh.zPosition = z
+            n.addChild(sh)
+        }
+        face([fbr, ftr, btr, bbr], SKColor(calibratedRed: 0.80, green: 0.62, blue: 0.0,  alpha: 1), 0)
+        face([ftl, ftr, btr, btl], SKColor(calibratedRed: 1.0,  green: 0.95, blue: 0.55, alpha: 1), 0)
+        face([fbl, fbr, ftr, ftl], .systemYellow, 1)
         return n
     }
 

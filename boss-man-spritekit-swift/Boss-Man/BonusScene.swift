@@ -35,11 +35,11 @@ final class BonusScene: SKScene {
     }
 
     // MARK: - Layout / projection
-    private let columns = 260
+    private let columns = 200
     private let planeScale = 0.5773          // tan(fov/2), fov 60° (no tan() on wasm)
     private var radarH: CGFloat = 180
     private var viewH: CGFloat { size.height - radarH }
-    private var viewMidY: CGFloat { radarH + viewH / 2 }   // horizon
+    private var viewMidY: CGFloat { radarH + viewH * 0.70 }   // horizon, lifted for a look-down view
     private var bars: [SKShapeNode] = []
     private var zbuf: [Double] = []
 
@@ -47,7 +47,7 @@ final class BonusScene: SKScene {
     private struct Billboard { let node: SKNode; let nativeH: CGFloat; let worldH: CGFloat; let x, y: Double; var alive: Bool }
     private var billboards: [Billboard] = []
     private let spriteLayer = SKNode()
-    private var pete = SKNode()
+    private var pete: PixelPerson!
     private var peteBaseY: CGFloat = 0
     private var bob = 0.0
 
@@ -114,10 +114,9 @@ final class BonusScene: SKScene {
     }
 
     private func buildColumns() {
-        let w = size.width / CGFloat(columns)
-        for i in 0..<columns {
-            let bar = SKShapeNode(rect: CGRect(x: CGFloat(i) * w, y: -0.5, width: w + 1, height: 1))
-            bar.strokeColor = .clear; bar.zPosition = 0
+        for _ in 0..<columns {
+            let bar = SKShapeNode()
+            bar.strokeColor = .clear; bar.isAntialiased = true; bar.zPosition = 0
             addChild(bar); bars.append(bar)
         }
     }
@@ -154,10 +153,11 @@ final class BonusScene: SKScene {
         let nativeH = max(1, pete.calculateAccumulatedFrame().height)
         let target = viewH * 0.42
         pete.setScale(target / nativeH)
-        pete.zPosition = 40                          // always ahead of the world, behind the HUD
+        pete.zPosition = 90                          // above every billboard, so pellets pass behind him
         peteBaseY = radarH + target / 2 + 6
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY)
-        addChild(pete)
+        spriteLayer.addChild(pete)
+        pete.startWalking()
     }
 
     private func buildHUD() {
@@ -170,7 +170,10 @@ final class BonusScene: SKScene {
         addChild(statusLabel)
     }
 
-    private func togglePause() { isUserPaused.toggle() }
+    private func togglePause() {
+        isUserPaused.toggle()
+        if isUserPaused { pete.stopWalking() } else { pete.startWalking() }
+    }
 
     private var playerDot = SKShapeNode(circleOfRadius: 3)
     private var heading = SKShapeNode()
@@ -210,8 +213,14 @@ final class BonusScene: SKScene {
         while back > 0.05 && isWall(px - dirX * back, py - dirY * back) { back -= 0.1 }
         camX = px - dirX * back; camY = py - dirY * back
 
-        for i in 0..<columns {
-            let cameraX = 2.0 * Double(i) / Double(columns) - 1.0
+        // Cast a ray at every column boundary, then connect adjacent tops/bottoms
+        // into sloped quads so wall silhouettes are continuous lines, not stairs.
+        var topY = [CGFloat](repeating: 0, count: columns + 1)
+        var botY = [CGFloat](repeating: 0, count: columns + 1)
+        var dist = [Double](repeating: 0, count: columns + 1)
+        var sides = [Int](repeating: 0, count: columns + 1)
+        for j in 0...columns {
+            let cameraX = 2.0 * Double(j) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
             var mapX = Int(camX.rounded(.down)), mapY = Int(camY.rounded(.down))
             let ddx = rdx == 0 ? 1e30 : abs(1 / rdx), ddy = rdy == 0 ? 1e30 : abs(1 / rdy)
@@ -227,12 +236,25 @@ final class BonusScene: SKScene {
             }
             let perp = side == 0 ? (sideX - ddx) : (sideY - ddy)
             let d = max(0.05, perp)
-            zbuf[i] = d
+            dist[j] = d; sides[j] = side
             let lineH = min(viewH * 4, viewH / CGFloat(d))
-            let bar = bars[i]
-            bar.position = CGPoint(x: 0, y: viewMidY); bar.yScale = lineH
-            let f = CGFloat(max(0.12, min(1.0, 1.0 - d / 16))) * (side == 1 ? 0.62 : 1.0)
-            bar.fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
+            topY[j] = viewMidY + lineH / 2
+            botY[j] = viewMidY - lineH / 2
+        }
+        let w = size.width / CGFloat(columns)
+        for i in 0..<columns {
+            let xL = CGFloat(i) * w, xR = CGFloat(i + 1) * w
+            let p = CGMutablePath()
+            p.move(to: CGPoint(x: xL, y: botY[i]))
+            p.addLine(to: CGPoint(x: xL, y: topY[i]))
+            p.addLine(to: CGPoint(x: xR, y: topY[i + 1]))
+            p.addLine(to: CGPoint(x: xR, y: botY[i + 1]))
+            p.closeSubpath()
+            bars[i].path = p
+            let d = (dist[i] + dist[i + 1]) / 2
+            zbuf[i] = min(dist[i], dist[i + 1])
+            let f = CGFloat(max(0.12, min(1.0, 1.0 - d / 16))) * (sides[i] == 1 ? 0.62 : 1.0)
+            bars[i].fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
         }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         renderRadar(dirX: dirX, dirY: dirY)
@@ -263,7 +285,7 @@ final class BonusScene: SKScene {
             // Stand on the corridor floor: bottom of the slice at this depth.
             let floorY = viewMidY - (viewH / CGFloat(tY)) / 2
             node.position = CGPoint(x: screenX, y: floorY + targetH / 2)
-            node.zPosition = CGFloat(2 + 100 / tY)              // nearer draws over farther
+            node.zPosition = min(40, CGFloat(2 + 30 / tY))      // nearer over farther, but always behind Pete
         }
     }
 
