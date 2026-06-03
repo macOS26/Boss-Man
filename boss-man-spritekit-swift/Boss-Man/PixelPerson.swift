@@ -193,7 +193,7 @@ final class PixelPerson: SKNode {
                 ear.fillColor = skin
                 ear.strokeColor = .clear
                 ear.position = CGPoint(x: sx * 7 * rs, y: -1 * rs)
-                ear.zPosition = 1
+                ear.zPosition = -1     // head sits in front; only the outer edge of each ear pokes out
                 head.addChild(ear)
             }
         }
