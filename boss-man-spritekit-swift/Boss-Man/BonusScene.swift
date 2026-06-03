@@ -67,6 +67,7 @@ final class BonusScene: SKScene {
     private var gameOver = false
     private var pressed = Set<Int>()
     private var collected = Set<Int>()
+    private var invuln = 0   // respawn shield frames, like the 100% game's spawn shield
     private let sound = SoundManager()
 
     // MARK: - On-screen controls (same layout/sizing as the 100% game)
@@ -261,6 +262,7 @@ final class BonusScene: SKScene {
         state.lives -= 1
         refreshHUD()
         if state.lives <= 0 { gameOver = true; exit(); return }
+        invuln = 120   // ~2s shield so a boss can't instantly re-catch on the spawn tile
         px = spawnPx; py = spawnPy; wantDir = nil; pressed.removeAll()
         let sc = Int(spawnPx.rounded(.down)), sr = Int(spawnPy.rounded(.down))
         for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) { moveDir = d; break }
@@ -490,6 +492,7 @@ final class BonusScene: SKScene {
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
     private func step() {
+        if invuln > 0 { invuln -= 1; pete.alpha = (invuln / 6) % 2 == 0 ? 0.4 : 1.0 } else { pete.alpha = 1 }
         var da = targetAngle - angle
         while da > .pi { da -= 2 * .pi }; while da < -.pi { da += 2 * .pi }
         angle += max(-0.14, min(0.14, da))
@@ -566,7 +569,7 @@ final class BonusScene: SKScene {
                 b.x += dx / d * speed; b.y += dy / d * speed
             }
             bosses[i] = b
-            if abs(b.x - px) < 0.55 && abs(b.y - py) < 0.55, !gameOver { loseLife() }
+            if invuln <= 0, abs(b.x - px) < 0.55, abs(b.y - py) < 0.55, !gameOver { loseLife() }
         }
     }
 
