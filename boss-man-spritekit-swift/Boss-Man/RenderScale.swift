@@ -1,7 +1,5 @@
 import SpriteKit
-#if os(macOS)
 import AppKit
-#endif
 
 // Single home for the platform render-scale knobs, so the rest of the game reads
 // clean (no inline #if scattered through the visuals).
