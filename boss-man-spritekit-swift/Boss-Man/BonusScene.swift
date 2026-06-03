@@ -53,6 +53,7 @@ final class BonusScene: SKScene {
     private struct Shot { var x, y: Double; let dir: (x: Int, y: Int); let node: SKNode; let nativeH: CGFloat; let mapNode: SKNode; var alive: Bool }
     private var shots: [Shot] = []
     private var gameOver = false
+    private var pressed = Set<Int>()
 
     private let spriteLayer = SKNode()
     private var pete: PixelPerson!
@@ -414,19 +415,25 @@ final class BonusScene: SKScene {
         angle += max(-0.14, min(0.14, da))
 
         let speed = 0.05
-        let dx = tcx - px, dy = tcy - py
-        let dist = (dx * dx + dy * dy).squareRoot()
-        if dist <= speed {
-            px = tcx; py = tcy
-            let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
-            if let wd = wantDir, open(col + wd.x, row + wd.y) { moveDir = wd; wantDir = nil }
-            if open(col + moveDir.x, row + moveDir.y) {
-                tcx = Double(col + moveDir.x) + 0.5
-                tcy = Double(row + moveDir.y) + 0.5
-                targetAngle = cardinal(moveDir)
+        let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
+        let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
+        // Turn (←/→) only near a tile centre and only if that lane is open.
+        if let t = wantDir, abs(px - ccx) < 0.2, abs(py - ccy) < 0.2, open(col + t.x, row + t.y) {
+            px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
+        }
+        // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
+        let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
+        let back = pressed.contains(KeyCode.arrowDown) || pressed.contains(KeyCode.keyS)
+        let tdir: (x: Int, y: Int)? = fwd ? moveDir : (back ? (x: -moveDir.x, y: -moveDir.y) : nil)
+        if let d = tdir {
+            if d.x != 0 { py += max(-speed, min(speed, ccy - py)) }   // stay centred on the lane
+            else        { px += max(-speed, min(speed, ccx - px)) }
+            if open(col + d.x, row + d.y) {
+                px += Double(d.x) * speed; py += Double(d.y) * speed
+            } else {                                                  // stop at the wall, not past the tile centre
+                if d.x > 0 { px = min(px + speed, ccx) } else if d.x < 0 { px = max(px - speed, ccx) }
+                if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
             }
-        } else {
-            px += dx / dist * speed; py += dy / dist * speed
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
@@ -436,7 +443,9 @@ final class BonusScene: SKScene {
         }
         moveShots()
         moveBosses()
-        bob += 0.22
+        let moving = tdir != nil
+        if moving { pete.startWalking(); mapPete.startWalking(); bob += 0.22 }
+        else { pete.stopWalking(); mapPete.stopWalking() }
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY + CGFloat(sin(bob) * 4))
     }
 
@@ -502,17 +511,18 @@ final class BonusScene: SKScene {
 
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
-        switch Int(event.keyCode) {
+        let code = Int(event.keyCode)
+        switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
         case KeyCode.space:                     if !event.isARepeat { fire() }
-        case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
-        case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
-        case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)
-        case KeyCode.arrowUp,    KeyCode.keyW:  wantDir = moveDir
+        case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)   // turn left
+        case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)   // turn right
+        case KeyCode.arrowUp, KeyCode.keyW, KeyCode.arrowDown, KeyCode.keyS: pressed.insert(code)
         default:                                break
         }
     }
+    override func keyUp(with event: NSEvent) { pressed.remove(Int(event.keyCode)) }
 
     required init?(coder: NSCoder) { fatalError(Strings.System.initCoderUnsupported) }
     override init(size: CGSize) { super.init(size: size) }
