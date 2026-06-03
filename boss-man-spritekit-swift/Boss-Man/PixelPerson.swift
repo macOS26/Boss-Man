@@ -206,7 +206,7 @@ final class PixelPerson: SKNode {
                 let ear = SKShapeNode(rectOf: earSize, cornerRadius: 1 * rs)
                 ear.fillColor = skin
                 ear.strokeColor = .clear
-                ear.position = CGPoint(x: sx * 5 * rs, y: -1 * rs)
+                ear.position = CGPoint(x: sx * 9 * rs, y: -1 * rs)
                 ear.zPosition = 1
                 head.addChild(ear)
             }

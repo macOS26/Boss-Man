@@ -587,26 +587,38 @@ final class DoomScene: SKScene, BossControllerDelegate {
             zbuf[i] = d
         }
         let w = size.width / CGFloat(columns)
-        for i in 0..<columns {
-            let xL = CGFloat(i) * w, xR = CGFloat(i + 1) * w + 1   // 1px overlap hides AA seams
-            // Smooth only across columns on the SAME wall face; a corner / opening (different
-            // face key) stays a sharp vertical edge with no bevel.
-            let smoothL = i > 0 && cFace[i] != -1 && cFace[i] == cFace[i - 1]
-            let smoothR = i < columns - 1 && cFace[i] != -1 && cFace[i] == cFace[i + 1]
-            let tL = smoothL ? (cTop[i] + cTop[i - 1]) / 2 : cTop[i]
-            let tR = smoothR ? (cTop[i] + cTop[i + 1]) / 2 : cTop[i]
-            let bL = smoothL ? (cBot[i] + cBot[i - 1]) / 2 : cBot[i]
-            let bR = smoothR ? (cBot[i] + cBot[i + 1]) / 2 : cBot[i]
+        // One straight-edged quad per contiguous wall FACE. Screen-space top/bottom of a
+        // flat wall are exact straight lines (inverse depth is linear in screen-x), so a
+        // single quad spanning the face is exact: square walls, no stairstep, no wobble,
+        // and a sharp vertical break wherever the face changes (corner / opening).
+        var bar = 0
+        var i = 0
+        while i < columns {
+            if cOpen[i] { i += 1; continue }
+            var j = i
+            while j + 1 < columns && cFace[j + 1] == cFace[i] { j += 1 }
+            let xL = CGFloat(i) * w, xR = CGFloat(j + 1) * w + 1   // 1px overlap hides AA seams at corners
+            var topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j]
+            if j > i {
+                let cxL = (CGFloat(i) + 0.5) * w, cxR = (CGFloat(j) + 0.5) * w
+                let mT = (cTop[j] - cTop[i]) / (cxR - cxL), mB = (cBot[j] - cBot[i]) / (cxR - cxL)
+                topL = cTop[i] + mT * (xL - cxL); topR = cTop[i] + mT * (xR - cxL)
+                botL = cBot[i] + mB * (xL - cxL); botR = cBot[i] + mB * (xR - cxL)
+            }
             let p = CGMutablePath()
-            p.move(to: CGPoint(x: xL, y: bL))
-            p.addLine(to: CGPoint(x: xL, y: tL))
-            p.addLine(to: CGPoint(x: xR, y: tR))
-            p.addLine(to: CGPoint(x: xR, y: bR))
+            p.move(to: CGPoint(x: xL, y: botL))
+            p.addLine(to: CGPoint(x: xL, y: topL))
+            p.addLine(to: CGPoint(x: xR, y: topR))
+            p.addLine(to: CGPoint(x: xR, y: botR))
             p.closeSubpath()
-            bars[i].path = p
-            let f = CGFloat(max(0.12, min(1.0, 1.0 - cDist[i] / 16))) * (cSide[i] == 1 ? 0.62 : 1.0)
-            bars[i].fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
+            let n = bars[bar]; bar += 1
+            n.path = p; n.isHidden = false
+            let mid = (i + j) / 2
+            let f = CGFloat(max(0.12, min(1.0, 1.0 - cDist[mid] / 16))) * (cSide[i] == 1 ? 0.62 : 1.0)
+            n.fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
+            i = j + 1
         }
+        for k in bar..<bars.count { bars[k].isHidden = true }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         updateMap()
     }
@@ -689,9 +701,15 @@ final class DoomScene: SKScene, BossControllerDelegate {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn (←/→) only near a tile centre and only if that lane is open.
-        if let t = wantDir, abs(px - ccx) < 0.2, abs(py - ccy) < 0.2, open(col + t.x, row + t.y) {
-            px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
+        // Turn (←/→) near a tile centre: take the lane if open; in a dead end (only the
+        // way back is open) ←/→ instead spins Pete 180° so he can drive back out.
+        if let t = wantDir, abs(px - ccx) < 0.2, abs(py - ccy) < 0.2 {
+            let exits = [(1, 0), (-1, 0), (0, 1), (0, -1)].filter { open(col + $0.0, row + $0.1) }.count
+            if open(col + t.x, row + t.y) {
+                px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
+            } else if exits == 1 {
+                px = ccx; py = ccy; moveDir = (x: -moveDir.x, y: -moveDir.y); wantDir = nil; targetAngle = cardinal(moveDir)
+            }
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
