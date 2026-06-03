@@ -185,6 +185,13 @@ final class TitleScene: SKScene {
         view?.presentScene(editor, transition: .fade(withDuration: 0.3))
     }
 
+    private func startBonus() {
+        view?.preferredFramesPerSecond = 60
+        let bonus = BonusScene(size: size)
+        bonus.scaleMode = .aspectFit
+        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
+    }
+
     private func enterFullscreen() { view?.enterFullscreen() }
     private func exitToWindow()    { view?.exitFullscreen() }
 
@@ -223,6 +230,7 @@ final class TitleScene: SKScene {
         switch key {
         case KeyCode.keyP, KeyCode.space: startGame()
         case KeyCode.keyE:                startEditor()
+        case KeyCode.digit3:              startBonus()
         case KeyCode.keyF:                enterFullscreen()
         case KeyCode.esc:                 exitToWindow()
         default:                          break
