@@ -96,6 +96,11 @@ final class BonusScene: SKScene, BossControllerDelegate {
     private let state = RoundState()
     private let waterGun = WaterGunState()
     private var waterGunPickedUp = false
+    private let goldDisc = GoldDiscTimer()
+    private let goldDiscDuration: TimeInterval = 20
+    private var frightenSecondsLeft: TimeInterval = 0
+    private let reportItemPoints = [10, 25, 50, 100]
+    private var onBrownBox = false
     private var spawnPx = 1.5, spawnPy = 1.5
     private var isUserPaused = false
 
@@ -272,8 +277,26 @@ final class BonusScene: SKScene, BossControllerDelegate {
         hud.updateLevelEmojis(Array(levelTravelers.prefix(1)))
     }
 
+    private func startGoldDiscMode() {
+        goldDisc.activate()
+        bossController.setGoldDiscActive(true)
+        sound.startGoldDiscBass()
+        frightenSecondsLeft = goldDiscDuration
+        hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
+        refreshHUD()
+    }
+    private func endGoldDiscMode() {
+        goldDisc.deactivate()
+        bossController.setGoldDiscActive(false)
+        sound.stopGoldDiscBass()
+        frightenSecondsLeft = 0
+        hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
+        refreshHUD()
+    }
+
     private func peteCaught() {
         _ = sound.playCaughtByBoss()
+        if goldDisc.isActive { endGoldDiscMode() }
         state.lives -= 1
         refreshHUD()
         if state.lives <= 0 { gameOver = true; exit(); return }
@@ -306,7 +329,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
         if moveDir.x < 0 { return .left }
         return moveDir.y > 0 ? .down : .up
     }
-    var isGoldDiscMode: Bool { false }
+    var isGoldDiscMode: Bool { goldDisc.isActive }
     var isPeteShielded: Bool { peteShielded }
     func bossDidCatchWorker() { }   // bonus catches via grid checkBossCatch() after advance (no physics contact)
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
@@ -590,7 +613,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
                 let bc = Int(billboards[i].x), br = Int(billboards[i].y)
                 mapPickups[mapKey(bc, br)]?.isHidden = true
                 switch map[br][bc] {
-                case Strings.Tile.goldDiscChar:    sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5)
+                case Strings.Tile.goldDiscChar:    sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); startGoldDiscMode()
                 case Strings.Tile.waterPelletChar: sound.playWaterGunPickup(); state.bumpScore(by: 50)
                 default:                           sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
                 }
@@ -610,6 +633,10 @@ final class BonusScene: SKScene, BossControllerDelegate {
         }
         peteShielded = bossController.isAnyBossSpawning   // shielded exactly while bosses flash in (spawnGrace)
         checkBossCatch()
+        if frightenSecondsLeft > 0 {                      // loop-driven (no Task.sleep on wasm)
+            frightenSecondsLeft -= 1.0 / 60.0
+            if frightenSecondsLeft <= 0 { endGoldDiscMode() }
+        }
         let moving = tdir != nil
         if moving { pete.startWalking(); mapPete.startWalking(); bob += 0.22 }
         else { pete.stopWalking(); mapPete.stopWalking() }
@@ -654,9 +681,16 @@ final class BonusScene: SKScene, BossControllerDelegate {
     private func collectStationary() {
         let pcol = Int(px.rounded(.down)), prow = Int(py.rounded(.down))
         guard prow >= 0, prow < rowsCount, pcol >= 0, pcol < map[prow].count else { return }
+        let ch = map[prow][pcol]
+        // Brown box = the TPS drop-off (repeatable, never "collected"). Fire once per entry.
+        if ch == Strings.Tile.brownBoxChar {
+            if !onBrownBox { onBrownBox = true; collectTPSReport() }
+            return
+        }
+        onBrownBox = false
         let key = mapKey(pcol, prow)
         guard !collected.contains(key) else { return }
-        switch map[prow][pcol] {
+        switch ch {
         case Strings.Tile.waterGunChar:
             collected.insert(key); waterGun.activate(); waterGunPickedUp = true; sound.playWaterGunPickup()
             hidePickup(pcol, prow); refreshHUD()
@@ -671,9 +705,47 @@ final class BonusScene: SKScene, BossControllerDelegate {
         guard Strings.Machine.required.contains(name), !state.reportItems.contains(name) else { return }
         collected.insert(key)
         state.reportItems.insert(name)
-        state.bumpScore(by: 100)
+        let itemIndex = state.reportItems.count - 1   // points ramp 10/25/50/100, like GameScene.handleMachine
+        if itemIndex < reportItemPoints.count {
+            let pts = reportItemPoints[itemIndex]
+            state.bumpScore(by: pts); state.currentReportScore += pts
+        }
         sound.playMachine(named: name)
         grayPickup(col, row); refreshHUD()   // dim it like the 100% 2D maze, don't remove it
+    }
+
+    // Turn in a completed TPS report at the brown box (mirrors GameScene.collectTPSReport).
+    private func collectTPSReport() {
+        guard state.reportItems.count == Strings.Machine.required.count else {
+            let missing = Strings.Machine.required.filter { !state.reportItems.contains($0) }
+            hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
+            sound.playTpsMissingItems(missing)
+            return
+        }
+        state.tpsReportsDelivered += 1
+        state.reportItems.removeAll()
+        let tpsPoints = state.level * 100 + 100
+        state.bumpScore(by: tpsPoints); state.currentReportScore = 0
+        ScorePopup.show(tpsPoints, at: pete.position, in: self)
+        sound.playTpsDeliver()
+        let gainedLife = state.lives < HUD.maxLives
+        if gainedLife { state.lives += 1 }
+        resetCollectedMachines()   // un-gray so a fresh report can be gathered (GameScene.resetGrayedMachines)
+        refreshHUD()
+        hud.showMessage(Strings.Message.tpsTurnedIn(points: tpsPoints, gainedLife: gainedLife), duration: 3)
+    }
+    private func resetCollectedMachines() {
+        for r in 0..<rowsCount {
+            for (c, ch) in map[r].enumerated() {
+                switch ch {
+                case Strings.Tile.printerChar, Strings.Tile.faxChar, Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar:
+                    let key = mapKey(c, r); collected.remove(key)
+                    for i in billboards.indices where Int(billboards[i].x) == c && Int(billboards[i].y) == r { billboards[i].node.alpha = 1 }
+                    mapPickups[key]?.alpha = 1
+                default: break
+                }
+            }
+        }
     }
     private func hidePickup(_ col: Int, _ row: Int) {
         for i in billboards.indices where billboards[i].alive && Int(billboards[i].x) == col && Int(billboards[i].y) == row {
