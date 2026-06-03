@@ -282,6 +282,7 @@ class Runtime {
         for (let i = 0; i < 24; i++) dv.setUint8(statPtr + i, 0);
         return 0;
       },
+      fd_fdstat_set_flags: (_fd, _flags) => 0,
       environ_sizes_get: (countPtr, sizePtr) => {
         const dv = this.dv();
         dv.setUint32(countPtr, 0, true);

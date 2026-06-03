@@ -15,17 +15,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private static let nativeWindowMessage = "nativeWindow"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        Self.installMainMenu()
+        installMainMenu()
         let root = Self.resolveWebRoot()
 
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(WebFolderSchemeHandler(root: root), forURLScheme: WebFolderSchemeHandler.scheme)
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
         let controller = WKUserContentController()
         controller.add(self, name: Self.nativeWindowMessage)
         controller.addUserScript(WKUserScript(source: Self.fullscreenBridgeJS, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        controller.addUserScript(WKUserScript(source: Self.chromelessCSS, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         configuration.userContentController = controller
 
         let frame = NSRect(x: 0, y: 0, width: logicalWidth, height: logicalHeight)
@@ -33,6 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         webView.navigationDelegate = self
         webView.allowsMagnification = false
         webView.setValue(false, forKey: "drawsBackground")
+        if #available(macOS 13.3, *) {
+            webView.isInspectable = true
+        }
 
         window = NSWindow(
             contentRect: frame,
@@ -89,6 +94,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         webView.evaluateJavaScript("window.__bossmanFullscreen && window.__bossmanFullscreen(\(on))")
     }
 
+    private static let chromelessCSS = """
+    (function () {
+      var css = "html,body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important;background:#000!important;gap:0!important}"
+        + "#game{width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;border-radius:0!important;aspect-ratio:auto!important}"
+        + "#footer{display:none!important}";
+      var s = document.createElement('style');
+      s.textContent = css;
+      (document.head || document.documentElement).appendChild(s);
+    })();
+    """
+
     private static let fullscreenBridgeJS = """
     (function () {
       var mh = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeWindow;
@@ -133,7 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     // MARK: - Main menu
 
-    private static func installMainMenu() {
+    private func installMainMenu() {
         let mainMenu = NSMenu()
 
         let appItem = NSMenuItem()
@@ -141,6 +157,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let appMenu = NSMenu()
         appItem.submenu = appMenu
         appMenu.addItem(withTitle: "Hide Boss-Man", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthers = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quit Boss-Man", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
@@ -151,7 +170,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let fullScreen = viewMenu.addItem(withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fullScreen.keyEquivalentModifierMask = [.command, .control]
 
+        let developItem = NSMenuItem()
+        mainMenu.addItem(developItem)
+        let developMenu = NSMenu(title: "Develop")
+        developItem.submenu = developMenu
+        let inspect = developMenu.addItem(withTitle: "Show Web Inspector", action: #selector(showWebInspector(_:)), keyEquivalent: "i")
+        inspect.keyEquivalentModifierMask = [.command, .option]
+        inspect.target = self
+        developMenu.addItem(withTitle: "Reload", action: #selector(reloadPage(_:)), keyEquivalent: "r").target = self
+
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func showWebInspector(_ sender: Any?) {
+        webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        if #available(macOS 13.3, *) { webView.isInspectable = true }
+        let key = Selector(("_inspector"))
+        guard webView.responds(to: key),
+              let inspector = webView.value(forKey: "_inspector") as? NSObject else { return }
+        let show = Selector(("show"))
+        if inspector.responds(to: show) {
+            inspector.perform(show)
+        }
+    }
+
+    @objc private func reloadPage(_ sender: Any?) {
+        webView.reload()
     }
 
     // MARK: - Locate the bundled web payload

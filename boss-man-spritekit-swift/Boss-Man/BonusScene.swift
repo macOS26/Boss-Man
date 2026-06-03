@@ -1,10 +1,11 @@
 import SpriteKit
 import AppKit
 
-// 3D bonus round: a first-person pseudo-3D walk through level 1's maze, drawn with
-// flat 2D shapes (Wolfenstein-style column raycaster) like the Atari "Capture the
-// Flag" — corridor view up top, a top-down radar maze at the bottom, and a flag to
-// reach. Common to both ports (SKShapeNode bars + labels only).
+// 3D bonus round: the office maze (level 1) rendered first/third-person with flat
+// 2D graphics — a Wolfenstein-style DDA raycaster for the walls, a smooth blended
+// sunset sky, and billboarded game sprites (pellets, gold discs, bosses) standing
+// in the corridors. The camera trails behind Pete so you see him walking ahead of
+// you. A top-down radar sits at the bottom. Common to both ports.
 final class BonusScene: SKScene {
 
     // MARK: - Maze (level 1)
@@ -18,235 +19,295 @@ final class BonusScene: SKScene {
         return map[r][c] == Strings.Tile.wallChar
     }
 
-    // MARK: - Player (grid coords, y increases downward through the rows array)
-    private var px = 1.5, py = 1.5
-    private var angle = 0.0                   // radians; 0 = +x (east)
-    private var flag = (x: 1.5, y: 1.5)
-    private var won = false
+    // MARK: - Pete + chase camera (grid coords; y increases down the rows array)
+    private var px = 1.5, py = 1.5, angle = 0.0
+    private var moveDir = (x: 1, y: 0)       // current lane direction (cardinal)
+    private var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
+    private var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
+    private let camBack = 0.65               // how far the camera trails behind Pete
 
-    // MARK: - Layout
-    private let columns = 96
-    private let fov = Double.pi / 3            // 60°
-    private var radarH: CGFloat = 188
+    private func open(_ c: Int, _ r: Int) -> Bool {
+        r >= 0 && r < rowsCount && c >= 0 && c < map[r].count && map[r][c] != Strings.Tile.wallChar
+    }
+    private func cardinal(_ d: (x: Int, y: Int)) -> Double {
+        if d.x > 0 { return 0 }; if d.x < 0 { return .pi }
+        return d.y > 0 ? .pi / 2 : -.pi / 2
+    }
+
+    // MARK: - Layout / projection
+    private let columns = 260
+    private let planeScale = 0.5773          // tan(fov/2), fov 60° (no tan() on wasm)
+    private var radarH: CGFloat = 180
     private var viewH: CGFloat { size.height - radarH }
-    private var viewMidY: CGFloat { radarH + viewH / 2 }
-
+    private var viewMidY: CGFloat { radarH + viewH / 2 }   // horizon
     private var bars: [SKShapeNode] = []
-    private var playerDot = SKShapeNode(circleOfRadius: 3)
-    private var heading = SKShapeNode()
+    private var zbuf: [Double] = []
+
+    // MARK: - Billboards (pooled: built once, projected each frame)
+    private struct Billboard { let node: SKNode; let nativeH: CGFloat; let worldH: CGFloat; let x, y: Double; var alive: Bool }
+    private var billboards: [Billboard] = []
+    private let spriteLayer = SKNode()
+    private var pete = SKNode()
+
     private let statusLabel = SKLabelNode()
-    private let winLabel = SKLabelNode()
+    private var radarScale: CGFloat = 6, radarOX: CGFloat = 16, radarOY: CGFloat = 0
 
     override func didMove(to view: SKView) {
         view.preferredFramesPerSecond = 60
         anchorPoint = .zero
         backgroundColor = .black
-        placeStartAndFlag()
+        zbuf = Array(repeating: 0, count: columns)
+        placeStart()
         buildSky()
         buildColumns()
+        spriteLayer.zPosition = 1
+        addChild(spriteLayer)
+        buildBillboards()
+        buildPete()
         buildRadar()
         buildHUD()
         render()
     }
 
     // MARK: - Setup
-    private func placeStartAndFlag() {
-        guard rowsCount > 0 else { return }
-        // Start at the worker spawn if present, else the first open cell from the
-        // top-left. Flag at the farthest open cell (deepest into the maze).
-        var start: (Int, Int)? = nil
-        var open: [(Int, Int)] = []
-        for r in 0..<rowsCount {
-            for c in 0..<map[r].count where map[r][c] != Strings.Tile.wallChar {
-                open.append((c, r))
-                if map[r][c] == Strings.Tile.workerChar { start = (c, r) }
+    private func placeStart() {
+        var sc = 1, sr = 1, found = false
+        outer: for r in 0..<rowsCount {
+            for c in 0..<map[r].count where map[r][c] == Strings.Tile.workerChar { sc = c; sr = r; found = true; break outer }
+        }
+        if !found {
+            search: for r in 0..<rowsCount {
+                for c in 0..<map[r].count where map[r][c] != Strings.Tile.wallChar { sc = c; sr = r; break search }
             }
         }
-        let s = start ?? open.first ?? (1, 1)
-        px = Double(s.0) + 0.5; py = Double(s.1) + 0.5
-        let far = open.max { a, b in
-            let da = abs(a.0 - s.0) + abs(a.1 - s.1)
-            let db = abs(b.0 - s.0) + abs(b.1 - s.1)
-            return da < db
-        } ?? s
-        flag = (Double(far.0) + 0.5, Double(far.1) + 0.5)
+        px = Double(sc) + 0.5; py = Double(sr) + 0.5; tcx = px; tcy = py
+        for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) {
+            moveDir = d; break
+        }
+        targetAngle = cardinal(moveDir); angle = targetAngle
     }
 
     private func buildSky() {
-        // Sunset gradient (sky) over the upper view, solid green ground below the
-        // horizon — a stack of bands keeps it #if-free and cheap.
-        let horizon = viewMidY
-        let bands = 7
-        let sky: [(CGFloat, CGFloat, CGFloat)] = [
-            (0.16, 0.18, 0.45), (0.30, 0.24, 0.55), (0.55, 0.34, 0.62),
-            (0.82, 0.45, 0.55), (0.95, 0.60, 0.42), (0.98, 0.72, 0.40), (1.0, 0.82, 0.45),
-        ]
-        for i in 0..<bands {
-            let h = (size.height - horizon) / CGFloat(bands)
-            let band = SKShapeNode(rect: CGRect(x: 0, y: horizon + CGFloat(bands - 1 - i) * h,
-                                                 width: size.width, height: h + 1))
-            let c = sky[i]
-            band.fillColor = SKColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
-            band.strokeColor = .clear
-            band.zPosition = -2
+        // 2D office palette: a dark ceiling (maze background) blending toward the
+        // horizon over the dark checker-floor colour. One thin band per device row
+        // so the gradient is smooth, no banding. Drawn once.
+        let horC: (CGFloat, CGFloat, CGFloat) = (0.10, 0.10, 0.13)   // maze background, lit at horizon
+        let topC: (CGFloat, CGFloat, CGFloat) = (0.02, 0.02, 0.035)  // darker toward the ceiling
+        let skyBottom = viewMidY, skyTop = size.height
+        let n = max(1, Int(skyTop - skyBottom))
+        for i in 0..<n {
+            let t = CGFloat(i) / CGFloat(max(1, n - 1))      // 0 horizon .. 1 ceiling
+            let col = SKColor(red: horC.0 + (topC.0 - horC.0) * t,
+                              green: horC.1 + (topC.1 - horC.1) * t,
+                              blue: horC.2 + (topC.2 - horC.2) * t, alpha: 1)
+            let band = SKShapeNode(rect: CGRect(x: 0, y: skyBottom + CGFloat(i), width: size.width, height: 2))
+            band.fillColor = col; band.strokeColor = .clear; band.zPosition = -3
             addChild(band)
         }
-        let ground = SKShapeNode(rect: CGRect(x: 0, y: radarH, width: size.width, height: horizon - radarH))
-        ground.fillColor = SKColor(red: 0.20, green: 0.42, blue: 0.16, alpha: 1)
-        ground.strokeColor = .clear
-        ground.zPosition = -2
+        let ground = SKShapeNode(rect: CGRect(x: 0, y: radarH, width: size.width, height: viewMidY - radarH))
+        ground.fillColor = SKColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1)   // floor-tile colour
+        ground.strokeColor = .clear; ground.zPosition = -3
         addChild(ground)
     }
 
     private func buildColumns() {
         let w = size.width / CGFloat(columns)
         for i in 0..<columns {
-            // Unit-height bar centered on the horizon; per-frame we set yScale
-            // (slice height) + fillColor (distance shade) instead of rebuilding paths.
-            let bar = SKShapeNode(rect: CGRect(x: CGFloat(i) * w, y: -0.5, width: w + 0.5, height: 1))
-            bar.strokeColor = .clear
-            bar.zPosition = 0
-            addChild(bar)
-            bars.append(bar)
+            let bar = SKShapeNode(rect: CGRect(x: CGFloat(i) * w, y: -0.5, width: w + 1, height: 1))
+            bar.strokeColor = .clear; bar.zPosition = 0
+            addChild(bar); bars.append(bar)
         }
     }
 
-    private var radarScale: CGFloat = 6
-    private var radarOX: CGFloat = 12
-    private var radarOY: CGFloat = 12
-
-    private func buildRadar() {
-        let panel = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: radarH))
-        panel.fillColor = SKColor(red: 0.30, green: 0.14, blue: 0.06, alpha: 1)
-        panel.strokeColor = .clear
-        panel.zPosition = 5
-        addChild(panel)
-        radarScale = min((size.width / 2 - 24) / CGFloat(max(1, colsCount)),
-                         (radarH - 24) / CGFloat(max(1, rowsCount)))
-        radarOX = 16
-        radarOY = radarH - 12
-        let cell = radarScale
+    private func buildBillboards() {
         for r in 0..<rowsCount {
-            for c in 0..<map[r].count where map[r][c] == Strings.Tile.wallChar {
-                let n = SKShapeNode(rect: CGRect(x: radarOX + CGFloat(c) * cell,
-                                                 y: radarOY - CGFloat(r + 1) * cell,
-                                                 width: cell, height: cell))
-                n.fillColor = SKColor(red: 0.82, green: 0.62, blue: 0.18, alpha: 1)
-                n.strokeColor = .clear
-                n.zPosition = 6
-                addChild(n)
+            for (c, ch) in map[r].enumerated() {
+                let x = Double(c) + 0.5, y = Double(r) + 0.5
+                var node: SKNode?; var worldH: CGFloat = 0.6
+                switch ch {
+                case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
+                    let d = SKShapeNode(circleOfRadius: 3); d.fillColor = .systemYellow; d.strokeColor = .clear
+                    node = d; worldH = 0.12
+                case Strings.Tile.goldDiscChar:
+                    node = SpriteFactory.goldDiscVisual(radius: 10); worldH = 0.4
+                case Strings.Tile.waterPelletChar:
+                    node = SpriteFactory.waterPelletVisual(radius: 10); worldH = 0.4
+                case Strings.Tile.boss1Char: node = SpriteFactory.bossPersonForBlueprint(0); worldH = 0.9
+                case Strings.Tile.boss2Char: node = SpriteFactory.bossPersonForBlueprint(1); worldH = 0.9
+                case Strings.Tile.boss3Char: node = SpriteFactory.bossPersonForBlueprint(2); worldH = 0.9
+                case Strings.Tile.boss4Char: node = SpriteFactory.bossPersonForBlueprint(3); worldH = 0.9
+                default: continue
+                }
+                guard let n = node else { continue }
+                n.isHidden = true
+                spriteLayer.addChild(n)
+                let nh = max(1, n.calculateAccumulatedFrame().height)
+                billboards.append(Billboard(node: n, nativeH: nh, worldH: worldH, x: x, y: y, alive: true))
             }
         }
-        let flagX = radarOX + CGFloat(flag.x) * cell
-        let flagY = radarOY - CGFloat(flag.y) * cell
-        let pole = SKShapeNode(rect: CGRect(x: flagX, y: flagY, width: 1.5, height: cell * 2))
-        pole.fillColor = .white; pole.strokeColor = .clear; pole.zPosition = 7
-        addChild(pole)
-        let cloth = SKShapeNode(rect: CGRect(x: flagX, y: flagY + cell * 1.2, width: cell * 1.6, height: cell * 0.8))
-        cloth.fillColor = SKColor(red: 0.45, green: 0.65, blue: 1.0, alpha: 1)
-        cloth.strokeColor = .clear; cloth.zPosition = 7
-        addChild(cloth)
-        playerDot.fillColor = .systemRed; playerDot.strokeColor = .white; playerDot.lineWidth = 1
-        playerDot.zPosition = 8
-        addChild(playerDot)
-        heading.strokeColor = .systemRed; heading.lineWidth = 1.5; heading.zPosition = 8
-        addChild(heading)
+    }
+
+    private func buildPete() {
+        pete = SpriteFactory.petePerson(walkExaggeration: 1)
+        spriteLayer.addChild(pete)
     }
 
     private func buildHUD() {
         statusLabel.fontName = Strings.Font.markerFeltWide
-        statusLabel.fontSize = 26
-        statusLabel.fontColor = .white
-        statusLabel.text = "CAPTURE THE FLAG"
+        statusLabel.fontSize = 24; statusLabel.fontColor = .white
+        statusLabel.text = "BOSS-MAN 3D"
         statusLabel.horizontalAlignmentMode = .center
-        statusLabel.position = CGPoint(x: size.width / 2, y: size.height - 40)
-        statusLabel.zPosition = 10
+        statusLabel.position = CGPoint(x: size.width / 2, y: size.height - 36)
+        statusLabel.zPosition = 50
         addChild(statusLabel)
-
-        winLabel.fontName = Strings.Font.markerFeltWide
-        winLabel.fontSize = 48
-        winLabel.fontColor = .systemYellow
-        winLabel.horizontalAlignmentMode = .center
-        winLabel.position = CGPoint(x: size.width / 2, y: viewMidY)
-        winLabel.zPosition = 20
-        winLabel.text = ""
-        addChild(winLabel)
     }
 
-    // MARK: - Render (per frame)
-    override func update(_ currentTime: TimeInterval) {
-        step()
-        render()
+    private var playerDot = SKShapeNode(circleOfRadius: 3)
+    private var heading = SKShapeNode()
+    private func buildRadar() {
+        let panel = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: radarH))
+        panel.fillColor = SKColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
+        panel.strokeColor = .clear; panel.zPosition = 30
+        addChild(panel)
+        radarScale = min((size.width - 32) / CGFloat(max(1, colsCount)), (radarH - 16) / CGFloat(max(1, rowsCount)))
+        radarOX = 16; radarOY = radarH - 8
+        let cell = radarScale
+        for r in 0..<rowsCount {
+            for c in 0..<map[r].count where map[r][c] == Strings.Tile.wallChar {
+                let n = SKShapeNode(rect: CGRect(x: radarOX + CGFloat(c) * cell, y: radarOY - CGFloat(r + 1) * cell, width: cell, height: cell))
+                n.fillColor = SKColor(red: 0.20, green: 0.45, blue: 1.0, alpha: 0.9); n.strokeColor = .clear; n.zPosition = 31
+                addChild(n)
+            }
+        }
+        playerDot.fillColor = .systemYellow; playerDot.strokeColor = .black; playerDot.lineWidth = 1; playerDot.zPosition = 33
+        addChild(playerDot)
+        heading.strokeColor = .systemYellow; heading.lineWidth = 1.5; heading.zPosition = 33
+        addChild(heading)
     }
 
+    // MARK: - Per-frame
+    override func update(_ currentTime: TimeInterval) { step(); render() }
+
+    private var camX = 0.0, camY = 0.0
     private func render() {
         let dirX = cos(angle), dirY = sin(angle)
+        let planeX = -dirY * planeScale, planeY = dirX * planeScale
+        // Camera trails behind Pete; pull in if it would sit inside a wall.
+        var back = camBack
+        while back > 0.05 && isWall(px - dirX * back, py - dirY * back) { back -= 0.1 }
+        camX = px - dirX * back; camY = py - dirY * back
+
         for i in 0..<columns {
-            // Linear ray spread across the FOV (no atan/tan on wasm); cos() below
-            // removes the resulting fisheye.
-            let rayAngle = angle - fov / 2 + (Double(i) + 0.5) / Double(columns) * fov
-            let rx = cos(rayAngle), ry = sin(rayAngle)
-            var dist = 0.0
-            let stepDist = 0.02
-            var hit = false
-            var x = px, y = py
-            while dist < 24 {
-                x += rx * stepDist; y += ry * stepDist; dist += stepDist
-                if isWall(x, y) { hit = true; break }
+            let cameraX = 2.0 * Double(i) / Double(columns) - 1.0
+            let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
+            var mapX = Int(camX.rounded(.down)), mapY = Int(camY.rounded(.down))
+            let ddx = rdx == 0 ? 1e30 : abs(1 / rdx), ddy = rdy == 0 ? 1e30 : abs(1 / rdy)
+            var stepX = 0, stepY = 0, sideX = 0.0, sideY = 0.0
+            if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
+            if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
+            var side = 0, guardN = 0
+            while guardN < 200 {
+                guardN += 1
+                if sideX < sideY { sideX += ddx; mapX += stepX; side = 0 } else { sideY += ddy; mapY += stepY; side = 1 }
+                if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
+                if map[mapY][mapX] == Strings.Tile.wallChar { break }
             }
-            let perp = max(0.05, dist * (rx * dirX + ry * dirY))   // fisheye correct
-            let sliceH = min(viewH, CGFloat(viewH) / CGFloat(perp) * 0.9)
+            let perp = side == 0 ? (sideX - ddx) : (sideY - ddy)
+            let d = max(0.05, perp)
+            zbuf[i] = d
+            let lineH = min(viewH * 4, viewH / CGFloat(d))
             let bar = bars[i]
-            bar.position = CGPoint(x: 0, y: viewMidY)
-            bar.yScale = sliceH
-            // Shade by distance; slight tint so it reads as walls.
-            let shade = CGFloat(max(0.12, min(1.0, 1.0 - perp / 14)))
-            bar.fillColor = hit
-                ? SKColor(red: 0.22 * shade + 0.04, green: 0.24 * shade + 0.04, blue: 0.30 * shade + 0.05, alpha: 1)
-                : .clear
+            bar.position = CGPoint(x: 0, y: viewMidY); bar.yScale = lineH
+            let f = CGFloat(max(0.12, min(1.0, 1.0 - d / 16))) * (side == 1 ? 0.62 : 1.0)
+            bar.fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
         }
+        projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
+        renderRadar(dirX: dirX, dirY: dirY)
+    }
+
+    private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
+        let invDet = 1.0 / (planeX * dirY - dirX * planeY)
+        // Pete is a billboard pinned just ahead of the camera (so we see his back/front).
+        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double)] =
+            [(pete, max(1, pete.calculateAccumulatedFrame().height), 0.95, px, py)]
+        for b in billboards where b.alive {
+            all.append((b.node, b.nativeH, b.worldH, b.x, b.y))
+        }
+        for item in all {
+            let node = item.node
+            let relX = item.x - camX, relY = item.y - camY
+            let tX = invDet * (dirY * relX - dirX * relY)
+            let tY = invDet * (-planeY * relX + planeX * relY)   // depth
+            guard tY > 0.15 else { node.isHidden = true; continue }
+            let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
+            // Occlude against the wall depth at the sprite's center column.
+            if col >= 0, col < columns, tY > zbuf[col] + 0.1 { node.isHidden = true; continue }
+            if tY > 18 { node.isHidden = true; continue }       // far cull
+            let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
+            guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
+            let targetH = viewH / CGFloat(tY) * item.worldH
+            let s = targetH / item.nativeH
+            node.isHidden = false
+            node.setScale(s)
+            // Stand on the corridor floor: bottom of the slice at this depth.
+            let floorY = viewMidY - (viewH / CGFloat(tY)) / 2
+            node.position = CGPoint(x: screenX, y: floorY + targetH / 2)
+            node.zPosition = CGFloat(2 + 100 / tY)              // nearer draws over farther
+        }
+    }
+
+    private func renderRadar(dirX: Double, dirY: Double) {
         let cell = radarScale
         playerDot.position = CGPoint(x: radarOX + CGFloat(px) * cell, y: radarOY - CGFloat(py) * cell)
         let hp = CGMutablePath()
         hp.move(to: playerDot.position)
-        hp.addLine(to: CGPoint(x: playerDot.position.x + dirX * cell * 2.5,
-                               y: playerDot.position.y - dirY * cell * 2.5))
+        hp.addLine(to: CGPoint(x: playerDot.position.x + CGFloat(dirX) * cell * 2.5, y: playerDot.position.y - CGFloat(dirY) * cell * 2.5))
         heading.path = hp
     }
 
-    // MARK: - Movement
-    private var pressed = Set<Int>()
+    // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
     private func step() {
-        guard !won else { return }
-        let move = 0.06, turn = 0.045
-        if pressed.contains(KeyCode.arrowLeft)  || pressed.contains(KeyCode.keyA) { angle -= turn }
-        if pressed.contains(KeyCode.arrowRight) || pressed.contains(KeyCode.keyD) { angle += turn }
-        var nx = px, ny = py
-        if pressed.contains(KeyCode.arrowUp)   || pressed.contains(KeyCode.keyW) { nx += cos(angle) * move; ny += sin(angle) * move }
-        if pressed.contains(KeyCode.arrowDown) || pressed.contains(KeyCode.keyS) { nx -= cos(angle) * move; ny -= sin(angle) * move }
-        if !isWall(nx, py) { px = nx }      // slide along walls (axis-separated)
-        if !isWall(px, ny) { py = ny }
-        if abs(px - flag.x) < 0.6 && abs(py - flag.y) < 0.6 { capture() }
-    }
+        var da = targetAngle - angle
+        while da > .pi { da -= 2 * .pi }; while da < -.pi { da += 2 * .pi }
+        angle += max(-0.14, min(0.14, da))
 
-    private func capture() {
-        won = true
-        winLabel.text = "FLAG CAPTURED!"
-        run(.sequence([.wait(forDuration: 2.2), .run { [weak self] in self?.exit() }]))
+        let speed = 0.05
+        let dx = tcx - px, dy = tcy - py
+        let dist = (dx * dx + dy * dy).squareRoot()
+        if dist <= speed {
+            px = tcx; py = tcy
+            let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
+            if let wd = wantDir, open(col + wd.x, row + wd.y) { moveDir = wd; wantDir = nil }
+            if open(col + moveDir.x, row + moveDir.y) {
+                tcx = Double(col + moveDir.x) + 0.5
+                tcy = Double(row + moveDir.y) + 0.5
+                targetAngle = cardinal(moveDir)
+            }
+        } else {
+            px += dx / dist * speed; py += dy / dist * speed
+        }
+        for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
+            if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
+                billboards[i].alive = false; billboards[i].node.isHidden = true
+            }
+        }
     }
 
     private func exit() {
-        view?.preferredFramesPerSecond = 60
         view?.presentScene(TitleScene(size: size), transition: .fade(withDuration: 0.5))
     }
 
-    // MARK: - Input
+    // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
-        let code = Int(event.keyCode)
-        if code == KeyCode.esc { exit(); return }
-        pressed.insert(code)
+        switch Int(event.keyCode) {
+        case KeyCode.esc:                       exit()
+        case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
+        case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
+        case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)
+        case KeyCode.arrowUp,    KeyCode.keyW:  wantDir = moveDir
+        default:                                break
+        }
     }
-    override func keyUp(with event: NSEvent) { pressed.remove(Int(event.keyCode)) }
 
     required init?(coder: NSCoder) { fatalError(Strings.System.initCoderUnsupported) }
     override init(size: CGSize) { super.init(size: size) }
