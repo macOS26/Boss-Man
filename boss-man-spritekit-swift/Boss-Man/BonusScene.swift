@@ -440,7 +440,7 @@ final class BonusScene: SKScene {
         while da > .pi { da -= 2 * .pi }; while da < -.pi { da += 2 * .pi }
         angle += max(-0.14, min(0.14, da))
 
-        let speed = 0.05
+        let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
         // Turn (←/→) only near a tile centre and only if that lane is open.
@@ -485,7 +485,7 @@ final class BonusScene: SKScene {
     // Greedy lane chase: at each tile centre a boss picks the open, non-reversing
     // neighbour that gets it closest to Pete (Pac-Man style), then slides to it.
     private func moveBosses() {
-        let speed = 0.035
+        let speed = 0.10   // a touch slower than Pete (≈0.119) so he can outrun them, like real ghosts
         for i in bosses.indices {
             var b = bosses[i]
             let dx = b.tx - b.x, dy = b.ty - b.y
