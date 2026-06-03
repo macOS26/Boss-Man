@@ -48,6 +48,8 @@ final class BonusScene: SKScene {
     private var billboards: [Billboard] = []
     private let spriteLayer = SKNode()
     private var pete = SKNode()
+    private var peteBaseY: CGFloat = 0
+    private var bob = 0.0
 
     private let statusLabel = SKLabelNode()
     private var radarScale: CGFloat = 6, radarOX: CGFloat = 16, radarOY: CGFloat = 0
@@ -149,7 +151,13 @@ final class BonusScene: SKScene {
 
     private func buildPete() {
         pete = SpriteFactory.petePerson(walkExaggeration: 1)
-        spriteLayer.addChild(pete)
+        let nativeH = max(1, pete.calculateAccumulatedFrame().height)
+        let target = viewH * 0.42
+        pete.setScale(target / nativeH)
+        pete.zPosition = 40                          // always ahead of the world, behind the HUD
+        peteBaseY = radarH + target / 2 + 6
+        pete.position = CGPoint(x: size.width / 2, y: peteBaseY)
+        addChild(pete)
     }
 
     private func buildHUD() {
@@ -227,9 +235,7 @@ final class BonusScene: SKScene {
 
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
-        // Pete is a billboard pinned just ahead of the camera (so we see his back/front).
-        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double)] =
-            [(pete, max(1, pete.calculateAccumulatedFrame().height), 0.95, px, py)]
+        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double)] = []
         for b in billboards where b.alive {
             all.append((b.node, b.nativeH, b.worldH, b.x, b.y))
         }
@@ -291,6 +297,8 @@ final class BonusScene: SKScene {
                 billboards[i].alive = false; billboards[i].node.isHidden = true
             }
         }
+        bob += 0.22
+        pete.position = CGPoint(x: size.width / 2, y: peteBaseY + CGFloat(sin(bob) * 4))
     }
 
     private func exit() {
