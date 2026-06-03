@@ -52,6 +52,9 @@ final class BonusScene: SKScene {
     private var bob = 0.0
 
     private let statusLabel = SKLabelNode()
+    private var pauseDim = SKShapeNode()
+    private let pausedLabel = SKLabelNode()
+    private var isUserPaused = false
     private var radarScale: CGFloat = 6, radarOX: CGFloat = 16, radarOY: CGFloat = 0
 
     override func didMove(to view: SKView) {
@@ -68,6 +71,7 @@ final class BonusScene: SKScene {
         buildPete()
         buildRadar()
         buildHUD()
+        buildPauseOverlay()
         render()
     }
 
@@ -128,8 +132,7 @@ final class BonusScene: SKScene {
                 var node: SKNode?; var worldH: CGFloat = 0.6
                 switch ch {
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
-                    let d = SKShapeNode(circleOfRadius: 3); d.fillColor = .systemYellow; d.strokeColor = .clear
-                    node = d; worldH = 0.12
+                    node = SpriteFactory.pelletCube(size: 8); worldH = 0.14
                 case Strings.Tile.goldDiscChar:
                     node = SpriteFactory.goldDiscVisual(radius: 10); worldH = 0.4
                 case Strings.Tile.waterPelletChar:
@@ -150,7 +153,7 @@ final class BonusScene: SKScene {
     }
 
     private func buildPete() {
-        pete = SpriteFactory.petePerson(walkExaggeration: 1)
+        pete = SpriteFactory.petePersonBack(walkExaggeration: 1)
         let nativeH = max(1, pete.calculateAccumulatedFrame().height)
         let target = viewH * 0.42
         pete.setScale(target / nativeH)
@@ -168,6 +171,27 @@ final class BonusScene: SKScene {
         statusLabel.position = CGPoint(x: size.width / 2, y: size.height - 36)
         statusLabel.zPosition = 50
         addChild(statusLabel)
+    }
+
+    private func buildPauseOverlay() {
+        pauseDim = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        pauseDim.fillColor = SKColor(red: 0, green: 0, blue: 0, alpha: 0.45)
+        pauseDim.strokeColor = .clear; pauseDim.zPosition = 60; pauseDim.isHidden = true
+        addChild(pauseDim)
+        pausedLabel.fontName = Strings.Font.markerFeltWide
+        pausedLabel.fontSize = 64; pausedLabel.fontColor = .white
+        pausedLabel.text = Strings.HUD.paused
+        pausedLabel.horizontalAlignmentMode = .center
+        pausedLabel.verticalAlignmentMode = .center
+        pausedLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        pausedLabel.zPosition = 61; pausedLabel.isHidden = true
+        addChild(pausedLabel)
+    }
+
+    private func togglePause() {
+        isUserPaused.toggle()
+        pauseDim.isHidden = !isUserPaused
+        pausedLabel.isHidden = !isUserPaused
     }
 
     private var playerDot = SKShapeNode(circleOfRadius: 3)
@@ -194,7 +218,10 @@ final class BonusScene: SKScene {
     }
 
     // MARK: - Per-frame
-    override func update(_ currentTime: TimeInterval) { step(); render() }
+    override func update(_ currentTime: TimeInterval) {
+        if isUserPaused { return }
+        step(); render()
+    }
 
     private var camX = 0.0, camY = 0.0
     private func render() {
@@ -309,6 +336,7 @@ final class BonusScene: SKScene {
     override func keyDown(with event: NSEvent) {
         switch Int(event.keyCode) {
         case KeyCode.esc:                       exit()
+        case KeyCode.keyP:                      togglePause()
         case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
         case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
         case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)

@@ -47,6 +47,7 @@ final class PixelPerson: SKNode {
          pantsColor: NSColor,
          walkExaggeration: CGFloat = 0,
          wearsSunglasses: Bool = false,
+         backView: Bool = false,
          headYOffset: CGFloat = 0) {
         self.walkExaggeration = walkExaggeration
         self.baseBodyColor = bodyColor
@@ -115,6 +116,7 @@ final class PixelPerson: SKNode {
         tie.lineWidth = (wearsSunglasses ? 1 : 0) * rs
         tie.position = CGPoint(x: 0, y: -2 * rs)
         tie.zPosition = 3
+        tie.isHidden = backView
         bodyContainer.addChild(tie)
 
         let collar = SKShapeNode(rectOf: CGSize(width: 8 * rs, height: 3 * rs))
@@ -167,7 +169,7 @@ final class PixelPerson: SKNode {
         rightHand = rh
 
         let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
-        hd.fillColor = skin
+        hd.fillColor = backView ? hairColor : skin
         hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
         hd.lineWidth = 1 * rs
         hd.position = CGPoint(x: 0, y: (13 + headYOffset) * rs)
@@ -189,7 +191,7 @@ final class PixelPerson: SKNode {
             shades.position = CGPoint(x: 0.5 * rs, y: 0)
             shades.zPosition = 5
             head.addChild(shades)
-        } else {
+        } else if !backView {
             let l = SKShapeNode(rectOf: CGSize(width: 2 * rs, height: 2 * rs))
             l.fillColor = .black
             l.strokeColor = .clear

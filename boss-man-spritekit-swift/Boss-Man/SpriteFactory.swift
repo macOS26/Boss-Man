@@ -88,6 +88,19 @@ enum SpriteFactory {
         )
     }
 
+    // Pete seen from behind (back of the head, no face/tie) for the 3D chase view.
+    static func petePersonBack(walkExaggeration: CGFloat = 0) -> PixelPerson {
+        PixelPerson(
+            bodyColor: .systemBlue,
+            tieColor: .systemOrange,
+            hairColor: SKColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
+            shoeOutlineColor: .white,
+            pantsColor: SKColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1),
+            walkExaggeration: walkExaggeration,
+            backView: true
+        )
+    }
+
     // MARK: - Cubicle + frighten palette
     static let fleeBodyColor = SKColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
     static let fleeEyeColor  = SKColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
@@ -123,6 +136,39 @@ enum SpriteFactory {
         n.fillColor = .systemYellow
         n.strokeColor = .clear
         n.isAntialiased = false
+        return n
+    }
+
+    // A little pseudo-3D yellow cube (lit top, plain front, shaded right) for the
+    // 3D bonus pellets. Three shaded faces read as a cube without any outline.
+    static func pelletCube(size: CGFloat) -> SKNode {
+        let n = SKNode()
+        let s = size, d = size * 0.42
+        let front = SKShapeNode(rect: CGRect(x: -s / 2, y: -s / 2, width: s, height: s))
+        front.fillColor = .systemYellow; front.strokeColor = .clear
+        front.isAntialiased = false; front.zPosition = 2
+
+        let top = CGMutablePath()
+        top.move(to: CGPoint(x: -s / 2, y: s / 2))
+        top.addLine(to: CGPoint(x: s / 2, y: s / 2))
+        top.addLine(to: CGPoint(x: s / 2 + d, y: s / 2 + d))
+        top.addLine(to: CGPoint(x: -s / 2 + d, y: s / 2 + d))
+        top.closeSubpath()
+        let topFace = SKShapeNode(path: top)
+        topFace.fillColor = SKColor(calibratedRed: 1.0, green: 0.95, blue: 0.55, alpha: 1)
+        topFace.strokeColor = .clear; topFace.isAntialiased = false; topFace.zPosition = 1
+
+        let right = CGMutablePath()
+        right.move(to: CGPoint(x: s / 2, y: s / 2))
+        right.addLine(to: CGPoint(x: s / 2, y: -s / 2))
+        right.addLine(to: CGPoint(x: s / 2 + d, y: -s / 2 + d))
+        right.addLine(to: CGPoint(x: s / 2 + d, y: s / 2 + d))
+        right.closeSubpath()
+        let rightFace = SKShapeNode(path: right)
+        rightFace.fillColor = SKColor(calibratedRed: 0.80, green: 0.62, blue: 0.0, alpha: 1)
+        rightFace.strokeColor = .clear; rightFace.isAntialiased = false; rightFace.zPosition = 1
+
+        n.addChild(rightFace); n.addChild(topFace); n.addChild(front)
         return n
     }
 
