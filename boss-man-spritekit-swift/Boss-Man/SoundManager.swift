@@ -814,7 +814,9 @@ final class SoundManager {
                 var bass: Float = 0
                 if bassF > 0 {
                     let s = sin(2 * .pi * bassF * t) + 0.45 * sin(2 * .pi * bassF * 2 * t)
-                    bass = tanh(s * 1.2) * 0.36 * env
+                    // Pre-boosted to cancel the MIB theme's music duck, so the
+                    // bass lands as loud as the normal-level loop (lead stays ducked).
+                    bass = tanh(s * 1.2) * 0.576 * env
                 }
                 var lead: Float = 0
                 if leadF > 0 {

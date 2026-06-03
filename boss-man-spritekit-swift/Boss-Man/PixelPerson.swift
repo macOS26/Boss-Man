@@ -231,6 +231,11 @@ final class PixelPerson: SKNode {
         if let color {
             tie.strokeColor = color
             tie.lineWidth = lineWidth * Self.pxRenderScale
+        } else if let base = baseTieOutlineColor {
+            // Clearing falls back to the MIB boss's own white tie outline rather
+            // than wiping it, so a flee-mode round doesn't strip it permanently.
+            tie.strokeColor = base
+            tie.lineWidth = 1 * Self.pxRenderScale
         } else {
             tie.strokeColor = .clear
             tie.lineWidth = 0

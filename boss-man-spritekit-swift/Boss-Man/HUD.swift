@@ -300,12 +300,13 @@ final class HUD {
             bottomTravelerContainer.removeAllChildren()
             let bottomPointSize: CGFloat = 35.88
             let bottomSpacing:   CGFloat = 41.4
-            let count = travelers.count
+            // Newest traveler on the left, the first (fish) on the right: index 0
+            // hugs the right edge and later levels grow leftward.
             for (i, t) in travelers.enumerated() {
                 let glyph = TravelerGlyph.makeNode(for: t, pointSize: bottomPointSize)
                 let xOffset: CGFloat = t.image != nil ? -2 : 0
                 let yOffset: CGFloat = t.image != nil ? -2.5 : 0
-                glyph.position = CGPoint(x: CGFloat(i - (count - 1)) * bottomSpacing + xOffset, y: yOffset)
+                glyph.position = CGPoint(x: -CGFloat(i) * bottomSpacing + xOffset, y: yOffset)
                 if t.image != nil { glyph.xScale = -0.8; glyph.yScale = 0.8 }
                 bottomTravelerContainer.addChild(glyph)
             }
