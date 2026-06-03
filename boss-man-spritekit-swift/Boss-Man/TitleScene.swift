@@ -24,7 +24,8 @@ final class TitleScene: SKScene {
 
         let title = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
         title.text = Strings.Title.gameTitle
-        title.fontSize = 108
+        title.fontSize = 108 * SpriteFactory.worldRenderScale
+        title.setScale(1 / SpriteFactory.worldRenderScale)
         title.fontColor = .black
         title.position = CGPoint(x: size.width / 2, y: size.height * 0.74)
         title.zRotation = -0.04
@@ -33,7 +34,8 @@ final class TitleScene: SKScene {
 
         let credit = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
         credit.text = "Game Design by Todd Bruss"
-        credit.fontSize = 24
+        credit.fontSize = 24 * SpriteFactory.worldRenderScale
+        credit.setScale(1 / SpriteFactory.worldRenderScale)
         credit.fontColor = .black
         credit.position = CGPoint(x: size.width / 2, y: size.height * 0.95 - 15)
         credit.zPosition = 10
@@ -63,7 +65,8 @@ final class TitleScene: SKScene {
         if high > 0 {
             let hs = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
             hs.text = Strings.Title.highScore(high)
-            hs.fontSize = 26
+            hs.fontSize = 26 * SpriteFactory.worldRenderScale
+            hs.setScale(1 / SpriteFactory.worldRenderScale)
             hs.fontColor = .black
             hs.position = CGPoint(x: size.width / 2, y: size.height * 0.06 + 10)
             addChild(hs)
@@ -131,29 +134,35 @@ final class TitleScene: SKScene {
     @discardableResult
     private func makeTitleButton(text: String, color: SKColor, center: CGPoint,
                                  size s: CGSize, textDY: CGFloat = 0) -> CGRect {
-        let bg = SKShapeNode(rect: CGRect(x: -s.width / 2, y: -s.height / 2, width: s.width, height: s.height),
-                             cornerRadius: 10)
-        bg.position = center
+        let N = SpriteFactory.worldRenderScale
+        let container = SKNode()
+        container.position = center
+        container.zPosition = 5
+        addChild(container)
+        let bg = SKShapeNode(rect: CGRect(x: -s.width / 2 * N, y: -s.height / 2 * N, width: s.width * N, height: s.height * N),
+                             cornerRadius: 10 * N)
+        bg.setScale(1 / N)
         bg.fillColor = color
         bg.strokeColor = .clear
-        bg.zPosition = 5
-        addChild(bg)
+        container.addChild(bg)
         let label = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
         label.text = text
-        label.fontSize = 34
+        label.fontSize = 34 * N
+        label.setScale(1 / N)
         label.fontColor = .white
         label.horizontalAlignmentMode = .center
         label.verticalAlignmentMode = .center
         label.position = CGPoint(x: 0, y: textDY)
         label.zPosition = 6
-        bg.addChild(label)
+        container.addChild(label)
         return CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2, width: s.width, height: s.height)
     }
 
     private func makeHint(_ text: String, y: CGFloat, left: Bool = false) -> SKLabelNode {
         let label = SKLabelNode(fontNamed: Strings.Font.menloBold)
         label.text = text
-        label.fontSize = 25
+        label.fontSize = 25 * SpriteFactory.worldRenderScale
+        label.setScale(1 / SpriteFactory.worldRenderScale)
         label.fontColor = .black
         label.horizontalAlignmentMode = left ? .left : .right
         label.position = CGPoint(x: left ? 20 : size.width - 20, y: y)
