@@ -178,7 +178,8 @@ final class BonusScene: SKScene {
 
     private func togglePause() {
         isUserPaused.toggle()
-        if isUserPaused { pete.stopWalking() } else { pete.startWalking() }
+        if isUserPaused { pete.stopWalking(); mapPete.stopWalking() }
+        else { pete.startWalking(); mapPete.startWalking() }
     }
 
     private func mapKey(_ c: Int, _ r: Int) -> Int { r * colsCount + c }
