@@ -176,10 +176,12 @@ final class BossController {
         node.zPosition = 11
         scene.addChild(node)
 
+        let tagScale: CGFloat = 8
         let tag = SKLabelNode(fontNamed: Strings.Font.menloBold)
         tag.text = blueprint.name
-        tag.fontSize = 9
+        tag.fontSize = 9 * tagScale
         tag.fontColor = .white
+        tag.setScale(1 / tagScale)
         tag.position = CGPoint(x: 0, y: 24)
         node.addChild(tag)
 
