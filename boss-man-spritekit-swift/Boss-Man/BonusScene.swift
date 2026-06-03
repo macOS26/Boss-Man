@@ -206,12 +206,12 @@ final class BonusScene: SKScene {
                     node = SpriteFactory.goldDiscVisual(radius: 10); worldH = 0.4
                 case Strings.Tile.waterPelletChar:
                     node = SpriteFactory.waterPelletVisual(radius: 10); worldH = 0.4
-                case Strings.Tile.waterGunChar:   node = emojiBillboard(Strings.Emoji.waterGun, 20); worldH = 0.5
-                case Strings.Tile.printerChar:    node = emojiBillboard(Strings.Emoji.printer, 22); worldH = 0.6
-                case Strings.Tile.faxChar:        node = emojiBillboard(Strings.Emoji.fax, 22); worldH = 0.6
-                case Strings.Tile.coverSheetChar: node = emojiBillboard(Strings.Emoji.coverSheet, 22); worldH = 0.6
-                case Strings.Tile.bookBinderChar: node = emojiBillboard(Strings.Emoji.bookBinder, 22); worldH = 0.6
-                case Strings.Tile.brownBoxChar:   node = emojiBillboard(Strings.Emoji.brownBox, 22); worldH = 0.6
+                case Strings.Tile.waterGunChar:   node = emojiBillboard(Strings.Emoji.waterGun, 160); worldH = 0.5
+                case Strings.Tile.printerChar:    node = emojiBillboard(Strings.Emoji.printer, 160); worldH = 0.6
+                case Strings.Tile.faxChar:        node = emojiBillboard(Strings.Emoji.fax, 160); worldH = 0.6
+                case Strings.Tile.coverSheetChar: node = emojiBillboard(Strings.Emoji.coverSheet, 160); worldH = 0.6
+                case Strings.Tile.bookBinderChar: node = emojiBillboard(Strings.Emoji.bookBinder, 160); worldH = 0.6
+                case Strings.Tile.brownBoxChar:   node = emojiBillboard(Strings.Emoji.brownBox, 160); worldH = 0.6
                 default: continue
                 }
                 guard let n = node else { continue }
