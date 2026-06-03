@@ -6,7 +6,7 @@ import AppKit
 // sunset sky, and billboarded game sprites (pellets, gold discs, bosses) standing
 // in the corridors. The camera trails behind Pete so you see him walking ahead of
 // you. A top-down radar sits at the bottom. Common to both ports.
-final class BonusScene: SKScene {
+final class BonusScene: SKScene, BossControllerDelegate {
 
     // MARK: - Maze (level 1)
     private let map: [[Character]] = Levels.officeMaps.first.map { $0.map(Array.init) } ?? []
@@ -59,15 +59,19 @@ final class BonusScene: SKScene {
     private struct Billboard { let node: SKNode; let nativeH: CGFloat; let worldH: CGFloat; let x, y: Double; var alive: Bool }
     private var billboards: [Billboard] = []
 
-    // MARK: - Bosses (chase Pete through the lanes) + water-gun shots
-    private struct Boss { var x, y, tx, ty: Double; var dir: (x: Int, y: Int); let sx, sy: Double; let node: SKNode; let nativeH: CGFloat; let mapNode: PixelPerson }
-    private var bosses: [Boss] = []
+    // MARK: - Bosses — the REAL BossController from the 100% game (speed, square +
+    // smooth modes, flee/splash/capture/respawn all inherited; nothing hand-rolled).
+    private var gridMap: GridMap!
+    private var pathfinder: Pathfinder!
+    private var bossController: BossController!
+    private var bossMapNodes: [ObjectIdentifier: PixelPerson] = [:]   // radar mirror per boss node
+    private var bossNativeH: [ObjectIdentifier: CGFloat] = [:]        // cached unscaled height for projection
+    private var peteShielded = false
     private struct Shot { var x, y: Double; let dir: (x: Int, y: Int); let node: SKNode; let nativeH: CGFloat; let mapNode: SKNode; var alive: Bool }
     private var shots: [Shot] = []
     private var gameOver = false
     private var pressed = Set<Int>()
     private var collected = Set<Int>()
-    private var invuln = 0   // respawn shield frames, like the 100% game's spawn shield
     private let sound = SoundManager()
 
     // MARK: - On-screen controls (same layout/sizing as the 100% game)
@@ -114,7 +118,7 @@ final class BonusScene: SKScene {
         buildBillboards()
         buildPete()
         buildMap()
-        buildBosses()
+        setupBossController()
         buildHUD()
         buildControls()
         render()
@@ -257,21 +261,47 @@ final class BonusScene: SKScene {
         hud.updateLevelEmojis(Array(levelTravelers.prefix(1)))
     }
 
-    private func loseLife() {
+    private func peteCaught() {
         _ = sound.playCaughtByBoss()
         state.lives -= 1
         refreshHUD()
         if state.lives <= 0 { gameOver = true; exit(); return }
-        invuln = 120   // ~2s shield so a boss can't instantly re-catch on the spawn tile
         px = spawnPx; py = spawnPy; wantDir = nil; pressed.removeAll()
         let sc = Int(spawnPx.rounded(.down)), sr = Int(spawnPy.rounded(.down))
         for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) { moveDir = d; break }
         targetAngle = cardinal(moveDir); angle = targetAngle
-        for i in bosses.indices {
-            bosses[i].x = bosses[i].sx; bosses[i].y = bosses[i].sy
-            bosses[i].tx = bosses[i].sx; bosses[i].ty = bosses[i].sy
+        bossController.teleportAllToSpawn()   // 3s spawnGrace; peteShielded follows isAnyBossSpawning
+        pete.removeAction(forKey: "shield")
+        pete.run(.sequence([.repeat(.sequence([.fadeAlpha(to: 0.35, duration: 0.6), .fadeAlpha(to: 1.0, duration: 0.6)]), count: 3),
+                            .run { [weak self] in self?.pete.alpha = 1 }]), withKey: "shield")
+    }
+
+    // Grid-space catch (BonusScene has no physics worker body, so same-tile is the
+    // catch); honors spawnGrace immobilization + the shield, like GameScene.
+    private func checkBossCatch() {
+        let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
+        for e in bossController.entities {
+            let bg = e.mover?.grid ?? e.ai.grid
+            guard Int(bg.x) == pgx, Int(bg.y) == pgy, !bossController.isImmobilized(boss: e.node) else { continue }
+            if bossController.isInFleeMode(boss: e.node) { bossController.capture(boss: e.node) }
+            else if !peteShielded { peteCaught(); return }
         }
     }
+
+    // MARK: - BossControllerDelegate (Pete reported in GridMap's bottom-up coords)
+    var workerGrid: CGPoint { CGPoint(x: CGFloat(Int(px.rounded(.down))), y: CGFloat(rowsCount - 1 - Int(py.rounded(.down)))) }
+    var workerDirection: MoveDirection? {
+        if moveDir.x > 0 { return .right }
+        if moveDir.x < 0 { return .left }
+        return moveDir.y > 0 ? .down : .up
+    }
+    var isGoldDiscMode: Bool { false }
+    var isPeteShielded: Bool { peteShielded }
+    func bossDidCatchWorker() { }   // bonus catches via grid checkBossCatch() after advance (no physics contact)
+    func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
+        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); refreshHUD()
+    }
+    func dropletAxisThreatening(_ grid: CGPoint) -> MoveDirection? { nil }
 
     private func togglePause() {
         isUserPaused.toggle()
@@ -334,7 +364,9 @@ final class BonusScene: SKScene {
                     pickup.position = center; pickup.zPosition = 2; mapLayer.addChild(pickup)
                     mapPickups[mapKey(c, r)] = pickup
                     switch ch {
-                    case Strings.Tile.goldDiscChar, Strings.Tile.waterPelletChar, Strings.Tile.waterGunChar:
+                    case Strings.Tile.goldDiscChar, Strings.Tile.waterGunChar:
+                        pickup.run(.repeatForever(.sequence([.scale(to: 1.25, duration: 0.35), .scale(to: 1.0, duration: 0.35)])))
+                    case Strings.Tile.waterPelletChar:
                         pickup.run(.repeatForever(.sequence([.scale(to: 1.3, duration: 0.4), .scale(to: 1.0, duration: 0.4)])))
                     default: break
                     }
@@ -353,28 +385,48 @@ final class BonusScene: SKScene {
         addChild(mapLayer)
     }
 
-    private func buildBosses() {
-        for r in 0..<rowsCount {
-            for (c, ch) in map[r].enumerated() {
-                let bp: Int
+    private func setupBossController() {
+        let rows = Levels.officeMaps.first ?? []
+        gridMap = GridMap(tileSize: 32, rows: rows)
+        gridMap.xOffset = 0; gridMap.yOffset = 0
+        pathfinder = Pathfinder(map: gridMap)
+        bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound, containerOriginX: 0)
+        bossController.delegate = self
+        // Spawn positions from the level data, in the bottom-up grid GridMap uses.
+        var overrides: [(blueprintIndex: Int, position: CGPoint)] = []
+        for (ri, row) in rows.reversed().enumerated() {
+            for (ci, ch) in Array(row).enumerated() {
                 switch ch {
-                case Strings.Tile.boss1Char: bp = 0
-                case Strings.Tile.boss2Char: bp = 1
-                case Strings.Tile.boss3Char: bp = 2
-                case Strings.Tile.boss4Char: bp = 3
-                default: continue
+                case Strings.Tile.boss1Char: overrides.append((0, CGPoint(x: ci, y: ri)))
+                case Strings.Tile.boss2Char: overrides.append((1, CGPoint(x: ci, y: ri)))
+                case Strings.Tile.boss3Char: overrides.append((2, CGPoint(x: ci, y: ri)))
+                case Strings.Tile.boss4Char: overrides.append((3, CGPoint(x: ci, y: ri)))
+                default: break
                 }
-                let x = Double(c) + 0.5, y = Double(r) + 0.5
-                let node = SpriteFactory.bossPersonForBlueprint(bp)
-                node.isHidden = true; spriteLayer.addChild(node)
-                let mapNode = SpriteFactory.bossPersonForBlueprint(bp)
-                mapNode.position = mapLocal(x, y); mapNode.zPosition = 4; mapLayer.addChild(mapNode)
-                var dir = (x: 1, y: 0)
-                for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(c + d.x, r + d.y) {
-                    dir = d; break
-                }
-                bosses.append(Boss(x: x, y: y, tx: x, ty: y, dir: dir, sx: x, sy: y,
-                                   node: node, nativeH: max(1, node.calculateAccumulatedFrame().height), mapNode: mapNode))
+            }
+        }
+        bossController.spawn(forLevel: 1, spawnOverrides: overrides)
+        syncBossNodes()
+    }
+
+    // Re-parent controller boss nodes into the 3D sprite layer (driven as billboards,
+    // no stray flat node / physics body) and mirror each on the radar. Re-run every
+    // frame so splash/teleport respawns (fresh nodes) get adopted too.
+    private func syncBossNodes() {
+        let live = Set(bossController.entities.map { ObjectIdentifier($0.node) })
+        for (id, mn) in bossMapNodes where !live.contains(id) {
+            mn.removeFromParent(); bossMapNodes.removeValue(forKey: id); bossNativeH.removeValue(forKey: id)
+        }
+        for e in bossController.entities {
+            let id = ObjectIdentifier(e.node)
+            if e.node.parent !== spriteLayer {
+                e.node.removeFromParent(); e.node.physicsBody = nil; e.node.isHidden = true
+                bossNativeH[id] = max(1, e.node.calculateAccumulatedFrame().height)   // cache native height before projection scales it
+                spriteLayer.addChild(e.node)
+            }
+            if bossMapNodes[id] == nil {
+                let mn = SpriteFactory.bossPersonForBlueprint(e.blueprintIndex)
+                mn.zPosition = 4; mapLayer.addChild(mn); bossMapNodes[id] = mn
             }
         }
     }
@@ -447,8 +499,10 @@ final class BonusScene: SKScene {
         for b in billboards where b.alive {
             all.append((b.node, b.nativeH, b.worldH, b.x, b.y))
         }
-        for b in bosses {
-            all.append((b.node, b.nativeH, 0.9, b.x, b.y))
+        for e in bossController.entities {
+            let g = e.mover?.grid ?? e.ai.grid
+            let bx = Double(g.x) + 0.5, by = Double(rowsCount) - 0.5 - Double(g.y)   // gridMap bottom-up -> raster top-down
+            all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by))
         }
         for s in shots where s.alive {
             all.append((s.node, s.nativeH, 0.32, s.x, s.y))
@@ -479,9 +533,11 @@ final class BonusScene: SKScene {
     private func updateMap() {
         mapPete.position = mapLocal(px, py)
         mapPete.setFacing(facing(moveDir))
-        for b in bosses {
-            b.mapNode.position = mapLocal(b.x, b.y)
-            b.mapNode.setFacing(facing(b.dir))
+        for e in bossController.entities {
+            guard let mn = bossMapNodes[ObjectIdentifier(e.node)] else { continue }
+            let g = e.mover?.grid ?? e.ai.grid
+            mn.position = mapLocal(Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y))
+            if let d = e.mover?.dir { mn.setFacing(d) }
         }
         for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
     }
@@ -492,7 +548,6 @@ final class BonusScene: SKScene {
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
     private func step() {
-        if invuln > 0 { invuln -= 1; pete.alpha = (invuln / 6) % 2 == 0 ? 0.4 : 1.0 } else { pete.alpha = 1 }
         var da = targetAngle - angle
         while da > .pi { da -= 2 * .pi }; while da < -.pi { da += 2 * .pi }
         angle += max(-0.14, min(0.14, da))
@@ -534,43 +589,14 @@ final class BonusScene: SKScene {
         }
         collectStationary()
         moveShots()
-        moveBosses()
+        bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
+        syncBossNodes()
+        peteShielded = bossController.isAnyBossSpawning   // shielded exactly while bosses flash in (spawnGrace)
+        checkBossCatch()
         let moving = tdir != nil
         if moving { pete.startWalking(); mapPete.startWalking(); bob += 0.22 }
         else { pete.stopWalking(); mapPete.stopWalking() }
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY + CGFloat(sin(bob) * 4))
-    }
-
-    // Greedy lane chase: at each tile centre a boss picks the open, non-reversing
-    // neighbour that gets it closest to Pete (Pac-Man style), then slides to it.
-    private func moveBosses() {
-        let speed = 0.10   // a touch slower than Pete (≈0.119) so he can outrun them, like real ghosts
-        for i in bosses.indices {
-            var b = bosses[i]
-            let dx = b.tx - b.x, dy = b.ty - b.y
-            let d = (dx * dx + dy * dy).squareRoot()
-            if d <= speed {
-                b.x = b.tx; b.y = b.ty
-                let col = Int(b.x.rounded(.down)), row = Int(b.y.rounded(.down))
-                let opts = [(x: 1, y: 0), (x: -1, y: 0), (x: 0, y: 1), (x: 0, y: -1)].filter {
-                    col + $0.x >= 0 && col + $0.x < colsCount && row + $0.y >= 0 && row + $0.y < rowsCount && open(col + $0.x, row + $0.y)
-                }
-                let fwd = opts.filter { !($0.x == -b.dir.x && $0.y == -b.dir.y) }
-                let cand = fwd.isEmpty ? opts : fwd
-                var best = b.dir, bestD = Double.greatestFiniteMagnitude
-                for o in cand {
-                    let cx = Double(col + o.x) + 0.5, cy = Double(row + o.y) + 0.5
-                    let dd = (cx - px) * (cx - px) + (cy - py) * (cy - py)
-                    if dd < bestD { bestD = dd; best = o }
-                }
-                b.dir = best
-                b.tx = Double(col + best.x) + 0.5; b.ty = Double(row + best.y) + 0.5
-            } else {
-                b.x += dx / d * speed; b.y += dy / d * speed
-            }
-            bosses[i] = b
-            if invuln <= 0, abs(b.x - px) < 0.55, abs(b.y - py) < 0.55, !gameOver { loseLife() }
-        }
     }
 
     private func moveShots() {
@@ -579,14 +605,15 @@ final class BonusScene: SKScene {
             shots[i].x += Double(shots[i].dir.x) * speed
             shots[i].y += Double(shots[i].dir.y) * speed
             if isWall(shots[i].x, shots[i].y) { shots[i].alive = false; continue }
-            for j in bosses.indices where abs(bosses[j].x - shots[i].x) < 0.6 && abs(bosses[j].y - shots[i].y) < 0.6 {
-                bosses[j].x = bosses[j].sx; bosses[j].y = bosses[j].sy
-                bosses[j].tx = bosses[j].sx; bosses[j].ty = bosses[j].sy
-                shots[i].alive = false
-                sound.playWaterGunSplash()
-                state.bumpScore(by: 50)
-                refreshHUD()
-                break
+            let sgx = Int(shots[i].x.rounded(.down)), sgy = rowsCount - 1 - Int(shots[i].y.rounded(.down))
+            for e in bossController.entities {
+                let bg = e.mover?.grid ?? e.ai.grid
+                if Int(bg.x) == sgx, Int(bg.y) == sgy {
+                    bossController.splash(boss: e.node)   // real splash + loop-driven 5s respawn
+                    shots[i].alive = false
+                    sound.playWaterGunSplash(); state.bumpScore(by: 50); refreshHUD()
+                    break
+                }
             }
         }
         for s in shots where !s.alive { s.node.removeFromParent(); s.mapNode.removeFromParent() }
