@@ -55,6 +55,12 @@ private:
     void toggleFullscreen();
     void applyLetterboxView();
     void applyFramePacing(); // vsync on Win/Linux; refresh-matched cap on macOS
+    // Maze follow-camera (100% = full board / no follow; 150%/200% = zoomed-in
+    // camera that eases toward Pete). Ported verbatim from the SpriteKit master
+    // (GameScene.setupMazeCamera / updateMazeCamera / smoothDamp).
+    void setupMazeCamera();  // (re)latch zoom + view on every level build
+    void updateMazeCamera(); // ease the camera toward Pete once per frame
+    sf::View worldView() const; // the snapped, Pete-centred world view at the current zoom
     void buildLevel();
     void resetSceneAndBuild();
     void startNextLevel();
@@ -103,6 +109,19 @@ private:
 
     GameState gameState = GameState::Title;
     bool fullscreen = false;
+
+    // Maze camera state. `cameraZoom` is the active zoom percent latched at build
+    // (100 = no follow). `camPos`/`camVel` are the SmoothDamp target + velocity in
+    // world (logical pixel) coords; `camPosValid` stands in for the SpriteKit
+    // `camPos: CGPoint?` (nil on the first frame after a build).
+    int cameraZoom = 100;
+    bool camPosValid = false;
+    sf::Vector2f camPos{0.f, 0.f};
+    sf::Vector2f camVel{0.f, 0.f};
+    // The unscaled, letterboxed base view (full board / HUD layer). Cached by
+    // applyLetterboxView so render() can restore it for the screen-fixed overlays
+    // without re-querying the backing scale every frame.
+    sf::View baseView;
     bool waterGunPickedUp = false;
     float goldDiscTimer = 0.0f;
     bool goldDiscActive = false;

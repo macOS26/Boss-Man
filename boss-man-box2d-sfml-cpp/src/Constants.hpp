@@ -33,6 +33,10 @@ constexpr float TILE_SIZE       = 32.0f;
 constexpr float WORKER_MOVE_DUR = 0.14f;
 constexpr float BOSS_MOVE_INTERVAL = 0.36f;
 constexpr float BOSS_MOVE_DURATION = 0.22f;
+// Tunnel speed ramp: the slow floor is 1/slowdown of full speed on the two
+// steps adjacent to a tunnel mouth (worker 4 => 0.25, boss 8 => 0.125).
+constexpr float WORKER_TUNNEL_SLOWDOWN = 4.0f;
+constexpr float BOSS_TUNNEL_SLOWDOWN   = 8.0f;
 constexpr float GOLD_DISC_DUR  = 20.0f;
 constexpr float SPAWN_SHIELD_DUR = 3.0f;
 constexpr float SPAWN_FREEZE_DUR = 2.0f;

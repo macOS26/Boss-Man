@@ -9,6 +9,19 @@
 
 namespace bm {
 
+// Per-step variable speed ramp, ported from the Swift TileMover. lo =
+// 1/tunnelSlowdown is the slow floor. A tunnel-entry step (kind 1) runs full
+// speed for its first half then ramps full->lo; a tunnel-exit step (kind 2)
+// ramps lo->full over its first half then full. Everything else is full speed.
+static float tunnelSpeedFraction(int kind, float p, float tunnelSlowdown) {
+    float lo = 1.0f / tunnelSlowdown;
+    switch (kind) {
+    case 1: return p < 0.5f ? 1.0f : 1.0f + (lo - 1.0f) * (p - 0.5f) * 2.0f;
+    case 2: return p < 0.5f ? lo + (1.0f - lo) * p * 2.0f : 1.0f;
+    default: return 1.0f;
+    }
+}
+
 static BossPersonality personalityFromIndex(int idx) {
     switch (idx) {
     case 0: return BossPersonality::DirectChase;
@@ -162,22 +175,39 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
         // Post-spawn throb pulse
         if (boss.throbTimer > 0.0f) boss.throbTimer -= dt;
 
-        // Movement. stepOne sets the step's timer/duration itself (longer in
-        // tunnels), so we must NOT overwrite moveTimer here.
-        boss.moveTimer -= dt;
-        if (boss.moveTimer <= 0) {
-            stepOne(i, map, pf, workerGrid, workerDir, isGoldDiscMode, isPeteShielded);
-        }
-
-        // Glide first, then rest — matching SpriteKit, which runs the SKAction.move
-        // (stepDuration) immediately and only idles for the remainder of the step
-        // period. (Resting first made the boss reach each tile ~idleGap late, which
-        // read as sluggish, stuttery motion.)
+        // Glide first (prog 0..1 over the cell, scaled by the tunnel speed ramp),
+        // then dwell at the centre for idleGap, then latch the next step. Matching
+        // SpriteKit's TileMover: the ramp applies only to the glide, the hold is a
+        // separate post-arrival pause.
         if (boss.isMoving) {
-            float elapsed = boss.stepTotal - boss.moveTimer;
-            float t = std::clamp(elapsed / boss.stepDuration, 0.0f, 1.0f);
-            boss.pixelPos = boss.startPos + (boss.targetPos - boss.startPos) * t;
-            if (t < 1.0f) boss.walkPhase += dt;
+            float v = std::max(0.001f, tunnelSpeedFraction(boss.stepKind, boss.prog, BOSS_TUNNEL_SLOWDOWN));
+            float dp = (dt / boss.stepDuration) * v;
+            float rem = 0.0f;
+            if (boss.prog + dp < 1.0f) {
+                boss.prog += dp;
+            } else {
+                rem = std::max(0.0f, dt - ((1.0f - boss.prog) / v) * boss.stepDuration);
+                boss.prog = 1.0f;
+            }
+            boss.pixelPos = boss.startPos + (boss.targetPos - boss.startPos) * boss.prog;
+            if (boss.prog < 1.0f) {
+                boss.walkPhase += dt;
+            } else {
+                // Arrived. Hold at the centre for idleGap, then spend the leftover
+                // time slice draining the dwell so a fast frame doesn't stall.
+                boss.isMoving = false;
+                boss.moveTimer = boss.idleGap - rem;
+                if (boss.moveTimer <= 0) {
+                    stepOne(i, map, pf, workerGrid, workerDir, isGoldDiscMode, isPeteShielded);
+                }
+            }
+        } else {
+            // Latch the next step once the dwell elapses. stepOne sets the next
+            // step's glide duration/ramp itself, so we must NOT overwrite moveTimer.
+            boss.moveTimer -= dt;
+            if (boss.moveTimer <= 0) {
+                stepOne(i, map, pf, workerGrid, workerDir, isGoldDiscMode, isPeteShielded);
+            }
         }
     }
 }
@@ -246,19 +276,27 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         boss.isMoving = false;
         boss.arrivedAtDoorway = false;
         boss.stepDuration = boss.moveDuration;
+        boss.idleGap = idleGap;
         boss.moveTimer = boss.moveInterval;
         boss.stepTotal = boss.moveInterval;
+        boss.prog = 1.0f;
+        boss.stepKind = 0;
     } else {
         boss.isMoving = true;
         boss.startPos = map.pointFor(move.from);
         boss.targetPos = map.pointFor(move.to);
         boss.grid = move.to;
-        // Moves that touch a doorway glide at half speed (x2 duration), like SpriteKit.
-        float anim = boss.moveDuration;
-        if (map.hasTunnelPartner(move.from) || map.hasTunnelPartner(move.to))
-            anim *= 2.0f;
-        boss.stepDuration = anim;
-        boss.stepTotal = anim + idleGap; // total step time = glide + idle pause
+        boss.prog = 0.0f;
+        // Tunnel slowdown ramp (full->slow->full across an enter/exit pair, the
+        // slowdown produced by the speed fraction itself, not a doubled glide):
+        // stepping INTO a tunnel-mouth cell ramps full->slow over the back half;
+        // stepping OUT of one ramps slow->full over the front half.
+        if (map.tunnelPartner(move.to).x >= 0)        boss.stepKind = 1;
+        else if (map.tunnelPartner(move.from).x >= 0) boss.stepKind = 2;
+        else                                          boss.stepKind = 0;
+        boss.stepDuration = boss.moveDuration;
+        boss.idleGap = idleGap;
+        boss.stepTotal = boss.moveDuration + idleGap; // total step time = glide + idle pause
         boss.moveTimer = boss.stepTotal;
         // If we just slid ONTO a doorway, mark it so the next step crosses over.
         boss.arrivedAtDoorway = (map.tunnelPartner(move.to).x >= 0);
@@ -394,6 +432,9 @@ void BossController::relocateToSpawn(int index, const GridMap& map) {
     boss.mustExitDoorway = false;
     boss.arrivedAtDoorway = false;
     boss.isMoving = false;
+    boss.prog = 0.0f;
+    boss.stepKind = 0;
+    boss.moveTimer = 0.0f;
 }
 
 void BossController::applySpawnFreeze(int index) {

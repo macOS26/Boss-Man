@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <functional>
+#include <algorithm>
 #include "GridMap.hpp"
 #include "MoveDirection.hpp"
 #include "PixelPersonRenderer.hpp"
@@ -27,6 +28,21 @@ public:
         pixelPos = map.pointFor(spawn);
     }
 
+    // Per-step variable speed ramp: a tunnel-entry step runs full speed for its
+    // first half then ramps full->lo over the second; a tunnel-exit step ramps
+    // lo->full over its first half then full. lo = 1/tunnelSlowdown is the slow
+    // floor. Everything else runs at full speed. Ported from the Swift TileMover.
+    enum class StepKind { Normal, Enter, Exit };
+
+    static float tunnelSpeedFraction(StepKind kind, float p, float tunnelSlowdown) {
+        float lo = 1.0f / tunnelSlowdown;
+        switch (kind) {
+        case StepKind::Enter: return p < 0.5f ? 1.0f : 1.0f + (lo - 1.0f) * (p - 0.5f) * 2.0f;
+        case StepKind::Exit:  return p < 0.5f ? lo + (1.0f - lo) * p * 2.0f : 1.0f;
+        default:              return 1.0f;
+        }
+    }
+
     void queueDirection(MoveDirection dir) {
         queuedDirection = dir;
         if (direction == MoveDirection::None) direction = dir;
@@ -38,6 +54,8 @@ public:
         queuedDirection = MoveDirection::None;
         isMoving = false;
         moveTimer = 0.0f;
+        prog = 0.0f;
+        stepKind = StepKind::Normal;
     }
 
     void teleport(GridPos target, const GridMap& map) {
@@ -59,8 +77,21 @@ public:
 
         if (!isMoving) return;
 
-        moveTimer -= dt;
-        if (moveTimer <= 0) {
+        // prog 0..1 over one cell; the per-frame increment is scaled by the
+        // tunnel speed fraction, with a 0.001 floor and leftover-time accounting
+        // on arrival, matching the Swift TileMover.advance step model.
+        float v = std::max(0.001f, tunnelSpeedFraction(stepKind, prog, WORKER_TUNNEL_SLOWDOWN));
+        float dp = (dt / WORKER_MOVE_DUR) * v;
+        float rem = 0.0f;
+        if (prog + dp < 1.0f) {
+            prog += dp;
+        } else {
+            rem = std::max(0.0f, dt - ((1.0f - prog) / v) * WORKER_MOVE_DUR);
+            prog = 1.0f;
+        }
+        pixelPos = startPos + (targetPos - startPos) * prog;
+
+        if (prog >= 1.0f) {
             // Arrived at next tile
             pixelPos = map.pointFor(grid);
             isMoving = false;
@@ -75,10 +106,14 @@ public:
             }
 
             attemptStep(&map);
-        } else {
-            // Interpolate position
-            float t = 1.0f - (moveTimer / WORKER_MOVE_DUR);
-            pixelPos = startPos + (targetPos - startPos) * t;
+            // Spend the leftover time slice on the freshly latched step so a fast
+            // dt slice can begin advancing the next cell this frame.
+            if (isMoving && rem > 0.0f) {
+                float v2 = std::max(0.001f, tunnelSpeedFraction(stepKind, prog, WORKER_TUNNEL_SLOWDOWN));
+                prog += (rem / WORKER_MOVE_DUR) * v2;
+                if (prog > 1.0f) prog = 1.0f;
+                pixelPos = startPos + (targetPos - startPos) * prog;
+            }
         }
 
         // Walk phase
@@ -132,12 +167,23 @@ private:
         if (direction == MoveDirection::Left) facingLeft = true;
         else if (direction == MoveDirection::Right) facingLeft = false;
 
+        // Tunnel slowdown ramp: stepping INTO a tunnel-mouth cell ramps
+        // full->slow over the step's back half; stepping OUT of one ramps
+        // slow->full over the front half. Otherwise full speed.
+        if (map->tunnelPartner(next).x >= 0)      stepKind = StepKind::Enter;
+        else if (map->tunnelPartner(grid).x >= 0) stepKind = StepKind::Exit;
+        else                                      stepKind = StepKind::Normal;
+
         isMoving = true;
         startPos = map->pointFor(grid);
         targetPos = map->pointFor(next);
         grid = next;
+        prog = 0.0f;
         moveTimer = WORKER_MOVE_DUR;
     }
+
+    float prog = 0.0f;
+    StepKind stepKind = StepKind::Normal;
 };
 
 } // namespace bm

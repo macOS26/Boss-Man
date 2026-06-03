@@ -120,6 +120,7 @@ void Game::applyLetterboxView() {
     }
     sf::View view(sf::FloatRect(0, 0, (float)WINDOW_WIDTH, (float)WINDOW_HEIGHT));
     view.setViewport(vp);
+    baseView = view; // cache for the per-frame overlay restore at 150/200%
     window.setView(view);
 }
 
@@ -133,6 +134,102 @@ void Game::applyFramePacing() {
     // vsync matches the monitor's refresh and is reliable on Windows/Linux.
     window.setVerticalSyncEnabled(true);
 #endif
+}
+
+namespace {
+// Unity-style critically-damped ease. Ported verbatim from the SpriteKit master
+// (GameScene.smoothDamp): same omega, polynomial coefficients, no max-speed clamp,
+// no rounding. `vel` is in/out (the per-axis camVel state).
+float smoothDamp(float current, float target, float& vel, float smoothTime, float dt) {
+    float omega  = 2.f / smoothTime;
+    float x      = omega * dt;
+    float exp    = 1.f / (1.f + x + 0.48f * x * x + 0.235f * x * x * x);
+    float change = current - target;
+    float temp   = (vel + omega * change) * dt;
+    vel = (vel - omega * temp) * exp;
+    return target + (change + temp) * exp;
+}
+} // namespace
+
+// Latch the zoom percent and reset the SmoothDamp state on every level build.
+// 100% leaves cameraZoom at 100 (render() then uses the full-board letterbox view
+// and never follows). Read fresh from Settings so the title toggle takes effect on
+// the next level without a restart (matching MazeZoom.current at build time).
+void Game::setupMazeCamera() {
+    camPosValid = false;
+    camVel = {0.f, 0.f};
+    cameraZoom = Settings::mazeZoom();
+}
+
+// Ease the camera toward Pete once per frame (called after the worker has moved).
+// At 100% this is a no-op. A door/tunnel teleport (a single-frame jump past 4 tiles
+// on either axis) snaps the camera straight to Pete and zeroes the velocity.
+void Game::updateMazeCamera() {
+    if (cameraZoom <= 100 || !worker) return;
+    sf::Vector2f p = worker->pixelPos;
+    if (!camPosValid) {
+        camPos = p;
+        camVel = {0.f, 0.f};
+        camPosValid = true;
+        return;
+    }
+    sf::Vector2f c = camPos;
+    float snapThreshold = TILE_SIZE * 4.f;
+    if (std::abs(p.x - c.x) > snapThreshold || std::abs(p.y - c.y) > snapThreshold) {
+        c = p;
+        camVel = {0.f, 0.f};
+    } else {
+        const float dt = 1.f / 60.f; // FIXED 60fps step, not the real frame dt
+        const float smoothTime = 0.22f;
+        c.x = smoothDamp(c.x, p.x, camVel.x, smoothTime, dt);
+        c.y = smoothDamp(c.y, p.y, camVel.y, smoothTime, dt);
+    }
+    camPos = c; // NO rounding of the camera position; the view translation is snapped in worldView()
+}
+
+// Build the world view at the current zoom, centred on the (fractional) camera
+// position, then snap ONLY the translation to whole device pixels so the repeating
+// tile grid keeps a constant sub-pixel phase (the gfx_snap_translation fix). The
+// fractional zoom is preserved; the camera position itself stays fractional. Mirrors
+// the SpriteKit base letterbox fit (same viewport + logical size) so the HUD and the
+// world share the same on-screen scale.
+sf::View Game::worldView() const {
+    float zoomFactor = (float)cameraZoom / 100.f; // 1.5 for 150, 2.0 for 200
+    float vw = (float)WINDOW_WIDTH / zoomFactor;
+    float vh = (float)WINDOW_HEIGHT / zoomFactor;
+    sf::View view(sf::FloatRect(0.f, 0.f, vw, vh));
+
+    // Match the letterbox viewport so the world maps into the same on-screen rect
+    // as the 100% / HUD view (no extra letterboxing math elsewhere).
+    sf::Vector2u ws = window.getSize();
+    float winAspect = (float)ws.x / (float)ws.y;
+    float gameAspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+    sf::FloatRect vp(0.f, 0.f, 1.f, 1.f);
+    if (winAspect > gameAspect) {
+        float w = gameAspect / winAspect;
+        vp = sf::FloatRect((1.f - w) / 2.f, 0.f, w, 1.f);
+    } else if (winAspect < gameAspect) {
+        float h = winAspect / gameAspect;
+        vp = sf::FloatRect(0.f, (1.f - h) / 2.f, 1.f, h);
+    }
+    view.setViewport(vp);
+
+    // The viewport occupies `vpPx` device pixels; one device pixel is therefore
+    // `vw/vpPx.x` world units. Snap the centre to that grid so the composed
+    // translation lands on whole device pixels (round e,f) while the scale (a,d)
+    // stays fractional, exactly like gfx_snap_translation rounding only the
+    // matrix translation column post-DPR. Skip when the window is degenerate.
+    float vpPxX = vp.width  * (float)ws.x;
+    float vpPxY = vp.height * (float)ws.y;
+    sf::Vector2f c = camPos;
+    if (vpPxX > 0.f && vpPxY > 0.f) {
+        float worldPerDevX = vw / vpPxX;
+        float worldPerDevY = vh / vpPxY;
+        c.x = std::round(c.x / worldPerDevX) * worldPerDevX;
+        c.y = std::round(c.y / worldPerDevY) * worldPerDevY;
+    }
+    view.setCenter(c);
+    return view;
 }
 
 void Game::run() {
@@ -227,6 +324,8 @@ void Game::buildLevel() {
 
     travelerSpawner.reset();
     travelerSpawner.scheduleVisits(state.level, *pathfinder);
+
+    setupMazeCamera();
 
     bool isMIB = (state.level % 12 == 0);
     sound.startBackgroundMusic(isMIB);
@@ -601,6 +700,10 @@ void Game::update(float dt) {
             }
         }
     }
+
+    // Ease the follow camera toward Pete (no-op at 100%). Last in update so it
+    // tracks Pete's post-move position this frame, matching the SpriteKit master.
+    updateMazeCamera();
 }
 
 void Game::render() {
@@ -625,6 +728,14 @@ void Game::render() {
     } else if (gameState == GameState::Editor) {
         editor.draw(window);
     } else {
+        // At 150%/200% the world (maze, pickups, travelers, droplets, bosses, Pete,
+        // splashes) is drawn through a zoomed view centred on the eased camera;
+        // the HUD / fire button / game-over overlay below stay on the unscaled,
+        // unscrolled letterbox view (like the SpriteKit camera-child UI layer). At
+        // 100% the world stays on the full-board letterbox view (no follow).
+        bool followCam = (cameraZoom > 100);
+        if (followCam) window.setView(worldView());
+
         if (mazeRenderer) {
             mazeRenderer->drawBackground(window);
             mazeRenderer->drawDots(window, animT);
@@ -695,6 +806,10 @@ void Game::render() {
         waterSplash.draw(window);
 
         scorePopups.draw(window);
+
+        // Back to the unscaled letterbox view for the screen-fixed overlays.
+        if (followCam) window.setView(baseView);
+
         hud.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
         // On-screen fire button: one big translucent ring tucked tangent to the

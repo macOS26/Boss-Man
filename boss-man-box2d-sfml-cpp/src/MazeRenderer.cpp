@@ -1,8 +1,19 @@
 #include "MazeRenderer.hpp"
 #include "EmojiText.hpp"
 #include <algorithm>
+#include <cstdint>
 
 namespace bm {
+
+// Deterministic 0..1 noise (pure LCG, no system RNG so it matches WASI/native
+// byte-for-byte). State persists across every wall-tile build in a level, so
+// each cubicle gets its own grain and the whole maze is reproducible per build.
+// Ported verbatim from SpriteFactory.swift nextNoise().
+static uint64_t g_noiseState = 0x9E3779B97F4A7C15ULL;
+static float nextNoise() {
+    g_noiseState = g_noiseState * 6364136223846793005ULL + 1442695040888963407ULL;
+    return (float)((g_noiseState >> 40) & 0xFFFFFFULL) / (float)0xFFFFFF;
+}
 
 int MazeRenderer::build() {
     dotCount = 0;
@@ -120,6 +131,12 @@ void MazeRenderer::buildBackground() {
 
     backgroundTexture.clear(sf::Color::Transparent);
 
+    // Reset the noise LCG so each level build produces an identical, reproducible
+    // grain regardless of how many levels were built before this one. The state
+    // then advances sequentially across every wall tile in this build (44 draws
+    // per wall, in the same tile order as the Swift master).
+    g_noiseState = 0x9E3779B97F4A7C15ULL;
+
     for (int rowIndex = 0; rowIndex < rowCount; ++rowIndex) {
         int gridY = rowCount - 1 - rowIndex;
         auto& row = map.rows[rowIndex];
@@ -157,6 +174,27 @@ void MazeRenderer::buildBackground() {
                     (uint8_t)(cubCol.b*255*0.55), 255));
                 wallFill.setPosition(x+1, y+1);
                 backgroundTexture.draw(wallFill);
+
+                // Deterministic noise grain: exactly 11 specks, each 4 RNG draws
+                // (gx, gy, gs, color-pick) in that order — 44 LCG advances per
+                // wall — ported verbatim from SpriteFactory.swift wallTile. The
+                // grain sits in z-order between the fill and the panel stroke.
+                // Swift positions specks by rect origin in tile-centered coords;
+                // map to SFML top-left space by adding the tile center (tile/2).
+                const float cx = x + tile * 0.5f;
+                const float cy = y + tile * 0.5f;
+                const float grain = tile - 5.f;
+                for (int s = 0; s < 11; ++s) {
+                    float gx = (nextNoise() - 0.5f) * grain;
+                    float gy = (nextNoise() - 0.5f) * grain;
+                    float gs = 1.f + nextNoise() * 1.5f;
+                    bool dark = nextNoise() < 0.5f;
+                    sf::RectangleShape speck(sf::Vector2f(gs, gs));
+                    speck.setFillColor(dark ? sf::Color(0, 0, 0, 41)        // black, alpha 0.16
+                                            : sf::Color(255, 255, 255, 23)); // white, alpha 0.09
+                    speck.setPosition(cx + gx, cy + gy);
+                    backgroundTexture.draw(speck);
+                }
 
                 // Wall border. SpriteKit centers a 2px stroke on rect.insetBy(2,2),
                 // so the wall's outer edge sits 1px inside the tile and the floor
