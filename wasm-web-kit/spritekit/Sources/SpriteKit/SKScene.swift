@@ -78,11 +78,21 @@ public struct NSEvent {
     }
     public var keyCode: UInt16
     public var modifierFlags: ModifierFlags
+    // macOS-parity fields so unmodified AppKit game code reads them with no #if.
+    // The web runtime delivers discrete key/pointer callbacks: no auto-repeat
+    // (the host fires one event per press) and no relative mouse delta.
+    public var isARepeat: Bool
+    public var deltaX: CGFloat
+    public var deltaY: CGFloat
     private let point: CGPoint
-    public init(keyCode: UInt16 = 0, location: CGPoint = .zero, modifierFlags: ModifierFlags = []) {
+    public init(keyCode: UInt16 = 0, location: CGPoint = .zero, modifierFlags: ModifierFlags = [],
+                isARepeat: Bool = false, deltaX: CGFloat = 0, deltaY: CGFloat = 0) {
         self.keyCode = keyCode
         self.point = location
         self.modifierFlags = modifierFlags
+        self.isARepeat = isARepeat
+        self.deltaX = deltaX
+        self.deltaY = deltaY
     }
     public func location(in node: SKNode) -> CGPoint { point }
 }

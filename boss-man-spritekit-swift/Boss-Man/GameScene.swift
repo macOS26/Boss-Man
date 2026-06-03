@@ -237,9 +237,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if code == KeyCode.esc   { returnToTitleScene(); return }
         guard !isUserPaused else { return }
         if code == KeyCode.space { fireWaterGun(); return }
-        #if os(macOS)
         guard !event.isARepeat else { return }
-        #endif
         if let direction = MoveDirection(keyCode: code) { steer(direction) }
     }
 
