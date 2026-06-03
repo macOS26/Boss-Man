@@ -108,7 +108,7 @@ final class PixelPerson: SKNode {
         torso.strokeColor = .white
         torso.lineWidth = 1.5 * rs
         torso.position = CGPoint(x: 0, y: -2 * rs)
-        torso.zPosition = 2
+        torso.zPosition = backView ? 3.5 : 2     // from behind, the shirt back sits in front of the arms
         bodyContainer.addChild(torso)
 
         tie.fillColor = tieColor
@@ -171,21 +171,7 @@ final class PixelPerson: SKNode {
         rightArm.addChild(rh)
         rightHand = rh
 
-        let hd: SKShapeNode
-        if backView {
-            let w = 14 * rs, h = 12 * rs, rTop = 6 * rs, rBot = 2 * rs
-            let l = -w / 2, r = w / 2, b = -h / 2, t = h / 2
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: l, y: b + rBot))
-            path.addArc(tangent1End: CGPoint(x: l, y: t), tangent2End: CGPoint(x: r, y: t), radius: rTop)
-            path.addArc(tangent1End: CGPoint(x: r, y: t), tangent2End: CGPoint(x: r, y: b), radius: rTop)
-            path.addArc(tangent1End: CGPoint(x: r, y: b), tangent2End: CGPoint(x: l, y: b), radius: rBot)
-            path.addArc(tangent1End: CGPoint(x: l, y: b), tangent2End: CGPoint(x: l, y: t), radius: rBot)
-            path.closeSubpath()
-            hd = SKShapeNode(path: path)
-        } else {
-            hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
-        }
+        let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
         hd.fillColor = backView ? hairColor : skin
         hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
         hd.lineWidth = 1 * rs
@@ -206,7 +192,7 @@ final class PixelPerson: SKNode {
                 let ear = SKShapeNode(rectOf: earSize, cornerRadius: 1 * rs)
                 ear.fillColor = skin
                 ear.strokeColor = .clear
-                ear.position = CGPoint(x: sx * 9 * rs, y: -1 * rs)
+                ear.position = CGPoint(x: sx * 7 * rs, y: -1 * rs)
                 ear.zPosition = 1
                 head.addChild(ear)
             }
