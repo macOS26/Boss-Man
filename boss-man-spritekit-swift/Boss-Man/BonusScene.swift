@@ -89,6 +89,7 @@ final class BonusScene: SKScene {
     private let uiLayer = SKNode()
     private let state = RoundState()
     private let waterGun = WaterGunState()
+    private var waterGunPickedUp = false
     private var spawnPx = 1.5, spawnPy = 1.5
     private var isUserPaused = false
 
@@ -249,7 +250,7 @@ final class BonusScene: SKScene {
                          dots: state.collectedDots, total: state.dotCount,
                          reports: state.tpsReportsDelivered, items: state.reportItems)
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining, blueMode: false)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1, blueMode: false)
         hud.updateLevelEmojis(Array(levelTravelers.prefix(1)))
     }
 
@@ -608,7 +609,7 @@ final class BonusScene: SKScene {
         guard !collected.contains(key) else { return }
         switch map[prow][pcol] {
         case Strings.Tile.waterGunChar:
-            collected.insert(key); waterGun.activate(); sound.playWaterGunPickup()
+            collected.insert(key); waterGun.activate(); waterGunPickedUp = true; sound.playWaterGunPickup()
             hidePickup(pcol, prow); refreshHUD()
         case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, pcol, prow)
         case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, pcol, prow)
