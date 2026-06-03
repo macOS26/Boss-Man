@@ -6,12 +6,8 @@ import SpriteKit
 
 public typealias NSColor = SKColor
 
-// NSCoder drives NSCoding archiving on Apple; the web port never archives, so
-// this name-only stub lets shared `required init?(coder: NSCoder)` signatures
-// compile. Those inits all trap with fatalError and are never reached.
-public final class NSCoder {
-    public init() {}
-}
+// NSCoder now comes from the real Foundation (re-exported via SpriteKit), so the
+// shared `required init?(coder: NSCoder)` signatures compile against it directly.
 
 // NSColorSpace + NSColor.usingColorSpace: SKColor is already device-RGB, so the
 // conversion is the identity. Sendable enum avoids any actor-isolation friction.
