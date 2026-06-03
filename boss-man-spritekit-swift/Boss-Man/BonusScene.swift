@@ -203,6 +203,16 @@ final class BonusScene: SKScene, BossControllerDelegate {
         return SKSpriteNode(texture: tex)
     }
 
+    // Wrap a power-up visual so it throbs in the 3D view: the raycaster scales the
+    // PARENT each frame, the throb runs on the CHILD, so the two multiply instead of
+    // the projection clobbering the pulse (matching MazeBuilder's throb).
+    private func throbbing(_ visual: SKNode, _ peak: CGFloat, _ dur: TimeInterval) -> SKNode {
+        let parent = SKNode()
+        parent.addChild(visual)
+        visual.run(.repeatForever(.sequence([.scale(to: peak, duration: dur), .scale(to: 1.0, duration: dur)])))
+        return parent
+    }
+
     private func buildBillboards() {
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
@@ -212,10 +222,10 @@ final class BonusScene: SKScene, BossControllerDelegate {
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     node = SpriteFactory.pelletCube(size: 8); worldH = 0.14
                 case Strings.Tile.goldDiscChar:
-                    node = SpriteFactory.goldDiscVisual(radius: 10); worldH = 0.4
+                    node = throbbing(SpriteFactory.goldDiscVisual(radius: 10), 1.25, 0.35); worldH = 0.4
                 case Strings.Tile.waterPelletChar:
-                    node = SpriteFactory.waterPelletVisual(radius: 10); worldH = 0.4
-                case Strings.Tile.waterGunChar:   node = emojiBillboard(Strings.Emoji.waterGun, 128); worldH = 0.5
+                    node = throbbing(SpriteFactory.waterPelletVisual(radius: 10), 1.3, 0.4); worldH = 0.4
+                case Strings.Tile.waterGunChar:   node = throbbing(emojiBillboard(Strings.Emoji.waterGun, 128), 1.25, 0.35); worldH = 0.5
                 case Strings.Tile.printerChar:    node = emojiBillboard(Strings.Emoji.printer, 128); worldH = 0.6
                 case Strings.Tile.faxChar:        node = emojiBillboard(Strings.Emoji.fax, 128); worldH = 0.6
                 case Strings.Tile.coverSheetChar: node = emojiBillboard(Strings.Emoji.coverSheet, 128); worldH = 0.6
