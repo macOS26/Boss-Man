@@ -1,4 +1,7 @@
 import SpriteKit
+#if os(macOS)
+import AppKit
+#endif
 
 // MazeBuilder — common to both ports. Scans the level grid and builds the maze:
 // floor + wall VISUALS are gathered into a throwaway tree and baked to one
@@ -208,8 +211,15 @@ final class MazeBuilder {
         let frame = staticTree.calculateAccumulatedFrame()
         let zoom = max(1, CGFloat(MazeZoom.current) / 100)
         let sceneW = max(1, frame.width)
-        let viewW = view?.bounds.width ?? sceneW
-        let bakeScale = min(5, max(zoom, viewW / sceneW * zoom))
+        // Bake against the full screen (not the current window) so a windowed->
+        // fullscreen toggle after the level builds doesn't leave a stale, soft
+        // sheet. WASM draws the maze live, so it just uses the scene width.
+        #if os(macOS)
+        let displayW = NSScreen.main?.frame.width ?? (view?.bounds.width ?? sceneW)
+        #else
+        let displayW = view?.bounds.width ?? sceneW
+        #endif
+        let bakeScale = min(5, max(zoom, displayW / sceneW * zoom))
         staticTree.setScale(bakeScale)
         let baked = view?.texture(from: staticTree)
         staticTree.setScale(1)
