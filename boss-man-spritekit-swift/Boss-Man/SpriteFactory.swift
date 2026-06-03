@@ -181,7 +181,7 @@ enum SpriteFactory {
     // A cubicle wall tile: inset translucent fill, inset solid panel stroke, and
     // a horizontal gray trim band high on the tile. Caller passes the per-level
     // cubicle color.
-    static func wallTile(size: CGFloat, color: SKColor = cubicleColors[0]) -> SKNode {
+    static func wallTile(size: CGFloat, color: SKColor = cubicleColors[0], textured: Bool = true) -> SKNode {
         let n = SKNode()
 
         let fillRect = CGRect(x: -(size - 2) / 2, y: -(size - 2) / 2,
@@ -192,18 +192,22 @@ enum SpriteFactory {
         fill.isAntialiased = false
         n.addChild(fill)
 
-        let grain = size - 5
-        for _ in 0..<11 {
-            let gx = (nextNoise() - 0.5) * grain
-            let gy = (nextNoise() - 0.5) * grain
-            let gs = 1 + nextNoise() * 1.5
-            let speck = SKShapeNode(rect: CGRect(x: gx, y: gy, width: gs, height: gs))
-            speck.fillColor = nextNoise() < 0.5
-                ? SKColor(calibratedWhite: 0, alpha: 0.16)
-                : SKColor(calibratedWhite: 1, alpha: 0.09)
-            speck.strokeColor = .clear
-            speck.isAntialiased = false
-            n.addChild(speck)
+        // The grain is 11 extra nodes per tile; skip it where the tiles are tiny
+        // (the minimap) so we keep the cubicle look without the draw-call blow-up.
+        if textured {
+            let grain = size - 5
+            for _ in 0..<11 {
+                let gx = (nextNoise() - 0.5) * grain
+                let gy = (nextNoise() - 0.5) * grain
+                let gs = 1 + nextNoise() * 1.5
+                let speck = SKShapeNode(rect: CGRect(x: gx, y: gy, width: gs, height: gs))
+                speck.fillColor = nextNoise() < 0.5
+                    ? SKColor(calibratedWhite: 0, alpha: 0.16)
+                    : SKColor(calibratedWhite: 1, alpha: 0.09)
+                speck.strokeColor = .clear
+                speck.isAntialiased = false
+                n.addChild(speck)
+            }
         }
 
         let strokeRect = CGRect(x: -(size - 4) / 2, y: -(size - 4) / 2,
