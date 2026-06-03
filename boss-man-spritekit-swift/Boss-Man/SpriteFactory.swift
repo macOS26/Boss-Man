@@ -93,6 +93,14 @@ enum SpriteFactory {
     static let floorTileB      = SKColor(calibratedRed: 0.09, green: 0.10, blue: 0.11, alpha: 1)
     static let floorTileStroke = SKColor(calibratedWhite: 0.16, alpha: 1)
 
+    // Deterministic 0..1 noise (pure-Swift LCG, no system RNG so it works on
+    // WASI). Advances across wall-tile builds so each cubicle gets its own grain.
+    private static var noiseState: UInt64 = 0x9E3779B97F4A7C15
+    private static func nextNoise() -> CGFloat {
+        noiseState = noiseState &* 6364136223846793005 &+ 1442695040888963407
+        return CGFloat((noiseState >> 40) & 0xFFFFFF) / CGFloat(0xFFFFFF)
+    }
+
     // MARK: - Maze tiles
     // Live-node maze pieces. The wasm port builds the maze from these; apple
     // bakes the same shapes into one texture in MazeBuilder, so on apple these
@@ -132,6 +140,20 @@ enum SpriteFactory {
         fill.strokeColor = .clear
         fill.isAntialiased = false
         n.addChild(fill)
+
+        let grain = size - 5
+        for _ in 0..<11 {
+            let gx = (nextNoise() - 0.5) * grain
+            let gy = (nextNoise() - 0.5) * grain
+            let gs = 1 + nextNoise() * 1.5
+            let speck = SKShapeNode(rect: CGRect(x: gx, y: gy, width: gs, height: gs))
+            speck.fillColor = nextNoise() < 0.5
+                ? SKColor(calibratedWhite: 0, alpha: 0.16)
+                : SKColor(calibratedWhite: 1, alpha: 0.09)
+            speck.strokeColor = .clear
+            speck.isAntialiased = false
+            n.addChild(speck)
+        }
 
         let strokeRect = CGRect(x: -(size - 4) / 2, y: -(size - 4) / 2,
                                 width: size - 4, height: size - 4)

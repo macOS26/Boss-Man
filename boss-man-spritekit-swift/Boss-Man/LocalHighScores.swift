@@ -28,9 +28,14 @@ struct LocalHighScores {
         return decode(raw).filter { !isAnonymous($0.name) }
     }
 
-    // An anonymous / blank entry never belongs on the leaderboard.
+    // An anonymous / blank entry never belongs on the leaderboard. ASCII-only
+    // upcase compare: String.uppercased() would drag ICU's tables into the wasm.
     private static func isAnonymous(_ name: String) -> Bool {
-        name.isEmpty || name.uppercased() == "ANON"
+        if name.isEmpty { return true }
+        let up = String(String.UnicodeScalarView(name.unicodeScalars.map {
+            ($0.value >= 97 && $0.value <= 122) ? Unicode.Scalar($0.value - 32)! : $0
+        }))
+        return up == "ANON"
     }
 
     // MARK: - Write (per-name best)
