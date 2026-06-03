@@ -66,6 +66,7 @@ final class BonusScene: SKScene {
     private var shots: [Shot] = []
     private var gameOver = false
     private var pressed = Set<Int>()
+    private var collected = Set<Int>()
     private let sound = SoundManager()
 
     // MARK: - On-screen controls (same layout/sizing as the 100% game)
@@ -186,6 +187,13 @@ final class BonusScene: SKScene {
         }
     }
 
+    private func emojiBillboard(_ text: String, _ fontSize: CGFloat) -> SKLabelNode {
+        let n = SKLabelNode(fontNamed: Strings.Font.menlo)
+        n.text = text; n.fontSize = fontSize
+        n.verticalAlignmentMode = .center; n.horizontalAlignmentMode = .center
+        return n
+    }
+
     private func buildBillboards() {
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
@@ -198,6 +206,12 @@ final class BonusScene: SKScene {
                     node = SpriteFactory.goldDiscVisual(radius: 10); worldH = 0.4
                 case Strings.Tile.waterPelletChar:
                     node = SpriteFactory.waterPelletVisual(radius: 10); worldH = 0.4
+                case Strings.Tile.waterGunChar:   node = emojiBillboard(Strings.Emoji.waterGun, 20); worldH = 0.5
+                case Strings.Tile.printerChar:    node = emojiBillboard(Strings.Emoji.printer, 22); worldH = 0.6
+                case Strings.Tile.faxChar:        node = emojiBillboard(Strings.Emoji.fax, 22); worldH = 0.6
+                case Strings.Tile.coverSheetChar: node = emojiBillboard(Strings.Emoji.coverSheet, 22); worldH = 0.6
+                case Strings.Tile.bookBinderChar: node = emojiBillboard(Strings.Emoji.bookBinder, 22); worldH = 0.6
+                case Strings.Tile.brownBoxChar:   node = emojiBillboard(Strings.Emoji.brownBox, 22); worldH = 0.6
                 default: continue
                 }
                 guard let n = node else { continue }
@@ -227,7 +241,6 @@ final class BonusScene: SKScene {
         hud = HUD(requiredItems: Strings.Machine.required)
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
         state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
-        waterGun.activate()
         refreshHUD()
     }
 
@@ -302,15 +315,24 @@ final class BonusScene: SKScene {
                 switch ch {
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     pickup = dotTex.map { SKSpriteNode(texture: $0) } ?? SpriteFactory.dotVisual(size: mapCell * 0.2)
-                case Strings.Tile.goldDiscChar:
-                    pickup = SpriteFactory.goldDiscVisual(radius: mapCell * 0.28)
-                case Strings.Tile.waterPelletChar:
-                    pickup = SpriteFactory.waterPelletVisual(radius: mapCell * 0.32)
+                case Strings.Tile.goldDiscChar:    pickup = SpriteFactory.goldDiscVisual(radius: mapCell * 0.28)
+                case Strings.Tile.waterPelletChar: pickup = SpriteFactory.waterPelletVisual(radius: mapCell * 0.32)
+                case Strings.Tile.waterGunChar:    pickup = emojiBillboard(Strings.Emoji.waterGun, mapCell * 0.7)
+                case Strings.Tile.printerChar:     pickup = emojiBillboard(Strings.Emoji.printer, mapCell * 0.7)
+                case Strings.Tile.faxChar:         pickup = emojiBillboard(Strings.Emoji.fax, mapCell * 0.7)
+                case Strings.Tile.coverSheetChar:  pickup = emojiBillboard(Strings.Emoji.coverSheet, mapCell * 0.7)
+                case Strings.Tile.bookBinderChar:  pickup = emojiBillboard(Strings.Emoji.bookBinder, mapCell * 0.7)
+                case Strings.Tile.brownBoxChar:    pickup = emojiBillboard(Strings.Emoji.brownBox, mapCell * 0.7)
                 default: break
                 }
                 if let pickup {
                     pickup.position = center; pickup.zPosition = 2; mapLayer.addChild(pickup)
                     mapPickups[mapKey(c, r)] = pickup
+                    switch ch {
+                    case Strings.Tile.goldDiscChar, Strings.Tile.waterPelletChar, Strings.Tile.waterGunChar:
+                        pickup.run(.repeatForever(.sequence([.scale(to: 1.3, duration: 0.4), .scale(to: 1.0, duration: 0.4)])))
+                    default: break
+                    }
                 }
             }
         }
@@ -504,6 +526,7 @@ final class BonusScene: SKScene {
                 refreshHUD()
             }
         }
+        collectStationary()
         moveShots()
         moveBosses()
         let moving = tdir != nil
@@ -574,6 +597,39 @@ final class BonusScene: SKScene {
         mapNode.position = mapLocal(px, py); mapNode.zPosition = 3; mapLayer.addChild(mapNode)
         shots.append(Shot(x: px, y: py, dir: moveDir, node: pellet,
                           nativeH: max(1, pellet.calculateAccumulatedFrame().height), mapNode: mapNode, alive: true))
+    }
+
+    // Tile-based pickup of the stationary items (water-gun power-up + TPS machines),
+    // mirroring the 100% game's collect rules through the shared RoundState/WaterGunState.
+    private func collectStationary() {
+        let pcol = Int(px.rounded(.down)), prow = Int(py.rounded(.down))
+        guard prow >= 0, prow < rowsCount, pcol >= 0, pcol < map[prow].count else { return }
+        let key = mapKey(pcol, prow)
+        guard !collected.contains(key) else { return }
+        switch map[prow][pcol] {
+        case Strings.Tile.waterGunChar:
+            collected.insert(key); waterGun.activate(); sound.playWaterGunPickup()
+            hidePickup(pcol, prow); refreshHUD()
+        case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, pcol, prow)
+        case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, pcol, prow)
+        case Strings.Tile.coverSheetChar: collectMachine(Strings.Machine.coverSheet, key, pcol, prow)
+        case Strings.Tile.bookBinderChar: collectMachine(Strings.Machine.bookBinder, key, pcol, prow)
+        default: break
+        }
+    }
+    private func collectMachine(_ name: String, _ key: Int, _ col: Int, _ row: Int) {
+        guard Strings.Machine.required.contains(name), !state.reportItems.contains(name) else { return }
+        collected.insert(key)
+        state.reportItems.insert(name)
+        state.bumpScore(by: 100)
+        sound.playMachine(named: name)
+        hidePickup(col, row); refreshHUD()
+    }
+    private func hidePickup(_ col: Int, _ row: Int) {
+        for i in billboards.indices where billboards[i].alive && Int(billboards[i].x) == col && Int(billboards[i].y) == row {
+            billboards[i].alive = false; billboards[i].node.isHidden = true
+        }
+        mapPickups[mapKey(col, row)]?.isHidden = true
     }
 
     private func exit() {
