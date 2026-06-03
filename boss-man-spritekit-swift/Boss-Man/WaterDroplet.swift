@@ -7,16 +7,20 @@ enum WaterDropletVisual {
     static let radius: CGFloat = 5
     static func build() -> SKNode {
         let node = SKNode()
-        let core = SKShapeNode(circleOfRadius: radius)
+        let inner = SKNode()
+        inner.setScale(1 / SpriteFactory.worldRenderScale)
+        node.addChild(inner)
+        let r = radius * SpriteFactory.worldRenderScale
+        let core = SKShapeNode(circleOfRadius: r)
         core.fillColor = SKColor.systemCyan.withAlphaComponent(0.85)
         core.strokeColor = .systemBlue
-        core.lineWidth = 1
-        node.addChild(core)
-        let specular = SKShapeNode(circleOfRadius: radius * 0.35)
+        core.lineWidth = 1 * SpriteFactory.worldRenderScale
+        inner.addChild(core)
+        let specular = SKShapeNode(circleOfRadius: r * 0.35)
         specular.fillColor = SKColor(calibratedWhite: 1, alpha: 0.75)
         specular.strokeColor = .clear
-        specular.position = CGPoint(x: -radius * 0.3, y: radius * 0.3)
-        node.addChild(specular)
+        specular.position = CGPoint(x: -r * 0.3, y: r * 0.3)
+        inner.addChild(specular)
         node.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 0.4)))
         return node
     }

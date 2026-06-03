@@ -138,6 +138,8 @@ enum SpriteFactory {
         n.strokeColor = floorTileStroke
         n.lineWidth = 1
         n.lineJoin = .miter
+        n.lineCap = .square
+        n.miterLimit = 1
         n.isAntialiased = false
         return n
     }
@@ -177,6 +179,8 @@ enum SpriteFactory {
         stroke.strokeColor = color
         stroke.lineWidth = 2
         stroke.lineJoin = .miter
+        stroke.lineCap = .square
+        stroke.miterLimit = 1
         stroke.isAntialiased = false
         n.addChild(stroke)
 
