@@ -84,7 +84,11 @@ final class BonusScene: SKScene {
     private var peteBaseY: CGFloat = 0
     private var bob = 0.0
 
-    private let statusLabel = SKLabelNode()
+    private var hud: HUD!
+    private let uiLayer = SKNode()
+    private let state = RoundState()
+    private let waterGun = WaterGunState()
+    private var spawnPx = 1.5, spawnPy = 1.5
     private var isUserPaused = false
 
     // MARK: - Minimap (the real 2D level, centered at the bottom)
@@ -126,6 +130,7 @@ final class BonusScene: SKScene {
             }
         }
         px = Double(sc) + 0.5; py = Double(sr) + 0.5; tcx = px; tcy = py
+        spawnPx = px; spawnPy = py
         for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) {
             moveDir = d; break
         }
@@ -217,13 +222,37 @@ final class BonusScene: SKScene {
     }
 
     private func buildHUD() {
-        statusLabel.fontName = Strings.Font.markerFeltWide
-        statusLabel.fontSize = 24; statusLabel.fontColor = .white
-        statusLabel.text = "BOSS-MAN 3D"
-        statusLabel.horizontalAlignmentMode = .center
-        statusLabel.position = CGPoint(x: size.width / 2, y: size.height - 36)
-        statusLabel.zPosition = 50
-        addChild(statusLabel)
+        uiLayer.zPosition = 1000
+        addChild(uiLayer)
+        hud = HUD(requiredItems: Strings.Machine.required)
+        hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
+        state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
+        waterGun.activate()
+        refreshHUD()
+    }
+
+    private func refreshHUD() {
+        hud.updateStatus(score: state.score, highScore: state.highScore, level: state.level,
+                         dots: state.collectedDots, total: state.dotCount,
+                         reports: state.tpsReportsDelivered, items: state.reportItems)
+        hud.updateLives(state.lives)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining, blueMode: false)
+        hud.updateLevelEmojis(Array(levelTravelers.prefix(1)))
+    }
+
+    private func loseLife() {
+        _ = sound.playCaughtByBoss()
+        state.lives -= 1
+        refreshHUD()
+        if state.lives <= 0 { gameOver = true; exit(); return }
+        px = spawnPx; py = spawnPy; wantDir = nil; pressed.removeAll()
+        let sc = Int(spawnPx.rounded(.down)), sr = Int(spawnPy.rounded(.down))
+        for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) { moveDir = d; break }
+        targetAngle = cardinal(moveDir); angle = targetAngle
+        for i in bosses.indices {
+            bosses[i].x = bosses[i].sx; bosses[i].y = bosses[i].sy
+            bosses[i].tx = bosses[i].sx; bosses[i].ty = bosses[i].sy
+        }
     }
 
     private func togglePause() {
@@ -325,7 +354,7 @@ final class BonusScene: SKScene {
 
     // MARK: - Per-frame
     override func update(_ currentTime: TimeInterval) {
-        if isUserPaused { return }
+        if isUserPaused || gameOver { return }
         step(); render()
     }
 
@@ -468,10 +497,11 @@ final class BonusScene: SKScene {
                 let bc = Int(billboards[i].x), br = Int(billboards[i].y)
                 mapPickups[mapKey(bc, br)]?.isHidden = true
                 switch map[br][bc] {
-                case Strings.Tile.goldDiscChar:    sound.playGoldDisc()
-                case Strings.Tile.waterPelletChar: sound.playWaterGunPickup()
-                default:                           sound.playDotBlip()
+                case Strings.Tile.goldDiscChar:    sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5)
+                case Strings.Tile.waterPelletChar: sound.playWaterGunPickup(); state.bumpScore(by: 50)
+                default:                           sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
                 }
+                refreshHUD()
             }
         }
         moveShots()
@@ -510,7 +540,7 @@ final class BonusScene: SKScene {
                 b.x += dx / d * speed; b.y += dy / d * speed
             }
             bosses[i] = b
-            if abs(b.x - px) < 0.55 && abs(b.y - py) < 0.55, !gameOver { gameOver = true; _ = sound.playCaughtByBoss(); exit() }
+            if abs(b.x - px) < 0.55 && abs(b.y - py) < 0.55, !gameOver { loseLife() }
         }
     }
 
@@ -525,6 +555,8 @@ final class BonusScene: SKScene {
                 bosses[j].tx = bosses[j].sx; bosses[j].ty = bosses[j].sy
                 shots[i].alive = false
                 sound.playWaterGunSplash()
+                state.bumpScore(by: 50)
+                refreshHUD()
                 break
             }
         }
@@ -533,7 +565,9 @@ final class BonusScene: SKScene {
     }
 
     private func fire() {
+        guard waterGun.consumePellet() else { return }
         sound.playWaterGunShoot()
+        refreshHUD()
         let pellet = SpriteFactory.waterPelletVisual(radius: 9)
         pellet.isHidden = true; spriteLayer.addChild(pellet)
         let mapNode = SpriteFactory.waterPelletVisual(radius: mapCell * 0.22)
