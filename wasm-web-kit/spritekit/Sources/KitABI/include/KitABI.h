@@ -15,6 +15,9 @@ WABI void gfx_snap_translation(void);
 WABI void gfx_rotate(float degrees);
 WABI void gfx_set_alpha(float a);
 WABI void gfx_set_blend(int mode);
+/* Stroke line styling so SKShapeNode.lineJoin/lineCap behave like Apple's.
+ * join: 0=miter 1=round 2=bevel; cap: 0=butt 1=round 2=square. */
+WABI void gfx_set_line_style(int join, int cap, float miterLimit);
 WABI void gfx_fill_rect(float x, float y, float w, float h, uint32_t rgba);
 WABI void gfx_stroke_rect(float x, float y, float w, float h, float t, uint32_t rgba);
 WABI void gfx_fill_circle(float cx, float cy, float r, uint32_t rgba);

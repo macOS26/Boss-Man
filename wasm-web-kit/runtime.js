@@ -379,6 +379,12 @@ class Runtime {
       gfx_scale: (sx, sy) => this.ctx2d().scale(sx, sy),
       gfx_rotate: (deg) => this.ctx2d().rotate(deg * Math.PI / 180),
       gfx_set_alpha: (a) => { this.ctx2d().globalAlpha = a; },
+      gfx_set_line_style: (join, cap, miter) => {
+        const c = this.ctx2d();
+        c.lineJoin = join === 1 ? 'round' : join === 2 ? 'bevel' : 'miter';
+        c.lineCap = cap === 1 ? 'round' : cap === 2 ? 'square' : 'butt';
+        c.miterLimit = miter > 0 ? miter : 10;
+      },
       gfx_set_blend: (mode) => {
         const c = this.ctx2d();
         switch (mode) {
@@ -435,7 +441,6 @@ class Runtime {
         const dv = this.dv();
         c.strokeStyle = this.css(rgba);
         c.lineWidth = thickness;
-        c.lineJoin = 'round';
         c.beginPath();
         c.moveTo(dv.getFloat32(xyPtr, true), dv.getFloat32(xyPtr + 4, true));
         for (let i = 1; i < npts; i++) {
