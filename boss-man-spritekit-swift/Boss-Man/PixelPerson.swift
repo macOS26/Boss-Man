@@ -186,7 +186,7 @@ final class PixelPerson: SKNode {
             shades.fontSize = 11 * rs
             shades.verticalAlignmentMode = .center
             shades.horizontalAlignmentMode = .center
-            shades.position = CGPoint(x: 0, y: 0)
+            shades.position = CGPoint(x: 1.5 * rs, y: 0)
             shades.zPosition = 5
             head.addChild(shades)
         } else {
