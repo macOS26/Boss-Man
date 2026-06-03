@@ -230,7 +230,7 @@ final class BonusScene: SKScene {
         mapPete.startWalking()
 
         let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
-        mapScale = (radarH - 8) / mapH
+        mapScale = (radarH - 8) / mapH * CGFloat(MazeZoom.current) / 100
         mapLayer.setScale(mapScale)
         mapLayer.position = CGPoint(x: (size.width - mapW * mapScale) / 2, y: 4)
         mapLayer.zPosition = 30
