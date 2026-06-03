@@ -127,7 +127,7 @@ final class TitleScene: SKScene {
         Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
     }
     private func mazeText() -> String {
-        "Maze: \(MazeZoom.current)%"
+        "Maze: \(MazeZoom.label)"
     }
 
     // MARK: - Builders
@@ -172,6 +172,7 @@ final class TitleScene: SKScene {
 
     // MARK: - Actions (shared)
     private func startGame() {
+        if MazeZoom.isDoom { startBonus(); return }   // DOOM mode = first-person 3D
         view?.preferredFramesPerSecond = 60
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit

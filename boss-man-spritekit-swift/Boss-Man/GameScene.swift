@@ -533,7 +533,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         camPos = nil
         camVel = .zero
         let zoom = MazeZoom.current
-        guard zoom > 100 else {
+        guard zoom > 100, zoom <= 200 else {   // DOOM (300) is the 3D mode, not a 2D camera zoom
             camera = nil
             cameraNode = nil
             return

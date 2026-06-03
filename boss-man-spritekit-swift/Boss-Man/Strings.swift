@@ -302,11 +302,14 @@ extension Strings.Speech {
 
 // MARK: - Maze zoom (title-screen camera mode)
 enum MazeZoom {
-    static let cycle = [100, 150, 200]
+    static let doom = 300                       // sentinel: the first-person 3D "DOOM" mode (after 200%)
+    static let cycle = [100, 150, 200, doom]
     static var current: Int {
         let z = Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)
         return cycle.contains(z) ? z : 100
     }
+    static var isDoom: Bool { current == doom }
+    static var label: String { isDoom ? "DOOM" : "\(current)%" }
     static func advance() {
         let i = cycle.firstIndex(of: current) ?? 0
         Persistence.set(cycle[(i + 1) % cycle.count], forKey: Strings.DefaultsKey.mazeZoom)
