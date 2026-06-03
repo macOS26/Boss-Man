@@ -1,3 +1,4 @@
+import Foundation
 import SpriteKit
 import UIKit
 import KitABI
@@ -130,3 +131,8 @@ public final class GKGameCenterViewController: UIViewController {
 }
 
 // GK callbacks all use Swift.Error — comes from the stdlib, no redeclaration needed.
+
+public extension Notification.Name {
+    static let GKPlayerAuthenticationDidChangeNotificationName =
+        Notification.Name("GKPlayerAuthenticationDidChangeNotificationName")
+}

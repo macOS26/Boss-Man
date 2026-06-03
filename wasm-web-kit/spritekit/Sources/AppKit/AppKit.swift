@@ -102,3 +102,10 @@ public final class NSAlert {
 public extension SKTexture {
     convenience init(image: NSImage) { self.init(imageNamed: image.name) }
 }
+
+// Cursor hide/unhide: no-op on web (the page cursor is the host's concern). Lets
+// macOS cursor code run unchanged through the framework.
+public enum NSCursor {
+    public static func hide() {}
+    public static func unhide() {}
+}
