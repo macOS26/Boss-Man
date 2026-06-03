@@ -186,7 +186,7 @@ final class PixelPerson: SKNode {
             shades.fontSize = 11 * rs
             shades.verticalAlignmentMode = .center
             shades.horizontalAlignmentMode = .center
-            shades.position = CGPoint(x: 1.5 * rs, y: 0)
+            shades.position = CGPoint(x: 0.5 * rs, y: 0)
             shades.zPosition = 5
             head.addChild(shades)
         } else {
@@ -287,7 +287,6 @@ final class PixelPerson: SKNode {
 
     // MARK: - Eye tracking
     func setLookDirection(_ dir: MoveDirection?) {
-        guard let leftEye, let rightEye else { return }
         let offset: CGPoint
         switch dir {
         case .left, .right: offset = CGPoint(x: 1, y: 0)
@@ -296,9 +295,11 @@ final class PixelPerson: SKNode {
         case .none:         offset = .zero
         }
         let rs = Self.pxRenderScale
+        // Tie tracks for everyone, including sunglasses bosses (no eye nodes).
+        tie.position = CGPoint(x: (Self.tieBase.x + offset.x) * rs, y: (Self.tieBase.y + offset.y) * rs)
+        guard let leftEye, let rightEye else { return }
         leftEye.position  = CGPoint(x: (Self.leftEyeBase.x  + offset.x) * rs, y: (Self.leftEyeBase.y  + offset.y) * rs)
         rightEye.position = CGPoint(x: (Self.rightEyeBase.x + offset.x) * rs, y: (Self.rightEyeBase.y + offset.y) * rs)
-        tie.position = CGPoint(x: (Self.tieBase.x + offset.x) * rs, y: (Self.tieBase.y + offset.y) * rs)
     }
 
     private static let tieBase = CGPoint(x: 0, y: -2)
