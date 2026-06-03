@@ -246,7 +246,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     override func mouseDown(with event: NSEvent) {
         let p = event.location(in: self)
         if let s = gameOverScreen {
-            s.handleTap(at: p)
+            s.handleTap(at: s.convert(p, from: self))
             return
         }
         guard !isUserPaused, !isGameOver else { return }
