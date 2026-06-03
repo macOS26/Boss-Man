@@ -137,6 +137,7 @@ enum SpriteFactory {
         n.fillColor = alternate ? floorTileA : floorTileB
         n.strokeColor = floorTileStroke
         n.lineWidth = 1
+        n.lineJoin = .miter
         n.isAntialiased = false
         return n
     }
@@ -175,6 +176,7 @@ enum SpriteFactory {
         stroke.fillColor = .clear
         stroke.strokeColor = color
         stroke.lineWidth = 2
+        stroke.lineJoin = .miter
         stroke.isAntialiased = false
         n.addChild(stroke)
 
