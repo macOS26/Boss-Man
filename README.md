@@ -41,6 +41,14 @@ Clear the dots, deliver at least one TPS report, and you advance to the next lev
 - **ESC** to return to the title screen
 - Joystick and DPAD support coming soon
 
+## Game Modes (in development)
+
+We're building several ways to play the same office maze. The title screen's **Maze: 100% / 150% / 200%** toggle cycles the camera; a first-person 3D mode is in the works. Every mode runs the **same** game systems (the README's goal: 100% common game logic) — boss AI and speeds, Blue Mode, TPS reports, gold discs, tunnels, and lives are shared; only the camera/renderer changes.
+
+- **100% — Classic (Ms. Pac-Man style).** The whole 37×17 office floor on screen at once, top-down at 1:1. The arcade-faithful view.
+- **150% / 200% — Camera (Jr. Pac-Man style).** An `SKCameraNode` zooms 1.5× or 2× and scrolls to follow PETE through the aisles, with a compact panel HUD — the bigger, closer, side-scrolling feel of Jr. Pac-Man.
+- **First-Person 3D.** The same maze rendered as a Wolfenstein-style first/third-person raycaster: you walk the corridors behind PETE with pellets, gold discs, the water gun, TPS machines, and the bosses billboarded in 3D, plus a live top-down mini-map of the floor. It drives the real `BossController`, `MazeBuilder`, `GoldDiscTimer`, `WaterGunState`, and `RoundState` — only the renderer is bonus-specific.
+
 ## Lives
 
 - Start with **3 lives**, capped at **5**.
