@@ -353,6 +353,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
 
     private func togglePause() {
         isUserPaused.toggle()
+        hud.showPaused(isUserPaused)   // same PAUSED text the 2D game uses
         if isUserPaused { pete.stopWalking(); mapPete.stopWalking(); sound.pauseAudio() }
         else { pete.startWalking(); mapPete.startWalking(); sound.resumeAudio() }
     }
@@ -735,8 +736,17 @@ final class BonusScene: SKScene, BossControllerDelegate {
         sound.playMachine(named: name)
         grayPickup(col, row); refreshHUD()   // dim it like the 100% 2D maze, don't remove it
     }
-    // +point popup, same as the 100% game's ScorePopup, anchored on Pete in the 3D view.
-    private func popPoints(_ n: Int) { ScorePopup.show(n, at: pete.position, in: self) }
+    // +point popup, same as the 100% game's ScorePopup, in BOTH views: on Pete in
+    // the 3D corridor, and on Pete in the mini-map (a matching rise+fade label).
+    private func popPoints(_ n: Int) {
+        ScorePopup.show(n, at: pete.position, in: self)
+        let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        mini.text = Strings.Score.popup(n)
+        mini.fontSize = 40; mini.fontColor = .systemYellow
+        mini.position = mapPete.position; mini.zPosition = 6
+        mapLayer.addChild(mini)
+        mini.run(.sequence([.group([.moveBy(x: 0, y: 42, duration: 0.7), .fadeOut(withDuration: 0.7)]), .removeFromParent()]))
+    }
 
     // Turn in a completed TPS report at the brown box (mirrors GameScene.collectTPSReport).
     private func collectTPSReport() {
