@@ -188,11 +188,13 @@ final class BonusScene: SKScene {
         }
     }
 
-    private func emojiBillboard(_ text: String, _ fontSize: CGFloat) -> SKLabelNode {
-        let n = SKLabelNode(fontNamed: Strings.Font.menlo)
-        n.text = text; n.fontSize = fontSize
-        n.verticalAlignmentMode = .center; n.horizontalAlignmentMode = .center
-        return n
+    private func emojiBillboard(_ text: String, _ fontSize: CGFloat) -> SKNode {
+        let label = SKLabelNode(fontNamed: Strings.Font.menlo)
+        label.text = text; label.fontSize = fontSize
+        label.verticalAlignmentMode = .center; label.horizontalAlignmentMode = .center
+        guard let tex = view?.texture(from: label) else { return label }
+        tex.filteringMode = .linear      // interpolate (smooth) when the raycaster scales it
+        return SKSpriteNode(texture: tex)
     }
 
     private func buildBillboards() {
@@ -207,12 +209,12 @@ final class BonusScene: SKScene {
                     node = SpriteFactory.goldDiscVisual(radius: 10); worldH = 0.4
                 case Strings.Tile.waterPelletChar:
                     node = SpriteFactory.waterPelletVisual(radius: 10); worldH = 0.4
-                case Strings.Tile.waterGunChar:   node = emojiBillboard(Strings.Emoji.waterGun, 160); worldH = 0.5
-                case Strings.Tile.printerChar:    node = emojiBillboard(Strings.Emoji.printer, 160); worldH = 0.6
-                case Strings.Tile.faxChar:        node = emojiBillboard(Strings.Emoji.fax, 160); worldH = 0.6
-                case Strings.Tile.coverSheetChar: node = emojiBillboard(Strings.Emoji.coverSheet, 160); worldH = 0.6
-                case Strings.Tile.bookBinderChar: node = emojiBillboard(Strings.Emoji.bookBinder, 160); worldH = 0.6
-                case Strings.Tile.brownBoxChar:   node = emojiBillboard(Strings.Emoji.brownBox, 160); worldH = 0.6
+                case Strings.Tile.waterGunChar:   node = emojiBillboard(Strings.Emoji.waterGun, 128); worldH = 0.5
+                case Strings.Tile.printerChar:    node = emojiBillboard(Strings.Emoji.printer, 128); worldH = 0.6
+                case Strings.Tile.faxChar:        node = emojiBillboard(Strings.Emoji.fax, 128); worldH = 0.6
+                case Strings.Tile.coverSheetChar: node = emojiBillboard(Strings.Emoji.coverSheet, 128); worldH = 0.6
+                case Strings.Tile.bookBinderChar: node = emojiBillboard(Strings.Emoji.bookBinder, 128); worldH = 0.6
+                case Strings.Tile.brownBoxChar:   node = emojiBillboard(Strings.Emoji.brownBox, 128); worldH = 0.6
                 default: continue
                 }
                 guard let n = node else { continue }
@@ -624,13 +626,19 @@ final class BonusScene: SKScene {
         state.reportItems.insert(name)
         state.bumpScore(by: 100)
         sound.playMachine(named: name)
-        hidePickup(col, row); refreshHUD()
+        grayPickup(col, row); refreshHUD()   // dim it like the 100% 2D maze, don't remove it
     }
     private func hidePickup(_ col: Int, _ row: Int) {
         for i in billboards.indices where billboards[i].alive && Int(billboards[i].x) == col && Int(billboards[i].y) == row {
             billboards[i].alive = false; billboards[i].node.isHidden = true
         }
         mapPickups[mapKey(col, row)]?.isHidden = true
+    }
+    private func grayPickup(_ col: Int, _ row: Int) {
+        for i in billboards.indices where Int(billboards[i].x) == col && Int(billboards[i].y) == row {
+            billboards[i].node.alpha = 0.55
+        }
+        mapPickups[mapKey(col, row)]?.alpha = 0.55
     }
 
     private func exit() {
