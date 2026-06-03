@@ -349,7 +349,39 @@ final class BonusScene: SKScene, BossControllerDelegate {
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
         state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); popPoints(points); refreshHUD()
     }
-    func dropletAxisThreatening(_ grid: CGPoint) -> MoveDirection? { nil }
+    // Bosses dodge an incoming water pellet, same as the 2D modes: report the travel
+    // AXIS of any shot bearing down on this boss; BossController steps it perpendicular.
+    private let dropletDodgeRange = 8
+    func dropletAxisThreatening(_ bossGrid: CGPoint) -> MoveDirection? {
+        for s in shots where s.alive {
+            let dGrid = CGPoint(x: CGFloat(Int(s.x.rounded(.down))), y: CGFloat(rowsCount - 1 - Int(s.y.rounded(.down))))
+            let dir: MoveDirection = s.dir.x > 0 ? .right : s.dir.x < 0 ? .left : (s.dir.y > 0 ? .down : .up)
+            if dropletThreatens(dropletGrid: dGrid, dir: dir, boss: bossGrid) { return dir }
+        }
+        return nil
+    }
+    private func dropletThreatens(dropletGrid d: CGPoint, dir: MoveDirection, boss b: CGPoint) -> Bool {
+        let (dx, dy) = dir.delta
+        let dist: Int
+        if dx != 0 {
+            guard Int(b.y) == Int(d.y) else { return false }
+            let delta = Int(b.x) - Int(d.x)
+            guard delta != 0, (dx > 0) == (delta > 0) else { return false }
+            dist = abs(delta)
+        } else {
+            guard Int(b.x) == Int(d.x) else { return false }
+            let delta = Int(b.y) - Int(d.y)
+            guard delta != 0, (dy > 0) == (delta > 0) else { return false }
+            dist = abs(delta)
+        }
+        guard dist <= dropletDodgeRange else { return false }
+        var step = d
+        for _ in 0..<dist {
+            step = CGPoint(x: step.x + CGFloat(dx), y: step.y + CGFloat(dy))
+            if !gridMap.isWalkable(step) { return false }
+        }
+        return true
+    }
 
     private func togglePause() {
         isUserPaused.toggle()
