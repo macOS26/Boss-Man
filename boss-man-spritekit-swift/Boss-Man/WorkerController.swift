@@ -34,10 +34,12 @@ final class WorkerController {
     private func configureNode() {
         node.name = Strings.Worker.pete
         node.position = gridMap.point(for: grid)
+        let tagScale: CGFloat = 4
         let tag = SKLabelNode(fontNamed: Strings.Font.menloBold)
         tag.text = Strings.Worker.pete
-        tag.fontSize = 9
+        tag.fontSize = 9 * tagScale
         tag.fontColor = .white
+        tag.setScale(1 / tagScale)
         tag.position = CGPoint(x: 0, y: 24)
         node.addChild(tag)
         node.physicsBody = SKPhysicsBody(circleOfRadius: 10)
