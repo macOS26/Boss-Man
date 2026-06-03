@@ -27,19 +27,8 @@ final class BonusScene: SKScene, BossControllerDelegate {
     private let camBack = 0.65               // how far the camera trails behind Pete
 
     private func open(_ c: Int, _ r: Int) -> Bool {
-        guard r >= 0, r < rowsCount else { return false }
-        var cc = c
-        if cc < 0 || cc >= colsCount {                 // off a side edge: only a tunnel row wraps
-            guard isTunnelRow(r) else { return false }
-            cc = ((cc % colsCount) + colsCount) % colsCount
-        }
-        return cc < map[r].count && map[r][cc] != Strings.Tile.wallChar
-    }
-    // A side-warp row: both end cells are walkable, so walking off one edge comes
-    // out the other (Pac-Man tunnel).
-    private func isTunnelRow(_ r: Int) -> Bool {
-        guard r >= 0, r < rowsCount, map[r].count > 1 else { return false }
-        return map[r].first != Strings.Tile.wallChar && map[r].last != Strings.Tile.wallChar
+        guard r >= 0, r < rowsCount, c >= 0, c < map[r].count else { return false }
+        return map[r][c] != Strings.Tile.wallChar
     }
     private func cardinal(_ d: (x: Int, y: Int)) -> Double {
         if d.x > 0 { return 0 }; if d.x < 0 { return .pi }
@@ -279,7 +268,8 @@ final class BonusScene: SKScene, BossControllerDelegate {
 
     private func startGoldDiscMode() {
         goldDisc.activate()
-        bossController.setGoldDiscActive(true)
+        bossController.setGoldDiscActive(true)   // recolors the real boss nodes (the 3D billboards) to flee blue
+        recolorMinimapBosses(flee: true)         // mirror it on the radar copies
         sound.startGoldDiscBass()
         frightenSecondsLeft = goldDiscDuration
         hud.showMessage(Strings.Message.goldDiscActivated, duration: 3)
@@ -288,10 +278,34 @@ final class BonusScene: SKScene, BossControllerDelegate {
     private func endGoldDiscMode() {
         goldDisc.deactivate()
         bossController.setGoldDiscActive(false)
+        recolorMinimapBosses(flee: false)
         sound.stopGoldDiscBass()
         frightenSecondsLeft = 0
         hud.showMessage(Strings.Message.goldDiscEnded, duration: 2)
         refreshHUD()
+    }
+
+    // The radar bosses are mirror nodes (a node can't have two parents), so they
+    // need the same flee palette BossController paints on the real nodes.
+    private static let bossSkin = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
+    private func recolorMinimapBosses(flee: Bool) {
+        for e in bossController.entities {
+            guard let mn = bossMapNodes[ObjectIdentifier(e.node)] else { continue }
+            applyFleePalette(mn, flee: flee, blueprint: e.blueprintIndex)
+        }
+    }
+    private func applyFleePalette(_ p: PixelPerson, flee: Bool, blueprint: Int) {
+        if flee {
+            p.setBodyColor(SpriteFactory.fleeBodyColor)
+            p.setTieColor(SpriteFactory.fleeTieColor)
+            p.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
+            p.setEyeColor(SpriteFactory.fleeEyeColor)
+            p.setSkinColor(SpriteFactory.fleeSkinColor)
+        } else {
+            let c = BossBlueprint.colors[min(max(blueprint, 0), BossBlueprint.colors.count - 1)]
+            p.setBodyColor(c.body); p.setTieColor(c.tie)
+            p.setShirtOutlineColor(.white); p.setEyeColor(.black); p.setSkinColor(Self.bossSkin)
+        }
     }
 
     private func peteCaught() {
@@ -333,7 +347,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
     var isPeteShielded: Bool { peteShielded }
     func bossDidCatchWorker() { }   // bonus catches via grid checkBossCatch() after advance (no physics contact)
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
-        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); refreshHUD()
+        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); popPoints(points); refreshHUD()
     }
     func dropletAxisThreatening(_ grid: CGPoint) -> MoveDirection? { nil }
 
@@ -461,6 +475,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
             if bossMapNodes[id] == nil {
                 let mn = SpriteFactory.bossPersonForBlueprint(e.blueprintIndex)
                 mn.zPosition = 4; mapLayer.addChild(mn); bossMapNodes[id] = mn
+                if goldDisc.isActive { applyFleePalette(mn, flee: true, blueprint: e.blueprintIndex) }
             }
         }
     }
@@ -529,17 +544,18 @@ final class BonusScene: SKScene, BossControllerDelegate {
 
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
-        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double)] = []
+        let bossMaxH = viewH * 0.42   // never larger on-screen than Pete's fixed avatar
+        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat)] = []
         for b in billboards where b.alive {
-            all.append((b.node, b.nativeH, b.worldH, b.x, b.y))
+            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude))
         }
         for e in bossController.entities {
             guard let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
             let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1   // gridMap bottom-up -> raster top-down (smooth)
-            all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by))
+            all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by, bossMaxH))
         }
         for s in shots where s.alive {
-            all.append((s.node, s.nativeH, 0.32, s.x, s.y))
+            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude))
         }
         for item in all {
             let node = item.node
@@ -553,7 +569,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
-            let targetH = viewH / CGFloat(tY) * item.worldH
+            let targetH = min(viewH / CGFloat(tY) * item.worldH, item.maxH)
             let s = targetH / item.nativeH
             node.isHidden = false
             node.setScale(s)
@@ -597,15 +613,21 @@ final class BonusScene: SKScene, BossControllerDelegate {
         let back = pressed.contains(KeyCode.arrowDown) || pressed.contains(KeyCode.keyS)
         let tdir: (x: Int, y: Int)? = fwd ? moveDir : (back ? (x: -moveDir.x, y: -moveDir.y) : nil)
         if let d = tdir {
-            if d.x != 0 { py += max(-speed, min(speed, ccy - py)) }   // stay centred on the lane
-            else        { px += max(-speed, min(speed, ccx - px)) }
-            if open(col + d.x, row + d.y) {
-                px += Double(d.x) * speed; py += Double(d.y) * speed
-            } else {                                                  // stop at the wall, not past the tile centre
-                if d.x > 0 { px = min(px + speed, ccx) } else if d.x < 0 { px = max(px - speed, ccx) }
-                if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
+            let atCenter = abs(px - ccx) < 0.06 && abs(py - ccy) < 0.06
+            if atCenter, !open(col + d.x, row + d.y),
+               let partner = gridMap.tunnelPartner(of: CGPoint(x: col, y: rowsCount - 1 - row)) {
+                px = Double(Int(partner.x)) + 0.5                       // real Pac-Man tunnel (GridMap.tunnelPartner)
+                py = Double(rowsCount - 1 - Int(partner.y)) + 0.5
+            } else {
+                if d.x != 0 { py += max(-speed, min(speed, ccy - py)) }   // stay centred on the lane
+                else        { px += max(-speed, min(speed, ccx - px)) }
+                if open(col + d.x, row + d.y) {
+                    px += Double(d.x) * speed; py += Double(d.y) * speed
+                } else {                                                  // stop at the wall, not past the tile centre
+                    if d.x > 0 { px = min(px + speed, ccx) } else if d.x < 0 { px = max(px - speed, ccx) }
+                    if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
+                }
             }
-            if px < 0 { px += Double(colsCount) } else if px >= Double(colsCount) { px -= Double(colsCount) }
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
@@ -613,8 +635,8 @@ final class BonusScene: SKScene, BossControllerDelegate {
                 let bc = Int(billboards[i].x), br = Int(billboards[i].y)
                 mapPickups[mapKey(bc, br)]?.isHidden = true
                 switch map[br][bc] {
-                case Strings.Tile.goldDiscChar:    sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); startGoldDiscMode()
-                case Strings.Tile.waterPelletChar: sound.playWaterGunPickup(); state.bumpScore(by: 50)
+                case Strings.Tile.goldDiscChar:    sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
+                case Strings.Tile.waterPelletChar: sound.playWaterGunPickup(); state.bumpScore(by: 50); popPoints(50)
                 default:                           sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
                 }
                 refreshHUD()
@@ -655,7 +677,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
                 if Int(bg.x) == sgx, Int(bg.y) == sgy {
                     bossController.splash(boss: e.node)   // real splash + loop-driven 5s respawn
                     shots[i].alive = false
-                    sound.playWaterGunSplash(); state.bumpScore(by: 50); refreshHUD()
+                    sound.playWaterGunSplash(); state.bumpScore(by: 50); popPoints(50); refreshHUD()
                     break
                 }
             }
@@ -708,11 +730,13 @@ final class BonusScene: SKScene, BossControllerDelegate {
         let itemIndex = state.reportItems.count - 1   // points ramp 10/25/50/100, like GameScene.handleMachine
         if itemIndex < reportItemPoints.count {
             let pts = reportItemPoints[itemIndex]
-            state.bumpScore(by: pts); state.currentReportScore += pts
+            state.bumpScore(by: pts); state.currentReportScore += pts; popPoints(pts)
         }
         sound.playMachine(named: name)
         grayPickup(col, row); refreshHUD()   // dim it like the 100% 2D maze, don't remove it
     }
+    // +point popup, same as the 100% game's ScorePopup, anchored on Pete in the 3D view.
+    private func popPoints(_ n: Int) { ScorePopup.show(n, at: pete.position, in: self) }
 
     // Turn in a completed TPS report at the brown box (mirrors GameScene.collectTPSReport).
     private func collectTPSReport() {
@@ -726,7 +750,7 @@ final class BonusScene: SKScene, BossControllerDelegate {
         state.reportItems.removeAll()
         let tpsPoints = state.level * 100 + 100
         state.bumpScore(by: tpsPoints); state.currentReportScore = 0
-        ScorePopup.show(tpsPoints, at: pete.position, in: self)
+        popPoints(tpsPoints)
         sound.playTpsDeliver()
         let gainedLife = state.lives < HUD.maxLives
         if gainedLife { state.lives += 1 }
