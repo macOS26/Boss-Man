@@ -10,7 +10,7 @@ namespace bm {
 // sticky-note leaderboard panel.
 class TitleScreen {
 public:
-    enum class Hit { None, Play, Editor, BossTracks, WaterGun, Fullscreen, Window };
+    enum class Hit { None, Play, Editor, BossTracks, WaterGun, MazeZoom, Fullscreen, Window };
 
     void draw(sf::RenderTarget& target, float windowW, float windowH,
               int highScore, const std::vector<LeaderboardEntry>& board);
@@ -32,7 +32,7 @@ private:
     sf::Clock blinkClock_;
 
     sf::FloatRect playRect_, editorRect_;
-    sf::FloatRect bossTracksRect_, waterGunRect_, fullscreenRect_, windowRect_;
+    sf::FloatRect bossTracksRect_, waterGunRect_, mazeZoomRect_, fullscreenRect_, windowRect_;
 };
 
 } // namespace bm

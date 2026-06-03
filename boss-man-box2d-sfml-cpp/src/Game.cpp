@@ -249,6 +249,7 @@ void Game::handleTitleHit(float x, float y) {
             Settings::setWaterGunHide(true);
         }
         break;
+    case TitleScreen::Hit::MazeZoom:   Settings::advanceMazeZoom(); break;
     case TitleScreen::Hit::Fullscreen:
     case TitleScreen::Hit::Window:     input.fullscreenToggleRequested = true; break;
     case TitleScreen::Hit::None:       break;

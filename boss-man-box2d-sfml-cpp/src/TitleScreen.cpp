@@ -207,6 +207,11 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // bottom-left. 80px apart, large + tappable on mobile.
     fullscreenRect_ = drawText(target, fontMono_, "F for Fullscreen", 25, ink, W - 20.f, H - 18.f, 2);
     windowRect_     = drawText(target, fontMono_, "ESC for Window", 25, ink, W - 20.f, H - 98.f, 2);
+    // Third right-column hint, stacked above the window controls (matches the
+    // SpriteKit TitleScene maze hint at y:178). Read fresh at level-build time.
+    mazeZoomRect_   = drawText(target, fontMono_,
+        std::string("Maze: ") + std::to_string(Settings::mazeZoom()) + "%",
+        25, ink, W - 20.f, H - 178.f, 2);
     // baselineRef pins these to a fixed (descender-free) baseline so toggling the
     // value doesn't jump the line vertically (Square's q / Right's g would shift a
     // glyph-box-bottom anchor). Descenders simply hang below the shared baseline.
@@ -226,6 +231,7 @@ TitleScreen::Hit TitleScreen::hitTest(float x, float y) const {
     if (in(editorRect_))      return Hit::Editor;
     if (in(bossTracksRect_))  return Hit::BossTracks;
     if (in(waterGunRect_))    return Hit::WaterGun;
+    if (in(mazeZoomRect_))    return Hit::MazeZoom;
     if (in(fullscreenRect_))  return Hit::Fullscreen;
     if (in(windowRect_))      return Hit::Window;
     return Hit::None;
