@@ -146,7 +146,7 @@ enum SpriteFactory {
     static func pelletCube(size: CGFloat) -> SKNode {
         let n = SKNode()
         let h = size / 2
-        let topH = size * 0.33       // height of the visible top face (shortened)
+        let topH = size * 0.24       // height of the visible top face (shortened)
         let backHalf = h * 0.5       // back-top edge half-width — converges to the VP above center
         let fbl = CGPoint(x: -h, y: -h), fbr = CGPoint(x: h, y: -h)
         let ftl = CGPoint(x: -h, y: h),  ftr = CGPoint(x: h, y: h)
