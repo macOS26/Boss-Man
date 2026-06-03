@@ -243,7 +243,7 @@ final class BonusScene: SKScene {
         }
         let w = size.width / CGFloat(columns)
         for i in 0..<columns {
-            let xL = CGFloat(i) * w, xR = CGFloat(i + 1) * w
+            let xL = CGFloat(i) * w, xR = CGFloat(i + 1) * w + 1   // 1px overlap hides AA seams between quads
             let p = CGMutablePath()
             p.move(to: CGPoint(x: xL, y: botY[i]))
             p.addLine(to: CGPoint(x: xL, y: topY[i]))
