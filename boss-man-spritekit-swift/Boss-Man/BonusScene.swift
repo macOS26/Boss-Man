@@ -27,7 +27,19 @@ final class BonusScene: SKScene {
     private let camBack = 0.65               // how far the camera trails behind Pete
 
     private func open(_ c: Int, _ r: Int) -> Bool {
-        r >= 0 && r < rowsCount && c >= 0 && c < map[r].count && map[r][c] != Strings.Tile.wallChar
+        guard r >= 0, r < rowsCount else { return false }
+        var cc = c
+        if cc < 0 || cc >= colsCount {                 // off a side edge: only a tunnel row wraps
+            guard isTunnelRow(r) else { return false }
+            cc = ((cc % colsCount) + colsCount) % colsCount
+        }
+        return cc < map[r].count && map[r][cc] != Strings.Tile.wallChar
+    }
+    // A side-warp row: both end cells are walkable, so walking off one edge comes
+    // out the other (Pac-Man tunnel).
+    private func isTunnelRow(_ r: Int) -> Bool {
+        guard r >= 0, r < rowsCount, map[r].count > 1 else { return false }
+        return map[r].first != Strings.Tile.wallChar && map[r].last != Strings.Tile.wallChar
     }
     private func cardinal(_ d: (x: Int, y: Int)) -> Double {
         if d.x > 0 { return 0 }; if d.x < 0 { return .pi }
@@ -54,6 +66,18 @@ final class BonusScene: SKScene {
     private var shots: [Shot] = []
     private var gameOver = false
     private var pressed = Set<Int>()
+    private let sound = SoundManager()
+
+    // MARK: - On-screen controls (same layout/sizing as the 100% game)
+    private let joystickRadius: CGFloat = 112.5
+    private let joystickKnobRadius: CGFloat = 45
+    private let joystickDeadzone: CGFloat = 32.5
+    private var joystickCenter = CGPoint.zero
+    private var joystickActive = false
+    private var joystickThumb: SKShapeNode?
+    private var fireButtonCenter = CGPoint.zero
+    private let fireButtonRadius: CGFloat = 112.5
+    private var controlsShown = false
 
     private let spriteLayer = SKNode()
     private var pete: PixelPerson!
@@ -85,7 +109,9 @@ final class BonusScene: SKScene {
         buildMap()
         buildBosses()
         buildHUD()
+        buildControls()
         render()
+        sound.startBackgroundMusic()
     }
 
     // MARK: - Setup
@@ -202,8 +228,8 @@ final class BonusScene: SKScene {
 
     private func togglePause() {
         isUserPaused.toggle()
-        if isUserPaused { pete.stopWalking(); mapPete.stopWalking() }
-        else { pete.startWalking(); mapPete.startWalking() }
+        if isUserPaused { pete.stopWalking(); mapPete.stopWalking(); sound.pauseAudio() }
+        else { pete.startWalking(); mapPete.startWalking(); sound.resumeAudio() }
     }
 
     private func mapKey(_ c: Int, _ r: Int) -> Int { r * colsCount + c }
@@ -434,11 +460,18 @@ final class BonusScene: SKScene {
                 if d.x > 0 { px = min(px + speed, ccx) } else if d.x < 0 { px = max(px - speed, ccx) }
                 if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
             }
+            if px < 0 { px += Double(colsCount) } else if px >= Double(colsCount) { px -= Double(colsCount) }
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
                 billboards[i].alive = false; billboards[i].node.isHidden = true
-                mapPickups[mapKey(Int(billboards[i].x), Int(billboards[i].y))]?.isHidden = true
+                let bc = Int(billboards[i].x), br = Int(billboards[i].y)
+                mapPickups[mapKey(bc, br)]?.isHidden = true
+                switch map[br][bc] {
+                case Strings.Tile.goldDiscChar:    sound.playGoldDisc()
+                case Strings.Tile.waterPelletChar: sound.playWaterGunPickup()
+                default:                           sound.playDotBlip()
+                }
             }
         }
         moveShots()
@@ -460,7 +493,9 @@ final class BonusScene: SKScene {
             if d <= speed {
                 b.x = b.tx; b.y = b.ty
                 let col = Int(b.x.rounded(.down)), row = Int(b.y.rounded(.down))
-                let opts = [(x: 1, y: 0), (x: -1, y: 0), (x: 0, y: 1), (x: 0, y: -1)].filter { open(col + $0.x, row + $0.y) }
+                let opts = [(x: 1, y: 0), (x: -1, y: 0), (x: 0, y: 1), (x: 0, y: -1)].filter {
+                    col + $0.x >= 0 && col + $0.x < colsCount && row + $0.y >= 0 && row + $0.y < rowsCount && open(col + $0.x, row + $0.y)
+                }
                 let fwd = opts.filter { !($0.x == -b.dir.x && $0.y == -b.dir.y) }
                 let cand = fwd.isEmpty ? opts : fwd
                 var best = b.dir, bestD = Double.greatestFiniteMagnitude
@@ -475,7 +510,7 @@ final class BonusScene: SKScene {
                 b.x += dx / d * speed; b.y += dy / d * speed
             }
             bosses[i] = b
-            if abs(b.x - px) < 0.55 && abs(b.y - py) < 0.55, !gameOver { gameOver = true; exit() }
+            if abs(b.x - px) < 0.55 && abs(b.y - py) < 0.55, !gameOver { gameOver = true; _ = sound.playCaughtByBoss(); exit() }
         }
     }
 
@@ -489,6 +524,7 @@ final class BonusScene: SKScene {
                 bosses[j].x = bosses[j].sx; bosses[j].y = bosses[j].sy
                 bosses[j].tx = bosses[j].sx; bosses[j].ty = bosses[j].sy
                 shots[i].alive = false
+                sound.playWaterGunSplash()
                 break
             }
         }
@@ -497,6 +533,7 @@ final class BonusScene: SKScene {
     }
 
     private func fire() {
+        sound.playWaterGunShoot()
         let pellet = SpriteFactory.waterPelletVisual(radius: 9)
         pellet.isHidden = true; spriteLayer.addChild(pellet)
         let mapNode = SpriteFactory.waterPelletVisual(radius: mapCell * 0.22)
@@ -506,6 +543,7 @@ final class BonusScene: SKScene {
     }
 
     private func exit() {
+        sound.stopAllAudio()
         view?.presentScene(TitleScene(size: size), transition: .fade(withDuration: 0.5))
     }
 
@@ -523,6 +561,78 @@ final class BonusScene: SKScene {
         }
     }
     override func keyUp(with event: NSEvent) { pressed.remove(Int(event.keyCode)) }
+
+    // MARK: - On-screen joystick + fire button (drive the same tank input)
+    private func buildControls() {
+        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
+        controlsShown = true
+        let fireOnLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        fireButtonCenter = CGPoint(x: fireOnLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
+        let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
+        ring.position = fireButtonCenter
+        ring.fillColor = SKColor(white: 1, alpha: 0.14); ring.strokeColor = SKColor(white: 1, alpha: 0.5)
+        ring.lineWidth = 2; ring.zPosition = 55
+        addChild(ring)
+
+        joystickCenter = CGPoint(x: fireOnLeft ? size.width - joystickRadius : joystickRadius, y: joystickRadius + 15)
+        let base = SKShapeNode(circleOfRadius: joystickRadius)
+        base.position = joystickCenter
+        base.fillColor = SKColor(white: 1, alpha: 0.10); base.strokeColor = SKColor(white: 1, alpha: 0.5)
+        base.lineWidth = 2; base.zPosition = 55
+        addChild(base)
+        let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
+        thumb.position = joystickCenter
+        thumb.fillColor = SKColor(white: 1, alpha: 0.28); thumb.strokeColor = SKColor(white: 1, alpha: 0.6)
+        thumb.lineWidth = 2; thumb.zPosition = 56
+        addChild(thumb); joystickThumb = thumb
+    }
+
+    private func radius(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
+        let dx = a.x - b.x, dy = a.y - b.y; return (dx * dx + dy * dy).squareRoot()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard controlsShown, !isUserPaused else { return }
+        let p = event.location(in: self)
+        if radius(p, joystickCenter) <= joystickRadius {
+            joystickActive = true; moveThumb(to: p); steerJoystick(p); return
+        }
+        if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
+    }
+    override func mouseDragged(with event: NSEvent) {
+        guard joystickActive else { return }
+        let p = event.location(in: self); moveThumb(to: p); steerJoystick(p)
+    }
+    override func mouseUp(with event: NSEvent) {
+        guard joystickActive else { return }
+        joystickActive = false
+        joystickThumb?.position = joystickCenter
+        pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown)
+    }
+
+    private func steerJoystick(_ p: CGPoint) {
+        let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
+        guard (dx * dx + dy * dy).squareRoot() >= joystickDeadzone else {
+            pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown); return
+        }
+        if abs(dy) >= abs(dx) {                                    // up = forward, down = backward
+            if dy > 0 { pressed.insert(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown) }
+            else { pressed.insert(KeyCode.arrowDown); pressed.remove(KeyCode.arrowUp) }
+        } else {                                                   // left / right = turn
+            pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown)
+            wantDir = dx > 0 ? (x: -moveDir.y, y: moveDir.x) : (x: moveDir.y, y: -moveDir.x)
+        }
+    }
+    private func moveThumb(to p: CGPoint) {
+        let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
+        let mag = (dx * dx + dy * dy).squareRoot(), limit = joystickRadius - joystickKnobRadius
+        if mag > limit, mag > 0 {
+            let s = limit / mag
+            joystickThumb?.position = CGPoint(x: joystickCenter.x + dx * s, y: joystickCenter.y + dy * s)
+        } else {
+            joystickThumb?.position = p
+        }
+    }
 
     required init?(coder: NSCoder) { fatalError(Strings.System.initCoderUnsupported) }
     override init(size: CGSize) { super.init(size: size) }
