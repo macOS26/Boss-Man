@@ -86,12 +86,14 @@ final class PixelPerson: SKNode {
         leftShoe.strokeColor = shoeOutlineColor
         leftShoe.lineWidth = 1 * rs
         leftShoe.position = CGPoint(x: 1 * rs, y: -5 * rs)
+        leftShoe.zPosition = backView ? -1 : 0     // heels sit behind the legs from behind
         leftLeg.addChild(leftShoe)
 
         rightShoe.fillColor = shoeColor
         rightShoe.strokeColor = shoeOutlineColor
         rightShoe.lineWidth = 1 * rs
         rightShoe.position = CGPoint(x: 1 * rs, y: -5 * rs)
+        rightShoe.zPosition = backView ? -1 : 0
         rightLeg.addChild(rightShoe)
 
         let needsBacking = bodyColor.alphaComponent < 1.0
