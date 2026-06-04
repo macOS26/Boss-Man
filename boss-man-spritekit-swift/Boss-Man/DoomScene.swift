@@ -1026,19 +1026,19 @@ final class DoomScene: SKScene, BossControllerDelegate {
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter
         ring.fillColor = SKColor(white: 1, alpha: 0.14); ring.strokeColor = SKColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2; ring.zPosition = 55
+        ring.lineWidth = 2; ring.zPosition = 300   // above the radar panel (200/201) so the controls are never cropped
         addChild(ring)
 
         joystickCenter = CGPoint(x: fireOnLeft ? size.width - joystickRadius : joystickRadius, y: joystickRadius + 15)
         let base = SKShapeNode(circleOfRadius: joystickRadius)
         base.position = joystickCenter
         base.fillColor = SKColor(white: 1, alpha: 0.10); base.strokeColor = SKColor(white: 1, alpha: 0.5)
-        base.lineWidth = 2; base.zPosition = 55
+        base.lineWidth = 2; base.zPosition = 300
         addChild(base)
         let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
         thumb.position = joystickCenter
         thumb.fillColor = SKColor(white: 1, alpha: 0.28); thumb.strokeColor = SKColor(white: 1, alpha: 0.6)
-        thumb.lineWidth = 2; thumb.zPosition = 56
+        thumb.lineWidth = 2; thumb.zPosition = 301
         addChild(thumb); joystickThumb = thumb
     }
 

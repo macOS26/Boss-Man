@@ -67,7 +67,7 @@ extension Strings {
     enum Boss {
         static let bill = "BILL"
         static let dom  = "BOSS"
-        static let bob  = "TODD"
+        static let bob  = "MILT"
         static let stan = "STAN"
         static let boss = "BOSS"
     }

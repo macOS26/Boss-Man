@@ -60,10 +60,9 @@ constexpr float WATER_DROPLET_SPEED = 320.0f;
 constexpr float WATER_DROPLET_MAX_DIST = 576.0f;
 constexpr float WATER_DROPLET_RADIUS = 5.0f;
 
-// On-screen fire-button ring (the only touch affordance in this port; the SpriteKit
-// master adds a matching movement joystick on iOS). +15% larger than the prior
-// baseline so the touch target matches the enlarged SpriteKit fireButtonRadius.
-constexpr float FIRE_BUTTON_RADIUS = 103.5f;
+// On-screen fire-button ring. Matches the BOSS 3D (DoomScene) fire button + the
+// SpriteKit fireButtonRadius so the touch target is identical across all modes.
+constexpr float FIRE_BUTTON_RADIUS = 129.375f;
 
 // Worker default spawn
 struct GridPos {
@@ -119,7 +118,7 @@ inline const std::unordered_map<char, std::string>& MACHINE_NAMES_BY_TILE() {
 namespace Boss {
     inline constexpr const char* BILL = "BILL";
     inline constexpr const char* DOM  = "BOSS";
-    inline constexpr const char* BOB  = "TODD";
+    inline constexpr const char* BOB  = "MILT";
     inline constexpr const char* STAN = "STAN";
 }
 
