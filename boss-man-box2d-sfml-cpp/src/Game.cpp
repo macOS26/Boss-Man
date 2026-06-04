@@ -471,13 +471,30 @@ void Game::processInput() {
         // In-game mouse/trackpad: moving steers Pete (swipe), left-click fires
         // the water gun (the on-screen fire button is the visual affordance).
         if (gameState == GameState::Playing) {
-            if (event.type == sf::Event::MouseMoved) {
-                input.handleMouseMove(event.mouseMove.x, event.mouseMove.y);
-                continue;
-            }
             if (event.type == sf::Event::MouseButtonPressed
                     && event.mouseButton.button == sf::Mouse::Left) {
-                input.fireRequested = true;
+                sf::Vector2f p = window.mapPixelToCoords({event.mouseButton.x, event.mouseButton.y}, baseView);
+                sf::Vector2f c = joystickCenter2D();
+                float jdx = p.x - c.x, jdy = p.y - c.y;
+                if (!Settings::waterGunHide() && jdx * jdx + jdy * jdy <= JOYSTICK_RADIUS * JOYSTICK_RADIUS) {
+                    joystickActive2D_ = true; steerJoystick2D(p.x, p.y);   // on the joystick: steer, don't fire
+                } else {
+                    input.fireRequested = true;
+                }
+                continue;
+            }
+            if (event.type == sf::Event::MouseButtonReleased
+                    && event.mouseButton.button == sf::Mouse::Left && joystickActive2D_) {
+                joystickActive2D_ = false; joystickThumb2D_ = joystickCenter2D();
+                continue;
+            }
+            if (event.type == sf::Event::MouseMoved) {
+                if (joystickActive2D_) {
+                    sf::Vector2f p = window.mapPixelToCoords({event.mouseMove.x, event.mouseMove.y}, baseView);
+                    steerJoystick2D(p.x, p.y);
+                } else {
+                    input.handleMouseMove(event.mouseMove.x, event.mouseMove.y);
+                }
                 continue;
             }
         }
@@ -488,10 +505,21 @@ void Game::processInput() {
             touchStartX = (float)event.touch.x;
             touchStartY = (float)event.touch.y;
             touchMoved = false;
+            if (gameState == GameState::Playing && !Settings::waterGunHide()) {
+                sf::Vector2f p = window.mapPixelToCoords({(int)touchStartX, (int)touchStartY}, baseView);
+                sf::Vector2f c = joystickCenter2D();
+                float jdx = p.x - c.x, jdy = p.y - c.y;
+                if (jdx * jdx + jdy * jdy <= JOYSTICK_RADIUS * JOYSTICK_RADIUS) {
+                    joystickActive2D_ = true; steerJoystick2D(p.x, p.y);
+                }
+            }
             continue;
         }
         if (event.type == sf::Event::TouchMoved && (int)event.touch.finger == touchFinger) {
-            if (gameState == GameState::Playing && !touchMoved) {
+            if (joystickActive2D_) {
+                sf::Vector2f p = window.mapPixelToCoords({(int)event.touch.x, (int)event.touch.y}, baseView);
+                steerJoystick2D(p.x, p.y);
+            } else if (gameState == GameState::Playing && !touchMoved) {
                 float dx = (float)event.touch.x - touchStartX;
                 float dy = (float)event.touch.y - touchStartY;
                 float adx = std::abs(dx), ady = std::abs(dy);
@@ -505,7 +533,9 @@ void Game::processInput() {
         }
         if (event.type == sf::Event::TouchEnded && (int)event.touch.finger == touchFinger) {
             touchFinger = -1;
-            if (!touchMoved) {
+            if (joystickActive2D_) {
+                joystickActive2D_ = false; joystickThumb2D_ = joystickCenter2D();
+            } else if (!touchMoved) {
                 if (gameState == GameState::Title) {
                     sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)touchStartX, (int)touchStartY));
                     handleTitleHit(p.x, p.y);
@@ -918,6 +948,24 @@ void Game::render() {
             ring.setOutlineThickness(2.f);
             ring.setOutlineColor(sf::Color(255, 255, 255, 128)); // white @ 0.5
             window.draw(ring);
+
+            // Movement joystick opposite the fire button (matches BOSS 3D). Base + thumb.
+            sf::Vector2f jc = joystickCenter2D();
+            if (!joystickActive2D_) joystickThumb2D_ = jc;
+            sf::CircleShape base(JOYSTICK_RADIUS, 64);
+            base.setOrigin(JOYSTICK_RADIUS, JOYSTICK_RADIUS);
+            base.setPosition(jc);
+            base.setFillColor(sf::Color(255, 255, 255, 26));    // white @ 0.10
+            base.setOutlineThickness(2.f);
+            base.setOutlineColor(sf::Color(255, 255, 255, 128));
+            window.draw(base);
+            sf::CircleShape thumb(JOYSTICK_KNOB, 48);
+            thumb.setOrigin(JOYSTICK_KNOB, JOYSTICK_KNOB);
+            thumb.setPosition(joystickThumb2D_);
+            thumb.setFillColor(sf::Color(255, 255, 255, 71));   // white @ 0.28
+            thumb.setOutlineThickness(2.f);
+            thumb.setOutlineColor(sf::Color(255, 255, 255, 153));
+            window.draw(thumb);
         }
 
         if (gameState == GameState::GameOver) drawGameOver();
@@ -1158,6 +1206,24 @@ bool Game::fireButtonHitTest(float x, float y) const {
     float cy = (float)WINDOW_HEIGHT - (R + 15.f);
     float dx = x - cx, dy = y - cy;
     return dx * dx + dy * dy <= R * R;
+}
+
+sf::Vector2f Game::joystickCenter2D() const {
+    const float R = JOYSTICK_RADIUS;
+    float cx = Settings::waterGunLeft() ? (float)WINDOW_WIDTH - R : R;   // opposite the fire button
+    float cy = (float)WINDOW_HEIGHT - (R + 15.f);
+    return {cx, cy};
+}
+
+void Game::steerJoystick2D(float x, float y) {
+    sf::Vector2f c = joystickCenter2D();
+    float dx = x - c.x, dy = y - c.y;
+    float mag = std::sqrt(dx * dx + dy * dy), limit = JOYSTICK_RADIUS - JOYSTICK_KNOB;
+    joystickThumb2D_ = (mag > limit && mag > 0.f)
+        ? sf::Vector2f(c.x + dx * limit / mag, c.y + dy * limit / mag) : sf::Vector2f(x, y);
+    if (mag < JOYSTICK_DEADZONE) return;   // inside the deadzone: keep the current heading
+    if (std::abs(dx) >= std::abs(dy)) input.lastDirection = dx > 0 ? MoveDirection::Right : MoveDirection::Left;
+    else                              input.lastDirection = dy > 0 ? MoveDirection::Down  : MoveDirection::Up; // SFML y is down
 }
 
 void Game::fireWaterGun() {

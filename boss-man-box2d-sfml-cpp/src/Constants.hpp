@@ -64,6 +64,12 @@ constexpr float WATER_DROPLET_RADIUS = 5.0f;
 // SpriteKit fireButtonRadius so the touch target is identical across all modes.
 constexpr float FIRE_BUTTON_RADIUS = 129.375f;
 
+// On-screen movement joystick (opposite the fire button), matching the BOSS 3D
+// (DoomScene) joystick so the 2D modes have the same control affordance.
+constexpr float JOYSTICK_RADIUS   = 129.375f;
+constexpr float JOYSTICK_KNOB     = 51.75f;
+constexpr float JOYSTICK_DEADZONE = 37.375f;
+
 // Worker default spawn
 struct GridPos {
     int x, y;

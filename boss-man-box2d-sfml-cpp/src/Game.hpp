@@ -86,6 +86,11 @@ private:
     // fire button is hidden (a no-swipe tap fires), or a tap inside the visible
     // ring. Mirrors the SpriteKit touchesBegan/touchesEnded fire path.
     bool fireButtonHitTest(float x, float y) const;
+    // On-screen movement joystick for the 2D modes (opposite the fire button).
+    sf::Vector2f joystickCenter2D() const;
+    void steerJoystick2D(float x, float y);   // thumb tracking + queue a MoveDirection
+    sf::Vector2f joystickThumb2D_{0.f, 0.f};
+    bool joystickActive2D_ = false;
     void handleMachine(const std::string& name, int pickupIndex);
     void collectTPSReport(int pickupIndex);
     void catchTraveler();
