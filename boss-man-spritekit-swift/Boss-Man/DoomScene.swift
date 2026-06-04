@@ -340,6 +340,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         _ = sound.playCaughtByBoss()
         if goldDisc.isActive { endGoldDiscMode() }
         pete.stopWalking()
+        pete.alpha = 0.2                                      // Pete fades as Bill (z 500, in front) takes him
         node.stopWalking()
         let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
         node.isHidden = false
@@ -368,6 +369,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) { moveDir = d; break }
         targetAngle = cardinal(moveDir); angle = targetAngle
         bossController.teleportAllToSpawn()   // 3s spawnGrace; peteShielded follows isAnyBossSpawning
+        pete.alpha = 1
         pete.startWalking()
         pete.removeAction(forKey: "shield")
         pete.run(.sequence([.repeat(.sequence([.fadeAlpha(to: 0.35, duration: 0.6), .fadeAlpha(to: 1.0, duration: 0.6)]), count: 3),
@@ -449,7 +451,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private func buildMap() {
         let panel = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: radarH))
         panel.fillColor = SKColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1)
-        panel.strokeColor = .clear; panel.zPosition = 29
+        panel.strokeColor = .clear; panel.zPosition = 200   // above every 3D sprite/nameplate so nothing ever draws over the minimap
         addChild(panel)
 
         let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
@@ -514,7 +516,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         mapScale = (radarH - 8) / mapH
         mapLayer.setScale(mapScale)
         mapLayer.position = CGPoint(x: (size.width - mapW * mapScale) / 2, y: 4)
-        mapLayer.zPosition = 30
+        mapLayer.zPosition = 201
         addChild(mapLayer)
     }
 
