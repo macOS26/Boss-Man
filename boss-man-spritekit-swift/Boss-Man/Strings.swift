@@ -306,7 +306,7 @@ enum MazeZoom {
     static let cycle = [1980, 1982, 1983, 1993]
     static var current: Int {
         let z = Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)
-        return cycle.contains(z) ? z : 1993
+        return cycle.contains(z) ? z : 1983
     }
     static var isDoom: Bool { current == doom }
     // The 2D follow-camera zoom for each era (100 = no camera). Ms. Pac-Man = 150%,
@@ -320,10 +320,10 @@ enum MazeZoom {
     }
     static var label: String {
         switch current {
-        case 1980: return "1980 05 22"    // Pac-Man
-        case 1982: return "1982 02 03"    // Ms. Pac-Man
-        case 1983: return "1983 10 28"    // Jr. Pac-Man
-        case 1993: return "1993 12 10"    // DOOM
+        case 1980: return "BILL 100%"
+        case 1982: return "STAN 150%"
+        case 1983: return "BOB 200%"
+        case 1993: return "DOM 3D"
         default:   return "\(current)"
         }
     }

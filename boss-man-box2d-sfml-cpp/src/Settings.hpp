@@ -15,9 +15,10 @@ namespace bm {
 // The persisted value is the era year, not a zoom percent: the cycle walks the
 // four eras 1980 -> 1982 -> 1983 -> 1993. 1993 is the DOOM sentinel (first-person
 // 3D path); the other eras drive the 2D follow-camera at zoomPercent. Invalid /
-// unset storage collapses to doom, matching MazeZoom.current.
+// unset storage collapses to defaultEra, matching MazeZoom.current.
 struct MazeZoom {
     static constexpr int doom = 1993;
+    static constexpr int defaultEra = 1983;
     static constexpr std::array<int, 4> cycle{1980, 1982, 1983, 1993};
 
     static int current();
@@ -33,10 +34,10 @@ struct MazeZoom {
     }
     static std::string label() {
         switch (current()) {
-            case 1980: return "1980 05 22";
-            case 1982: return "1982 02 03";
-            case 1983: return "1983 10 28";
-            case 1993: return "1993 12 10";
+            case 1980: return "BILL 100%";
+            case 1982: return "STAN 150%";
+            case 1983: return "BOB 200%";
+            case 1993: return "DOM 3D";
             default:   return std::to_string(current());
         }
     }
@@ -51,7 +52,7 @@ struct MazeZoom {
 // bossTracksSquare defaults true (classic glide-then-dwell cadence, matching the
 // shipped behaviour); waterGunLeft defaults false (fire button on the right);
 // waterGunHide defaults false (the third Water Gun state hides the fire button);
-// the era slot defaults to MazeZoom::doom (Strings.swift MazeZoom.current).
+// the era slot defaults to MazeZoom::defaultEra (Strings.swift MazeZoom.current).
 class Settings {
 public:
     static bool bossTracksSquare() { ensure(); return inst().square_; }
@@ -74,7 +75,7 @@ private:
     bool square_ = true;
     bool left_ = false;
     bool hide_ = false;
-    int era_ = MazeZoom::doom;
+    int era_ = MazeZoom::defaultEra;
     bool loaded_ = false;
 
     static Settings& inst() { static Settings s; return s; }
@@ -118,7 +119,7 @@ private:
 
 inline int MazeZoom::current() {
     int z = Settings::mazeEra();
-    return inCycle(z) ? z : doom;
+    return inCycle(z) ? z : defaultEra;
 }
 
 inline void MazeZoom::advance() {

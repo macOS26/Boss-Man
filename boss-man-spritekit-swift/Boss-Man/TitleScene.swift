@@ -93,7 +93,8 @@ final class TitleScene: SKScene {
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
         fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "FULLSCREEN", y: 40, color: .systemRed)
         escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "WINDOW", y: 114, color: .systemTeal)
-        mazeLabel       = makeHint(icon: "⏳", iconSize: 42, value: mazeText(), y: 188, color: .systemPurple)
+        mazeLabel       = makeHint(icon: "", iconSize: 42, value: mazeText(), y: 188, color: .systemPurple,
+                                    sprite: SpriteFactory.bossPersonForBlueprint(1))
         bossTracksLabel = makeHint(icon: "👻", iconSize: 42, value: bossTracksText(), y: 40, color: .systemIndigo, left: true)
         waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: 114, color: .systemOrange, left: true)
     }
@@ -174,7 +175,7 @@ final class TitleScene: SKScene {
     // Side toggle as a button: rounded fill + border, a fixed-position emoji icon, and
     // the left-aligned value in Marker Felt Wide (white). Anchoring the icon and value at
     // fixed offsets means changing the value never re-centres the row (no number jump).
-    private func makeHint(icon: String, iconSize: CGFloat, value: String, y: CGFloat, color: SKColor, left: Bool = false) -> SKLabelNode {
+    private func makeHint(icon: String, iconSize: CGFloat, value: String, y: CGFloat, color: SKColor, left: Bool = false, sprite: SKNode? = nil) -> SKLabelNode {
         let N = SpriteFactory.worldRenderScale
         let btnW: CGFloat = 292, btnH: CGFloat = 50, margin: CGFloat = 16
         let cx = left ? margin + btnW / 2 : size.width - margin - btnW / 2
@@ -190,14 +191,24 @@ final class TitleScene: SKScene {
         bg.lineWidth = 2 * N
         container.addChild(bg)
 
-        let iconNode = SKLabelNode(text: icon)
-        iconNode.fontSize = iconSize * N
-        iconNode.setScale(1 / N)
-        iconNode.verticalAlignmentMode = .center
-        iconNode.horizontalAlignmentMode = .center
-        iconNode.position = CGPoint(x: -btnW / 2 + 38, y: 0)
-        iconNode.zPosition = 6
-        container.addChild(iconNode)
+        let iconX = -btnW / 2 + 38
+        if let sprite {
+            let f = sprite.calculateAccumulatedFrame()
+            let s = f.height > 0 ? iconSize / f.height : 1
+            sprite.setScale(s)
+            sprite.position = CGPoint(x: iconX - f.midX * s, y: -f.midY * s)
+            sprite.zPosition = 6
+            container.addChild(sprite)
+        } else {
+            let iconNode = SKLabelNode(text: icon)
+            iconNode.fontSize = iconSize * N
+            iconNode.setScale(1 / N)
+            iconNode.verticalAlignmentMode = .center
+            iconNode.horizontalAlignmentMode = .center
+            iconNode.position = CGPoint(x: iconX, y: 0)
+            iconNode.zPosition = 6
+            container.addChild(iconNode)
+        }
 
         let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
         label.text = value

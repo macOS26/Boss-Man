@@ -3,6 +3,7 @@
 #include "Assets.hpp"
 #include "EmojiText.hpp"
 #include "Settings.hpp"
+#include "PixelPersonRenderer.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -14,7 +15,8 @@ namespace {
 // Rasterized at size*uiScale and counter-scaled so it stays crisp on Retina.
 sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsigned size,
               sf::Color color, float x, float y, int halign = 1,
-              float rotationDeg = 0.f, uint8_t alpha = 255, const char* baselineRef = nullptr) {
+              float rotationDeg = 0.f, uint8_t alpha = 255, const char* baselineRef = nullptr,
+              bool vCenter = false) {
     float dpi = uiScale();
     sf::Text txt;
     txt.setFont(f);
@@ -30,14 +32,14 @@ sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string
     // anchor on a MASTER string's baseline instead, so sibling labels (the
     // "(P)lay"/"(E)ditor" buttons) share "(E)ditor"'s baseline rather than each
     // drifting by its own descender.
-    float oy = lb.top + lb.height;
+    float oy = vCenter ? (lb.top + lb.height / 2.f) : (lb.top + lb.height);
     if (baselineRef) {
         sf::Text ref;
         ref.setFont(f);
         ref.setString(std::string(baselineRef));
         ref.setCharacterSize((unsigned)(size * dpi));
         auto rb = ref.getLocalBounds();
-        oy = rb.top + rb.height;
+        oy = vCenter ? (rb.top + rb.height / 2.f) : (rb.top + rb.height);
     }
     txt.setOrigin(ox, oy);
     txt.setScale(1.f / dpi, 1.f / dpi);
@@ -230,7 +232,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
             float ly = yc - textDY;
             drawEmoji(target, emoji, sf::Vector2f(cx - bw / 2.f + 40.f, ly), 42.f);
             drawText(target, fontWide_, label, 34, sf::Color::White,
-                     cx - bw / 2.f + 84.f, ly, 0, 0.f, 255, "EDITOR");
+                     cx - bw / 2.f + 84.f, ly, 0, 0.f, 255, "EDITOR", true);
             return r;
         };
         playRect_   = button(W / 2.f - bw / 2.f - gap / 2.f, sf::Color(33, 157, 64),
@@ -261,13 +263,30 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         const float cxRight = W - margin - btnW / 2.f;
         const float cxLeft = margin + btnW / 2.f;
         auto hint = [&](float cx, float ySK, sf::Color fill, const char* emoji,
-                        const std::string& value) -> sf::FloatRect {
+                        const std::string& value, bool bossIcon = false) -> sf::FloatRect {
             float yc = H - ySK;
             sf::FloatRect r(cx - btnW / 2.f, yc - btnH / 2.f, btnW, btnH);
             drawRoundedRect(target, r, 12.f, fill, border, 2.f);
-            drawEmoji(target, emoji, sf::Vector2f(cx - btnW / 2.f + 38.f, yc), 42.f);
+            if (bossIcon) {
+                const BossBlueprint& bp = BOSS_BLUEPRINTS[1];   // Dom = the pink boss
+                PersonConfig cfg;
+                cfg.bodyColor = bp.bodyColor;
+                cfg.tieColor = bp.tieColor;
+                cfg.hairColor = BOSS_HAIR;
+                cfg.shoeOutlineColor = BOSS_SHOE_GOLD;
+                cfg.pantsColor = bp.pantsColor;
+                cfg.headYOffset = 1.0f;
+                PixelPersonRenderer boss(cfg);
+                auto m = boss.metrics();
+                float sc = 42.f / m.height;
+                float ox = cx - btnW / 2.f + 38.f;
+                float oy = yc - (m.feetOffset - m.headOffset) / 2.f * sc;
+                boss.draw(target, sf::Vector2f(ox, oy), false, false, MoveDirection::None, 0.f, 1.f, sc);
+            } else {
+                drawEmoji(target, emoji, sf::Vector2f(cx - btnW / 2.f + 38.f, yc), 42.f);
+            }
             drawText(target, fontWide_, value, 32, sf::Color::White,
-                     cx - btnW / 2.f + 80.f, yc, 0, 0.f, 255, "WINDOW");
+                     cx - btnW / 2.f + 80.f, yc, 0, 0.f, 255, "WINDOW", true);
             return r;
         };
         fullscreenRect_ = hint(cxRight, 40.f, sf::Color(192, 47, 50),
@@ -275,7 +294,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         windowRect_     = hint(cxRight, 114.f, sf::Color(0, 157, 168),
             "\xf0\x9f\xaa\x9f", "WINDOW");                               // 🪟 systemTeal
         mazeZoomRect_   = hint(cxRight, 188.f, sf::Color(164, 41, 182),
-            "\xe2\x8f\xb3", MazeZoom::label());                         // ⏳ systemPurple
+            "", MazeZoom::label(), true);                               // pink boss (Dom) icon, systemPurple
         bossTracksRect_ = hint(cxLeft, 40.f, sf::Color(80, 92, 192),
             "\xf0\x9f\x91\xbb", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDY"); // 👻 systemIndigo
         waterGunRect_   = hint(cxLeft, 114.f, sf::Color(192, 108, 33),
