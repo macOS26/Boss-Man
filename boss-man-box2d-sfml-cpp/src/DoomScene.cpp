@@ -403,6 +403,12 @@ void DoomScene::step() {
                 else if (tdy < 0) py_ = std::max(py_ - speed, ccy);
             }
         }
+    } else {
+        // Released: coast to the centre of the nearest square so Pete always lands
+        // centred (a 90° turn already snaps to centre).
+        double tx = std::floor(px_) + 0.5, ty = std::floor(py_) + 0.5;
+        px_ += std::max(-speed, std::min(speed, tx - px_));
+        py_ += std::max(-speed, std::min(speed, ty - py_));
     }
 
     // Dots + small pickups (proximity within half a tile).

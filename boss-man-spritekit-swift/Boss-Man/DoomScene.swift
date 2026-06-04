@@ -861,6 +861,12 @@ final class DoomScene: SKScene, BossControllerDelegate {
                     if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
                 }
             }
+        } else {
+            // Released: coast to the centre of the nearest square so Pete always lands
+            // centred (a 90° turn already snaps to centre).
+            let tx = px.rounded(.down) + 0.5, ty = py.rounded(.down) + 0.5
+            px += max(-speed, min(speed, tx - px))
+            py += max(-speed, min(speed, ty - py))
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
