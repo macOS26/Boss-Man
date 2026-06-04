@@ -101,7 +101,7 @@ final class TitleScene: SKScene {
 
     // MARK: - Settings text
     private func bossTracksText() -> String {
-        isSquareTracks() ? "HUNTER" : "SPEEDY"
+        isSquareTracks() ? "HUNTER" : "SPEEDSTER"
     }
     private func waterGunText() -> String {
         if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) { return "HIDDEN" }

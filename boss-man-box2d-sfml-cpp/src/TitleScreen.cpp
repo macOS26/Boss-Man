@@ -296,7 +296,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         mazeZoomRect_   = hint(cxRight, 188.f, sf::Color(164, 41, 182),
             "", MazeZoom::label(), true);                               // pink boss (Dom) icon, systemPurple
         bossTracksRect_ = hint(cxLeft, 40.f, sf::Color(80, 92, 192),
-            "\xf0\x9f\x91\xbb", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDY"); // 👻 systemIndigo
+            "\xf0\x9f\x91\xbb", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDSTER"); // 👻 systemIndigo
         waterGunRect_   = hint(cxLeft, 114.f, sf::Color(192, 108, 33),
             "\xf0\x9f\x94\xab",                                          // 🔫 systemOrange
             Settings::waterGunHide() ? "HIDDEN" : (Settings::waterGunLeft() ? "LEFT" : "RIGHT"));
