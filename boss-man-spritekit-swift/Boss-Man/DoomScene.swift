@@ -737,14 +737,16 @@ final class DoomScene: SKScene, BossControllerDelegate {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn (←/→): rotate the facing 90° to that side. For an OPEN lane, round Pete onto
-        // the junction square from up to ~0.4 tile away so a slightly early/late press still
-        // catches the corner; facing a walled lane needs the exact centre (deliberate reverse,
-        // two presses = 90°+90°, never a sudden 180° flip).
-        if let t = wantDir {
-            let window: Double = open(col + t.x, row + t.y) ? 0.4 : 0.2
-            if abs(px - ccx) < window, abs(py - ccy) < window {
+        // Turn (←/→): fire at the next tile whose side lane is OPEN, rounding Pete onto the
+        // junction square from up to ~0.4 tile away (cornering — a slightly early/late press
+        // still catches). A walled side never consumes the queued turn, so it carries to the
+        // real junction; only in a dead end (side AND forward both walled) does the press
+        // reverse 180° — the one way back out.
+        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4 {
+            if open(col + t.x, row + t.y) {
                 px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
+            } else if !open(col + moveDir.x, row + moveDir.y) {
+                px = ccx; py = ccy; moveDir = (x: -moveDir.x, y: -moveDir.y); wantDir = nil; targetAngle = cardinal(moveDir)
             }
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
