@@ -576,13 +576,8 @@ void Game::processInput() {
             returnToTitle();
         } else if (doomScene->isGameOver()) {
             gameState = GameState::GameOver;
-            goName.clear(); goCommitted = false; goQualified = false;
-            if (!state.practiceMode) {
-                state.saveHighScore();
-                goQualified = leaderboard.qualifies(state.score);
-                goName = leaderboard.savedName();
-                if (goName.empty()) { const char* user = std::getenv("USER"); goName = user ? user : ""; }
-            }
+            goName.clear(); goCommitted = false; goQualified = false;   // DOOM = no name entry (Swift allowEntry: false)
+            if (!state.practiceMode) state.saveHighScore();
             doomScene.reset();
             // The shared game-over screen draws over the 2D world render path; clear
             // the level so no stray maze/bosses/Pete from a prior 2D game show behind it.

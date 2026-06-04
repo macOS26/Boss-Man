@@ -23,7 +23,7 @@ sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string
     color.a = alpha;
     txt.setFillColor(color);
     auto lb = txt.getLocalBounds();
-    float ox = (halign == 0) ? lb.left : (halign == 2 ? lb.left + lb.width : lb.left + lb.width / 2.f);
+    float ox = (halign == 0) ? 0.f : (halign == 2 ? lb.left + lb.width : lb.left + lb.width / 2.f);
     // SpriteKit SKLabelNode uses baseline vertical alignment by default: the node's
     // y is the text baseline and glyphs sit above it. Anchor on the bounding-box
     // bottom, which equals the baseline for all-caps labels. Pass baselineRef to
