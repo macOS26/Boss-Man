@@ -1174,8 +1174,8 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
     // MARK: - Multi-touch D-pad (phone). Each finger lights at most one wedge, so
     // forward + a turn happen only when two fingers are physically down at once.
     func touchBegan(finger: Int, at p: CGPoint) {
+        if gameOverScreen != nil { return }   // game-over menu rides the synthetic mouse pointer (no double-fire)
         usingTouch = true
-        if let s = gameOverScreen { s.handleTap(at: s.convert(p, from: self)); return }
         pointerBegan(finger: finger, at: p)
     }
     func touchMoved(finger: Int, at p: CGPoint) {
