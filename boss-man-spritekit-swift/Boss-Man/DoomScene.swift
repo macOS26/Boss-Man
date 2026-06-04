@@ -86,7 +86,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     // MARK: - On-screen controls (same layout/sizing as the 100% game)
     private let joystickRadius: CGFloat = 129.375
     private let joystickKnobRadius: CGFloat = 51.75
-    private let joystickDeadzone: CGFloat = 37.375
+    private let joystickDeadzone: CGFloat = 20   // D-pad centre hole + input deadzone (smaller = more reach)
     private var joystickCenter = CGPoint.zero
     private var joystickActive = false
     private var joystickThumb: SKShapeNode?
@@ -1122,12 +1122,13 @@ final class DoomScene: SKScene, BossControllerDelegate {
         }
     }
 
-    // Ring-sector wedge (deadzone radius -> outer radius), 90° minus a gap at each
-    // diagonal so the four wedges read as an X. Polygon (move/addLine only) so it
-    // renders identically on macOS and the WASM SpriteKit shim.
+    // Ring-sector wedge (deadzone radius -> outer radius), a full 90° so the four
+    // wedges MEET at the diagonals (no dead gaps); the X reads as the stroked boundary
+    // between neighbours, and the diagonal corner sits on the edge of both wedges so a
+    // corner press fires both. Polygon (move/addLine only) so it renders on WASM too.
     private func dpadWedgePath(centerAngle: CGFloat) -> CGPath {
-        let gap: CGFloat = 0.14, inner = joystickDeadzone, outer = joystickRadius
-        let a0 = centerAngle - .pi / 4 + gap, a1 = centerAngle + .pi / 4 - gap
+        let inner = joystickDeadzone, outer = joystickRadius
+        let a0 = centerAngle - .pi / 4, a1 = centerAngle + .pi / 4
         let steps = 10
         let p = CGMutablePath()
         for i in 0...steps {

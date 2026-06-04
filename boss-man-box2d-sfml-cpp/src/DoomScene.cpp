@@ -711,33 +711,31 @@ void DoomScene::mouseDown(float x, float y) {
 
 void DoomScene::mouseDragged(float x, float y) {
     if (!joystickActive_) return;
-    sf::Vector2f p(x, y);
-    // Thumb tracking (clamped to the ring).
-    float dx = p.x - joystickCenter_.x, dy = p.y - joystickCenter_.y;
-    float mag = std::sqrt(dx * dx + dy * dy), limit = joystickRadius_ - joystickKnobRadius_;
-    if (mag > limit && mag > 0) {
-        float s = limit / mag;
-        joystickThumb_ = sf::Vector2f(joystickCenter_.x + dx * s, joystickCenter_.y + dy * s);
-    } else {
-        joystickThumb_ = p;
-    }
-    // Steering. Note SFML y is down, so "up = forward" means a NEGATIVE dy.
-    if (mag < joystickDeadzone_) { pressUp_ = pressDown_ = false; return; }
-    if (std::abs(dy) >= std::abs(dx)) {
-        if (dy < 0) { pressUp_ = true; pressDown_ = false; }
-        else        { pressDown_ = true; pressUp_ = false; }
-    } else {
+    float dx = x - joystickCenter_.x, dy = y - joystickCenter_.y;
+    float mag = std::sqrt(dx * dx + dy * dy);
+    if (mag < joystickDeadzone_) {
         pressUp_ = pressDown_ = false;
-        if (dx > 0) { wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; }
-        else        { wantDirSet_ = true; wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; }
+        dpadUp_ = dpadDown_ = dpadLeft_ = dpadRight_ = false;
+        return;
     }
+    // X-pattern D-pad: 8 sectors via the dx/dy ratio (tan 67.5° ~ 2.4142). The four
+    // diagonals press forward/back AND a turn at once. SFML y is down: up = dy<0 = forward.
+    float ax = std::abs(dx), ay = std::abs(dy), k = 2.4142f;
+    int fwd = 0, turn = 0;   // fwd: +1 fwd / -1 back; turn: -1 left / +1 right
+    if (ay > ax * k)      fwd = dy < 0 ? 1 : -1;
+    else if (ax > ay * k) turn = dx > 0 ? 1 : -1;
+    else { fwd = dy < 0 ? 1 : -1; turn = dx > 0 ? 1 : -1; }
+    pressUp_ = (fwd > 0); pressDown_ = (fwd < 0);
+    if (turn < 0)      { wantDirSet_ = true; wantDirX_ = moveDirY_;  wantDirY_ = -moveDirX_; }   // turn left
+    else if (turn > 0) { wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; }    // turn right
+    dpadUp_ = (fwd > 0); dpadDown_ = (fwd < 0); dpadLeft_ = (turn < 0); dpadRight_ = (turn > 0);
 }
 
 void DoomScene::mouseUp() {
     if (!joystickActive_) return;
     joystickActive_ = false;
-    joystickThumb_ = joystickCenter_;
     pressUp_ = pressDown_ = false;
+    dpadUp_ = dpadDown_ = dpadLeft_ = dpadRight_ = false;
 }
 
 // MARK: - Rendering
@@ -1313,23 +1311,64 @@ void DoomScene::drawControls(sf::RenderTarget& target) {
     ring.setOutlineColor(sf::Color(255, 255, 255, 128)); // white @ 0.5
     target.draw(ring);
 
-    // Joystick base.
+    // D-pad base outline.
+    const float PI = 3.14159265f;
     sf::CircleShape base(joystickRadius_, 64);
     base.setOrigin(joystickRadius_, joystickRadius_);
     base.setPosition(joystickCenter_);
-    base.setFillColor(sf::Color(255, 255, 255, 26));  // white @ 0.10
+    base.setFillColor(sf::Color(255, 255, 255, 15));   // white @ 0.06
     base.setOutlineThickness(2.f);
     base.setOutlineColor(sf::Color(255, 255, 255, 128));
     target.draw(base);
 
-    // Joystick thumb.
-    sf::CircleShape thumb(joystickKnobRadius_, 48);
-    thumb.setOrigin(joystickKnobRadius_, joystickKnobRadius_);
-    thumb.setPosition(joystickThumb_);
-    thumb.setFillColor(sf::Color(255, 255, 255, 71));  // white @ 0.28
-    thumb.setOutlineThickness(2.f);
-    thumb.setOutlineColor(sf::Color(255, 255, 255, 153));
-    target.draw(thumb);
+    // Four ring-sector wedges (X-split, meeting at the diagonals); active ones brighten.
+    struct Wedge { float ang; bool on; };
+    Wedge wedges[4] = {{-PI / 2, dpadUp_}, {PI / 2, dpadDown_}, {0.f, dpadRight_}, {PI, dpadLeft_}};
+    for (const auto& w : wedges) {
+        float a0 = w.ang - PI / 4, a1 = w.ang + PI / 4;
+        const int steps = 14;
+        sf::VertexArray strip(sf::TriangleStrip);
+        sf::Color fill(255, 255, 255, w.on ? 87 : 31);   // 0.34 : 0.12
+        for (int i = 0; i <= steps; ++i) {
+            float t = a0 + (a1 - a0) * (float)i / steps;
+            strip.append(sf::Vertex({joystickCenter_.x + std::cos(t) * joystickDeadzone_,
+                                     joystickCenter_.y + std::sin(t) * joystickDeadzone_}, fill));
+            strip.append(sf::Vertex({joystickCenter_.x + std::cos(t) * joystickRadius_,
+                                     joystickCenter_.y + std::sin(t) * joystickRadius_}, fill));
+        }
+        target.draw(strip);
+    }
+
+    // X boundary lines (the four diagonals) + the centre deadzone ring.
+    sf::VertexArray xlines(sf::Lines);
+    sf::Color line(255, 255, 255, 128);
+    for (int k = 0; k < 4; ++k) {
+        float t = PI / 4 + (float)k * PI / 2;   // 45 / 135 / 225 / 315
+        xlines.append(sf::Vertex({joystickCenter_.x + std::cos(t) * joystickDeadzone_,
+                                  joystickCenter_.y + std::sin(t) * joystickDeadzone_}, line));
+        xlines.append(sf::Vertex({joystickCenter_.x + std::cos(t) * joystickRadius_,
+                                  joystickCenter_.y + std::sin(t) * joystickRadius_}, line));
+    }
+    target.draw(xlines);
+    sf::CircleShape hole(joystickDeadzone_, 40);
+    hole.setOrigin(joystickDeadzone_, joystickDeadzone_);
+    hole.setPosition(joystickCenter_);
+    hole.setFillColor(sf::Color::Transparent);
+    hole.setOutlineThickness(2.f);
+    hole.setOutlineColor(sf::Color(255, 255, 255, 128));
+    target.draw(hole);
+
+    // Direction arrow (triangle) at each wedge centre.
+    float midR = (joystickDeadzone_ + joystickRadius_) / 2.f, s = 13.f;
+    for (const auto& w : wedges) {
+        sf::ConvexShape tri(3);
+        tri.setPoint(0, {std::cos(w.ang) * s, std::sin(w.ang) * s});
+        tri.setPoint(1, {std::cos(w.ang + 2.5f) * s, std::sin(w.ang + 2.5f) * s});
+        tri.setPoint(2, {std::cos(w.ang - 2.5f) * s, std::sin(w.ang - 2.5f) * s});
+        tri.setPosition(joystickCenter_.x + std::cos(w.ang) * midR, joystickCenter_.y + std::sin(w.ang) * midR);
+        tri.setFillColor(sf::Color(255, 255, 255, 178));
+        target.draw(tri);
+    }
 }
 
 } // namespace bm

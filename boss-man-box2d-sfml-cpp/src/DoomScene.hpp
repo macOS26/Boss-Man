@@ -157,12 +157,14 @@ private:
     // MARK: - On-screen controls
     static constexpr float joystickRadius_ = 129.375f;
     static constexpr float joystickKnobRadius_ = 51.75f;
-    static constexpr float joystickDeadzone_ = 37.375f;
+    static constexpr float joystickDeadzone_ = 20.f;   // D-pad centre hole + input deadzone
     static constexpr float fireButtonRadius_ = 129.375f;
     sf::Vector2f joystickCenter_{0.f, 0.f};
     sf::Vector2f fireButtonCenter_{0.f, 0.f};
     sf::Vector2f joystickThumb_{0.f, 0.f};
     bool joystickActive_ = false;
+    // X-pattern D-pad: which wedges are lit (diagonals light two -> forward + a turn).
+    bool dpadUp_ = false, dpadDown_ = false, dpadLeft_ = false, dpadRight_ = false;
     bool controlsShown_ = false;
 
     // MARK: - Input state (held keys, SFML key codes)
