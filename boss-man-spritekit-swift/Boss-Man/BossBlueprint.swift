@@ -9,7 +9,7 @@ import SpriteKit
 // single source of boss colors.
 enum BossBlueprint {
     static let table: [(name: String, personality: BossPersonality, speed: Double)] = [
-        (Strings.Boss.bill, .directChase,                                                  0.90),
+        (Strings.Boss.bill, .directChase,                                                   0.90),
         (Strings.Boss.dom,  .ambushAhead(tiles: 4),                                         0.80),
         (Strings.Boss.bob,  .flanker(pivotTiles: 2),                                        0.70),
         (Strings.Boss.stan, .timidScatter(scatterGrid: CGPoint(x: 1, y: 1), threshold: 8),  0.60),
