@@ -57,7 +57,15 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
     float armAmp = 2.0f + config.walkExaggeration;
     float leftLegLift = 0, rightLegLift = 0, leftArmSwing = 0, rightArmSwing = 0;
     if (walking) {
-        float w = walkPhase * 10.0f;
+        // walkPhase is elapsed walking time in SECONDS (accumulated by the caller
+        // while moving). The SpriteKit master runs the leg/arm cycle as two
+        // stepDuration phases (up then down), so a full cycle is 2*stepDuration of
+        // real time. Mapping seconds -> radians at 2*PI per full cycle keeps the
+        // cadence locked to the master regardless of the 60/120Hz render loop.
+        static const float PI = 3.14159265f;
+        static const float STEP_DURATION = 0.16f;             // master stepDuration
+        static const float CYCLE_RATE = PI / STEP_DURATION;   // 2*PI / (2*stepDuration)
+        float w = walkPhase * CYCLE_RATE;
         leftLegLift   = legAmp * (0.5f - 0.5f * std::cos(w));
         rightLegLift  = legAmp * (0.5f + 0.5f * std::cos(w));
         leftArmSwing  = armAmp * (0.5f + 0.5f * std::cos(w));

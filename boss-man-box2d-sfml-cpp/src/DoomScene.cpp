@@ -345,10 +345,14 @@ void DoomScene::update(float dt) {
 
     animTime_ += dt; // pickup throb clock (independent of motion)
     hud_.update(dt);
-    scorePopups_.update(dt);
+    // Radar popups rise 42px over 0.7s (60px/s); 3D popups rise fontSize*1.55 over
+    // 0.7s. Both fade out across the 0.7s lifetime (alpha = timer/0.7 at draw).
     for (auto& m : miniPops_) { m.timer -= dt; m.pos.y -= 60.f * dt; }
     miniPops_.erase(std::remove_if(miniPops_.begin(), miniPops_.end(),
         [](const MiniPop& m) { return m.timer <= 0; }), miniPops_.end());
+    for (auto& m : bigPops_) { m.timer -= dt; m.pos.y -= (m.fontSize * 1.55f / 0.7f) * dt; }
+    bigPops_.erase(std::remove_if(bigPops_.begin(), bigPops_.end(),
+        [](const MiniPop& m) { return m.timer <= 0; }), bigPops_.end());
 }
 
 // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
@@ -454,7 +458,10 @@ void DoomScene::step() {
         if (frightenSecondsLeft_ <= 0) endGoldDiscMode();
     }
 
-    if (hasDir) bob_ += 0.22;
+    if (hasDir) {
+        bob_ += 0.22;
+        peteWalkPhase_ += 1.0 / 60.0; // seconds of walking, fed to the renderer's Swift-cadence clock
+    }
 }
 
 // MARK: - workerGrid / workerDir (GridMap bottom-up)
@@ -651,11 +658,15 @@ void DoomScene::resetCollectedMachines() {
 // MARK: - Score popups (3D view + minimap mini)
 
 void DoomScene::popPoints(int n) {
+    // 3D corridor: big yellow "+N" above Pete (Menlo-Bold 54), spawned 20px up and
+    // rising fontSize*1.55 over 0.7s, exactly like ScorePopup.show(fontSize: 54).
     float peteBaseY = radarH_ + viewH() * 0.42f / 2.f + 6.f;
-    float skY = peteBaseY + viewH() * 0.30f; // big in the 3D view, above Pete (y-up)
-    scorePopups_.add(n, {viewW_ / 2.f, screenY(skY)});
+    float skY = peteBaseY + viewH() * 0.30f; // y-up, above Pete
+    bigPops_.push_back(MiniPop{"+" + std::to_string(n),
+                               {viewW_ / 2.f, screenY(skY + 20.f)}, 0.7f, 54.f});
+    // Radar: a matching smaller yellow "+N" on Pete in the minimap (fontSize 40).
     sf::Vector2f petePos = mapLocal(px_, py_);
-    miniPops_.push_back(MiniPop{"+" + std::to_string(n), petePos, 0.7f});
+    miniPops_.push_back(MiniPop{"+" + std::to_string(n), petePos, 0.7f, 40.f});
 }
 
 // MARK: - Input
@@ -756,8 +767,9 @@ void DoomScene::render(sf::RenderTarget& target) {
     std::vector<Drawable> order;
     for (size_t i = 0; i < billboards_.size(); ++i)
         if (billboards_[i].visible) order.push_back({billboards_[i].depthZ, 0, (int)i});
-    for (size_t i = 0; i < shots_.size(); ++i)
-        if (shots_[i].visible) order.push_back({shots_[i].depthZ, 1, (int)i});
+    if (!dying_)   // death close-up hides all shots (matches Swift startDeath)
+        for (size_t i = 0; i < shots_.size(); ++i)
+            if (shots_[i].visible) order.push_back({shots_[i].depthZ, 1, (int)i});
     for (size_t i = 0; i < bossProj_.size(); ++i)
         if (bossProj_[i].visible) order.push_back({bossProj_[i].depthZ, 2, (int)i});
     // Paint farther (smaller zPosition) first so nearer sprites overdraw them.
@@ -783,7 +795,7 @@ void DoomScene::render(sf::RenderTarget& target) {
         bool moving = pressUp_ || pressDown_;
         float alpha = dying_ ? 0.2f : 1.0f;
         peteRenderer.draw(target, {cx, cy}, false, moving, MoveDirection::None,
-                          (float)bob_, alpha, scale);
+                          (float)peteWalkPhase_, alpha, scale);
         if (!dying_)
             drawCenteredText(target, Worker::PETE, 22.f, sf::Color::White,
                              cx, screenY(peteBaseY + target_h / 2.f + 16.f));
@@ -802,10 +814,18 @@ void DoomScene::render(sf::RenderTarget& target) {
                         0.f, 1.0f, scale);
     }
 
+    // 3D-corridor score popups (Menlo-Bold 54, yellow): above the billboards but
+    // below the minimap panel (z 12 < 200), so a popup descending into the radar is
+    // covered by the panel — exactly like the SpriteKit ScorePopup z-order.
+    for (auto& m : bigPops_) {
+        uint8_t a = (uint8_t)(std::clamp(m.timer / 0.7f, 0.f, 1.f) * 255);
+        drawCenteredText(target, m.text, m.fontSize, sf::Color(255, 231, 0, a),
+                         m.pos.x, m.pos.y);
+    }
+
     drawMap(target);
     drawControls(target);
     hud_.draw(target, (float)WINDOW_WIDTH, (float)WINDOW_HEIGHT);
-    scorePopups_.draw(target);
 }
 
 void DoomScene::drawSky(sf::RenderTarget& target) {
@@ -936,18 +956,19 @@ void DoomScene::projectSprites(double dirX, double dirY, double planeX, double p
     // Pellets / gold / water / machines / brown box.
     for (auto& b : billboards_) {
         if (!b.alive) { b.visible = false; continue; }
-        // The pickup sprites are drawn at a nominal native height; pellets use a
-        // small cube, the rest an emoji. We pick a nativeH so the world size reads
-        // like the SpriteKit master (cube 8, emoji 128 native pt size).
-        float nativeH = (b.kind == Tile::dot || b.kind == Tile::hideout) ? 8.f
-                       : (b.kind == Tile::goldDisc || b.kind == Tile::waterPellet) ? 20.f
+        // Native height = the SpriteKit node's accumulated frame height, so the
+        // projected scale reads like the master. pelletCube(size 8) is size*1.24
+        // tall; goldDisc/waterPellet visuals (radius 10) reach the halo at r*1.35,
+        // so their frame is 2*10*1.35 = 27; emoji billboards are 128 pt.
+        float nativeH = (b.kind == Tile::dot || b.kind == Tile::hideout) ? 8.f * 1.24f
+                       : (b.kind == Tile::goldDisc || b.kind == Tile::waterPellet) ? 27.f
                        : 128.f;
         project(b.x, b.y, b.worldH, b.visible, b.screenX, b.scale, b.floorY, b.depthZ, nativeH);
     }
-    // Shots (water pellets).
+    // Shots (water pellets, waterPelletVisual radius 9 -> halo r*1.35 -> frame 24.3).
     for (auto& s : shots_) {
         if (!s.alive) { s.visible = false; continue; }
-        project(s.x, s.y, 0.32, s.visible, s.screenX, s.scale, s.floorY, s.depthZ, 18.f);
+        project(s.x, s.y, 0.32, s.visible, s.screenX, s.scale, s.floorY, s.depthZ, 9.f * 2.f * 1.35f);
     }
 
     // Bosses: worldH 0.3 (no size cap), feet on the floor via the LOCAL feet offset.
@@ -976,33 +997,67 @@ void DoomScene::drawBillboardSprite(sf::RenderTarget& target, const Billboard& b
     float goldThrob = 1.0f + 0.25f * (0.5f - 0.5f * std::cos(t * 8.976f));
     float pelletThrob = 1.0f + 0.30f * (0.5f - 0.5f * std::cos(t * 7.854f));
     if (b.kind == Tile::dot || b.kind == Tile::hideout) {
-        float nativeH = 8.f, bottom = -nativeH / 2.f;
-        float cy = screenY(b.floorY - bottom * b.scale);
-        float r = (nativeH * 0.5f) * b.scale;
-        sf::CircleShape dot(r, 16);
-        dot.setOrigin(r, r);
-        dot.setPosition(cx, cy);
-        dot.setFillColor(sf::Color(255, 231, 0, a)); // systemYellow pellet
-        target.draw(dot);
+        // SpriteFactory.pelletCube(size: 8): a solid box in head-on 1-point
+        // perspective. Front is a true yellow square; the only other visible face
+        // is a symmetric gold trapezoid top whose side edges converge straight up to
+        // a single vanishing point centred above the box. The node's accumulated
+        // frame is size*(1 + 0.24) tall, so the billed nativeH/bottom follow that.
+        const float size = 8.f;
+        float nativeH = size * 1.24f, bottom = -nativeH / 2.f;
+        float originY = screenY(b.floorY - bottom * b.scale); // local (0,0) in y-down
+        float sc = b.scale;
+        float h = size / 2.f;
+        float topH = size * 0.24f;
+        float backHalf = h * 0.5f;
+        // Local y-up point -> SFML y-down screen point about the node origin.
+        auto P = [&](float lx, float ly) {
+            return sf::Vertex({cx + lx * sc, originY - ly * sc});
+        };
+        sf::Color gold(209, 158, 20, a);   // calibratedRed 0.82, green 0.62, blue 0.08
+        sf::Color yellow(255, 231, 0, a);  // systemYellow
+        sf::ConvexShape topFace(4);        // gold trapezoid (z=0, behind front)
+        topFace.setPoint(0, P(-h, h).position);
+        topFace.setPoint(1, P(h, h).position);
+        topFace.setPoint(2, P(backHalf, h + topH).position);
+        topFace.setPoint(3, P(-backHalf, h + topH).position);
+        topFace.setFillColor(gold);
+        target.draw(topFace);
+        sf::ConvexShape frontFace(4);      // yellow front square (z=1, on top)
+        frontFace.setPoint(0, P(-h, -h).position);
+        frontFace.setPoint(1, P(h, -h).position);
+        frontFace.setPoint(2, P(h, h).position);
+        frontFace.setPoint(3, P(-h, h).position);
+        frontFace.setFillColor(yellow);
+        target.draw(frontFace);
     } else if (b.kind == Tile::goldDisc || b.kind == Tile::waterPellet) {
+        // SpriteFactory.goldDiscVisual / waterPelletVisual (radius 10): a soft halo
+        // (r*1.35), a solid core (r) with a thin stroke, and a white specular
+        // highlight (r*0.3) offset up-left. The throb scales the whole disc.
         bool gold = (b.kind == Tile::goldDisc);
-        float nativeH = 20.f, bottom = -nativeH / 2.f;
-        float cy = screenY(b.floorY - bottom * b.scale);
-        float r = (nativeH * 0.5f) * b.scale * (gold ? goldThrob : pelletThrob);
-        sf::CircleShape halo(r * 1.35f, 24);
-        halo.setOrigin(r * 1.35f, r * 1.35f);
-        halo.setPosition(cx, cy);
-        halo.setFillColor(gold ? sf::Color(255, 231, 0, (uint8_t)(0.30f * a))
-                               : sf::Color(0, 200, 240, (uint8_t)(0.25f * a)));
-        target.draw(halo);
-        sf::CircleShape core(r, 24);
-        core.setOrigin(r, r);
-        core.setPosition(cx, cy);
-        core.setFillColor(gold ? sf::Color(255, 231, 0, (uint8_t)(0.85f * a))
-                               : sf::Color(0, 200, 240, (uint8_t)(0.85f * a)));
-        core.setOutlineThickness(std::max(1.f, r * 0.08f));
-        core.setOutlineColor(gold ? sf::Color(178, 127, 0, a) : sf::Color(4, 122, 255, a));
-        target.draw(core);
+        float r = 10.f * b.scale * (gold ? goldThrob : pelletThrob);
+        const float nativeH = 27.f, bottom = -nativeH / 2.f; // halo r*1.35 -> frame 27
+        float cy = screenY(b.floorY - bottom * b.scale);     // node origin (centred), feet via -nativeH/2
+        auto disc = [&](float radius, sf::Color fill, float strokeW = 0.f,
+                        sf::Color stroke = sf::Color::Transparent,
+                        float ox = 0.f, float oy = 0.f) {
+            sf::CircleShape c(radius, 28);
+            c.setOrigin(radius, radius);
+            c.setPosition(cx + ox, cy - oy); // oy is y-up, flip to y-down
+            c.setFillColor(fill);
+            if (strokeW > 0.f) { c.setOutlineThickness(strokeW); c.setOutlineColor(stroke); }
+            target.draw(c);
+        };
+        sf::Color haloCol = gold ? sf::Color(255, 231, 0, (uint8_t)(0.30f * a))
+                                 : sf::Color(50, 200, 240, (uint8_t)(0.25f * a)); // systemCyan
+        sf::Color coreCol = gold ? sf::Color(255, 231, 0, (uint8_t)(0.85f * a))
+                                 : sf::Color(50, 200, 240, (uint8_t)(0.85f * a));
+        sf::Color strokeCol = gold ? sf::Color(178, 127, 0, a)   // bossShoeGold 0.70,0.50,0.0
+                                   : sf::Color(10, 122, 255, a);  // systemBlue
+        float strokeW = std::max(1.f, (gold ? 1.0f : 1.5f) * b.scale);
+        disc(r * 1.35f, haloCol);
+        disc(r, coreCol, strokeW, strokeCol);
+        disc(r * 0.3f, sf::Color(255, 255, 255, (uint8_t)(0.75f * a)), 0.f,
+             sf::Color::Transparent, -r * 0.28f, r * 0.28f);
     } else {
         // Emoji billboard (machine / brown box / water gun). nativeH 128 (the
         // SpriteKit emoji point size); draw at targetSize = nativeH*scale. The water
@@ -1017,17 +1072,26 @@ void DoomScene::drawBillboardSprite(sf::RenderTarget& target, const Billboard& b
 }
 
 void DoomScene::drawShotSprite(sf::RenderTarget& target, const Shot& s) {
-    float nativeH = 18.f, bottom = -nativeH / 2.f;
+    // SpriteFactory.waterPelletVisual(radius: 9): halo (r*1.35) + core (r, blue
+    // stroke 1.5) + white specular (r*0.3) offset up-left.
+    float r = 9.f * s.scale;
     float cx = s.screenX;
-    float cy = screenY(s.floorY - bottom * s.scale);
-    float r = (nativeH * 0.5f) * s.scale;
-    sf::CircleShape core(r, 16);
-    core.setOrigin(r, r);
-    core.setPosition(cx, cy);
-    core.setFillColor(sf::Color(50, 200, 240, 217));
-    core.setOutlineThickness(std::max(1.f, r * 0.12f));
-    core.setOutlineColor(sf::Color(10, 122, 255));
-    target.draw(core);
+    const float nativeH = 9.f * 2.f * 1.35f, bottom = -nativeH / 2.f; // halo r*1.35
+    float cy = screenY(s.floorY - bottom * s.scale);                  // centred origin
+    auto disc = [&](float radius, sf::Color fill, float strokeW = 0.f,
+                    sf::Color stroke = sf::Color::Transparent, float ox = 0.f, float oy = 0.f) {
+        sf::CircleShape c(radius, 24);
+        c.setOrigin(radius, radius);
+        c.setPosition(cx + ox, cy - oy);
+        c.setFillColor(fill);
+        if (strokeW > 0.f) { c.setOutlineThickness(strokeW); c.setOutlineColor(stroke); }
+        target.draw(c);
+    };
+    disc(r * 1.35f, sf::Color(50, 200, 240, 64));                          // systemCyan @ 0.25
+    disc(r, sf::Color(50, 200, 240, 217), std::max(1.f, 1.5f * s.scale),   // systemCyan @ 0.85
+         sf::Color(10, 122, 255, 255));                                    // systemBlue stroke
+    disc(r * 0.3f, sf::Color(255, 255, 255, 191), 0.f, sf::Color::Transparent,
+         -r * 0.28f, r * 0.28f);                                           // white specular @ 0.75
 }
 
 void DoomScene::drawBossBillboard(sf::RenderTarget& target, int bossIndex) {
@@ -1042,10 +1106,13 @@ void DoomScene::drawBossBillboard(sf::RenderTarget& target, int bossIndex) {
     float cx = bp.screenX;
     float cy = screenY(bp.floorY - bottom * bp.scale);
 
-    // Static eyes/tie billboard: lookDir None, not walking (freezeLook equivalent).
+    // freezeLook(): eyes/tie centred (lookDir None), but the legs/arms keep WALKING
+    // as the boss glides down the corridor toward Pete (e.isMoving / e.walkPhase),
+    // matching the SpriteKit boss node whose walk action runs while the look is frozen.
     float alpha = e.fadeInAlpha;
     if (e.isCaptured || e.captureReturning) alpha = e.captureAlpha;
-    e.renderer.draw(target, {cx, cy}, e.facingLeft, false, MoveDirection::None, 0.f, alpha, bp.scale);
+    e.renderer.draw(target, {cx, cy}, e.facingLeft, e.isMoving, MoveDirection::None,
+                    e.walkPhase, alpha, bp.scale);
 
     // Nameplate above the boss (flee shows the next capture value in yellow).
     float fontSize = std::max(13.f, std::min(24.f, bp.targetH * 0.16f));
@@ -1155,13 +1222,13 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
         bool moving = pressUp_ || pressDown_;
         MoveDirection face = workerDir_();
         mapPete.draw(target, p, face == MoveDirection::Left, moving, face,
-                     (float)bob_, 1.0f, mapScale_ * 0.9f);
+                     (float)peteWalkPhase_, 1.0f, mapScale_ * 0.9f);
     }
 
-    // Minimap mini score popups.
+    // Minimap mini score popups (fontSize 40, scaled into the radar like mapLayer).
     for (auto& m : miniPops_) {
         uint8_t a = (uint8_t)(std::clamp(m.timer / 0.7f, 0.f, 1.f) * 255);
-        drawCenteredText(target, m.text, 40.f * mapScale_, sf::Color(255, 231, 0, a),
+        drawCenteredText(target, m.text, m.fontSize * mapScale_, sf::Color(255, 231, 0, a),
                          m.pos.x, m.pos.y);
     }
 }

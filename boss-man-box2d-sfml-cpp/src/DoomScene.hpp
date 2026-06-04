@@ -10,7 +10,6 @@
 #include "RoundState.hpp"
 #include "WaterGunState.hpp"
 #include "HUDRenderer.hpp"
-#include "ScorePopup.hpp"
 #include "MoveDirection.hpp"
 
 namespace bm {
@@ -74,6 +73,7 @@ private:
     double spawnPx_ = 1.5, spawnPy_ = 1.5;
     double camX_ = 0.0, camY_ = 0.0;
     double bob_ = 0.0;       // head-bob phase (advances only while moving)
+    double peteWalkPhase_ = 0.0; // Pete leg/arm walk clock, in seconds, advances only while moving
     float animTime_ = 0.0f;  // monotonic clock for pickup throbs (always advances)
     static constexpr double camBack_ = 0.65;
 
@@ -135,7 +135,6 @@ private:
 
     // MARK: - HUD
     HUDRenderer hud_;
-    ScorePopupManager scorePopups_;
     int highScore_ = 0;
     bool isUserPaused_ = false;
     void refreshHUD();
@@ -148,9 +147,12 @@ private:
     int mapKey(int c, int r) const { return r * colsCount_ + c; }
     std::unordered_set<int> hiddenPickups_; // mapKey of collected/hidden minimap pickups
 
-    // Minimap mini score popups (rise + fade over 0.7s, on Pete in the radar).
-    struct MiniPop { std::string text; sf::Vector2f pos; float timer; };
-    std::vector<MiniPop> miniPops_;
+    // Score popups (rise + fade over 0.7s). Two flavours, matching the SpriteKit
+    // master: a big one over Pete in the 3D corridor (fontSize 54) and a smaller
+    // one on Pete in the radar (fontSize 40). Both rise 42px and fade out.
+    struct MiniPop { std::string text; sf::Vector2f pos; float timer; float fontSize; };
+    std::vector<MiniPop> miniPops_;   // radar copies (drawn inside the map panel)
+    std::vector<MiniPop> bigPops_;    // 3D-corridor copies (drawn in the main view)
 
     // MARK: - On-screen controls
     static constexpr float joystickRadius_ = 129.375f;
