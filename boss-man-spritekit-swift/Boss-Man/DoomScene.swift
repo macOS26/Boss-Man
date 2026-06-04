@@ -61,6 +61,11 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var shots: [Shot] = []
     private var gameOver = false
     private var gameOverScreen: GameOverScreen?
+    private var dying = false
+    private var deathFramesLeft = 0
+    private let deathFrames = 72
+    private var killerSprite: SKNode?
+    private var killerNativeH: CGFloat = 1
     private var pressed = Set<Int>()
     private var collected = Set<Int>()
     private let sound = SoundManager()
@@ -327,9 +332,38 @@ final class DoomScene: SKScene, BossControllerDelegate {
         }
     }
 
-    private func peteCaught() {
+    // Caught: freeze the scene and lunge the catching boss at the camera (first-person
+    // view can't show a same-tile billboard), then dock a life and respawn.
+    private func startDeath(blueprintIndex: Int) {
+        if dying { return }
+        dying = true
         _ = sound.playCaughtByBoss()
         if goldDisc.isActive { endGoldDiscMode() }
+        pete.stopWalking()
+        let killer = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
+        killerNativeH = max(1, killer.calculateAccumulatedFrame().height)
+        killer.setScale(viewH * 0.35 / killerNativeH)
+        killer.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.60)
+        killer.zPosition = 500
+        addChild(killer)
+        killerSprite = killer
+        deathFramesLeft = deathFrames
+    }
+
+    private func updateDeath() {
+        guard let killer = killerSprite else { finishDeath(); return }
+        deathFramesLeft -= 1
+        let p = 1 - CGFloat(max(0, deathFramesLeft)) / CGFloat(deathFrames)   // 0 -> 1
+        let ease = p * p                                                       // accelerate the lunge
+        killer.setScale(viewH * (0.35 + 0.85 * ease) / killerNativeH)
+        let shake = CGFloat((deathFramesLeft % 4 < 2) ? 7 : -7) * ease
+        killer.position = CGPoint(x: size.width / 2 + shake, y: radarH + viewH * (0.60 - 0.18 * ease))
+        if deathFramesLeft <= 0 { finishDeath() }
+    }
+
+    private func finishDeath() {
+        killerSprite?.removeFromParent(); killerSprite = nil
+        dying = false
         state.lives -= 1
         refreshHUD()
         if state.lives <= 0 { gameOver = true; showGameOver(); return }
@@ -338,6 +372,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) { moveDir = d; break }
         targetAngle = cardinal(moveDir); angle = targetAngle
         bossController.teleportAllToSpawn()   // 3s spawnGrace; peteShielded follows isAnyBossSpawning
+        pete.startWalking()
         pete.removeAction(forKey: "shield")
         pete.run(.sequence([.repeat(.sequence([.fadeAlpha(to: 0.35, duration: 0.6), .fadeAlpha(to: 1.0, duration: 0.6)]), count: 3),
                             .run { [weak self] in self?.pete.alpha = 1 }]), withKey: "shield")
@@ -351,7 +386,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
             let bg = e.mover?.grid ?? e.ai.grid
             guard Int(bg.x) == pgx, Int(bg.y) == pgy, !bossController.isImmobilized(boss: e.node) else { continue }
             if bossController.isInFleeMode(boss: e.node) { bossController.capture(boss: e.node) }
-            else if !peteShielded { peteCaught(); return }
+            else if !peteShielded { startDeath(blueprintIndex: e.blueprintIndex); return }
         }
     }
 
@@ -539,6 +574,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     // MARK: - Per-frame
     override func update(_ currentTime: TimeInterval) {
         if isUserPaused || gameOver { return }
+        if dying { updateDeath(); return }
         step(); render()
     }
 
