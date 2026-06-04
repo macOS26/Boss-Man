@@ -37,7 +37,7 @@ struct MazeZoom {
             case 1980: return "LUMBERGH";
             case 1982: return "MORE FLAIR";
             case 1983: return "MIKE JUDGE";
-            case 1993: return "BOSS 3D";
+            case 1993: return "MILTON 3D";
             default:   return std::to_string(current());
         }
     }
