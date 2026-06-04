@@ -16,6 +16,7 @@
 #include "Graphics/Shape.hpp"
 #include "Graphics/RectangleShape.hpp"
 #include "Graphics/CircleShape.hpp"
+#include "Graphics/ConvexShape.hpp"
 #include "Graphics/Vertex.hpp"
 #include "Graphics/VertexArray.hpp"
 #include "Graphics/Sprite.hpp"

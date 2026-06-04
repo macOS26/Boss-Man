@@ -20,10 +20,11 @@
 #include "LocalLeaderboard.hpp"
 #include "LevelStore.hpp"
 #include "LevelEditor.hpp"
+#include "DoomScene.hpp"
 
 namespace bm {
 
-enum class GameState { Title, Playing, Paused, GameOver, Editor };
+enum class GameState { Title, Playing, Paused, GameOver, Editor, Doom3D };
 
 class Game : public BossControllerDelegate {
 public:
@@ -62,6 +63,7 @@ private:
     void updateMazeCamera(); // ease the camera toward Pete once per frame
     sf::View worldView() const; // the snapped, Pete-centred world view at the current zoom
     void buildLevel();
+    void startDoom3D(); // build + enter the first-person 3D bonus (era 1993)
     void resetSceneAndBuild();
     void startNextLevel();
     void restartGame();
@@ -110,6 +112,7 @@ private:
     LevelStore levelStore;
     LevelEditor editor{levelStore};
     std::unique_ptr<WorkerController> worker;
+    std::unique_ptr<DoomScene> doomScene; // first-person 3D bonus (era 1993)
 
     GameState gameState = GameState::Title;
     bool fullscreen = false;

@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <string>
 #include <cstdlib>
 #include "AppPaths.hpp"
@@ -10,11 +11,47 @@
 
 namespace bm {
 
-// Title-screen toggles, persisted like the high score (settings.txt = "S,L,H,Z").
+// Era/zoom selection, mirroring MazeZoom in the SpriteKit master (Strings.swift).
+// The persisted value is the era year, not a zoom percent: the cycle walks the
+// four eras 1980 -> 1982 -> 1983 -> 1993. 1993 is the DOOM sentinel (first-person
+// 3D path); the other eras drive the 2D follow-camera at zoomPercent. Invalid /
+// unset storage collapses to doom, matching MazeZoom.current.
+struct MazeZoom {
+    static constexpr int doom = 1993;
+    static constexpr std::array<int, 4> cycle{1980, 1982, 1983, 1993};
+
+    static int current();
+    static bool isDoom() { return current() == doom; }
+    // The 2D follow-camera zoom for each era (100 = no camera). Ms. Pac-Man = 150%,
+    // Jr. Pac-Man = 200%; Pac-Man is classic 100%, DOOM uses the 3D path instead.
+    static int zoomPercent() {
+        switch (current()) {
+            case 1982: return 150;
+            case 1983: return 200;
+            default:   return 100;
+        }
+    }
+    static std::string label() {
+        switch (current()) {
+            case 1980: return "1980 05 22";
+            case 1982: return "1982 02 03";
+            case 1983: return "1983 10 28";
+            case 1993: return "1993 12 10";
+            default:   return std::to_string(current());
+        }
+    }
+    static void advance();
+    static bool inCycle(int z) {
+        for (int e : cycle) if (e == z) return true;
+        return false;
+    }
+};
+
+// Title-screen toggles, persisted like the high score (settings.txt = "S,L,H,E").
 // bossTracksSquare defaults true (classic glide-then-dwell cadence, matching the
 // shipped behaviour); waterGunLeft defaults false (fire button on the right);
 // waterGunHide defaults false (the third Water Gun state hides the fire button);
-// mazeZoom defaults 100 (full board, no follow camera; cycles 100->150->200).
+// the era slot defaults to MazeZoom::doom (Strings.swift MazeZoom.current).
 class Settings {
 public:
     static bool bossTracksSquare() { ensure(); return inst().square_; }
@@ -24,25 +61,20 @@ public:
     static void setWaterGunLeft(bool v)     { ensure(); inst().left_ = v; save(); }
     static void setWaterGunHide(bool v)     { ensure(); inst().hide_ = v; save(); }
 
-    // Read fresh at level-build time. Invalid/unset storage collapses to 100.
-    static int mazeZoom() {
-        ensure();
-        int z = inst().zoom_;
-        return (z == 100 || z == 150 || z == 200) ? z : 100;
-    }
-    // Walk 100 -> 150 -> 200 -> 100.
-    static void advanceMazeZoom() {
-        ensure();
-        int z = mazeZoom();
-        inst().zoom_ = (z == 100) ? 150 : (z == 150 ? 200 : 100);
-        save();
-    }
+    // The stored era year (one of MazeZoom::cycle). Backs MazeZoom::current.
+    static int mazeEra() { ensure(); return inst().era_; }
+    static void setMazeEra(int e) { ensure(); inst().era_ = e; save(); }
+
+    // The 2D follow-camera zoom for the current era; consumers read this fresh at
+    // level-build time (100 = full board, no follow camera).
+    static int mazeZoom() { return MazeZoom::zoomPercent(); }
+    static void advanceMazeZoom() { MazeZoom::advance(); }
 
 private:
     bool square_ = true;
     bool left_ = false;
     bool hide_ = false;
-    int zoom_ = 100;
+    int era_ = MazeZoom::doom;
     bool loaded_ = false;
 
     static Settings& inst() { static Settings s; return s; }
@@ -63,13 +95,16 @@ private:
         auto comma = str.rfind(',');
         if (comma != std::string::npos && str.find(',') != comma) {
             int z = std::atoi(str.c_str() + comma + 1);
-            if (z == 100 || z == 150 || z == 200) s.zoom_ = z;
+            if (MazeZoom::inCycle(z)) s.era_ = z;
+            else if (z == 150) s.era_ = 1982;   // legacy zoom-percent storage
+            else if (z == 200) s.era_ = 1983;
+            else if (z == 100) s.era_ = 1980;
         }
     }
 
     static void save() {
         Settings& s = inst();
-        std::string str = std::string(s.square_ ? "1" : "0") + "," + (s.left_ ? "1" : "0") + "," + (s.hide_ ? "1" : "0") + "," + std::to_string(s.zoom_);
+        std::string str = std::string(s.square_ ? "1" : "0") + "," + (s.left_ ? "1" : "0") + "," + (s.hide_ ? "1" : "0") + "," + std::to_string(s.era_);
 #if defined(BOSS_MAN_WEB)
         storeSet("settings.txt", str);
 #else
@@ -77,6 +112,20 @@ private:
         if (f.is_open()) f << str;
 #endif
     }
+
+    friend struct MazeZoom;
 };
+
+inline int MazeZoom::current() {
+    int z = Settings::mazeEra();
+    return inCycle(z) ? z : doom;
+}
+
+inline void MazeZoom::advance() {
+    int cur = current();
+    size_t i = 0;
+    for (size_t k = 0; k < cycle.size(); ++k) if (cycle[k] == cur) { i = k; break; }
+    Settings::setMazeEra(cycle[(i + 1) % cycle.size()]);
+}
 
 } // namespace bm

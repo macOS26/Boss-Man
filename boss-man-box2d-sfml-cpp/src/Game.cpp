@@ -332,6 +332,18 @@ void Game::buildLevel() {
     refreshHUD();
 }
 
+void Game::startDoom3D() {
+    // The 3D bonus runs the office map (level 1), reusing the same level data the 2D
+    // game would for level 1 (edited rows from the editor take precedence).
+    state.resetForNewGame();
+    state.practiceMode = false;
+    state.level = 1;
+    auto rows = currentLevelRows();
+    if (rows.empty()) return;
+    doomScene = std::make_unique<DoomScene>(sound, state, rows, state.highScore);
+    gameState = GameState::Doom3D;
+}
+
 void Game::handleTitleHit(float x, float y) {
     switch (titleScreen.hitTest(x, y)) {
     case TitleScreen::Hit::Play:       input.pRequested = true; break;
@@ -371,6 +383,36 @@ void Game::processInput() {
         // ⌘ shortcuts), so route events straight to it and skip InputController.
         if (gameState == GameState::Editor) {
             editor.handleEvent(event, window);
+            continue;
+        }
+        // The 3D bonus drives a tank-style first-person input that needs raw key
+        // down/up (held forward/back) and joystick drags, so it gets events directly.
+        if (gameState == GameState::Doom3D && doomScene) {
+            // F still toggles fullscreen anywhere; keep that global affordance.
+            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::F) {
+                input.fullscreenToggleRequested = true; continue;
+            }
+            if (event.type == sf::Event::KeyPressed)
+                doomScene->keyDown(event.key.code, false);
+            else if (event.type == sf::Event::KeyReleased)
+                doomScene->keyUp(event.key.code);
+            else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y));
+                doomScene->mouseDown(p.x, p.y);
+            } else if (event.type == sf::Event::MouseMoved) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y));
+                doomScene->mouseDragged(p.x, p.y);
+            } else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+                doomScene->mouseUp();
+            } else if (event.type == sf::Event::TouchBegan) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)event.touch.x, (int)event.touch.y));
+                doomScene->mouseDown(p.x, p.y);
+            } else if (event.type == sf::Event::TouchMoved) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)event.touch.x, (int)event.touch.y));
+                doomScene->mouseDragged(p.x, p.y);
+            } else if (event.type == sf::Event::TouchEnded) {
+                doomScene->mouseUp();
+            }
             continue;
         }
         // Game-over combo screen: taps hit the on-screen keyboard / PLAY / ESC;
@@ -485,11 +527,17 @@ void Game::processInput() {
 
     if (gameState == GameState::Title) {
         if (input.pRequested) {
-            gameState = GameState::Playing;
-            state.resetForNewGame();
-            state.practiceMode = false;
-            buildLevel();
-            hud.showMessage(Message::INTRO, 3.0f);
+            // The DOOM era (1993) launches the first-person 3D bonus; the other eras
+            // run the 2D follow-camera game at their zoom percent.
+            if (MazeZoom::isDoom()) {
+                startDoom3D();
+            } else {
+                gameState = GameState::Playing;
+                state.resetForNewGame();
+                state.practiceMode = false;
+                buildLevel();
+                hud.showMessage(Message::INTRO, 3.0f);
+            }
         }
         if (input.eRequested) {
             gameState = GameState::Editor;
@@ -520,6 +568,28 @@ void Game::processInput() {
             sound.resumeAudio();
         }
         if (input.escapeRequested) returnToTitle();
+    } else if (gameState == GameState::Doom3D && doomScene) {
+        // ESC leaves the bonus to the title; running out of lives shows the shared
+        // game-over combo (no name entry, like the SpriteKit DoomScene).
+        if (doomScene->wantsExit()) {
+            doomScene->clearExit();
+            returnToTitle();
+        } else if (doomScene->isGameOver()) {
+            gameState = GameState::GameOver;
+            goName.clear(); goCommitted = false; goQualified = false;
+            if (!state.practiceMode) {
+                state.saveHighScore();
+                goQualified = leaderboard.qualifies(state.score);
+                goName = leaderboard.savedName();
+                if (goName.empty()) { const char* user = std::getenv("USER"); goName = user ? user : ""; }
+            }
+            doomScene.reset();
+            // The shared game-over screen draws over the 2D world render path; clear
+            // the level so no stray maze/bosses/Pete from a prior 2D game show behind it.
+            mazeRenderer.reset();
+            worker.reset();
+            bossController.clear();
+        }
     }
 
     input.consume();
@@ -528,6 +598,7 @@ void Game::processInput() {
 void Game::update(float dt) {
     sound.updateDucking(); // restore/duck SFX+music around boss voice lines
     if (gameState == GameState::Editor) { editor.update(dt); return; }
+    if (gameState == GameState::Doom3D) { if (doomScene) doomScene->update(dt); return; }
     if (gameState != GameState::Playing) return;
 
     hud.update(dt);
@@ -728,6 +799,8 @@ void Game::render() {
         titleScreen.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT, state.highScore, leaderboard.entries());
     } else if (gameState == GameState::Editor) {
         editor.draw(window);
+    } else if (gameState == GameState::Doom3D && doomScene) {
+        doomScene->render(window);
     } else {
         // At 150%/200% the world (maze, pickups, travelers, droplets, bosses, Pete,
         // splashes) is drawn through a zoomed view centred on the eased camera;
@@ -1195,6 +1268,8 @@ void Game::restartGame() {
 void Game::returnToTitle() {
     hud.isGameOver = false;
     sound.stopBackgroundMusic();
+    sound.stopGoldDiscBass();    // the 3D bonus may have left the gold-disc bass running
+    doomScene.reset();           // tear down the first-person bonus if it was active
     if (goldDiscActive) endGoldDiscMode();
     // A practice session (started from the editor) returns to the editor at the
     // level being tested, like the SpriteKit GameScene.returnToTitleScene().

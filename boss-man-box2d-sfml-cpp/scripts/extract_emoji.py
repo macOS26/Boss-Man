@@ -53,6 +53,12 @@ EMOJIS = [
     b"\xf0\x9f\x93\x97",              # 📗 green book
     b"\xf0\x9f\x93\x98",              # 📘 blue book
     b"\xf0\x9f\x93\x99",              # 📙 orange book
+    b"\xf0\x9f\x95\xb9\xef\xb8\x8f",  # 🕹️ joystick  (title PLAY button)
+    b"\xe2\x9c\x8f\xef\xb8\x8f",      # ✏️ pencil     (title EDITOR button)
+    b"\xf0\x9f\x93\xba",              # 📺 television (Fullscreen toggle)
+    b"\xf0\x9f\xaa\x9f",              # 🪟 window     (Window toggle)
+    b"\xe2\x8f\xb3",                  # ⏳ hourglass  (era/Time toggle)
+    b"\xf0\x9f\x91\xbb",              # 👻 ghost      (Boss-Tracks toggle)
 ]
 
 

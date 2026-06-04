@@ -1,0 +1,1200 @@
+#include "DoomScene.hpp"
+#include "SoundManager.hpp"
+#include "PixelPersonRenderer.hpp"
+#include "EmojiText.hpp"
+#include "Assets.hpp"
+#include "UiScale.hpp"
+#include "Settings.hpp"
+#include <SFML/Window/Keyboard.hpp>
+#include <algorithm>
+#include <cmath>
+
+namespace bm {
+
+namespace {
+
+// SFML key codes used by the tank controls (mirrors the SpriteKit KeyCode set).
+constexpr int K_ESC   = sf::Keyboard::Escape;
+constexpr int K_P     = sf::Keyboard::P;
+constexpr int K_SPACE = sf::Keyboard::Space;
+constexpr int K_LEFT  = sf::Keyboard::Left;
+constexpr int K_RIGHT = sf::Keyboard::Right;
+constexpr int K_UP    = sf::Keyboard::Up;
+constexpr int K_DOWN  = sf::Keyboard::Down;
+constexpr int K_A     = sf::Keyboard::A;
+constexpr int K_D     = sf::Keyboard::D;
+constexpr int K_W     = sf::Keyboard::W;
+constexpr int K_S     = sf::Keyboard::S;
+
+// Pickup emoji glyphs (machines / brown box / water gun), matching the 2D modes.
+const std::string EMO_PRINTER = "\xf0\x9f\x96\xa8\xef\xb8\x8f"; // 🖨️
+const std::string EMO_FAX     = "\xf0\x9f\x93\xa0";             // 📠
+const std::string EMO_COVER   = "\xf0\x9f\x93\x84";             // 📄
+const std::string EMO_BINDER  = "\xf0\x9f\x93\x9a";             // 📚
+const std::string EMO_BOX     = "\xf0\x9f\x93\xa6";             // 📦
+const std::string EMO_GUN     = "\xf0\x9f\x94\xab";             // 🔫
+
+const std::string& pickupEmoji(int ch) {
+    switch (ch) {
+    case Tile::printer:    return EMO_PRINTER;
+    case Tile::fax:        return EMO_FAX;
+    case Tile::coverSheet: return EMO_COVER;
+    case Tile::bookBinder: return EMO_BINDER;
+    case Tile::brownBox:   return EMO_BOX;
+    case Tile::waterGun:   return EMO_GUN;
+    }
+    static const std::string none;
+    return none;
+}
+
+const sf::Font& nameFont() {
+    static sf::Font font;
+    static bool loaded = false;
+    if (!loaded) loaded = loadFont(font, "assets/fonts/JetBrainsMono-Bold.ttf");
+    return font;
+}
+
+// Crisp-on-Retina centered label (rasterize at uiScale, counter-scale down).
+void drawCenteredText(sf::RenderTarget& t, const std::string& s, float sizePx,
+                      sf::Color color, float x, float y) {
+    if (s.empty()) return;
+    float dpi = uiScale();
+    sf::Text txt;
+    txt.setFont(nameFont());
+    txt.setString(s);
+    txt.setCharacterSize((unsigned)(sizePx * dpi));
+    txt.setFillColor(color);
+    auto lb = txt.getLocalBounds();
+    txt.setOrigin(lb.left + lb.width / 2.f, lb.top + lb.height / 2.f);
+    txt.setScale(1.f / dpi, 1.f / dpi);
+    txt.setPosition(x, y);
+    t.draw(txt);
+}
+
+// The Pete-back avatar renderer (rear silhouette: no eyes/tie, hair-coloured head).
+PersonConfig peteBackConfig() {
+    PersonConfig cfg{PETE_BODY, PETE_TIE, PETE_HAIR, PETE_SHOE_OUT, PETE_PANTS, SKIN_COLOR};
+    cfg.backView = true;
+    cfg.walkExaggeration = 1.0f;
+    return cfg;
+}
+
+} // namespace
+
+DoomScene::DoomScene(SoundManager& sound, RoundState& state,
+                     const std::vector<std::string>& mapRows, int highScore)
+    : sound_(sound), state_(state), map_(mapRows), gridMap_(32.f), highScore_(highScore) {
+    rowsCount_ = (int)map_.size();
+    colsCount_ = rowsCount_ > 0 ? (int)map_[0].size() : 0;
+    viewW_ = (float)WINDOW_WIDTH;
+    viewHeight_ = (float)WINDOW_HEIGHT;
+    zbuf_.assign(columns_, 0.0);
+
+    // Round state for the bonus: level 1, fresh dot tally over the office map.
+    state_.level = 1;
+    state_.collectedDots = 0;
+    state_.reportItems.clear();
+    state_.currentReportScore = 0;
+    state_.tpsReportsDelivered = 0;
+    state_.highScore = highScore_;
+    int dots = 0;
+    for (auto& row : map_)
+        for (char c : row)
+            if (c == Tile::dot || c == Tile::hideout) dots++;
+    state_.dotCount = dots;
+
+    placeStart();
+    buildBillboards();
+    buildMap();
+    setupBossController();
+
+    hud_.extraRow = false; // compact 150/200-style HUD, never the extended row
+    refreshHUD();
+
+    // On-screen controls (joystick + fire button), unless the Water Gun setting hides
+    // them. Centers are stored in SFML y-down logical coords (the bottom corner),
+    // tucked 15px above the bottom edge like the SpriteKit installFireButton.
+    if (!Settings::waterGunHide()) {
+        controlsShown_ = true;
+        bool fireOnLeft = Settings::waterGunLeft();
+        float bottomY = viewHeight_ - (fireButtonRadius_ + 15.f);
+        fireButtonCenter_ = sf::Vector2f(fireOnLeft ? fireButtonRadius_ : viewW_ - fireButtonRadius_,
+                                         bottomY);
+        joystickCenter_ = sf::Vector2f(fireOnLeft ? viewW_ - joystickRadius_ : joystickRadius_,
+                                       viewHeight_ - (joystickRadius_ + 15.f));
+        joystickThumb_ = joystickCenter_;
+    }
+
+    sound_.startBackgroundMusic(false);
+}
+
+// MARK: - Map helpers
+
+char DoomScene::tileAtRaster(int c, int r) const {
+    if (r < 0 || r >= rowsCount_ || c < 0 || c >= (int)map_[r].size()) return Tile::wall;
+    return map_[r][c];
+}
+
+bool DoomScene::isWall(double x, double y) const {
+    int c = (int)std::floor(x), r = (int)std::floor(y);
+    if (r < 0 || r >= rowsCount_ || c < 0 || c >= (int)map_[r].size()) return true;
+    return map_[r][c] == Tile::wall;
+}
+
+bool DoomScene::open(int c, int r) const {
+    if (r < 0 || r >= rowsCount_ || c < 0 || c >= (int)map_[r].size()) return false;
+    return map_[r][c] != Tile::wall;
+}
+
+double DoomScene::cardinal(int dx, int dy) {
+    if (dx > 0) return 0;
+    if (dx < 0) return M_PI;
+    return dy > 0 ? M_PI / 2 : -M_PI / 2;
+}
+
+void DoomScene::placeStart() {
+    int sc = 1, sr = 1; bool found = false;
+    for (int r = 0; r < rowsCount_ && !found; ++r)
+        for (int c = 0; c < (int)map_[r].size(); ++c)
+            if (map_[r][c] == Tile::worker) { sc = c; sr = r; found = true; break; }
+    if (!found) {
+        for (int r = 0; r < rowsCount_ && !found; ++r)
+            for (int c = 0; c < (int)map_[r].size(); ++c)
+                if (map_[r][c] != Tile::wall) { sc = c; sr = r; found = true; break; }
+    }
+    px_ = sc + 0.5; py_ = sr + 0.5;
+    spawnPx_ = px_; spawnPy_ = py_;
+    int dx[] = {1, 0, -1, 0}, dy[] = {0, 1, 0, -1};
+    for (int i = 0; i < 4; ++i)
+        if (open(sc + dx[i], sr + dy[i])) { moveDirX_ = dx[i]; moveDirY_ = dy[i]; break; }
+    targetAngle_ = cardinal(moveDirX_, moveDirY_);
+    angle_ = targetAngle_;
+}
+
+// MARK: - Billboards
+
+void DoomScene::buildBillboards() {
+    for (int r = 0; r < rowsCount_; ++r) {
+        for (int c = 0; c < (int)map_[r].size(); ++c) {
+            char ch = map_[r][c];
+            double x = c + 0.5, y = r + 0.5;
+            double worldH = 0.6;
+            bool keep = true;
+            switch (ch) {
+            case Tile::dot: case Tile::hideout:   worldH = 0.14; break;
+            case Tile::goldDisc:                  worldH = 0.4;  break;
+            case Tile::waterPellet:               worldH = 0.4;  break;
+            case Tile::waterGun:                  worldH = 0.5;  break;
+            case Tile::printer: case Tile::fax:
+            case Tile::coverSheet: case Tile::bookBinder:
+            case Tile::brownBox:                  worldH = 0.6;  break;
+            default: keep = false; break;
+            }
+            if (!keep) continue;
+            billboards_.push_back(Billboard{ch, worldH, x, y, true, 1.f});
+        }
+    }
+}
+
+// MARK: - Minimap
+
+sf::Vector2f DoomScene::mapLocal(double x, double y) const {
+    // SpriteKit y-up local map space, then offset + scaled into the SFML panel.
+    float lx = (float)x * mapCell_;
+    float ly = ((float)rowsCount_ - (float)y) * mapCell_; // y-up
+    float sx = mapOrigin_.x + lx * mapScale_;
+    float sy = screenY(mapOrigin_.y + ly * mapScale_);    // y-up -> y-down
+    return {sx, sy};
+}
+
+void DoomScene::buildMap() {
+    float mapH = (float)rowsCount_ * mapCell_;
+    float mapW = (float)colsCount_ * mapCell_;
+    mapScale_ = (radarH_ - 8.f) / mapH;
+    // SpriteKit: mapLayer.position = ((width - mapW*scale)/2, 4) in y-up space.
+    mapOrigin_ = sf::Vector2f((viewW_ - mapW * mapScale_) / 2.f, 4.f);
+}
+
+// MARK: - BossController setup
+
+void DoomScene::setupBossController() {
+    gridMap_.yOffset = 0.f;
+    gridMap_.setRows(map_);
+    pathfinder_ = std::make_unique<Pathfinder>(gridMap_);
+    bossController_.setSound(&sound_);
+    bossController_.setDelegate(this);
+
+    // Spawn positions from the level '1'..'4' tiles, in the bottom-up GridMap grid.
+    std::vector<std::pair<int, GridPos>> overrides;
+    for (int r = 0; r < rowsCount_; ++r) {
+        int gridY = rowsCount_ - 1 - r;
+        for (int c = 0; c < (int)map_[r].size(); ++c) {
+            char ch = map_[r][c];
+            if (ch >= '1' && ch <= '4')
+                overrides.push_back({ch - '1', GridPos{c, gridY}});
+        }
+    }
+    bossController_.spawn(1, gridMap_, *pathfinder_, overrides);
+    bossGrid_.assign(bossController_.entities.size(), {0.0, 0.0});
+}
+
+// MARK: - HUD
+
+void DoomScene::refreshHUD() {
+    hud_.score = state_.score;
+    hud_.highScore = state_.highScore;
+    hud_.level = state_.level;
+    hud_.collectedDots = state_.collectedDots;
+    hud_.dotCount = state_.dotCount;
+    hud_.tpsReports = state_.tpsReportsDelivered;
+    hud_.reportItems = state_.reportItems;
+    hud_.lives = state_.lives;
+    hud_.waterGunActive = waterGun_.isActive;
+    hud_.waterGunVisible = waterGunPickedUp_;
+    hud_.waterGunPellets = waterGun_.pelletsRemaining;
+    hud_.goldDiscActive = false;
+}
+
+// MARK: - Gold disc
+
+void DoomScene::startGoldDiscMode() {
+    goldDiscActive_ = true;
+    bossController_.setGoldDiscActive(true);
+    sound_.startGoldDiscBass(false);
+    frightenSecondsLeft_ = goldDiscDuration_;
+    hud_.showMessage(Message::GOLD_DISC_ACTIVE, 3.f);
+    refreshHUD();
+}
+
+void DoomScene::endGoldDiscMode() {
+    goldDiscActive_ = false;
+    bossController_.setGoldDiscActive(false);
+    sound_.stopGoldDiscBass();
+    frightenSecondsLeft_ = 0;
+    hud_.showMessage(Message::GOLD_DISC_ENDED, 2.f);
+    refreshHUD();
+}
+
+// MARK: - Pause
+
+void DoomScene::togglePause() {
+    isUserPaused_ = !isUserPaused_;
+    if (isUserPaused_) {
+        hud_.showMessage(Message::PAUSED, 9999.f);
+        sound_.pauseAudio();
+    } else {
+        hud_.showMessage("", 0.1f);
+        sound_.resumeAudio();
+    }
+}
+
+// MARK: - BossControllerDelegate (Pete reported in GridMap bottom-up coords)
+
+MoveDirection DoomScene::dropletAxisThreatening(GridPos bossGrid) {
+    for (auto& s : shots_) {
+        if (!s.alive) continue;
+        GridPos d{(int)std::floor(s.x), rowsCount_ - 1 - (int)std::floor(s.y)};
+        MoveDirection dir = s.dirX > 0 ? MoveDirection::Right
+                          : s.dirX < 0 ? MoveDirection::Left
+                          : (s.dirY > 0 ? MoveDirection::Down : MoveDirection::Up);
+        if (dropletThreatens(d, dir, bossGrid)) return dir;
+    }
+    return MoveDirection::None;
+}
+
+bool DoomScene::dropletThreatens(GridPos d, MoveDirection dir, GridPos b) const {
+    const int dropletDodgeRange = 8;
+    auto del = bm::delta(dir);
+    int dist;
+    if (del.x != 0) {
+        if (b.y != d.y) return false;
+        int delta = b.x - d.x;
+        if (delta == 0 || ((del.x > 0) != (delta > 0))) return false;
+        dist = std::abs(delta);
+    } else {
+        if (b.x != d.x) return false;
+        int delta = b.y - d.y;
+        if (delta == 0 || ((del.y > 0) != (delta > 0))) return false;
+        dist = std::abs(delta);
+    }
+    if (dist > dropletDodgeRange) return false;
+    GridPos step = d;
+    for (int i = 0; i < dist; ++i) {
+        step = {step.x + del.x, step.y + del.y};
+        if (!gridMap_.isWalkable(step)) return false;
+    }
+    return true;
+}
+
+// MARK: - Per-frame
+
+void DoomScene::update(float dt) {
+    if (isUserPaused_ || gameOver_) { hud_.update(dt); return; }
+
+    // Advance the sim at a fixed 60Hz (the SpriteKit master's preferredFramesPerSecond),
+    // even though the host ticks at 120Hz. Each fired step runs the verbatim 1/60 logic.
+    const float fixed = 1.f / 60.f;
+    simAccumulator_ += dt;
+    int guard = 0;
+    while (simAccumulator_ >= fixed && guard < 4) {
+        simAccumulator_ -= fixed;
+        guard++;
+        if (dying_) { updateDeath(); continue; }
+        step();
+    }
+
+    animTime_ += dt; // pickup throb clock (independent of motion)
+    hud_.update(dt);
+    scorePopups_.update(dt);
+    for (auto& m : miniPops_) { m.timer -= dt; m.pos.y -= 60.f * dt; }
+    miniPops_.erase(std::remove_if(miniPops_.begin(), miniPops_.end(),
+        [](const MiniPop& m) { return m.timer <= 0; }), miniPops_.end());
+}
+
+// MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
+
+void DoomScene::step() {
+    double da = targetAngle_ - angle_;
+    while (da > M_PI) da -= 2 * M_PI;
+    while (da < -M_PI) da += 2 * M_PI;
+    angle_ += std::max(-0.14, std::min(0.14, da));
+
+    const double speed = 1.0 / (0.14 * 60.0); // match WorkerController 0.14s/tile at 60fps
+    int col = (int)std::floor(px_), row = (int)std::floor(py_);
+    double ccx = col + 0.5, ccy = row + 0.5;
+
+    // Turn (←/→) near a tile centre: take the 90° turn if the side lane is open
+    // (cornering from up to ~0.4 tile), else spin 180° to reverse anywhere.
+    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4) {
+        if (open(col + wantDirX_, row + wantDirY_)) {
+            px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
+        } else {
+            px_ = ccx; py_ = ccy; moveDirX_ = -moveDirX_; moveDirY_ = -moveDirY_;
+        }
+        wantDirSet_ = false;
+        targetAngle_ = cardinal(moveDirX_, moveDirY_);
+    }
+
+    // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
+    bool fwd = pressUp_, back = pressDown_;
+    bool hasDir = fwd || back;
+    int tdx = fwd ? moveDirX_ : -moveDirX_;
+    int tdy = fwd ? moveDirY_ : -moveDirY_;
+    if (hasDir) {
+        bool atCenter = std::abs(px_ - ccx) < 0.06 && std::abs(py_ - ccy) < 0.06;
+        GridPos partner = atCenter && !open(col + tdx, row + tdy)
+            ? gridMap_.tunnelPartner(GridPos{col, rowsCount_ - 1 - row}) : GridPos{-1, -1};
+        if (partner.x >= 0) {
+            px_ = partner.x + 0.5;
+            py_ = (rowsCount_ - 1 - partner.y) + 0.5;
+        } else {
+            if (tdx != 0) py_ += std::max(-speed, std::min(speed, ccy - py_));
+            else          px_ += std::max(-speed, std::min(speed, ccx - px_));
+            if (open(col + tdx, row + tdy)) {
+                px_ += tdx * speed; py_ += tdy * speed;
+            } else {
+                if (tdx > 0) px_ = std::min(px_ + speed, ccx);
+                else if (tdx < 0) px_ = std::max(px_ - speed, ccx);
+                if (tdy > 0) py_ = std::min(py_ + speed, ccy);
+                else if (tdy < 0) py_ = std::max(py_ - speed, ccy);
+            }
+        }
+    }
+
+    // Dots + small pickups (proximity within half a tile).
+    for (auto& b : billboards_) {
+        if (!b.alive || b.worldH >= 0.5) continue;
+        if (std::abs(b.x - px_) < 0.5 && std::abs(b.y - py_) < 0.5) {
+            b.alive = false;
+            int bc = (int)b.x, br = (int)b.y;
+            hiddenPickups_.insert(mapKey(bc, br));
+            switch (tileAtRaster(bc, br)) {
+            case Tile::goldDisc:
+                sound_.playGoldDisc(); state_.collectedGoldDiscs++;
+                state_.bumpScore(5); popPoints(5); startGoldDiscMode();
+                break;
+            case Tile::waterPellet:
+                sound_.playWaterGunPickup(); state_.bumpScore(50); popPoints(50);
+                break;
+            default:
+                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1);
+                break;
+            }
+            refreshHUD();
+        }
+    }
+
+    collectStationary();
+    moveShots();
+
+    bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(),
+                           workerDir_(), goldDiscActive_, peteShielded_);
+
+    // Capture each boss's SMOOTH world position from boss.pixelPos (the mover holds
+    // the truth; the raycaster never overwrites it in this port). pixelPos is this
+    // port's y-DOWN screen pixels, so pixelPos/32 is already the continuous raster
+    // top-down centre (x = col+0.5, y = rasterRow+0.5) the billboard projection wants.
+    bossGrid_.assign(bossController_.entities.size(), {0.0, 0.0});
+    for (size_t i = 0; i < bossController_.entities.size(); ++i) {
+        auto& e = bossController_.entities[i];
+        bossGrid_[i] = {(double)e.pixelPos.x / 32.0, (double)e.pixelPos.y / 32.0};
+    }
+
+    // Shielded exactly while bosses flash in (spawnGrace == any boss immobilized).
+    peteShielded_ = false;
+    for (size_t i = 0; i < bossController_.entities.size(); ++i)
+        if (bossController_.entities[i].isActive && bossController_.isImmobilized((int)i)) {
+            peteShielded_ = true; break;
+        }
+
+    checkBossCatch();
+
+    if (frightenSecondsLeft_ > 0) {
+        frightenSecondsLeft_ -= 1.0 / 60.0;
+        if (frightenSecondsLeft_ <= 0) endGoldDiscMode();
+    }
+
+    if (hasDir) bob_ += 0.22;
+}
+
+// MARK: - workerGrid / workerDir (GridMap bottom-up)
+
+GridPos DoomScene::workerGrid_() const {
+    return GridPos{(int)std::floor(px_), rowsCount_ - 1 - (int)std::floor(py_)};
+}
+
+MoveDirection DoomScene::workerDir_() const {
+    if (moveDirX_ > 0) return MoveDirection::Right;
+    if (moveDirX_ < 0) return MoveDirection::Left;
+    return moveDirY_ > 0 ? MoveDirection::Down : MoveDirection::Up;
+}
+
+// MARK: - Boss catch
+
+void DoomScene::checkBossCatch() {
+    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
+    for (size_t i = 0; i < bossController_.entities.size(); ++i) {
+        auto& e = bossController_.entities[i];
+        if (!e.isActive) continue;
+        if ((int)e.grid.x != pgx || (int)e.grid.y != pgy) continue;
+        if (bossController_.isImmobilized((int)i)) continue;
+        if (bossController_.isInFleeMode((int)i)) {
+            std::string name = e.name;
+            bossController_.capture((int)i, gridMap_);
+            int pts = 100 * bossController_.captureStreak;
+            state_.bumpScore(pts);
+            sound_.playCaptureBoss(bossController_.captureStreak);
+            popPoints(pts);
+            refreshHUD();
+        } else if (!peteShielded_) {
+            startDeath((int)i);
+            return;
+        }
+    }
+}
+
+// MARK: - Death close-up
+
+void DoomScene::startDeath(int bossIndex) {
+    if (dying_) return;
+    dying_ = true;
+    deathBossIndex_ = bossIndex;
+    sound_.playCaughtByBoss();
+    if (goldDiscActive_) endGoldDiscMode();
+    deathFramesLeft_ = deathFrames_;
+}
+
+void DoomScene::updateDeath() {
+    deathFramesLeft_--;
+    if (deathFramesLeft_ <= 0) finishDeath();
+}
+
+void DoomScene::finishDeath() {
+    dying_ = false;
+    deathBossIndex_ = -1;
+    state_.lives -= 1;
+    refreshHUD();
+    if (state_.lives <= 0) {
+        gameOver_ = true;
+        sound_.stopBackgroundMusic();
+        sound_.stopGoldDiscBass();
+        sound_.playGameOver();
+        return;
+    }
+    px_ = spawnPx_; py_ = spawnPy_; wantDirSet_ = false; pressUp_ = pressDown_ = false;
+    int sc = (int)std::floor(spawnPx_), sr = (int)std::floor(spawnPy_);
+    int dx[] = {1, 0, -1, 0}, dy[] = {0, 1, 0, -1};
+    for (int i = 0; i < 4; ++i)
+        if (open(sc + dx[i], sr + dy[i])) { moveDirX_ = dx[i]; moveDirY_ = dy[i]; break; }
+    targetAngle_ = cardinal(moveDirX_, moveDirY_); angle_ = targetAngle_;
+    bossController_.teleportAllToSpawn(gridMap_, *pathfinder_); // 3s spawnGrace
+    bossGrid_.assign(bossController_.entities.size(), {0.0, 0.0});
+}
+
+// MARK: - Water gun shooting
+
+void DoomScene::fire() {
+    if (!waterGun_.consumePellet()) return;
+    sound_.playWaterGunShoot();
+    refreshHUD();
+    shots_.push_back(Shot{px_, py_, moveDirX_, moveDirY_, true, 0.f});
+}
+
+void DoomScene::moveShots() {
+    const double speed = 0.22;
+    for (auto& s : shots_) {
+        if (!s.alive) continue;
+        s.x += s.dirX * speed;
+        s.y += s.dirY * speed;
+        s.spin += 0.22f;
+        if (isWall(s.x, s.y)) { s.alive = false; continue; }
+        int sgx = (int)std::floor(s.x), sgy = rowsCount_ - 1 - (int)std::floor(s.y);
+        for (size_t i = 0; i < bossController_.entities.size(); ++i) {
+            auto& e = bossController_.entities[i];
+            if (!e.isActive) continue;
+            if ((int)e.grid.x == sgx && (int)e.grid.y == sgy) {
+                bossController_.splash((int)i, gridMap_, *pathfinder_);
+                s.alive = false;
+                sound_.playWaterGunSplash();
+                state_.bumpScore(50); popPoints(50); refreshHUD();
+                break;
+            }
+        }
+    }
+    shots_.erase(std::remove_if(shots_.begin(), shots_.end(),
+        [](const Shot& s) { return !s.alive; }), shots_.end());
+}
+
+// MARK: - Stationary item collection
+
+void DoomScene::collectStationary() {
+    int pcol = (int)std::floor(px_), prow = (int)std::floor(py_);
+    if (prow < 0 || prow >= rowsCount_ || pcol < 0 || pcol >= (int)map_[prow].size()) return;
+    char ch = map_[prow][pcol];
+    if (ch == Tile::brownBox) {
+        if (!onBrownBox_) { onBrownBox_ = true; collectTPSReport(); }
+        return;
+    }
+    onBrownBox_ = false;
+    int key = mapKey(pcol, prow);
+    if (collected_.count(key)) return;
+    switch (ch) {
+    case Tile::waterGun:
+        collected_.insert(key); waterGun_.activate(); waterGunPickedUp_ = true;
+        sound_.playWaterGunPickup();
+        billboards_.erase(std::remove_if(billboards_.begin(), billboards_.end(),
+            [&](Billboard& b) { return (int)b.x == pcol && (int)b.y == prow; }), billboards_.end());
+        hiddenPickups_.insert(key);
+        refreshHUD();
+        break;
+    case Tile::printer:    collectMachine(Machine::PRINTER, key, pcol, prow); break;
+    case Tile::fax:        collectMachine(Machine::FAX, key, pcol, prow); break;
+    case Tile::coverSheet: collectMachine(Machine::COVER_SHEET, key, pcol, prow); break;
+    case Tile::bookBinder: collectMachine(Machine::BOOK_BINDER, key, pcol, prow); break;
+    default: break;
+    }
+}
+
+void DoomScene::collectMachine(const std::string& name, int key, int col, int row) {
+    bool required = false;
+    for (auto& n : Machine::REQUIRED) if (n == name) { required = true; break; }
+    if (!required || state_.reportItems.count(name)) return;
+    collected_.insert(key);
+    state_.reportItems.insert(name);
+    int itemIndex = (int)state_.reportItems.size() - 1; // points ramp 10/25/50/100
+    if (itemIndex < (int)(sizeof(REPORT_ITEM_POINTS) / sizeof(int))) {
+        int pts = REPORT_ITEM_POINTS[itemIndex];
+        state_.bumpScore(pts); state_.currentReportScore += pts; popPoints(pts);
+    }
+    sound_.playMachine(name);
+    // Gray (dim) the billboard + minimap pickup, don't remove it.
+    for (auto& b : billboards_)
+        if ((int)b.x == col && (int)b.y == row) b.alpha = 0.55f;
+    refreshHUD();
+}
+
+void DoomScene::collectTPSReport() {
+    if (state_.reportItems.size() != Machine::REQUIRED.size()) {
+        std::string missing;
+        for (auto& n : Machine::REQUIRED)
+            if (!state_.reportItems.count(n)) missing += (missing.empty() ? "" : ", ") + n;
+        hud_.showMessage(Message::NEED_TPS, 5.f);
+        return;
+    }
+    state_.tpsReportsDelivered += 1;
+    state_.reportItems.clear();
+    int tpsPoints = state_.level * 100 + 100;
+    state_.bumpScore(tpsPoints); state_.currentReportScore = 0;
+    popPoints(tpsPoints);
+    sound_.playTpsDeliver();
+    bool gainedLife = state_.lives < MAX_LIVES;
+    if (gainedLife) state_.lives += 1;
+    resetCollectedMachines();
+    refreshHUD();
+    hud_.showMessage(Message::TPS_READY, 3.f);
+}
+
+void DoomScene::resetCollectedMachines() {
+    for (int r = 0; r < rowsCount_; ++r) {
+        for (int c = 0; c < (int)map_[r].size(); ++c) {
+            char ch = map_[r][c];
+            if (ch == Tile::printer || ch == Tile::fax ||
+                ch == Tile::coverSheet || ch == Tile::bookBinder) {
+                collected_.erase(mapKey(c, r));
+                for (auto& b : billboards_)
+                    if ((int)b.x == c && (int)b.y == r) b.alpha = 1.f;
+            }
+        }
+    }
+}
+
+// MARK: - Score popups (3D view + minimap mini)
+
+void DoomScene::popPoints(int n) {
+    float peteBaseY = radarH_ + viewH() * 0.42f / 2.f + 6.f;
+    float skY = peteBaseY + viewH() * 0.30f; // big in the 3D view, above Pete (y-up)
+    scorePopups_.add(n, {viewW_ / 2.f, screenY(skY)});
+    sf::Vector2f petePos = mapLocal(px_, py_);
+    miniPops_.push_back(MiniPop{"+" + std::to_string(n), petePos, 0.7f});
+}
+
+// MARK: - Input
+
+void DoomScene::keyDown(int code, bool isRepeat) {
+    if (gameOver_) return;
+    if (code == K_ESC) { wantsExit_ = true; return; }
+    if (code == K_P) { togglePause(); return; }
+    if (isUserPaused_) return;
+    if (code == K_SPACE) { if (!isRepeat) fire(); return; }
+    if (code == K_LEFT || code == K_A) {
+        wantDirSet_ = true; wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; // turn left
+        return;
+    }
+    if (code == K_RIGHT || code == K_D) {
+        wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; // turn right
+        return;
+    }
+    if (code == K_UP || code == K_W) { pressUp_ = true; pressDown_ = false; return; }
+    if (code == K_DOWN || code == K_S) { pressDown_ = true; pressUp_ = false; return; }
+}
+
+void DoomScene::keyUp(int code) {
+    if (code == K_UP || code == K_W) pressUp_ = false;
+    else if (code == K_DOWN || code == K_S) pressDown_ = false;
+}
+
+static float radiusBetween(sf::Vector2f a, sf::Vector2f b) {
+    float dx = a.x - b.x, dy = a.y - b.y;
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+void DoomScene::mouseDown(float x, float y) {
+    if (isUserPaused_ || dying_ || gameOver_) return;
+    sf::Vector2f p(x, y);
+    if (!controlsShown_) { fire(); return; } // water gun hidden: tap anywhere fires
+    if (radiusBetween(p, joystickCenter_) <= joystickRadius_) {
+        joystickActive_ = true; mouseDragged(x, y); return;
+    }
+    if (radiusBetween(p, fireButtonCenter_) <= fireButtonRadius_) fire();
+}
+
+void DoomScene::mouseDragged(float x, float y) {
+    if (!joystickActive_) return;
+    sf::Vector2f p(x, y);
+    // Thumb tracking (clamped to the ring).
+    float dx = p.x - joystickCenter_.x, dy = p.y - joystickCenter_.y;
+    float mag = std::sqrt(dx * dx + dy * dy), limit = joystickRadius_ - joystickKnobRadius_;
+    if (mag > limit && mag > 0) {
+        float s = limit / mag;
+        joystickThumb_ = sf::Vector2f(joystickCenter_.x + dx * s, joystickCenter_.y + dy * s);
+    } else {
+        joystickThumb_ = p;
+    }
+    // Steering. Note SFML y is down, so "up = forward" means a NEGATIVE dy.
+    if (mag < joystickDeadzone_) { pressUp_ = pressDown_ = false; return; }
+    if (std::abs(dy) >= std::abs(dx)) {
+        if (dy < 0) { pressUp_ = true; pressDown_ = false; }
+        else        { pressDown_ = true; pressUp_ = false; }
+    } else {
+        pressUp_ = pressDown_ = false;
+        if (dx > 0) { wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; }
+        else        { wantDirSet_ = true; wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; }
+    }
+}
+
+void DoomScene::mouseUp() {
+    if (!joystickActive_) return;
+    joystickActive_ = false;
+    joystickThumb_ = joystickCenter_;
+    pressUp_ = pressDown_ = false;
+}
+
+// MARK: - Rendering
+//
+// The raycaster math is ported verbatim from the SpriteKit master, which uses a
+// y-up screen (0 at the bottom, viewMidY the horizon). Every y is converted to the
+// SFML y-down target at draw time with screenY(); the geometry (DDA, perpendicular
+// distance, wall heights, perspective) is identical.
+
+void DoomScene::render(sf::RenderTarget& target) {
+    drawSky(target);
+
+    double dirX = std::cos(angle_), dirY = std::sin(angle_);
+    double planeX = -dirY * planeScale_, planeY = dirX * planeScale_;
+
+    // Camera trails behind Pete; pull in if it would sit inside a wall.
+    double back = camBack_;
+    while (back > 0.05 && isWall(px_ - dirX * back, py_ - dirY * back)) back -= 0.1;
+    camX_ = px_ - dirX * back; camY_ = py_ - dirY * back;
+
+    renderWalls(target, dirX, dirY, planeX, planeY);
+    projectSprites(dirX, dirY, planeX, planeY);
+
+    // Depth-sorted sprite draw: farther first (smaller depthZ -> drawn later == in
+    // front in SpriteKit's zPosition; here we paint near-last so it sits on top).
+    struct Drawable { float depth; int kind; int idx; }; // kind 0 billboard,1 shot,2 boss,3 pete
+    std::vector<Drawable> order;
+    for (size_t i = 0; i < billboards_.size(); ++i)
+        if (billboards_[i].visible) order.push_back({billboards_[i].depthZ, 0, (int)i});
+    for (size_t i = 0; i < shots_.size(); ++i)
+        if (shots_[i].visible) order.push_back({shots_[i].depthZ, 1, (int)i});
+    for (size_t i = 0; i < bossProj_.size(); ++i)
+        if (bossProj_[i].visible) order.push_back({bossProj_[i].depthZ, 2, (int)i});
+    // Paint farther (smaller zPosition) first so nearer sprites overdraw them.
+    std::sort(order.begin(), order.end(),
+              [](const Drawable& a, const Drawable& b) { return a.depth < b.depth; });
+    for (auto& d : order) {
+        if (d.kind == 0) drawBillboardSprite(target, billboards_[d.idx]);
+        else if (d.kind == 1) drawShotSprite(target, shots_[d.idx]);
+        else if (d.kind == 2) drawBossBillboard(target, d.idx);
+    }
+
+    // Pete avatar: rear silhouette, always in front of every billboard (z=90), with
+    // a vertical head-bob. During the death close-up he fades to 0.2 alpha.
+    {
+        static PixelPersonRenderer peteRenderer(peteBackConfig());
+        float target_h = viewH() * 0.42f;
+        auto m = peteRenderer.metrics();
+        float scale = target_h / m.height;
+        float peteBaseY = radarH_ + target_h / 2.f + 6.f; // y-up centre
+        float bobY = (float)(std::sin(bob_) * 4.0);
+        float cx = viewW_ / 2.f;
+        float cy = screenY(peteBaseY + bobY);
+        bool moving = pressUp_ || pressDown_;
+        float alpha = dying_ ? 0.2f : 1.0f;
+        peteRenderer.draw(target, {cx, cy}, false, moving, MoveDirection::None,
+                          (float)bob_, alpha, scale);
+        if (!dying_)
+            drawCenteredText(target, Worker::PETE, 22.f, sf::Color::White,
+                             cx, screenY(peteBaseY + target_h / 2.f + 16.f));
+    }
+
+    // Death close-up: the REAL catching boss, scaled to Pete's size, centred in the
+    // viewport, in front of everything (z above Pete). update() freezes the sim
+    // while dying so the boss holds still exactly here.
+    if (dying_ && deathBossIndex_ >= 0 && deathBossIndex_ < (int)bossController_.entities.size()) {
+        auto& e = bossController_.entities[deathBossIndex_];
+        auto m = e.renderer.metrics();
+        float scale = viewH() * 0.42f / m.height;
+        float cx = viewW_ / 2.f;
+        float cy = screenY(radarH_ + viewH() * 0.5f);
+        e.renderer.draw(target, {cx, cy}, e.facingLeft, false, MoveDirection::None,
+                        0.f, 1.0f, scale);
+    }
+
+    drawMap(target);
+    drawControls(target);
+    hud_.draw(target, (float)WINDOW_WIDTH, (float)WINDOW_HEIGHT);
+    scorePopups_.draw(target);
+}
+
+void DoomScene::drawSky(sf::RenderTarget& target) {
+    // Sky: gradient from horizon (0.10,0.10,0.13) to ceiling (0.02,0.02,0.035).
+    // Floor: flat region below the horizon, (0.11,0.12,0.13). Both above the radar.
+    float skyBottom = viewMidY(), skyTop = viewHeight_; // y-up
+    int n = std::max(1, (int)(skyTop - skyBottom));
+    sf::VertexArray sky(sf::Quads);
+    auto lerp = [](float a, float b, float t) { return a + (b - a) * t; };
+    for (int i = 0; i < n; ++i) {
+        float t = (float)i / (float)std::max(1, n - 1); // 0 horizon .. 1 ceiling
+        sf::Color col((uint8_t)(lerp(0.10f, 0.02f, t) * 255),
+                      (uint8_t)(lerp(0.10f, 0.02f, t) * 255),
+                      (uint8_t)(lerp(0.13f, 0.035f, t) * 255));
+        float yTop = screenY(skyBottom + i + 1);
+        float yBot = screenY(skyBottom + i);
+        sky.append(sf::Vertex({0.f, yTop}, col));
+        sky.append(sf::Vertex({viewW_, yTop}, col));
+        sky.append(sf::Vertex({viewW_, yBot}, col));
+        sky.append(sf::Vertex({0.f, yBot}, col));
+    }
+    target.draw(sky);
+
+    sf::RectangleShape ground({viewW_, viewMidY() - radarH_});
+    ground.setPosition(0.f, screenY(viewMidY())); // top of floor band (y-down)
+    ground.setFillColor(sf::Color(28, 31, 33));   // (0.11,0.12,0.13)
+    target.draw(ground);
+}
+
+void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
+                            double planeX, double planeY) {
+    std::vector<float> cTop(columns_), cBot(columns_);
+    std::vector<double> cDist(columns_);
+    std::vector<int> cSide(columns_), cFace(columns_);
+    std::vector<bool> cOpen(columns_);
+
+    for (int i = 0; i < columns_; ++i) {
+        double cameraX = 2.0 * (i + 0.5) / columns_ - 1.0;
+        double rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX;
+        int mapX = (int)std::floor(camX_), mapY = (int)std::floor(camY_);
+        double ddx = rdx == 0 ? 1e30 : std::abs(1 / rdx);
+        double ddy = rdy == 0 ? 1e30 : std::abs(1 / rdy);
+        int stepX, stepY; double sideX, sideY;
+        if (rdx < 0) { stepX = -1; sideX = (camX_ - mapX) * ddx; }
+        else         { stepX = 1;  sideX = (mapX + 1 - camX_) * ddx; }
+        if (rdy < 0) { stepY = -1; sideY = (camY_ - mapY) * ddy; }
+        else         { stepY = 1;  sideY = (mapY + 1 - camY_) * ddy; }
+        int side = 0, guardN = 0; bool hitWall = false;
+        while (guardN < 256) {
+            guardN++;
+            if (sideX < sideY) { sideX += ddx; mapX += stepX; side = 0; }
+            else               { sideY += ddy; mapY += stepY; side = 1; }
+            if (mapY < 0 || mapY >= rowsCount_ || mapX < 0 || mapX >= colsCount_) break;
+            if (map_[mapY][mapX] == Tile::wall) { hitWall = true; break; }
+        }
+        double perp = side == 0 ? (sideX - ddx) : (sideY - ddy);
+        double d = hitWall ? std::max(0.05, perp) : 1e9;
+        float lineH = std::min((float)viewH() * 4.f, (float)(viewH() / d));
+        cTop[i] = viewMidY() + lineH / 2.f; // y-up
+        cBot[i] = viewMidY() - lineH / 2.f;
+        cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall;
+        cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2
+                                        : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1;
+        zbuf_[i] = d;
+    }
+
+    float w = viewW_ / (float)columns_;
+    sf::VertexArray walls(sf::Quads);
+    int i = 0;
+    while (i < columns_) {
+        if (cOpen[i]) { i++; continue; }
+        int j = i;
+        while (j + 1 < columns_ && cFace[j + 1] == cFace[i]) j++;
+        float xL = i * w, xR = (j + 1) * w + 1; // 1px overlap hides AA seams
+        float topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j];
+        if (j > i) {
+            float cxL = (i + 0.5f) * w, cxR = (j + 0.5f) * w;
+            float mT = (cTop[j] - cTop[i]) / (cxR - cxL);
+            float mB = (cBot[j] - cBot[i]) / (cxR - cxL);
+            topL = cTop[i] + mT * (xL - cxL); topR = cTop[i] + mT * (xR - cxL);
+            botL = cBot[i] + mB * (xL - cxL); botR = cBot[i] + mB * (xR - cxL);
+        }
+        int mid = (i + j) / 2;
+        float f = std::max(0.12f, std::min(1.0f, 1.0f - (float)cDist[mid] / 16.f))
+                  * (cSide[i] == 1 ? 0.62f : 1.0f);
+        sf::Color col((uint8_t)((0.02f + 0.02f * f) * 255),
+                      (uint8_t)((0.05f + 0.45f * f) * 255),
+                      (uint8_t)((0.10f + 0.88f * f) * 255));
+        // y-up quad -> SFML y-down via screenY.
+        walls.append(sf::Vertex({xL, screenY(botL)}, col));
+        walls.append(sf::Vertex({xL, screenY(topL)}, col));
+        walls.append(sf::Vertex({xR, screenY(topR)}, col));
+        walls.append(sf::Vertex({xR, screenY(botR)}, col));
+        i = j + 1;
+    }
+    target.draw(walls);
+}
+
+void DoomScene::projectSprites(double dirX, double dirY, double planeX, double planeY) {
+    double invDet = 1.0 / (planeX * dirY - dirX * planeY);
+
+    auto project = [&](double x, double y, double worldH,
+                       bool& visible, float& screenXOut, float& scaleOut,
+                       float& floorYOut, float& depthOut, float nativeH) {
+        visible = false;
+        double relX = x - camX_, relY = y - camY_;
+        double tX = invDet * (dirY * relX - dirX * relY);
+        double tY = invDet * (-planeY * relX + planeX * relY); // depth
+        if (tY <= 0.15) return;
+        int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
+        if (col >= 0 && col < columns_) {
+            double wallZ = zbuf_[col];
+            for (int c = std::max(0, col - 4); c <= std::min(columns_ - 1, col + 4); ++c)
+                wallZ = std::max(wallZ, zbuf_[c]);
+            if (tY > wallZ + 0.3) return; // wall occludes
+        }
+        if (tY > 18) return; // far cull
+        float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);
+        if (screenX <= -60 || screenX >= viewW_ + 60) return;
+        float targetH = (float)(viewH() / tY * worldH);
+        visible = true;
+        screenXOut = screenX;
+        scaleOut = targetH / nativeH;
+        floorYOut = viewMidY() - (float)(viewH() / tY) / 2.f; // y-up floor row
+        depthOut = std::min(40.f, (float)(2 + 30 / tY));
+    };
+
+    // Pellets / gold / water / machines / brown box.
+    for (auto& b : billboards_) {
+        if (!b.alive) { b.visible = false; continue; }
+        // The pickup sprites are drawn at a nominal native height; pellets use a
+        // small cube, the rest an emoji. We pick a nativeH so the world size reads
+        // like the SpriteKit master (cube 8, emoji 128 native pt size).
+        float nativeH = (b.kind == Tile::dot || b.kind == Tile::hideout) ? 8.f
+                       : (b.kind == Tile::goldDisc || b.kind == Tile::waterPellet) ? 20.f
+                       : 128.f;
+        project(b.x, b.y, b.worldH, b.visible, b.screenX, b.scale, b.floorY, b.depthZ, nativeH);
+    }
+    // Shots (water pellets).
+    for (auto& s : shots_) {
+        if (!s.alive) { s.visible = false; continue; }
+        project(s.x, s.y, 0.32, s.visible, s.screenX, s.scale, s.floorY, s.depthZ, 18.f);
+    }
+
+    // Bosses: worldH 0.3 (no size cap), feet on the floor via the LOCAL feet offset.
+    bossProj_.assign(bossController_.entities.size(), BossProj{false, 0, 0, 0, 0, 0});
+    for (size_t i = 0; i < bossController_.entities.size(); ++i) {
+        auto& e = bossController_.entities[i];
+        if (!e.isActive && !e.isCaptured && !e.captureReturning) continue;
+        if (i >= bossGrid_.size()) continue;
+        float nativeH = std::max(1.f, e.renderer.metrics().height);
+        BossProj bp{false, 0, 0, 0, 0, 0};
+        project(bossGrid_[i].first, bossGrid_[i].second, 0.3,
+                bp.visible, bp.screenX, bp.scale, bp.floorY, bp.depthZ, nativeH);
+        bp.targetH = bp.scale * nativeH;
+        bossProj_[i] = bp;
+    }
+}
+
+void DoomScene::drawBillboardSprite(sf::RenderTarget& target, const Billboard& b) {
+    // Feet planted on the floor row: positionY = floorY - bottom*scale, where bottom
+    // is the LOCAL frame.minY (centred sprites pass -nativeH/2), matching the master.
+    // The throb (gold/water/water-gun) multiplies the rendered size like the
+    // SpriteKit child scale action; pellets are small so feet stay planted.
+    uint8_t a = (uint8_t)(b.alpha * 255);
+    float cx = b.screenX;
+    float t = animTime_;
+    float goldThrob = 1.0f + 0.25f * (0.5f - 0.5f * std::cos(t * 8.976f));
+    float pelletThrob = 1.0f + 0.30f * (0.5f - 0.5f * std::cos(t * 7.854f));
+    if (b.kind == Tile::dot || b.kind == Tile::hideout) {
+        float nativeH = 8.f, bottom = -nativeH / 2.f;
+        float cy = screenY(b.floorY - bottom * b.scale);
+        float r = (nativeH * 0.5f) * b.scale;
+        sf::CircleShape dot(r, 16);
+        dot.setOrigin(r, r);
+        dot.setPosition(cx, cy);
+        dot.setFillColor(sf::Color(255, 231, 0, a)); // systemYellow pellet
+        target.draw(dot);
+    } else if (b.kind == Tile::goldDisc || b.kind == Tile::waterPellet) {
+        bool gold = (b.kind == Tile::goldDisc);
+        float nativeH = 20.f, bottom = -nativeH / 2.f;
+        float cy = screenY(b.floorY - bottom * b.scale);
+        float r = (nativeH * 0.5f) * b.scale * (gold ? goldThrob : pelletThrob);
+        sf::CircleShape halo(r * 1.35f, 24);
+        halo.setOrigin(r * 1.35f, r * 1.35f);
+        halo.setPosition(cx, cy);
+        halo.setFillColor(gold ? sf::Color(255, 231, 0, (uint8_t)(0.30f * a))
+                               : sf::Color(0, 200, 240, (uint8_t)(0.25f * a)));
+        target.draw(halo);
+        sf::CircleShape core(r, 24);
+        core.setOrigin(r, r);
+        core.setPosition(cx, cy);
+        core.setFillColor(gold ? sf::Color(255, 231, 0, (uint8_t)(0.85f * a))
+                               : sf::Color(0, 200, 240, (uint8_t)(0.85f * a)));
+        core.setOutlineThickness(std::max(1.f, r * 0.08f));
+        core.setOutlineColor(gold ? sf::Color(178, 127, 0, a) : sf::Color(4, 122, 255, a));
+        target.draw(core);
+    } else {
+        // Emoji billboard (machine / brown box / water gun). nativeH 128 (the
+        // SpriteKit emoji point size); draw at targetSize = nativeH*scale. The water
+        // gun power-up throbs like the gold disc.
+        float nativeH = 128.f, bottom = -nativeH / 2.f;
+        float cy = screenY(b.floorY - bottom * b.scale);
+        float throb = (b.kind == Tile::waterGun) ? goldThrob : 1.0f;
+        float targetSize = nativeH * b.scale * throb;
+        drawEmoji(target, pickupEmoji(b.kind), {cx, cy}, targetSize,
+                  sf::Color(255, 255, 255, a));
+    }
+}
+
+void DoomScene::drawShotSprite(sf::RenderTarget& target, const Shot& s) {
+    float nativeH = 18.f, bottom = -nativeH / 2.f;
+    float cx = s.screenX;
+    float cy = screenY(s.floorY - bottom * s.scale);
+    float r = (nativeH * 0.5f) * s.scale;
+    sf::CircleShape core(r, 16);
+    core.setOrigin(r, r);
+    core.setPosition(cx, cy);
+    core.setFillColor(sf::Color(50, 200, 240, 217));
+    core.setOutlineThickness(std::max(1.f, r * 0.12f));
+    core.setOutlineColor(sf::Color(10, 122, 255));
+    target.draw(core);
+}
+
+void DoomScene::drawBossBillboard(sf::RenderTarget& target, int bossIndex) {
+    if (dying_) return; // death close-up draws the catcher itself; hide world bosses
+    if (bossIndex >= (int)bossProj_.size() || !bossProj_[bossIndex].visible) return;
+    auto& e = bossController_.entities[bossIndex];
+    const BossProj& bp = bossProj_[bossIndex];
+
+    // Feet planted on the floor via the LOCAL feet offset (frame.minY); centred Pete
+    // metrics give feetOffset DOWN from origin, so the y-up local bottom is -feetOffset.
+    float bottom = -e.renderer.metrics().feetOffset;
+    float cx = bp.screenX;
+    float cy = screenY(bp.floorY - bottom * bp.scale);
+
+    // Static eyes/tie billboard: lookDir None, not walking (freezeLook equivalent).
+    float alpha = e.fadeInAlpha;
+    if (e.isCaptured || e.captureReturning) alpha = e.captureAlpha;
+    e.renderer.draw(target, {cx, cy}, e.facingLeft, false, MoveDirection::None, 0.f, alpha, bp.scale);
+
+    // Nameplate above the boss (flee shows the next capture value in yellow).
+    float fontSize = std::max(13.f, std::min(24.f, bp.targetH * 0.16f));
+    bool flee = bossController_.isInFleeMode(bossIndex);
+    std::string tag = flee ? std::to_string(100 * (bossController_.captureStreak + 1)) : e.name;
+    sf::Color tagColor = flee ? PixelPersonRenderer::toSfColor(YELLOW) : sf::Color::White;
+    drawCenteredText(target, tag, fontSize, tagColor,
+                     cx, screenY(bp.floorY + bp.targetH + fontSize * 0.7f));
+}
+
+void DoomScene::drawMap(sf::RenderTarget& target) {
+    // Panel: dark background spanning the radar band, drawn ABOVE all 3D sprites so
+    // nothing ever draws over the minimap.
+    sf::RectangleShape panel({viewW_, radarH_});
+    panel.setPosition(0.f, screenY(radarH_));
+    panel.setFillColor(sf::Color(10, 10, 13)); // (0.04,0.04,0.05)
+    target.draw(panel);
+
+    float cell = mapCell_ * mapScale_;
+
+    // Floor checkerboard + walls.
+    for (int r = 0; r < rowsCount_; ++r) {
+        for (int c = 0; c < (int)map_[r].size(); ++c) {
+            sf::Vector2f p = mapLocal(c + 0.5, r + 0.5);
+            sf::RectangleShape floor({cell, cell});
+            floor.setOrigin(cell / 2.f, cell / 2.f);
+            floor.setPosition(p);
+            bool alt = (c + r) % 2 == 0;
+            floor.setFillColor(alt ? sf::Color(28, 31, 33) : sf::Color(23, 26, 28));
+            target.draw(floor);
+            if (map_[r][c] == Tile::wall) {
+                sf::RectangleShape wall({cell, cell});
+                wall.setOrigin(cell / 2.f, cell / 2.f);
+                wall.setPosition(p);
+                const Color& cub = CUBICLE_COLORS[0];
+                wall.setFillColor(sf::Color((uint8_t)(cub.r * 255 * 0.55f),
+                                            (uint8_t)(cub.g * 255 * 0.55f),
+                                            (uint8_t)(cub.b * 255 * 0.55f)));
+                target.draw(wall);
+            }
+        }
+    }
+
+    // Pickups (dots + machines/gold/water), hidden when collected.
+    float t = animTime_;
+    float goldScale = 1.0f + 0.25f * (0.5f - 0.5f * std::cos(t * 8.976f));
+    for (int r = 0; r < rowsCount_; ++r) {
+        for (int c = 0; c < (int)map_[r].size(); ++c) {
+            char ch = map_[r][c];
+            int key = mapKey(c, r);
+            if (hiddenPickups_.count(key)) continue;
+            sf::Vector2f p = mapLocal(c + 0.5, r + 0.5);
+            float alpha = 1.f;
+            for (auto& b : billboards_)
+                if ((int)b.x == c && (int)b.y == r) alpha = b.alpha;
+            uint8_t a = (uint8_t)(alpha * 255);
+            if (ch == Tile::dot || ch == Tile::hideout) {
+                float r2 = mapCell_ * 0.1f * mapScale_;
+                sf::CircleShape dot(r2, 10);
+                dot.setOrigin(r2, r2);
+                dot.setPosition(p);
+                dot.setFillColor(sf::Color(255, 231, 0, a));
+                target.draw(dot);
+            } else if (ch == Tile::goldDisc || ch == Tile::waterPellet) {
+                bool gold = (ch == Tile::goldDisc);
+                float r2 = mapCell_ * (gold ? 0.28f : 0.32f) * mapScale_ * goldScale;
+                sf::CircleShape core(r2, 16);
+                core.setOrigin(r2, r2);
+                core.setPosition(p);
+                core.setFillColor(gold ? sf::Color(255, 231, 0, a) : sf::Color(0, 200, 240, a));
+                target.draw(core);
+            } else if (pickupEmoji(ch).size() > 0) {
+                drawEmoji(target, pickupEmoji(ch), p, mapCell_ * 0.7f * mapScale_,
+                          sf::Color(255, 255, 255, a));
+            }
+        }
+    }
+
+    // Bosses on the radar (flee palette mirrored via the controller's renderer).
+    for (size_t i = 0; i < bossController_.entities.size(); ++i) {
+        auto& e = bossController_.entities[i];
+        if (!e.isActive && !e.isCaptured && !e.captureReturning) continue;
+        if (i >= bossGrid_.size()) continue;
+        auto g = bossGrid_[i];
+        sf::Vector2f p = mapLocal(g.first, g.second);
+        e.renderer.draw(target, p, e.facingLeft, e.isMoving, e.lookDir, e.walkPhase,
+                        1.0f, mapScale_ * 0.9f);
+    }
+
+    // Shots on the radar.
+    for (auto& s : shots_) {
+        if (!s.alive) continue;
+        sf::Vector2f p = mapLocal(s.x, s.y);
+        float r2 = mapCell_ * 0.22f * mapScale_;
+        sf::CircleShape dot(r2, 12);
+        dot.setOrigin(r2, r2);
+        dot.setPosition(p);
+        dot.setFillColor(sf::Color(50, 200, 240, 217));
+        target.draw(dot);
+    }
+
+    // Pete on the radar.
+    {
+        static PixelPersonRenderer mapPete(PersonConfig{PETE_BODY, PETE_TIE, PETE_HAIR,
+                                                        PETE_SHOE_OUT, PETE_PANTS, SKIN_COLOR});
+        sf::Vector2f p = mapLocal(px_, py_);
+        bool moving = pressUp_ || pressDown_;
+        MoveDirection face = workerDir_();
+        mapPete.draw(target, p, face == MoveDirection::Left, moving, face,
+                     (float)bob_, 1.0f, mapScale_ * 0.9f);
+    }
+
+    // Minimap mini score popups.
+    for (auto& m : miniPops_) {
+        uint8_t a = (uint8_t)(std::clamp(m.timer / 0.7f, 0.f, 1.f) * 255);
+        drawCenteredText(target, m.text, 40.f * mapScale_, sf::Color(255, 231, 0, a),
+                         m.pos.x, m.pos.y);
+    }
+}
+
+void DoomScene::drawControls(sf::RenderTarget& target) {
+    if (!controlsShown_) return;
+
+    // Fire button ring (centers are already in SFML y-down logical coords).
+    sf::CircleShape ring(fireButtonRadius_, 64);
+    ring.setOrigin(fireButtonRadius_, fireButtonRadius_);
+    ring.setPosition(fireButtonCenter_);
+    ring.setFillColor(sf::Color(255, 255, 255, 36));  // white @ 0.14
+    ring.setOutlineThickness(2.f);
+    ring.setOutlineColor(sf::Color(255, 255, 255, 128)); // white @ 0.5
+    target.draw(ring);
+
+    // Joystick base.
+    sf::CircleShape base(joystickRadius_, 64);
+    base.setOrigin(joystickRadius_, joystickRadius_);
+    base.setPosition(joystickCenter_);
+    base.setFillColor(sf::Color(255, 255, 255, 26));  // white @ 0.10
+    base.setOutlineThickness(2.f);
+    base.setOutlineColor(sf::Color(255, 255, 255, 128));
+    target.draw(base);
+
+    // Joystick thumb.
+    sf::CircleShape thumb(joystickKnobRadius_, 48);
+    thumb.setOrigin(joystickKnobRadius_, joystickKnobRadius_);
+    thumb.setPosition(joystickThumb_);
+    thumb.setFillColor(sf::Color(255, 255, 255, 71));  // white @ 0.28
+    thumb.setOutlineThickness(2.f);
+    thumb.setOutlineColor(sf::Color(255, 255, 255, 153));
+    target.draw(thumb);
+}
+
+} // namespace bm
