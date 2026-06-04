@@ -758,6 +758,7 @@ void DoomScene::render(sf::RenderTarget& target) {
     while (back > 0.05 && isWall(px_ - dirX * back, py_ - dirY * back)) back -= 0.1;
     camX_ = px_ - dirX * back; camY_ = py_ - dirY * back;
 
+    drawFloor(target, dirX, dirY, planeX, planeY);
     renderWalls(target, dirX, dirY, planeX, planeY);
     projectSprites(dirX, dirY, planeX, planeY);
 
@@ -853,6 +854,50 @@ void DoomScene::drawSky(sf::RenderTarget& target) {
     ground.setPosition(0.f, screenY(viewMidY())); // top of floor band (y-down)
     ground.setFillColor(sf::Color(28, 31, 33));   // (0.11,0.12,0.13)
     target.draw(ground);
+}
+
+// Floor-cast the maze floor as an alternating checker so the tile grid reads in 3D.
+// Lodev-style: each device row below the horizon maps to a perpendicular distance d
+// (from the wall projection: floor at d sits at y-up viewMidY - viewH/(2d)); the
+// world position sweeps from the leftmost to the rightmost camera ray across the row.
+// Cell parity (mapX+mapY) picks the shade. Painted before the walls, which overdraw
+// the occluded far floor.
+void DoomScene::drawFloor(sf::RenderTarget& target, double dirX, double dirY,
+                          double planeX, double planeY) {
+    double rdx0 = dirX - planeX, rdy0 = dirY - planeY;   // leftmost ray (cameraX = -1)
+    double rdx1 = dirX + planeX, rdy1 = dirY + planeY;   // rightmost ray (cameraX = +1)
+    const float horizonDY = screenY(viewMidY());          // device-y of the horizon
+    const float bottomDY  = screenY(radarH_);             // device-y of the floor band bottom
+    const sf::Color colA(24, 27, 29), colB(40, 45, 48);
+    const int W = (int)viewW_;
+    sf::VertexArray quads(sf::Quads);
+    int yStart = (int)std::ceil(horizonDY) + 1, yEnd = (int)std::floor(bottomDY);
+    for (int dy = yStart; dy <= yEnd; ++dy) {
+        float distFromHorizon = (float)dy - horizonDY;
+        if (distFromHorizon <= 0.5f) continue;
+        double d = viewH() / (2.0 * distFromHorizon);     // perpendicular floor distance
+        double fx = camX_ + d * rdx0, fy = camY_ + d * rdy0;
+        double stepX = d * (rdx1 - rdx0) / W, stepY = d * (rdy1 - rdy0) / W;
+        int runStart = 0;
+        int runParity = (((int)std::floor(fx)) + ((int)std::floor(fy))) & 1;
+        for (int x = 1; x <= W; ++x) {
+            int parity = -1;
+            if (x < W) {
+                double wx = fx + stepX * x, wy = fy + stepY * x;
+                parity = (((int)std::floor(wx)) + ((int)std::floor(wy))) & 1;
+            }
+            if (parity != runParity) {
+                sf::Color c = runParity ? colA : colB;
+                float x0 = (float)runStart, x1 = (float)x, y0 = (float)dy, y1 = (float)dy + 1.f;
+                quads.append(sf::Vertex({x0, y0}, c));
+                quads.append(sf::Vertex({x1, y0}, c));
+                quads.append(sf::Vertex({x1, y1}, c));
+                quads.append(sf::Vertex({x0, y1}, c));
+                runStart = x; runParity = parity;
+            }
+        }
+    }
+    target.draw(quads);
 }
 
 void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,

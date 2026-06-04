@@ -208,6 +208,8 @@ private:
     void drawShotSprite(sf::RenderTarget& target, const Shot& s);
     void drawBossBillboard(sf::RenderTarget& target, int bossIndex);
     void drawSky(sf::RenderTarget& target);
+    void drawFloor(sf::RenderTarget& target, double dirX, double dirY,
+                   double planeX, double planeY);
     void drawMap(sf::RenderTarget& target);
     void drawControls(sf::RenderTarget& target);
 
