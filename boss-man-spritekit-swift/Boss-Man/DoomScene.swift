@@ -63,7 +63,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var gameOverScreen: GameOverScreen?
     private var dying = false
     private var deathFramesLeft = 0
-    private let deathFrames = 72
+    private let deathFrames = 90   // 1.5s at 60fps: hold the catcher on screen
     private var killerSprite: SKNode?
     private var killerNativeH: CGFloat = 1
     private var pressed = Set<Int>()
@@ -351,10 +351,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     }
 
     private func updateDeath() {
-        guard let killer = killerSprite else { finishDeath(); return }
-        deathFramesLeft -= 1
-        let shake = CGFloat((deathFramesLeft % 4 < 2) ? 5 : -5)   // menacing shudder, fixed size
-        killer.position = CGPoint(x: size.width / 2 + shake, y: radarH + viewH * 0.5)
+        deathFramesLeft -= 1                          // hold the catcher on screen, still, then respawn
         if deathFramesLeft <= 0 { finishDeath() }
     }
 
