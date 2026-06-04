@@ -661,7 +661,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
 
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
-        let bossMaxH = viewH * 0.42   // never larger on-screen than Pete's fixed avatar
+        let bossMaxH = viewH * 0.30   // bosses read smaller than Pete's foreground avatar
         var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?)] = []
         for b in billboards where b.alive {
             all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil))
@@ -737,12 +737,15 @@ final class DoomScene: SKScene, BossControllerDelegate {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn (←/→) near a tile centre: take that lane if it's open, otherwise spin 180°
-        // so Pete can reverse anywhere in the maze (a dead end is just the blocked case).
-        if let t = wantDir, abs(px - ccx) < 0.2, abs(py - ccy) < 0.2 {
-            px = ccx; py = ccy; wantDir = nil
-            moveDir = open(col + t.x, row + t.y) ? t : (x: -moveDir.x, y: -moveDir.y)
-            targetAngle = cardinal(moveDir)
+        // Turn (←/→): a side turn needs centre alignment (the lane must be open there),
+        // but if that lane is walled just spin 180° in place — Pete can reverse anywhere,
+        // even mid-corridor with nowhere to turn.
+        if let t = wantDir {
+            if abs(px - ccx) < 0.2, abs(py - ccy) < 0.2, open(col + t.x, row + t.y) {
+                px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
+            } else if !open(col + t.x, row + t.y) {
+                moveDir = (x: -moveDir.x, y: -moveDir.y); wantDir = nil; targetAngle = cardinal(moveDir)
+            }
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
@@ -1003,7 +1006,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
 
     override func mouseDown(with event: NSEvent) {
         if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self)); return }
-        guard controlsShown, !isUserPaused else { return }
+        guard !isUserPaused, !dying else { return }
+        if !controlsShown { fire(); return }   // water gun hidden: a single tap anywhere fires
         let p = event.location(in: self)
         if radius(p, joystickCenter) <= joystickRadius {
             joystickActive = true; moveThumb(to: p); steerJoystick(p); return

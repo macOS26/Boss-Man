@@ -279,9 +279,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         // Swipe release. Dormant on apple (mouseDown fires there and never arms
         // swipeStart), so the guard short-circuits and the writes are harmless.
         let p = event.location(in: self)
-        if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused,
-           let d = swipeDirection(p.x - start.x, p.y - start.y) {
-            steer(d)
+        if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused {
+            if let d = swipeDirection(p.x - start.x, p.y - start.y) {
+                steer(d)
+            } else if fireButtonHidden {
+                fireWaterGun()   // fire button hidden: a tap (no swipe) fires the water gun
+            }
         }
         swipeStart = nil
         moveAnchor = p

@@ -239,8 +239,8 @@ enum Strings {
     enum Title {
         static let gameTitle      = "BOSS-MAN"
         static let pressSpace     = "P to Play · E for Editor"
-        static let playGame       = "(P)lay"
-        static let levelEditor    = "(E)ditor"
+        static let playGame       = "PLAY"
+        static let levelEditor    = "EDITOR"
         static let controlsHint   = "Cursor key to Move \u{00B7} Space to Fire Water Pistol"
         static func highScore(_ value: Int) -> String { "HIGH SCORE \(value)" }
     }
@@ -302,14 +302,14 @@ extension Strings.Speech {
 
 // MARK: - Maze zoom (title-screen camera mode)
 enum MazeZoom {
-    static let doom = 300                       // sentinel: the first-person 3D "DOOM" mode (after 200%)
-    static let cycle = [100, 150, 200, doom]
+    static let doom = 1993 // sentinel: the first-person 3D "DOOM" mode
+    static let cycle = [1980, 1982, 1983, 1993]
     static var current: Int {
         let z = Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)
-        return cycle.contains(z) ? z : 100
+        return cycle.contains(z) ? z : 1993
     }
     static var isDoom: Bool { current == doom }
-    static var label: String { isDoom ? "Doom" : "\(current)%" }
+    static var label: String { isDoom ? "\(doom)" : "\(current)" }
     static func advance() {
         let i = cycle.firstIndex(of: current) ?? 0
         Persistence.set(cycle[(i + 1) % cycle.count], forKey: Strings.DefaultsKey.mazeZoom)

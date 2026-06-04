@@ -55,7 +55,7 @@ final class TitleScene: SKScene {
         playButtonRect = makeTitleButton(
             text: Strings.Title.playGame, color: green,
             center: CGPoint(x: size.width / 2 - bw / 2 - gap / 2, y: promptY),
-            size: CGSize(width: bw, height: bh), textDY: -2)
+            size: CGSize(width: bw, height: bh), textDY: -1)
         editorButtonRect = makeTitleButton(
             text: Strings.Title.levelEditor, color: blue,
             center: CGPoint(x: size.width / 2 + bw / 2 + gap / 2, y: promptY),
@@ -91,25 +91,25 @@ final class TitleScene: SKScene {
 
         // Window controls hug the bottom-right corner; the gameplay toggles
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
-        fullscreenLabel = makeHint("F for Fullscreen", y: 18)
-        escWindowLabel  = makeHint("ESC for Window", y: 98)
-        mazeLabel       = makeHint(mazeText(), y: 178)
-        bossTracksLabel = makeHint(bossTracksText(), y: 18, left: true)
-        waterGunLabel   = makeHint(waterGunText(), y: 98, left: true)
+        fullscreenLabel = makeHint(icon: "📺", iconSize: 30, value: "Fullscreen", y: 40,
+                                   color: SKColor(calibratedRed: 0.58, green: 0.24, blue: 0.26, alpha: 0.95))   // maroon
+        escWindowLabel  = makeHint(icon: "🪟", iconSize: 30, value: "Window", y: 114,
+                                   color: SKColor(calibratedRed: 0.15, green: 0.45, blue: 0.55, alpha: 0.95))   // teal
+        mazeLabel       = makeHint(icon: "⏳", iconSize: 42, value: mazeText(), y: 188,
+                                   color: SKColor(calibratedRed: 0.45, green: 0.26, blue: 0.58, alpha: 0.95))   // purple
+        bossTracksLabel = makeHint(icon: "👻", iconSize: 30, value: bossTracksText(), y: 40,
+                                   color: SKColor(calibratedRed: 0.24, green: 0.30, blue: 0.62, alpha: 0.95), left: true)   // indigo
+        waterGunLabel   = makeHint(icon: "🔫", iconSize: 30, value: waterGunText(), y: 114,
+                                   color: SKColor(calibratedRed: 0.16, green: 0.50, blue: 0.27, alpha: 0.95), left: true)   // green
     }
 
     // MARK: - Settings text
     private func bossTracksText() -> String {
-        "Boss Tracks: \(isSquareTracks() ? "Square" : "Smooth")"
+        "\(isSquareTracks() ? "Hunter" : "Speedy")"
     }
     private func waterGunText() -> String {
-        let mode: String
-        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) {
-            mode = "Hide"
-        } else {
-            mode = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "Left" : "Right"
-        }
-        return "Water Gun: \(mode)"
+        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) { return "Hidden" }
+        return Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "Left" : "Right"
     }
 
     // Cycle Left -> Right -> Hide -> Left (two bools: waterGunLeft + waterGunHide).
@@ -127,7 +127,7 @@ final class TitleScene: SKScene {
         Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
     }
     private func mazeText() -> String {
-        "Maze: \(MazeZoom.label)"
+        MazeZoom.label
     }
 
     // MARK: - Builders
@@ -158,15 +158,44 @@ final class TitleScene: SKScene {
         return CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2, width: s.width, height: s.height)
     }
 
-    private func makeHint(_ text: String, y: CGFloat, left: Bool = false) -> SKLabelNode {
-        let label = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        label.text = text
-        label.fontSize = 25 * SpriteFactory.worldRenderScale
-        label.setScale(1 / SpriteFactory.worldRenderScale)
-        label.fontColor = .black
-        label.horizontalAlignmentMode = left ? .left : .right
-        label.position = CGPoint(x: left ? 20 : size.width - 20, y: y)
-        addChild(label)
+    // Side toggle as a button: rounded fill + border, a fixed-position emoji icon, and
+    // the left-aligned value in Marker Felt Wide (white). Anchoring the icon and value at
+    // fixed offsets means changing the value never re-centres the row (no number jump).
+    private func makeHint(icon: String, iconSize: CGFloat, value: String, y: CGFloat, color: SKColor, left: Bool = false) -> SKLabelNode {
+        let N = SpriteFactory.worldRenderScale
+        let btnW: CGFloat = 270, btnH: CGFloat = 50, margin: CGFloat = 16
+        let cx = left ? margin + btnW / 2 : size.width - margin - btnW / 2
+        let container = SKNode()
+        container.position = CGPoint(x: cx, y: y)
+        container.zPosition = 5
+        addChild(container)
+
+        let bg = SKShapeNode(rect: CGRect(x: -btnW / 2 * N, y: -btnH / 2 * N, width: btnW * N, height: btnH * N), cornerRadius: 12 * N)
+        bg.setScale(1 / N)
+        bg.fillColor = color
+        bg.strokeColor = SKColor(white: 1, alpha: 0.55)
+        bg.lineWidth = 2 * N
+        container.addChild(bg)
+
+        let iconNode = SKLabelNode(text: icon)
+        iconNode.fontSize = iconSize * N
+        iconNode.setScale(1 / N)
+        iconNode.verticalAlignmentMode = .center
+        iconNode.horizontalAlignmentMode = .center
+        iconNode.position = CGPoint(x: -btnW / 2 + 38, y: 0)
+        iconNode.zPosition = 6
+        container.addChild(iconNode)
+
+        let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
+        label.text = value
+        label.fontSize = 26 * N
+        label.setScale(1 / N)
+        label.fontColor = .white
+        label.horizontalAlignmentMode = .left
+        label.verticalAlignmentMode = .center
+        label.position = CGPoint(x: -btnW / 2 + 80, y: 0)
+        label.zPosition = 6
+        container.addChild(label)
         return label
     }
 
@@ -220,7 +249,8 @@ final class TitleScene: SKScene {
     }
 
     private func labelHit(_ label: SKLabelNode, _ p: CGPoint) -> Bool {
-        label.frame.insetBy(dx: -12, dy: -10).contains(p)
+        guard let container = label.parent else { return label.frame.insetBy(dx: -12, dy: -10).contains(p) }
+        return container.calculateAccumulatedFrame().contains(p)   // whole button is tappable
     }
 
     // MARK: - Input (platform event shapes funnel into the shared actions)
