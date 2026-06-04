@@ -332,12 +332,13 @@ void Game::buildLevel() {
     refreshHUD();
 }
 
-void Game::startDoom3D() {
-    // The 3D bonus runs the office map (level 1), reusing the same level data the 2D
-    // game would for level 1 (edited rows from the editor take precedence).
+void Game::startDoom3D(int level, bool practice) {
+    // BOSS 3D reuses the same level data as the 2D game (edited rows from the editor
+    // take precedence via currentLevelRows). The title launches level 1; the editor's
+    // test launches the level being edited, in practice mode.
     state.resetForNewGame();
-    state.practiceMode = false;
-    state.level = 1;
+    state.practiceMode = practice;
+    state.level = level;
     auto rows = currentLevelRows();
     if (rows.empty()) return;
     doomScene = std::make_unique<DoomScene>(sound, state, rows, state.highScore);
@@ -511,12 +512,19 @@ void Game::processInput() {
     if (gameState == GameState::Editor) {
         if (editor.playRequested) {
             editor.playRequested = false;
-            gameState = GameState::Playing;
-            state.resetForNewGame();
-            state.level = editor.currentLevelIndex + 1;
-            state.practiceMode = true;
-            buildLevel();
-            hud.showMessage(Message::PRACTICE_MODE, 3.0f);
+            // Test in whatever maze mode is selected: BOSS 3D (1993) launches the
+            // first-person view of the edited level; the other eras run the 2D
+            // follow-camera at their zoom percent.
+            if (MazeZoom::isDoom()) {
+                startDoom3D(editor.currentLevelIndex + 1, true);
+            } else {
+                gameState = GameState::Playing;
+                state.resetForNewGame();
+                state.level = editor.currentLevelIndex + 1;
+                state.practiceMode = true;
+                buildLevel();
+                hud.showMessage(Message::PRACTICE_MODE, 3.0f);
+            }
         } else if (editor.backRequested) {
             editor.backRequested = false;
             gameState = GameState::Title;
@@ -1256,7 +1264,7 @@ void Game::restartGame() {
     hud.isGameOver = false;
     // PLAY from a DOOM game-over replays DOOM (matches SpriteKit DoomScene.restartDoom);
     // otherwise the era's zoomPercent (1993 -> 100) would drop you into a 2D 100% game.
-    if (MazeZoom::isDoom()) { startDoom3D(); return; }
+    if (MazeZoom::isDoom()) { startDoom3D(state.level, state.practiceMode); return; }
     gameState = GameState::Playing;
     state.resetForNewGame();
     resetSceneAndBuild();

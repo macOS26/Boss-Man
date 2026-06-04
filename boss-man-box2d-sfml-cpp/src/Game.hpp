@@ -63,7 +63,7 @@ private:
     void updateMazeCamera(); // ease the camera toward Pete once per frame
     sf::View worldView() const; // the snapped, Pete-centred world view at the current zoom
     void buildLevel();
-    void startDoom3D(); // build + enter the first-person 3D bonus (era 1993)
+    void startDoom3D(int level = 1, bool practice = false); // build + enter the first-person 3D bonus (era 1993)
     void resetSceneAndBuild();
     void startNextLevel();
     void restartGame();

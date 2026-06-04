@@ -8,10 +8,22 @@ import AppKit
 // you. A top-down radar sits at the bottom. Common to both ports.
 final class DoomScene: SKScene, BossControllerDelegate {
 
-    // MARK: - Maze (level 1)
-    private let map: [[Character]] = Levels.officeMaps.first.map { $0.map(Array.init) } ?? []
+    // MARK: - Maze (loaded for the selected level; the editor's test plays the edited rows)
+    private lazy var map: [[Character]] =
+        LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1))).map { Array($0) }
     private var rowsCount: Int { map.count }
     private var colsCount: Int { map.first?.count ?? 0 }
+
+    // Set by the caller before the scene is presented. The title launches level 1
+    // (BOSS 3D); the level editor's test launches the edited level in practice mode.
+    var startingLevel: Int {
+        get { state.level }
+        set { state.level = max(1, newValue) }
+    }
+    var practiceMode: Bool {
+        get { state.practiceMode }
+        set { state.practiceMode = newValue }
+    }
 
     private func isWall(_ x: Double, _ y: Double) -> Bool {
         let c = Int(x.rounded(.down)), r = Int(y.rounded(.down))
@@ -521,7 +533,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     }
 
     private func setupBossController() {
-        let rows = Levels.officeMaps.first ?? []
+        let rows = LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
         gridMap = GridMap(tileSize: 32, rows: rows)
         gridMap.xOffset = 0; gridMap.yOffset = 0
         pathfinder = Pathfinder(map: gridMap)
@@ -951,6 +963,15 @@ final class DoomScene: SKScene, BossControllerDelegate {
 
     private func exit() {
         sound.stopAllAudio()
+        // A practice session (launched from the editor) returns to the editor at the
+        // level under test, matching GameScene.returnToTitleScene().
+        if state.practiceMode {
+            let editor = LevelEditorScene(size: size)
+            editor.scaleMode = .aspectFit
+            editor.currentLevelIndex = max(0, state.level - 1)
+            view?.presentScene(editor, transition: .fade(withDuration: 0.5))
+            return
+        }
         view?.presentScene(TitleScene(size: size), transition: .fade(withDuration: 0.5))
     }
 
@@ -969,7 +990,11 @@ final class DoomScene: SKScene, BossControllerDelegate {
     }
     private func restartDoom() {
         gameOverScreen?.removeFromParent(); gameOverScreen = nil
-        view?.presentScene(DoomScene(size: size), transition: .fade(withDuration: 0.5))
+        let bonus = DoomScene(size: size)
+        bonus.scaleMode = scaleMode
+        bonus.practiceMode = practiceMode
+        bonus.startingLevel = startingLevel
+        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
     }
 
     // MARK: - Input (steer at junctions, relative to facing)
