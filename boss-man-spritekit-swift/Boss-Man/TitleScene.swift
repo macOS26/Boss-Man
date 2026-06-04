@@ -95,7 +95,8 @@ final class TitleScene: SKScene {
         escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "WINDOW", y: 114, color: .systemTeal)
         mazeLabel       = makeHint(icon: "", iconSize: 42, value: mazeText(), y: 188, color: .systemPurple,
                                     sprite: SpriteFactory.bossPersonForBlueprint(1))
-        bossTracksLabel = makeHint(icon: "👻", iconSize: 42, value: bossTracksText(), y: 40, color: .systemIndigo, left: true)
+        bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: 40, color: .systemIndigo, left: true,
+                                   sprite: SpriteFactory.bossPersonForBlueprint(0))
         waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: 114, color: .systemOrange, left: true)
     }
 

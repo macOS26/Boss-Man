@@ -263,12 +263,12 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         const float cxRight = W - margin - btnW / 2.f;
         const float cxLeft = margin + btnW / 2.f;
         auto hint = [&](float cx, float ySK, sf::Color fill, const char* emoji,
-                        const std::string& value, bool bossIcon = false) -> sf::FloatRect {
+                        const std::string& value, int bossIcon = -1) -> sf::FloatRect {
             float yc = H - ySK;
             sf::FloatRect r(cx - btnW / 2.f, yc - btnH / 2.f, btnW, btnH);
             drawRoundedRect(target, r, 12.f, fill, border, 2.f);
-            if (bossIcon) {
-                const BossBlueprint& bp = BOSS_BLUEPRINTS[1];   // Dom = the pink boss
+            if (bossIcon >= 0) {
+                const BossBlueprint& bp = BOSS_BLUEPRINTS[bossIcon % 12];   // boss figure as the icon
                 PersonConfig cfg;
                 cfg.bodyColor = bp.bodyColor;
                 cfg.tieColor = bp.tieColor;
@@ -294,9 +294,9 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         windowRect_     = hint(cxRight, 114.f, sf::Color(0, 157, 168),
             "\xf0\x9f\xaa\x9f", "WINDOW");                               // 🪟 systemTeal
         mazeZoomRect_   = hint(cxRight, 188.f, sf::Color(164, 41, 182),
-            "", MazeZoom::label(), true);                               // pink boss (Dom) icon, systemPurple
+            "", MazeZoom::label(), 1);                                  // pink boss (Dom) icon, systemPurple
         bossTracksRect_ = hint(cxLeft, 40.f, sf::Color(80, 92, 192),
-            "\xf0\x9f\x91\xbb", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDSTER"); // 👻 systemIndigo
+            "", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDSTER", 0); // red boss (Bill) icon, systemIndigo
         waterGunRect_   = hint(cxLeft, 114.f, sf::Color(192, 108, 33),
             "\xf0\x9f\x94\xab",                                          // 🔫 systemOrange
             Settings::waterGunHide() ? "HIDDEN" : (Settings::waterGunLeft() ? "LEFT" : "RIGHT"));
