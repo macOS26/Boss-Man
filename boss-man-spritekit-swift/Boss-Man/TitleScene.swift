@@ -91,15 +91,15 @@ final class TitleScene: SKScene {
 
         // Window controls hug the bottom-right corner; the gameplay toggles
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
-        fullscreenLabel = makeHint(icon: "📺", iconSize: 30, value: "Fullscreen", y: 40,
+        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "Fullscreen", y: 40,
                                    color: SKColor(calibratedRed: 0.58, green: 0.24, blue: 0.26, alpha: 0.95))   // maroon
-        escWindowLabel  = makeHint(icon: "🪟", iconSize: 30, value: "Window", y: 114,
+        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "Window", y: 114,
                                    color: SKColor(calibratedRed: 0.15, green: 0.45, blue: 0.55, alpha: 0.95))   // teal
         mazeLabel       = makeHint(icon: "⏳", iconSize: 42, value: mazeText(), y: 188,
                                    color: SKColor(calibratedRed: 0.45, green: 0.26, blue: 0.58, alpha: 0.95))   // purple
-        bossTracksLabel = makeHint(icon: "👻", iconSize: 30, value: bossTracksText(), y: 40,
+        bossTracksLabel = makeHint(icon: "👻", iconSize: 42, value: bossTracksText(), y: 40,
                                    color: SKColor(calibratedRed: 0.24, green: 0.30, blue: 0.62, alpha: 0.95), left: true)   // indigo
-        waterGunLabel   = makeHint(icon: "🔫", iconSize: 30, value: waterGunText(), y: 114,
+        waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: 114,
                                    color: SKColor(calibratedRed: 0.16, green: 0.50, blue: 0.27, alpha: 0.95), left: true)   // green
     }
 
