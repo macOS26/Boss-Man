@@ -55,7 +55,6 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var bossController: BossController!
     private var bossMapNodes: [ObjectIdentifier: PixelPerson] = [:]   // radar mirror per boss node
     private var bossNativeH: [ObjectIdentifier: CGFloat] = [:]        // cached unscaled height for projection
-    private var bossNativeBottom: [ObjectIdentifier: CGFloat] = [:]   // cached unscaled frame.minY (feet offset from origin)
     private var bossGrid: [ObjectIdentifier: (Double, Double)] = [:]  // smooth (continuous) grid pos per boss, captured pre-projection
     private var peteShielded = false
     private struct Shot { var x, y: Double; let dir: (x: Int, y: Int); let node: SKNode; let nativeH: CGFloat; let mapNode: SKNode; var alive: Bool }
@@ -548,8 +547,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private func syncBossNodes() {
         let live = Set(bossController.entities.map { ObjectIdentifier($0.node) })
         for (id, mn) in bossMapNodes where !live.contains(id) {
-            mn.removeFromParent(); bossMapNodes.removeValue(forKey: id)
-            bossNativeH.removeValue(forKey: id); bossNativeBottom.removeValue(forKey: id)
+            mn.removeFromParent(); bossMapNodes.removeValue(forKey: id); bossNativeH.removeValue(forKey: id)
         }
         for (id, lbl) in bossNames where !live.contains(id) {
             lbl.removeFromParent(); bossNames.removeValue(forKey: id)
@@ -557,12 +555,10 @@ final class DoomScene: SKScene, BossControllerDelegate {
         for e in bossController.entities {
             let id = ObjectIdentifier(e.node)
             if e.node.parent !== spriteLayer {
-                e.tag.isHidden = true                                                 // 3D uses overlay nameplates (readable at any depth), not the in-world tag
+                e.tag.removeFromParent()                                              // drop the in-world tag (still inflates the frame even when hidden); 3D uses overlay nameplates
+                bossNativeH[id] = max(1, e.node.calculateAccumulatedFrame().height)   // now measures just the body — correct size + feet on the floor
                 e.node.removeFromParent(); e.node.physicsBody = nil; e.node.isHidden = true
                 e.node.freezeLook()                                                   // 3D billboard: static eyes/tie (radar copy still tracks)
-                let f = e.node.calculateAccumulatedFrame()                            // cache native height + feet offset before projection scales it
-                bossNativeH[id] = max(1, f.height)
-                bossNativeBottom[id] = f.minY
                 spriteLayer.addChild(e.node)
             }
             if bossMapNodes[id] == nil {
@@ -663,22 +659,17 @@ final class DoomScene: SKScene, BossControllerDelegate {
 
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
-        let bossMaxH = viewH * 0.30   // bosses read smaller than Pete's foreground avatar
-        // `bottom` is the sprite's frame.minY (feet offset from its node origin), so we can land
-        // the FEET exactly on the floor row. Centred sprites pass -nativeH/2.
-        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?, bottom: CGFloat)] = []
+        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?)] = []
         for b in billboards where b.alive {
-            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil, -b.nativeH / 2))
+            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil))
         }
         for e in bossController.entities {
             guard let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
-            let id = ObjectIdentifier(e.node)
             let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1   // gridMap bottom-up -> raster top-down (smooth)
-            let nh = bossNativeH[id] ?? 36
-            all.append((e.node, nh, 0.9, bx, by, bossMaxH, e.name, bossNativeBottom[id] ?? -nh / 2))
+            all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by, viewH * 0.42, e.name))   // capped at Pete's size
         }
         for s in shots where s.alive {
-            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
+            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil))
         }
         for item in all {
             let node = item.node
@@ -700,18 +691,16 @@ final class DoomScene: SKScene, BossControllerDelegate {
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
-            // FLOOR uses the REAL depth so the feet walk the corridor floor exactly like the
-            // square dots (closer = lower on screen). SIZE clamps the depth at the cap so a boss
-            // never grows past the cap (smaller than Pete), but that clamp does NOT move the floor.
-            // The feet are then planted precisely on floorY via the cached bottom offset.
-            let capDepth = viewH * item.worldH / item.maxH      // depth at which targetH hits the cap (≈0 when uncapped)
-            let sizeDepth = max(Double(capDepth), tY)
-            let targetH = viewH / CGFloat(sizeDepth) * item.worldH
-            let s = targetH / item.nativeH
+            // Projected like a floor dot, but a boss caps at Pete's size by clamping its depth
+            // at the cap depth for BOTH size and floor (so the two never disagree). Dots have
+            // capDepth ~ 0, so pd == tY and they recede normally.
+            let capDepth = viewH * item.worldH / item.maxH
+            let pd = max(tY, Double(capDepth))
+            let targetH = viewH / CGFloat(pd) * item.worldH
             node.isHidden = false
-            node.setScale(s)
-            let floorY = viewMidY - (viewH / CGFloat(tY)) / 2   // floor row at this sprite's depth
-            node.position = CGPoint(x: screenX, y: floorY - item.bottom * s)
+            node.setScale(targetH / item.nativeH)
+            let floorY = viewMidY - (viewH / CGFloat(pd)) / 2
+            node.position = CGPoint(x: screenX, y: floorY + targetH / 2)
             node.zPosition = min(40, CGFloat(2 + 30 / tY))      // nearer over farther, but always behind Pete
             if let label = label {
                 label.isHidden = false
