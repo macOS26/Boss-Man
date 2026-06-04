@@ -737,15 +737,12 @@ final class DoomScene: SKScene, BossControllerDelegate {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn (←/→) near a tile centre: take the lane if open; in a dead end (only the
-        // way back is open) ←/→ instead spins Pete 180° so he can drive back out.
+        // Turn (←/→) near a tile centre: take that lane if it's open, otherwise spin 180°
+        // so Pete can reverse anywhere in the maze (a dead end is just the blocked case).
         if let t = wantDir, abs(px - ccx) < 0.2, abs(py - ccy) < 0.2 {
-            let exits = [(1, 0), (-1, 0), (0, 1), (0, -1)].filter { open(col + $0.0, row + $0.1) }.count
-            if open(col + t.x, row + t.y) {
-                px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
-            } else if exits == 1 {
-                px = ccx; py = ccy; moveDir = (x: -moveDir.x, y: -moveDir.y); wantDir = nil; targetAngle = cardinal(moveDir)
-            }
+            px = ccx; py = ccy; wantDir = nil
+            moveDir = open(col + t.x, row + t.y) ? t : (x: -moveDir.x, y: -moveDir.y)
+            targetAngle = cardinal(moveDir)
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
