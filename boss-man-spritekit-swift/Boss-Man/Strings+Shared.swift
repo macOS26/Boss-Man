@@ -66,7 +66,7 @@ extension Strings {
     // MARK: - Boss display names
     enum Boss {
         static let bill = "BILL"
-        static let dom  = "DOOM"
+        static let dom  = "BOSS"
         static let bob  = "TODD"
         static let stan = "STAN"
         static let boss = "BOSS"

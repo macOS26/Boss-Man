@@ -118,7 +118,7 @@ inline const std::unordered_map<char, std::string>& MACHINE_NAMES_BY_TILE() {
 // so the boss name tags are never empty.
 namespace Boss {
     inline constexpr const char* BILL = "BILL";
-    inline constexpr const char* DOM  = "DOOM";
+    inline constexpr const char* DOM  = "BOSS";
     inline constexpr const char* BOB  = "TODD";
     inline constexpr const char* STAN = "STAN";
 }

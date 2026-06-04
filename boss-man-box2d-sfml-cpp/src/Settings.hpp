@@ -37,7 +37,7 @@ struct MazeZoom {
             case 1980: return "BILL 100%";
             case 1982: return "STAN 150%";
             case 1983: return "TODD 200%";
-            case 1993: return "DOOM 3D";
+            case 1993: return "BOSS 3D";
             default:   return std::to_string(current());
         }
     }
