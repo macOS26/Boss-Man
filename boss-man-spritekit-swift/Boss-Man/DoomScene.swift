@@ -101,6 +101,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var pete: PixelPerson!
     private var peteBaseY: CGFloat = 0
     private var bob = 0.0
+    private var throbClock = 0.0   // free-running clock for the post-spawn boss pulse
 
     private var hud: HUD!
     private let uiLayer = SKNode()
@@ -645,6 +646,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
 
     private var camX = 0.0, camY = 0.0
     private func render() {
+        throbClock += 1.0 / 60.0
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         // Camera trails behind Pete; pull in if it would sit inside a wall.
@@ -772,7 +774,13 @@ final class DoomScene: SKScene, BossControllerDelegate {
             // the floor row at THIS depth. maxH only clamps the size at point-blank range so the
             // catch close-up isn't a full-screen sprite; it never moves the floor.
             let targetH = min(viewH / CGFloat(tY) * item.worldH, item.maxH)
-            let s = targetH / item.nativeH
+            var s = targetH / item.nativeH
+            // Post-spawn pulse: a respawned boss throbs while it can't yet catch Pete
+            // (spawn grace / immobilized), then settles to full size. Feet stay planted
+            // because position uses s below. Matches the C++ DoomScene throb.
+            if item.name != nil, let boss = item.node as? PixelPerson, bossController.isImmobilized(boss: boss) {
+                s *= 1 + 0.18 * abs(sin(throbClock * .pi * 3))
+            }
             node.isHidden = false
             node.setScale(s)
             let floorY = viewMidY - (viewH / CGFloat(tY)) / 2

@@ -1158,8 +1158,15 @@ void DoomScene::drawBossBillboard(sf::RenderTarget& target, int bossIndex) {
     // Feet planted on the floor via the LOCAL feet offset (frame.minY); centred Pete
     // metrics give feetOffset DOWN from origin, so the y-up local bottom is -feetOffset.
     float bottom = -e.renderer.metrics().feetOffset;
+    // Post-spawn pulse (matches the 2D BossController): a freshly respawned boss throbs
+    // while it can't yet catch Pete (spawn grace), then settles to full size and goes live.
+    float scale = bp.scale;
+    if (e.throbTimer > 0.0f) {
+        float progress = 1.0f - e.throbTimer / SPAWN_THROB_DUR;
+        scale *= 1.0f + 0.18f * std::abs(std::sin(progress * 3.14159265f * 3.0f));
+    }
     float cx = bp.screenX;
-    float cy = screenY(bp.floorY - bottom * bp.scale);
+    float cy = screenY(bp.floorY - bottom * scale);   // feet stay planted as it throbs
 
     // freezeLook(): eyes/tie centred (lookDir None), but the legs/arms keep WALKING
     // as the boss glides down the corridor toward Pete (e.isMoving / e.walkPhase),
@@ -1167,7 +1174,7 @@ void DoomScene::drawBossBillboard(sf::RenderTarget& target, int bossIndex) {
     float alpha = e.fadeInAlpha;
     if (e.isCaptured || e.captureReturning) alpha = e.captureAlpha;
     e.renderer.draw(target, {cx, cy}, e.facingLeft, e.isMoving, MoveDirection::None,
-                    e.walkPhase, alpha, bp.scale);
+                    e.walkPhase, alpha, scale);
 
     // Nameplate above the boss (flee shows the next capture value in yellow).
     float fontSize = std::max(13.f, std::min(24.f, bp.targetH * 0.16f));
