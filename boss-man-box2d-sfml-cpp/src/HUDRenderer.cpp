@@ -144,7 +144,7 @@ void HUDRenderer::update(float dt) {
 }
 
 void HUDRenderer::draw(sf::RenderTarget& target, float windowWidth, float windowHeight) {
-    extraRow = (Settings::mazeZoom() <= 100);
+    extraRow = compactHud ? false : (Settings::mazeZoom() <= 100);
 
     const float W = windowWidth;
     const float top = windowHeight; // SpriteKit `top = size.height`

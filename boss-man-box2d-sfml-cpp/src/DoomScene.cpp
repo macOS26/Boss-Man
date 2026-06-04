@@ -108,7 +108,7 @@ DoomScene::DoomScene(SoundManager& sound, RoundState& state,
     buildMap();
     setupBossController();
 
-    hud_.extraRow = false; // compact 150/200-style HUD, never the extended row
+    hud_.compactHud = true; // force the compact 150/200-style mini HUD (DOOM era zoomPercent is 100)
     refreshHUD();
 
     // On-screen controls (joystick + fire button), unless the Water Gun setting hides
