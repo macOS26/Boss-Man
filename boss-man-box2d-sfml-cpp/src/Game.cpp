@@ -21,7 +21,7 @@ sf::Font& gameOverFont(bool bold) {
         if (!wideLoaded) wideLoaded = loadFont(wide, "assets/fonts/MarkerFelt-Wide.ttf");
         return wide;
     }
-    if (!menloLoaded) menloLoaded = loadFont(menlo, "assets/fonts/Menlo-Bold.ttf");
+    if (!menloLoaded) menloLoaded = loadFont(menlo, "assets/fonts/JetBrainsMono-Bold.ttf"); // body font (Menlo isn't embedded)
     return menlo;
 }
 // halign: 0 left, 1 center, 2 right (about x). Rasterizes at uiScale and
@@ -244,7 +244,21 @@ void Game::tick() {
         update(TIME_PER_UPDATE.asSeconds());
         timeSinceLastUpdate -= TIME_PER_UPDATE;
     }
-    render();
+    // The static title idles at ~1 fps to save CPU/GPU (matching the SpriteKit title's
+    // preferredFramesPerSecond = 1). Input is still polled every fixed step above, so
+    // PLAY/EDITOR/toggles stay responsive; the redraw just catches up within ~1s.
+    if (gameState == GameState::Title) {
+        static sf::Clock titleClock;
+        if (prevTickState_ != GameState::Title || titleClock.getElapsedTime().asSeconds() >= 1.0f) {
+            titleClock.restart();
+            render();
+        } else {
+            sf::sleep(sf::milliseconds(15));
+        }
+    } else {
+        render();
+    }
+    prevTickState_ = gameState;
 }
 
 std::vector<std::string> Game::currentLevelRows() {

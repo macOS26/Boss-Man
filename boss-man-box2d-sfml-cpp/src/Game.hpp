@@ -115,6 +115,7 @@ private:
     std::unique_ptr<DoomScene> doomScene; // first-person 3D bonus (era 1993)
 
     GameState gameState = GameState::Title;
+    GameState prevTickState_ = GameState::Playing;   // != Title so the title renders on entry (1 fps idle)
     bool fullscreen = false;
 
     // Maze camera state. `cameraZoom` is the active zoom percent latched at build
