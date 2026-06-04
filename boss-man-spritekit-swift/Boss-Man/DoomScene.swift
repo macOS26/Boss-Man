@@ -55,6 +55,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var bossController: BossController!
     private var bossMapNodes: [ObjectIdentifier: PixelPerson] = [:]   // radar mirror per boss node
     private var bossNativeH: [ObjectIdentifier: CGFloat] = [:]        // cached unscaled height for projection
+    private var bossNativeBottom: [ObjectIdentifier: CGFloat] = [:]   // cached unscaled frame.minY (feet offset from origin)
     private var bossGrid: [ObjectIdentifier: (Double, Double)] = [:]  // smooth (continuous) grid pos per boss, captured pre-projection
     private var peteShielded = false
     private struct Shot { var x, y: Double; let dir: (x: Int, y: Int); let node: SKNode; let nativeH: CGFloat; let mapNode: SKNode; var alive: Bool }
@@ -64,8 +65,6 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var dying = false
     private var deathFramesLeft = 0
     private let deathFrames = 90   // 1.5s at 60fps: hold the catcher on screen
-    private var killerSprite: SKNode?
-    private var killerNativeH: CGFloat = 1
     private var pressed = Set<Int>()
     private var collected = Set<Int>()
     private let sound = SoundManager()
@@ -332,21 +331,24 @@ final class DoomScene: SKScene, BossControllerDelegate {
         }
     }
 
-    // Caught: freeze the scene and lunge the catching boss at the camera (first-person
-    // view can't show a same-tile billboard), then dock a life and respawn.
-    private func startDeath(blueprintIndex: Int) {
+    // Caught: hold the REAL catching boss still in front of Pete for ~1.5s (no fake sprite),
+    // then dock a life and respawn. update() skips step()/render() while dying, so the boss
+    // stays frozen exactly where we place it here.
+    private func startDeath(node: PixelPerson) {
         if dying { return }
         dying = true
         _ = sound.playCaughtByBoss()
         if goldDisc.isActive { endGoldDiscMode() }
         pete.stopWalking()
-        let killer = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
-        killer.zPosition = 500
-        addChild(killer)                                     // attach BEFORE measuring (a detached frame reads wrong, ballooning him)
-        killerNativeH = max(1, killer.calculateAccumulatedFrame().height)
-        killer.setScale(viewH * 0.42 / killerNativeH)        // exactly Pete's size, never larger
-        killer.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.5)
-        killerSprite = killer
+        node.stopWalking()
+        let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
+        node.isHidden = false
+        node.setScale(viewH * 0.42 / nh)                     // Pete's size, never larger
+        node.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.5)
+        node.zPosition = 500
+        for e in bossController.entities where e.node !== node { e.node.isHidden = true }   // only the catcher shows
+        for (_, l) in bossNames { l.isHidden = true }
+        for s in shots { s.node.isHidden = true }
         deathFramesLeft = deathFrames
     }
 
@@ -356,8 +358,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
     }
 
     private func finishDeath() {
-        killerSprite?.removeFromParent(); killerSprite = nil
-        dying = false
+        dying = false                                 // projectSprites re-scales/re-shows every billboard on resume
+        for (_, l) in bossNames { l.isHidden = false }
         state.lives -= 1
         refreshHUD()
         if state.lives <= 0 { gameOver = true; showGameOver(); return }
@@ -380,7 +382,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
             let bg = e.mover?.grid ?? e.ai.grid
             guard Int(bg.x) == pgx, Int(bg.y) == pgy, !bossController.isImmobilized(boss: e.node) else { continue }
             if bossController.isInFleeMode(boss: e.node) { bossController.capture(boss: e.node) }
-            else if !peteShielded { startDeath(blueprintIndex: e.blueprintIndex); return }
+            else if !peteShielded { startDeath(node: e.node); return }
         }
     }
 
@@ -546,7 +548,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private func syncBossNodes() {
         let live = Set(bossController.entities.map { ObjectIdentifier($0.node) })
         for (id, mn) in bossMapNodes where !live.contains(id) {
-            mn.removeFromParent(); bossMapNodes.removeValue(forKey: id); bossNativeH.removeValue(forKey: id)
+            mn.removeFromParent(); bossMapNodes.removeValue(forKey: id)
+            bossNativeH.removeValue(forKey: id); bossNativeBottom.removeValue(forKey: id)
         }
         for (id, lbl) in bossNames where !live.contains(id) {
             lbl.removeFromParent(); bossNames.removeValue(forKey: id)
@@ -557,7 +560,9 @@ final class DoomScene: SKScene, BossControllerDelegate {
                 e.tag.isHidden = true                                                 // 3D uses overlay nameplates (readable at any depth), not the in-world tag
                 e.node.removeFromParent(); e.node.physicsBody = nil; e.node.isHidden = true
                 e.node.freezeLook()                                                   // 3D billboard: static eyes/tie (radar copy still tracks)
-                bossNativeH[id] = max(1, e.node.calculateAccumulatedFrame().height)   // cache native height before projection scales it
+                let f = e.node.calculateAccumulatedFrame()                            // cache native height + feet offset before projection scales it
+                bossNativeH[id] = max(1, f.height)
+                bossNativeBottom[id] = f.minY
                 spriteLayer.addChild(e.node)
             }
             if bossMapNodes[id] == nil {
@@ -659,17 +664,21 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
         let bossMaxH = viewH * 0.30   // bosses read smaller than Pete's foreground avatar
-        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?)] = []
+        // `bottom` is the sprite's frame.minY (feet offset from its node origin), so we can land
+        // the FEET exactly on the floor row. Centred sprites pass -nativeH/2.
+        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?, bottom: CGFloat)] = []
         for b in billboards where b.alive {
-            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil))
+            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil, -b.nativeH / 2))
         }
         for e in bossController.entities {
             guard let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
+            let id = ObjectIdentifier(e.node)
             let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1   // gridMap bottom-up -> raster top-down (smooth)
-            all.append((e.node, bossNativeH[ObjectIdentifier(e.node)] ?? 36, 0.9, bx, by, bossMaxH, e.name))
+            let nh = bossNativeH[id] ?? 36
+            all.append((e.node, nh, 0.9, bx, by, bossMaxH, e.name, bossNativeBottom[id] ?? -nh / 2))
         }
         for s in shots where s.alive {
-            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil))
+            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
         }
         for item in all {
             let node = item.node
@@ -691,20 +700,18 @@ final class DoomScene: SKScene, BossControllerDelegate {
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
-            // A capped sprite (boss) keeps its feet on ONE fixed floor line and only SCALES as
-            // it nears — no vertical slide, never larger than the cap. Size grows monotonically
-            // as viewH/depth up to the cap, then holds. Uncapped sprites (pellets) recede along
-            // the floor normally. (Previously the size capped while the floor kept dropping, so
-            // bosses floated, jumped, and ballooned past Pete.)
-            let capped = item.maxH < viewH * 2
-            let capDepth = viewH * item.worldH / item.maxH      // depth at which targetH == maxH
-            let d = capped ? max(Double(capDepth), tY) : tY
-            let floorDepth = capped ? Double(capDepth) : tY     // fixed floor for capped sprites
-            let targetH = viewH / CGFloat(d) * item.worldH
+            // FLOOR uses the REAL depth so the feet walk the corridor floor exactly like the
+            // square dots (closer = lower on screen). SIZE clamps the depth at the cap so a boss
+            // never grows past the cap (smaller than Pete), but that clamp does NOT move the floor.
+            // The feet are then planted precisely on floorY via the cached bottom offset.
+            let capDepth = viewH * item.worldH / item.maxH      // depth at which targetH hits the cap (≈0 when uncapped)
+            let sizeDepth = max(Double(capDepth), tY)
+            let targetH = viewH / CGFloat(sizeDepth) * item.worldH
+            let s = targetH / item.nativeH
             node.isHidden = false
-            node.setScale(targetH / item.nativeH)
-            let floorY = viewMidY - (viewH / CGFloat(floorDepth)) / 2
-            node.position = CGPoint(x: screenX, y: floorY + targetH / 2)
+            node.setScale(s)
+            let floorY = viewMidY - (viewH / CGFloat(tY)) / 2   // floor row at this sprite's depth
+            node.position = CGPoint(x: screenX, y: floorY - item.bottom * s)
             node.zPosition = min(40, CGFloat(2 + 30 / tY))      // nearer over farther, but always behind Pete
             if let label = label {
                 label.isHidden = false
