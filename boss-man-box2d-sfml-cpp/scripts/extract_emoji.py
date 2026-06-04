@@ -28,6 +28,8 @@ OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "emoji")
 # Exact UTF-8 byte sequences as used in the C++ source
 # (Constants.hpp travelers, MazeRenderer machines, HUDRenderer checklist).
 EMOJIS = [
+    b"\xf0\x9f\x8e\xb2",              # 🎲 dice    (HUD score label)
+    b"\xf0\x9f\x92\x8e",              # 💎 diamond (HUD bottom-row high score)
     b"\xf0\x9f\x90\x9f",              # 🐟 fish
     b"\xf0\x9f\x8d\xa9",              # 🍩 donut
     b"\xe2\x98\x95",                  # ☕ coffee
