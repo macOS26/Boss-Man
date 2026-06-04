@@ -661,6 +661,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         var cSide = [Int](repeating: 0, count: columns)
         var cOpen = [Bool](repeating: false, count: columns)
         var cFace = [Int](repeating: -1, count: columns)
+        var cPar = [Int](repeating: 0, count: columns)
         for i in 0..<columns {
             let cameraX = 2.0 * (Double(i) + 0.5) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
@@ -686,6 +687,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
             // face only if they land on the same line; depth deltas vary with distance, so
             // keying on depth falsely splits far columns (jagged) and merges near corners.
             cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1
+            cPar[i] = (mapX + mapY) & 1   // wall-cell parity -> per-cell checker shade (aligns with the floor)
             zbuf[i] = d
         }
         let w = size.width / CGFloat(columns)
@@ -701,7 +703,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         while i < columns {
             if cOpen[i] { i += 1; continue }
             var j = i
-            while j + 1 < columns && cFace[j + 1] == cFace[i] { j += 1 }
+            while j + 1 < columns && cFace[j + 1] == cFace[i] && cPar[j + 1] == cPar[i] { j += 1 }
             let xL = CGFloat(i) * w, xR = CGFloat(j + 1) * w + 1   // 1px overlap hides AA seams at corners
             var topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j]
             if j > i {
@@ -720,6 +722,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
             n.path = p; n.isHidden = false
             let mid = (i + j) / 2
             let f = CGFloat(max(0.12, min(1.0, 1.0 - cDist[mid] / 16))) * (cSide[i] == 1 ? 0.62 : 1.0)
+                    * (cPar[i] == 1 ? 1.0 : 0.82)   // adjacent cells alternate shade for grid readability
             n.fillColor = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             i = j + 1
         }

@@ -910,7 +910,7 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
                             double planeX, double planeY) {
     std::vector<float> cTop(columns_), cBot(columns_);
     std::vector<double> cDist(columns_);
-    std::vector<int> cSide(columns_), cFace(columns_);
+    std::vector<int> cSide(columns_), cFace(columns_), cPar(columns_);
     std::vector<bool> cOpen(columns_);
 
     for (int i = 0; i < columns_; ++i) {
@@ -940,6 +940,7 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
         cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall;
         cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2
                                         : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1;
+        cPar[i] = (mapX + mapY) & 1;   // wall-cell parity -> per-cell checker shade (aligns with the floor)
         zbuf_[i] = d;
     }
 
@@ -952,7 +953,7 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
     while (i < columns_) {
         if (cOpen[i]) { i++; continue; }
         int j = i;
-        while (j + 1 < columns_ && cFace[j + 1] == cFace[i]) j++;
+        while (j + 1 < columns_ && cFace[j + 1] == cFace[i] && cPar[j + 1] == cPar[i]) j++;
         float xL = i * w, xR = (j + 1) * w + 1; // 1px overlap hides AA seams
         float topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j];
         if (j > i) {
@@ -964,7 +965,8 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
         }
         int mid = (i + j) / 2;
         float f = std::max(0.12f, std::min(1.0f, 1.0f - (float)cDist[mid] / 16.f))
-                  * (cSide[i] == 1 ? 0.62f : 1.0f);
+                  * (cSide[i] == 1 ? 0.62f : 1.0f)
+                  * (cPar[i] ? 1.0f : 0.82f);   // adjacent cells alternate shade for grid readability
         sf::Color col((uint8_t)(cube.r * f * 255), (uint8_t)(cube.g * f * 255),
                       (uint8_t)(cube.b * f * 255));
         // y-up quad -> SFML y-down via screenY.
