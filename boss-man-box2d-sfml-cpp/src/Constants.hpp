@@ -119,7 +119,7 @@ inline const std::unordered_map<char, std::string>& MACHINE_NAMES_BY_TILE() {
 namespace Boss {
     inline constexpr const char* BILL = "BILL";
     inline constexpr const char* DOM  = "DOOM";
-    inline constexpr const char* BOB  = "BOB";
+    inline constexpr const char* BOB  = "TODD";
     inline constexpr const char* STAN = "STAN";
 }
 
