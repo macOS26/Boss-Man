@@ -643,6 +643,9 @@ final class DoomScene: SKScene, BossControllerDelegate {
         // flat wall are exact straight lines (inverse depth is linear in screen-x), so a
         // single quad spanning the face is exact: square walls, no stairstep, no wobble,
         // and a sharp vertical break wherever the face changes (corner / opening).
+        // Cubicle/wall colour for this level, matching the 2D game; shaded per-quad by
+        // depth + side below so it reads as the same wall in first person.
+        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
         var bar = 0
         var i = 0
         while i < columns {
@@ -667,7 +670,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
             n.path = p; n.isHidden = false
             let mid = (i + j) / 2
             let f = CGFloat(max(0.12, min(1.0, 1.0 - cDist[mid] / 16))) * (cSide[i] == 1 ? 0.62 : 1.0)
-            n.fillColor = SKColor(red: 0.02 + 0.02 * f, green: 0.05 + 0.45 * f, blue: 0.10 + 0.88 * f, alpha: 1)
+            n.fillColor = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             i = j + 1
         }
         for k in bar..<bars.count { bars[k].isHidden = true }

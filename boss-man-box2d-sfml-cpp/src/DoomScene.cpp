@@ -938,6 +938,9 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
     }
 
     float w = viewW_ / (float)columns_;
+    // Cubicle/wall colour for this level, matching the 2D game (CUBICLE_COLORS by level);
+    // shaded per-quad by depth + side so it reads as the same wall in first person.
+    const Color cube = CUBICLE_COLORS[(state_.level - 1) % 12];
     sf::VertexArray walls(sf::Quads);
     int i = 0;
     while (i < columns_) {
@@ -956,9 +959,8 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
         int mid = (i + j) / 2;
         float f = std::max(0.12f, std::min(1.0f, 1.0f - (float)cDist[mid] / 16.f))
                   * (cSide[i] == 1 ? 0.62f : 1.0f);
-        sf::Color col((uint8_t)((0.02f + 0.02f * f) * 255),
-                      (uint8_t)((0.05f + 0.45f * f) * 255),
-                      (uint8_t)((0.10f + 0.88f * f) * 255));
+        sf::Color col((uint8_t)(cube.r * f * 255), (uint8_t)(cube.g * f * 255),
+                      (uint8_t)(cube.b * f * 255));
         // y-up quad -> SFML y-down via screenY.
         walls.append(sf::Vertex({xL, screenY(botL)}, col));
         walls.append(sf::Vertex({xL, screenY(topL)}, col));
