@@ -15,10 +15,9 @@ final class TitleScene: SKScene {
     private var mazeLabel: SKLabelNode?
 
     override func didMove(to view: SKView) {
-        // The title is static, so render it at 1 fps: no animation, and it avoids
-        // re-rasterizing the leaderboard blur every frame. Game/editor scenes
-        // restore 60 fps on the way out (startGame / startEditor).
-        view.preferredFramesPerSecond = 1
+        // The title is nearly static, so render it at 10 fps to keep CPU/GPU low.
+        // Game/editor scenes restore 60 fps on the way out (startGame / startEditor).
+        view.preferredFramesPerSecond = 10
         backgroundColor = SKColor(calibratedRed: 1.0, green: 0.93, blue: 0.34, alpha: 1)
         anchorPoint = .zero
 

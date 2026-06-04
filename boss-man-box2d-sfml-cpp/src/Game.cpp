@@ -244,12 +244,12 @@ void Game::tick() {
         update(TIME_PER_UPDATE.asSeconds());
         timeSinceLastUpdate -= TIME_PER_UPDATE;
     }
-    // The static title idles at ~1 fps to save CPU/GPU (matching the SpriteKit title's
-    // preferredFramesPerSecond = 1). Input is still polled every fixed step above, so
-    // PLAY/EDITOR/toggles stay responsive; the redraw just catches up within ~1s.
+    // The static title idles at ~10 fps to save CPU/GPU (matching the SpriteKit title's
+    // preferredFramesPerSecond = 10). Input is still polled every fixed step above, so
+    // PLAY/EDITOR/toggles stay responsive.
     if (gameState == GameState::Title) {
         static sf::Clock titleClock;
-        if (prevTickState_ != GameState::Title || titleClock.getElapsedTime().asSeconds() >= 1.0f) {
+        if (prevTickState_ != GameState::Title || titleClock.getElapsedTime().asSeconds() >= 0.1f) {
             titleClock.restart();
             render();
         } else {
