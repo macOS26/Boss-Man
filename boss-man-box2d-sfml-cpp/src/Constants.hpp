@@ -60,6 +60,11 @@ constexpr float WATER_DROPLET_SPEED = 320.0f;
 constexpr float WATER_DROPLET_MAX_DIST = 576.0f;
 constexpr float WATER_DROPLET_RADIUS = 5.0f;
 
+// On-screen fire-button ring (the only touch affordance in this port; the SpriteKit
+// master adds a matching movement joystick on iOS). +15% larger than the prior
+// baseline so the touch target matches the enlarged SpriteKit fireButtonRadius.
+constexpr float FIRE_BUTTON_RADIUS = 103.5f;
+
 // Worker default spawn
 struct GridPos {
     int x, y;

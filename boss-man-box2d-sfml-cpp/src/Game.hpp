@@ -80,6 +80,10 @@ private:
     void startGoldDiscMode();
     void endGoldDiscMode();
     void fireWaterGun();
+    // True when a tap at logical point p should fire the water gun: any tap when the
+    // fire button is hidden (a no-swipe tap fires), or a tap inside the visible
+    // ring. Mirrors the SpriteKit touchesBegan/touchesEnded fire path.
+    bool fireButtonHitTest(float x, float y) const;
     void handleMachine(const std::string& name, int pickupIndex);
     void collectTPSReport(int pickupIndex);
     void catchTraveler();

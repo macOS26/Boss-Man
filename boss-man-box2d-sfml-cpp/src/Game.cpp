@@ -453,7 +453,8 @@ void Game::processInput() {
                     sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)touchStartX, (int)touchStartY));
                     handleTitleHit(p.x, p.y);
                 } else if (gameState == GameState::Playing) {
-                    input.fireRequested = true;
+                    sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)touchStartX, (int)touchStartY));
+                    if (fireButtonHitTest(p.x, p.y)) input.fireRequested = true;
                 }
             }
             continue;
@@ -817,9 +818,9 @@ void Game::render() {
         // the SpriteKit installFireButton. Left-click anywhere fires; the Hide
         // setting suppresses the button. Side follows the Water Gun setting.
         if (!Settings::waterGunHide()) {
-            const float R = 90.f;
+            const float R = FIRE_BUTTON_RADIUS;
             float cx = Settings::waterGunLeft() ? R : (float)WINDOW_WIDTH - R;
-            float cy = (float)WINDOW_HEIGHT - R;
+            float cy = (float)WINDOW_HEIGHT - (R + 15.f);
             sf::CircleShape ring(R, 64);
             ring.setOrigin(R, R);
             ring.setPosition(cx, cy);
@@ -1058,6 +1059,15 @@ void Game::endGoldDiscMode() {
     sound.stopGoldDiscBass();
     hud.showMessage(Message::GOLD_DISC_ENDED, 2.0f);
     refreshHUD();
+}
+
+bool Game::fireButtonHitTest(float x, float y) const {
+    if (Settings::waterGunHide()) return true; // hidden: a tap anywhere fires
+    const float R = FIRE_BUTTON_RADIUS;
+    float cx = Settings::waterGunLeft() ? R : (float)WINDOW_WIDTH - R;
+    float cy = (float)WINDOW_HEIGHT - (R + 15.f);
+    float dx = x - cx, dy = y - cy;
+    return dx * dx + dy * dy <= R * R;
 }
 
 void Game::fireWaterGun() {
