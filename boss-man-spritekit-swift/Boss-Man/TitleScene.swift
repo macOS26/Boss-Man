@@ -126,6 +126,9 @@ final class TitleScene: SKScene {
     }
 
     // MARK: - Builders
+    // Every button fill is darkened 30% toward black (richer than the raw system hue).
+    private func dimmed(_ c: SKColor) -> SKColor { c.blended(withFraction: 0.3, of: .black) ?? c }
+
     @discardableResult
     private func makeTitleButton(text: String, color: SKColor, center: CGPoint,
                                  size s: CGSize, textDY: CGFloat = 0, icon: String? = nil) -> CGRect {
@@ -137,7 +140,7 @@ final class TitleScene: SKScene {
         let bg = SKShapeNode(rect: CGRect(x: -s.width / 2 * N, y: -s.height / 2 * N, width: s.width * N, height: s.height * N),
                              cornerRadius: 12 * N)
         bg.setScale(1 / N)
-        bg.fillColor = color
+        bg.fillColor = dimmed(color)
         bg.strokeColor = SKColor(white: 1, alpha: 0.55)   // match the side toggle buttons
         bg.lineWidth = 2 * N
         container.addChild(bg)
@@ -182,7 +185,7 @@ final class TitleScene: SKScene {
 
         let bg = SKShapeNode(rect: CGRect(x: -btnW / 2 * N, y: -btnH / 2 * N, width: btnW * N, height: btnH * N), cornerRadius: 12 * N)
         bg.setScale(1 / N)
-        bg.fillColor = color
+        bg.fillColor = dimmed(color)
         bg.strokeColor = SKColor(white: 1, alpha: 0.55)
         bg.lineWidth = 2 * N
         container.addChild(bg)
