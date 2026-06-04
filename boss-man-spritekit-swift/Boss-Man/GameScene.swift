@@ -242,12 +242,13 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseDown(with event: NSEvent) {
-        let p = event.location(in: self)
+        let scenePoint = event.location(in: self)
         if let s = gameOverScreen {
-            s.handleTap(at: s.convert(p, from: self))
+            s.handleTap(at: s.convert(scenePoint, from: self))
             return
         }
         guard !isUserPaused, !isGameOver else { return }
+        let p = event.location(in: uiLayer)
         if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
             joystickActive = true
             moveJoystickThumb(to: p)
@@ -278,7 +279,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
         // Swipe release. Dormant on apple (mouseDown fires there and never arms
         // swipeStart), so the guard short-circuits and the writes are harmless.
-        let p = event.location(in: self)
+        let p = event.location(in: uiLayer)
         if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused {
             if let d = swipeDirection(p.x - start.x, p.y - start.y) {
                 steer(d)
@@ -291,7 +292,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseDragged(with event: NSEvent) {
-        let p = event.location(in: self)
+        let p = event.location(in: uiLayer)
         if joystickActive {
             moveJoystickThumb(to: p)
             if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
