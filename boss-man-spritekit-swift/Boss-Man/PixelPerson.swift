@@ -318,7 +318,14 @@ final class PixelPerson: SKNode {
     }
 
     // MARK: - Eye tracking
+    // The 3D billboards opt out (frozen eyes/tie); the radar copies keep tracking.
+    var tracksLook = true
+    func freezeLook() {
+        setLookDirection(nil)   // centre eyes/tie once, then stop tracking
+        tracksLook = false
+    }
     func setLookDirection(_ dir: MoveDirection?) {
+        guard tracksLook else { return }
         let offset: CGPoint
         switch dir {
         case .left, .right: offset = CGPoint(x: 1, y: 0)

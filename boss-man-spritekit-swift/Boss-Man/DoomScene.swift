@@ -556,6 +556,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
             if e.node.parent !== spriteLayer {
                 e.tag.isHidden = true                                                 // 3D uses overlay nameplates (readable at any depth), not the in-world tag
                 e.node.removeFromParent(); e.node.physicsBody = nil; e.node.isHidden = true
+                e.node.freezeLook()                                                   // 3D billboard: static eyes/tie (radar copy still tracks)
                 bossNativeH[id] = max(1, e.node.calculateAccumulatedFrame().height)   // cache native height before projection scales it
                 spriteLayer.addChild(e.node)
             }
