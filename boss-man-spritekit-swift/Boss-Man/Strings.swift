@@ -309,6 +309,15 @@ enum MazeZoom {
         return cycle.contains(z) ? z : 1993
     }
     static var isDoom: Bool { current == doom }
+    // The 2D follow-camera zoom for each era (100 = no camera). Ms. Pac-Man = 150%,
+    // Jr. Pac-Man = 200%; Pac-Man is classic 100%, DOOM uses the 3D path instead.
+    static var zoomPercent: Int {
+        switch current {
+        case 1982: return 150
+        case 1983: return 200
+        default:   return 100
+        }
+    }
     static var label: String {
         switch current {
         case 1980: return "1980 05 22"    // Pac-Man

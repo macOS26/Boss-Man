@@ -173,7 +173,7 @@ final class PixelPerson: SKNode {
         rightArm.addChild(rh)
         rightHand = rh
 
-        let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
+        let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: (backView ? 3 : 2) * rs)
         hd.fillColor = backView ? hairColor : skin
         hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
         hd.lineWidth = 1 * rs
@@ -182,15 +182,8 @@ final class PixelPerson: SKNode {
         bodyContainer.addChild(hd)
         head = hd
 
-        // The flat hair strip squares off the head's rounded top corners; the back view
-        // reuses it (hair-coloured, so it just flattens the top exactly like the front).
-        let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
-        hair.fillColor = hairColor
-        hair.strokeColor = .clear
-        hair.position = CGPoint(x: 0, y: 4 * rs)
-        head.addChild(hair)
-
         if backView {
+            // No hair strip: the back keeps the head's own rounded top corners + dark stroke.
             let earSize = CGSize(width: 3 * rs, height: 6 * rs)
             for sx: CGFloat in [-1, 1] {
                 let ear = SKShapeNode(rectOf: earSize, cornerRadius: 1 * rs)
@@ -201,6 +194,13 @@ final class PixelPerson: SKNode {
                 ear.zPosition = -1     // head sits in front; only the outer edge of each ear pokes out
                 head.addChild(ear)
             }
+        } else {
+            // Flat hair strip squares off the front head's rounded top corners.
+            let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
+            hair.fillColor = hairColor
+            hair.strokeColor = .clear
+            hair.position = CGPoint(x: 0, y: 4 * rs)
+            head.addChild(hair)
         }
 
         if wearsSunglasses {

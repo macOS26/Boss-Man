@@ -535,8 +535,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private func setupMazeCamera() {
         camPos = nil
         camVel = .zero
-        let zoom = MazeZoom.current
-        guard zoom > 100, zoom <= 200 else {   // DOOM (300) is the 3D mode, not a 2D camera zoom
+        let zoom = MazeZoom.zoomPercent        // 1982 -> 150%, 1983 -> 200% (the year is the era key)
+        guard zoom > 100, zoom <= 200 else {   // 1980 classic / DOOM 3D get no 2D camera zoom
             camera = nil
             cameraNode = nil
             return

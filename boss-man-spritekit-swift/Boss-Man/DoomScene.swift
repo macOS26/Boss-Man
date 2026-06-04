@@ -342,8 +342,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
         pete.stopWalking()
         let killer = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
         killerNativeH = max(1, killer.calculateAccumulatedFrame().height)
-        killer.setScale(viewH * 0.35 / killerNativeH)
-        killer.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.60)
+        killer.setScale(viewH * 0.42 / killerNativeH)        // normal size — no lunge/grow
+        killer.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.5)
         killer.zPosition = 500
         addChild(killer)
         killerSprite = killer
@@ -353,11 +353,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private func updateDeath() {
         guard let killer = killerSprite else { finishDeath(); return }
         deathFramesLeft -= 1
-        let p = 1 - CGFloat(max(0, deathFramesLeft)) / CGFloat(deathFrames)   // 0 -> 1
-        let ease = p * p                                                       // accelerate the lunge
-        killer.setScale(viewH * (0.35 + 0.85 * ease) / killerNativeH)
-        let shake = CGFloat((deathFramesLeft % 4 < 2) ? 7 : -7) * ease
-        killer.position = CGPoint(x: size.width / 2 + shake, y: radarH + viewH * (0.60 - 0.18 * ease))
+        let shake = CGFloat((deathFramesLeft % 4 < 2) ? 5 : -5)   // menacing shudder, fixed size
+        killer.position = CGPoint(x: size.width / 2 + shake, y: radarH + viewH * 0.5)
         if deathFramesLeft <= 0 { finishDeath() }
     }
 
@@ -440,6 +437,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private func togglePause() {
         isUserPaused.toggle()
         hud.showPaused(isUserPaused)   // same PAUSED text the 2D game uses
+        spriteLayer.isPaused = isUserPaused   // freeze every SKAction (boss walks, pickup throbs)
+        mapLayer.isPaused = isUserPaused       // and the radar copies
         if isUserPaused { pete.stopWalking(); mapPete.stopWalking(); sound.pauseAudio() }
         else { pete.startWalking(); mapPete.startWalking(); sound.resumeAudio() }
     }
@@ -683,8 +682,14 @@ final class DoomScene: SKScene, BossControllerDelegate {
             let tY = invDet * (-planeY * relX + planeX * relY)   // depth
             guard tY > 0.15 else { node.isHidden = true; continue }
             let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
-            // Occlude against the wall depth at the sprite's center column.
-            if col >= 0, col < columns, tY > zbuf[col] + 0.1 { node.isHidden = true; continue }
+            // Occlude only when walls are nearer than the sprite across its whole footprint.
+            // Sampling a window (not one column) stops the per-step blink when the centre
+            // column straddles a side-opening edge as a boss walks.
+            if col >= 0, col < columns {
+                var wallZ = zbuf[col]
+                for c in max(0, col - 4)...min(columns - 1, col + 4) { wallZ = max(wallZ, zbuf[c]) }
+                if tY > wallZ + 0.3 { node.isHidden = true; continue }
+            }
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }

@@ -210,7 +210,7 @@ final class MazeBuilder {
         // display so the camera magnifies a sharp sheet (WASM bakes 1:1, redrawn
         // live). The sheet is then drawn back down by the same factor.
         let bakeScale = RenderScale.mazeBake(sceneWidth: frame.width,
-                                             zoom: max(1, CGFloat(MazeZoom.current) / 100))
+                                             zoom: max(1, CGFloat(MazeZoom.zoomPercent) / 100))
         staticTree.setScale(bakeScale)
         let baked = view?.texture(from: staticTree)
         staticTree.setScale(1)
