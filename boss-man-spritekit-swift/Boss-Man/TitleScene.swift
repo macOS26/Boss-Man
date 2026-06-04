@@ -91,8 +91,8 @@ final class TitleScene: SKScene {
 
         // Window controls hug the bottom-right corner; the gameplay toggles
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
-        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "Fullscreen", y: 40, color: .systemRed)
-        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "Window", y: 114, color: .systemTeal)
+        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "FULLSCREEN", y: 40, color: .systemRed)
+        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "WINDOW", y: 114, color: .systemTeal)
         mazeLabel       = makeHint(icon: "⏳", iconSize: 42, value: mazeText(), y: 188, color: .systemPurple)
         bossTracksLabel = makeHint(icon: "👻", iconSize: 42, value: bossTracksText(), y: 40, color: .systemIndigo, left: true)
         waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: 114, color: .systemOrange, left: true)
@@ -100,11 +100,11 @@ final class TitleScene: SKScene {
 
     // MARK: - Settings text
     private func bossTracksText() -> String {
-        "\(isSquareTracks() ? "Hunter" : "Speedy")"
+        isSquareTracks() ? "HUNTER" : "SPEEDY"
     }
     private func waterGunText() -> String {
-        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) { return "Hidden" }
-        return Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "Left" : "Right"
+        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) { return "HIDDEN" }
+        return Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "LEFT" : "RIGHT"
     }
 
     // Cycle Left -> Right -> Hide -> Left (two bools: waterGunLeft + waterGunHide).

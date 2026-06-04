@@ -73,6 +73,16 @@ public final class TileMover<D: TileDirection> {
         return map.point(for: g)
     }
 
+    // The continuous world position the mover is driving the node to, computed from
+    // its own interpolation state. Read this (not node.position) when a host overwrites
+    // node.position for its own draw — node.position goes stale on dwell frames, so
+    // sampling it then yields a bogus cell (the 3D billboard saw boss teleports).
+    public var worldPosition: CGPoint {
+        guard moving else { return centre(of: grid) }
+        return CGPoint(x: fromPos.x + (toPos.x - fromPos.x) * prog,
+                       y: fromPos.y + (toPos.y - fromPos.y) * prog)
+    }
+
     // The tile reached by stepping `d` from `g`, honoring tunnel wrap when the
     // straight-line neighbour isn't walkable but a partner exists.
     public func tileAfter(from g: CGPoint, in d: D) -> CGPoint {

@@ -173,10 +173,15 @@ final class PixelPerson: SKNode {
         rightArm.addChild(rh)
         rightHand = rh
 
-        let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: (backView ? 3 : 2) * rs)
+        // Back view: a square (flat-top, sharp-cornered) rectangle, but the dark stroke uses
+        // round joins/caps so the OUTLINE is rounded while the shape stays rectangular.
+        let hd = backView
+            ? SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs))
+            : SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
         hd.fillColor = backView ? hairColor : skin
         hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
-        hd.lineWidth = 1 * rs
+        hd.lineWidth = (backView ? 2 : 1) * rs
+        if backView { hd.lineJoin = .round; hd.lineCap = .round }
         hd.position = CGPoint(x: 0, y: (13 + headYOffset) * rs)
         hd.zPosition = 4
         bodyContainer.addChild(hd)

@@ -792,11 +792,13 @@ final class DoomScene: SKScene, BossControllerDelegate {
         moveShots()
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
         syncBossNodes()
-        // Capture each boss's SMOOTH interpolated world position (set by TileMover in
-        // advance) as continuous grid coords, before projectSprites overwrites node.position.
+        // Capture each boss's SMOOTH world position from the mover itself, not node.position:
+        // projectSprites overwrites node.position with screen coords for the billboard, and on
+        // square-mode dwell frames the mover doesn't rewrite it, so sampling node.position then
+        // yields a stale screen coord -> a bogus map-edge cell (Bill blinked to a tunnel).
         bossGrid.removeAll(keepingCapacity: true)
         for e in bossController.entities {
-            let p = e.node.position
+            let p = e.mover?.worldPosition ?? e.node.position
             bossGrid[ObjectIdentifier(e.node)] = (Double(p.x) / 32.0 - 0.5, Double(p.y) / 32.0 - 0.5)
         }
         peteShielded = bossController.isAnyBossSpawning   // shielded exactly while bosses flash in (spawnGrace)
