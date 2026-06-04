@@ -6,7 +6,7 @@ import AppKit
 // sunset sky, and billboarded game sprites (pellets, gold discs, bosses) standing
 // in the corridors. The camera trails behind Pete so you see him walking ahead of
 // you. A top-down radar sits at the bottom. Common to both ports.
-final class DoomScene: SKScene, BossControllerDelegate {
+final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
 
     // MARK: - Maze (loaded for the selected level; the editor's test plays the edited rows)
     private lazy var map: [[Character]] =
@@ -85,14 +85,14 @@ final class DoomScene: SKScene, BossControllerDelegate {
 
     // MARK: - On-screen controls (same layout/sizing as the 100% game)
     private let joystickRadius: CGFloat = 129.375
-    private let joystickKnobRadius: CGFloat = 51.75
     private let joystickDeadzone: CGFloat = 20   // D-pad centre hole + input deadzone (smaller = more reach)
     private var joystickCenter = CGPoint.zero
-    private var joystickActive = false
-    private var joystickThumb: SKShapeNode?
-    // X-pattern D-pad: four ring-sector wedges (up/down/left/right) split by an X, so
-    // the diagonals press forward + a turn together. Keyed "up"/"down"/"left"/"right".
+    // X-pattern D-pad: four ring-sector wedges (up/down/left/right) split by an X.
+    // Each finger lights at most one wedge; two fingers light two (forward + a turn)
+    // ONLY when the phone actually has two fingers down. Keyed "up/down/left/right".
     private var dpadWedges: [String: SKShapeNode] = [:]
+    private var dpadFinger: [Int: String] = [:]   // active finger id -> its wedge
+    private var usingTouch = false                 // a real touch arrived: ignore the synthetic mouse pointer
     private var fireButtonCenter = CGPoint.zero
     private let fireButtonRadius: CGFloat = 129.375
     private var controlsShown = false
@@ -1154,54 +1154,81 @@ final class DoomScene: SKScene, BossControllerDelegate {
         let dx = a.x - b.x, dy = a.y - b.y; return (dx * dx + dy * dy).squareRoot()
     }
 
+    // Desktop mouse = a single finger (the on-screen D-pad is really for phones).
+    // Once any true touch arrives, ignore this synthetic pointer so we don't
+    // double-drive the D-pad on a phone (the host emits BOTH for finger 0).
     override func mouseDown(with event: NSEvent) {
         if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self)); return }
-        guard !isUserPaused, !dying else { return }
-        if !controlsShown { fire(); return }   // water gun hidden: a single tap anywhere fires
-        let p = event.location(in: self)
-        if radius(p, joystickCenter) <= joystickRadius {
-            joystickActive = true; steerDPad(p); return
-        }
-        if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
+        if usingTouch { return }
+        pointerBegan(finger: 0, at: event.location(in: self))
     }
     override func mouseDragged(with event: NSEvent) {
-        guard joystickActive else { return }
-        steerDPad(event.location(in: self))
+        if usingTouch { return }
+        if dpadFinger[0] != nil { dpadSet(finger: 0, phase: 1, at: event.location(in: self)) }
     }
     override func mouseUp(with event: NSEvent) {
-        guard joystickActive else { return }
-        joystickActive = false
-        pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown)
-        highlightDPad(up: false, down: false, left: false, right: false)
+        if usingTouch { return }
+        if dpadFinger[0] != nil { dpadSet(finger: 0, phase: 2, at: event.location(in: self)) }
     }
 
-    // X-pattern D-pad steering: 8 sectors of 45°. The cardinals do one thing; the four
-    // diagonals press forward/back AND queue a turn at once (forward + left/right).
-    private func steerDPad(_ p: CGPoint) {
+    // MARK: - Multi-touch D-pad (phone). Each finger lights at most one wedge, so
+    // forward + a turn happen only when two fingers are physically down at once.
+    func touchBegan(finger: Int, at p: CGPoint) {
+        usingTouch = true
+        if let s = gameOverScreen { s.handleTap(at: s.convert(p, from: self)); return }
+        pointerBegan(finger: finger, at: p)
+    }
+    func touchMoved(finger: Int, at p: CGPoint) {
+        if dpadFinger[finger] != nil { dpadSet(finger: finger, phase: 1, at: p) }
+    }
+    func touchEnded(finger: Int, at p: CGPoint) {
+        if dpadFinger[finger] != nil { dpadSet(finger: finger, phase: 2, at: p) }
+    }
+
+    private func pointerBegan(finger: Int, at p: CGPoint) {
+        guard !isUserPaused, !dying else { return }
+        if !controlsShown { fire(); return }   // water gun hidden: a tap anywhere fires
+        if radius(p, joystickCenter) <= joystickRadius { dpadSet(finger: finger, phase: 0, at: p); return }
+        if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
+    }
+
+    // Which single wedge a point is in ("" = centre hole / outside the ring).
+    private func dpadWedgeAt(_ p: CGPoint) -> String {
         let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
-        guard (dx * dx + dy * dy).squareRoot() >= joystickDeadzone else {
-            pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown)
-            highlightDPad(up: false, down: false, left: false, right: false); return
+        let mag = (dx * dx + dy * dy).squareRoot()
+        if mag < joystickDeadzone || mag > joystickRadius { return "" }
+        if abs(dy) >= abs(dx) { return dy > 0 ? "up" : "down" }   // scene y-up: up = forward
+        return dx > 0 ? "right" : "left"
+    }
+
+    private func dpadSet(finger: Int, phase: Int, at p: CGPoint) {
+        let prev = dpadFinger[finger] ?? ""
+        let w = phase == 2 ? "" : dpadWedgeAt(p)
+        if w.isEmpty { dpadFinger[finger] = nil } else { dpadFinger[finger] = w }
+        // One-shot turn the moment a finger ENTERS a turn wedge: left/right = 90°, down = 180°.
+        if !w.isEmpty, w != prev {
+            switch w {
+            case "left":  wantDir = (x: moveDir.y, y: -moveDir.x)
+            case "right": wantDir = (x: -moveDir.y, y: moveDir.x)
+            case "down":  wantDir = (x: -moveDir.x, y: -moveDir.y)
+            default:      break
+            }
         }
-        // Classify into 8 sectors via the dx/dy ratio (no atan2 — unavailable on WASM).
-        // tan(67.5°) ≈ 2.4142: one axis that much larger than the other = a cardinal;
-        // anything in between is a diagonal (forward/back AND a turn).
-        let ax = abs(dx), ay = abs(dy), k: CGFloat = 2.4142
-        var fwd = 0, turn = 0                       // fwd: +1 fwd / -1 back; turn: -1 left / +1 right
-        if ay > ax * k {                            // up / down
-            fwd = dy > 0 ? 1 : -1
-        } else if ax > ay * k {                     // left / right
-            turn = dx > 0 ? 1 : -1
-        } else {                                    // diagonal: forward/back + a turn
-            fwd = dy > 0 ? 1 : -1
-            turn = dx > 0 ? 1 : -1
+        applyDpad()
+    }
+
+    private func applyDpad() {
+        var up = false, down = false, left = false, right = false
+        for (_, w) in dpadFinger {
+            switch w {
+            case "up": up = true; case "down": down = true
+            case "left": left = true; case "right": right = true
+            default: break
+            }
         }
-        if fwd > 0 { pressed.insert(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown) }
-        else if fwd < 0 { pressed.insert(KeyCode.arrowDown); pressed.remove(KeyCode.arrowUp) }
-        else { pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown) }
-        if turn < 0 { wantDir = (x: moveDir.y, y: -moveDir.x) }        // turn left
-        else if turn > 0 { wantDir = (x: -moveDir.y, y: moveDir.x) }   // turn right
-        highlightDPad(up: fwd > 0, down: fwd < 0, left: turn < 0, right: turn > 0)
+        if up { pressed.insert(KeyCode.arrowUp) } else { pressed.remove(KeyCode.arrowUp) }
+        pressed.remove(KeyCode.arrowDown)   // up = forward (held); down is a 180° turn, not reverse
+        highlightDPad(up: up, down: down, left: left, right: right)
     }
     private func highlightDPad(up: Bool, down: Bool, left: Bool, right: Bool) {
         let on: [String: Bool] = ["up": up, "down": down, "left": left, "right": right]

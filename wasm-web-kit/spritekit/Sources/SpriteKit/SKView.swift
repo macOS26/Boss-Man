@@ -146,6 +146,9 @@ public final class SKView {
             case 9:  a == 1 ? s.rightMouseDown(at: scenePoint(b, c, s)) : s.mouseDown(at: scenePoint(b, c, s))
             case 10: a == 1 ? s.rightMouseUp(at: scenePoint(b, c, s))   : s.mouseUp(at: scenePoint(b, c, s))
             case 11: s.mouseMoved(to: scenePoint(a, b, s))
+            case 19: (s as? SKTouchResponder)?.touchBegan(finger: Int(a), at: scenePoint(b, c, s))
+            case 20: (s as? SKTouchResponder)?.touchMoved(finger: Int(a), at: scenePoint(b, c, s))
+            case 21: (s as? SKTouchResponder)?.touchEnded(finger: Int(a), at: scenePoint(b, c, s))
             default: break
             }
         }

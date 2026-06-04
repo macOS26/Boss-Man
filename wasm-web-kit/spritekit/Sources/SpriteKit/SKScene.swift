@@ -62,6 +62,19 @@ open class SKScene: SKNode {
     }
 }
 
+// A scene opts into per-finger multi-touch by conforming. The host delivers
+// these ALONGSIDE the finger-0 mouse pointer (so single-pointer scenes keep
+// working untouched); a scene that needs true simultaneous presses (the 3D
+// bonus D-pad) reads them here. Declared as a protocol — not SKScene methods —
+// so the game conforms with a plain `func` on BOTH wasm and macOS (where the
+// real SKScene has no such method to `override`). The macOS app re-declares an
+// identical protocol in a companion; nothing calls it there (no touch hardware).
+public protocol SKTouchResponder: AnyObject {
+    func touchBegan(finger: Int, at p: CGPoint)
+    func touchMoved(finger: Int, at p: CGPoint)
+    func touchEnded(finger: Int, at p: CGPoint)
+}
+
 public typealias TimeInterval = Double
 
 // Mimics the slice of AppKit's NSEvent that SpriteKit input handlers read, so a

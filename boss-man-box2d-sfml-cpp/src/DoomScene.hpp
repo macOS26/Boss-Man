@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <unordered_set>
+#include <map>
 #include "GridMap.hpp"
 #include "Pathfinder.hpp"
 #include "BossController.hpp"
@@ -42,6 +43,9 @@ public:
     void mouseDown(float x, float y);
     void mouseDragged(float x, float y);
     void mouseUp();
+    // Multi-touch D-pad: route every finger (phase 0 down / 1 move / 2 up) so two
+    // fingers can press two wedges (forward + a turn) at once on a phone.
+    void touch(unsigned finger, float x, float y, int phase);
 
     // True once Pete has run out of lives: Game tears the scene down and shows the
     // shared game-over combo screen (no name entry, like the 2D modes).
@@ -165,6 +169,12 @@ private:
     bool joystickActive_ = false;
     // X-pattern D-pad: which wedges are lit (diagonals light two -> forward + a turn).
     bool dpadUp_ = false, dpadDown_ = false, dpadLeft_ = false, dpadRight_ = false;
+    std::map<unsigned, std::string> dpadFinger_;   // active finger id -> wedge (up/down/left/right)
+    bool usingTouch_ = false;   // a real finger arrived: ignore the synthetic mouse pointer (phones send both)
+    std::string dpadWedgeAt(float x, float y) const;
+    void dpadSet(unsigned finger, float x, float y, int phase);   // update one finger, apply one-shot turns
+    void applyDpad();   // recompute held forward + highlight from all fingers
+    void pointer(unsigned finger, float x, float y, int phase);   // shared mouse/touch body
     bool controlsShown_ = false;
 
     // MARK: - Input state (held keys, SFML key codes)

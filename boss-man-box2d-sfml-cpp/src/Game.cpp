@@ -421,12 +421,12 @@ void Game::processInput() {
                 doomScene->mouseUp();
             } else if (event.type == sf::Event::TouchBegan) {
                 sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)event.touch.x, (int)event.touch.y));
-                doomScene->mouseDown(p.x, p.y);
+                doomScene->touch(event.touch.finger, p.x, p.y, 0);
             } else if (event.type == sf::Event::TouchMoved) {
                 sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)event.touch.x, (int)event.touch.y));
-                doomScene->mouseDragged(p.x, p.y);
+                doomScene->touch(event.touch.finger, p.x, p.y, 1);
             } else if (event.type == sf::Event::TouchEnded) {
-                doomScene->mouseUp();
+                doomScene->touch(event.touch.finger, 0.f, 0.f, 2);
             }
             continue;
         }

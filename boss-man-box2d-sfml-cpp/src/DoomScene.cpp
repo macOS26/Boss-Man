@@ -705,44 +705,62 @@ static float radiusBetween(sf::Vector2f a, sf::Vector2f b) {
     return std::sqrt(dx * dx + dy * dy);
 }
 
-void DoomScene::mouseDown(float x, float y) {
-    if (isUserPaused_ || dying_ || gameOver_) return;
-    sf::Vector2f p(x, y);
-    if (!controlsShown_) { fire(); return; } // water gun hidden: tap anywhere fires
-    if (radiusBetween(p, joystickCenter_) <= joystickRadius_) {
-        joystickActive_ = true; mouseDragged(x, y); return;
-    }
-    if (radiusBetween(p, fireButtonCenter_) <= fireButtonRadius_) fire();
-}
-
-void DoomScene::mouseDragged(float x, float y) {
-    if (!joystickActive_) return;
+// Which wedge a point is in (single direction per finger; "" = centre/outside).
+std::string DoomScene::dpadWedgeAt(float x, float y) const {
     float dx = x - joystickCenter_.x, dy = y - joystickCenter_.y;
     float mag = std::sqrt(dx * dx + dy * dy);
-    if (mag < joystickDeadzone_) {
-        pressUp_ = pressDown_ = false;
-        dpadUp_ = dpadDown_ = dpadLeft_ = dpadRight_ = false;
-        return;
-    }
-    // X-pattern D-pad: 8 sectors via the dx/dy ratio (tan 67.5° ~ 2.4142). The four
-    // diagonals press forward/back AND a turn at once. SFML y is down: up = dy<0 = forward.
-    float ax = std::abs(dx), ay = std::abs(dy), k = 2.4142f;
-    int fwd = 0, turn = 0;   // fwd: +1 fwd / -1 back; turn: -1 left / +1 right
-    if (ay > ax * k)      fwd = dy < 0 ? 1 : -1;
-    else if (ax > ay * k) turn = dx > 0 ? 1 : -1;
-    else { fwd = dy < 0 ? 1 : -1; turn = dx > 0 ? 1 : -1; }
-    pressUp_ = (fwd > 0); pressDown_ = (fwd < 0);
-    if (turn < 0)      { wantDirSet_ = true; wantDirX_ = moveDirY_;  wantDirY_ = -moveDirX_; }   // turn left
-    else if (turn > 0) { wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; }    // turn right
-    dpadUp_ = (fwd > 0); dpadDown_ = (fwd < 0); dpadLeft_ = (turn < 0); dpadRight_ = (turn > 0);
+    if (mag < joystickDeadzone_ || mag > joystickRadius_) return "";
+    if (std::abs(dy) >= std::abs(dx)) return dy < 0 ? "up" : "down";   // SFML y down: up = forward
+    return dx > 0 ? "right" : "left";
 }
 
-void DoomScene::mouseUp() {
-    if (!joystickActive_) return;
-    joystickActive_ = false;
-    pressUp_ = pressDown_ = false;
-    dpadUp_ = dpadDown_ = dpadLeft_ = dpadRight_ = false;
+void DoomScene::dpadSet(unsigned finger, float x, float y, int phase) {
+    std::string prev = dpadFinger_.count(finger) ? dpadFinger_[finger] : std::string();
+    std::string w = (phase == 2) ? std::string() : dpadWedgeAt(x, y);
+    if (w.empty()) dpadFinger_.erase(finger); else dpadFinger_[finger] = w;
+    // One-shot turn the moment a finger ENTERS a turn wedge: left/right = 90°, down = 180°.
+    if (!w.empty() && w != prev) {
+        if (w == "left")       { wantDirSet_ = true; wantDirX_ = moveDirY_;  wantDirY_ = -moveDirX_; }
+        else if (w == "right") { wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; }
+        else if (w == "down")  { wantDirSet_ = true; wantDirX_ = -moveDirX_; wantDirY_ = -moveDirY_; }
+    }
+    applyDpad();
 }
+
+void DoomScene::applyDpad() {
+    bool up = false, down = false, left = false, right = false;
+    for (auto& fw : dpadFinger_) {
+        const std::string& w = fw.second;
+        if (w == "up") up = true; else if (w == "down") down = true;
+        else if (w == "left") left = true; else if (w == "right") right = true;
+    }
+    pressUp_ = up; pressDown_ = false;   // up = forward (held); down is a 180° turn, not reverse
+    dpadUp_ = up; dpadDown_ = down; dpadLeft_ = left; dpadRight_ = right;
+}
+
+// Shared pointer body: two fingers can hold two wedges (forward + a turn) at once.
+void DoomScene::pointer(unsigned finger, float x, float y, int phase) {
+    if (isUserPaused_ || dying_ || gameOver_) return;
+    if (!controlsShown_) { if (phase == 0) fire(); return; } // gun hidden: a tap fires
+    if (phase == 0) {
+        if (radiusBetween({x, y}, joystickCenter_) <= joystickRadius_) { dpadSet(finger, x, y, 0); return; }
+        if (radiusBetween({x, y}, fireButtonCenter_) <= fireButtonRadius_) fire();
+        return;
+    }
+    if (dpadFinger_.count(finger)) dpadSet(finger, x, y, phase);   // move/up only steer D-pad fingers
+}
+
+// Real per-finger touch (phone). Marks touch active so the synthetic finger-0
+// mouse pointer (the host emits both) stops fighting the real fingers.
+void DoomScene::touch(unsigned finger, float x, float y, int phase) {
+    usingTouch_ = true;
+    pointer(finger, x, y, phase);
+}
+
+// Desktop mouse = a single finger; ignored once a real touch has arrived.
+void DoomScene::mouseDown(float x, float y)    { if (usingTouch_) return; pointer(0, x, y, 0); }
+void DoomScene::mouseDragged(float x, float y) { if (usingTouch_) return; pointer(0, x, y, 1); }
+void DoomScene::mouseUp()                      { if (usingTouch_) return; pointer(0, 0.f, 0.f, 2); }
 
 // MARK: - Rendering
 //

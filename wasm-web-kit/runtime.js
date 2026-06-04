@@ -104,6 +104,10 @@ const EVT = {
   Closed: 0, Resized: 1, LostFocus: 2, GainedFocus: 3, TextEntered: 4,
   KeyPressed: 5, KeyReleased: 6, MouseWheelMoved: 7, MouseWheelScrolled: 8,
   MouseButtonPressed: 9, MouseButtonReleased: 10, MouseMoved: 11,
+  // Per-finger touch (SFML 2.6 order) carried ALONGSIDE the finger-0 mouse
+  // events above: legacy scenes consume the mouse pointer, multi-touch-aware
+  // scenes (the 3D bonus D-pad) consume these. {a:finger, b:x, c:y}.
+  TouchBegan: 19, TouchMoved: 20, TouchEnded: 21,
 };
 
 // Per-game configuration. The host page sets window.WASMWEB before loading this
@@ -1950,6 +1954,17 @@ void main() {
     // from scrolling/zooming the page out from under the gesture.
     this.canvas.style.touchAction = 'none';
     const touchAt = (t) => this.toLogical({ clientX: t.clientX, clientY: t.clientY });
+    // Browser touch identifiers can be large/arbitrary; map them to small stable
+    // finger slots (0,1,2,...) so the framework ABI's Int32 finger field is tidy.
+    this._fingerSlots = new Map();
+    const fingerSlot = (id) => {
+      if (!this._fingerSlots.has(id)) {
+        let n = 0; const used = new Set(this._fingerSlots.values());
+        while (used.has(n)) n++;
+        this._fingerSlots.set(id, n);
+      }
+      return this._fingerSlots.get(id);
+    };
     this.canvas.addEventListener('touchstart', (e) => {
       this._reprimeSpeech();   // keep TTS warm on every tap
       if (!e.changedTouches.length) return;
@@ -1958,6 +1973,10 @@ void main() {
       this._touchStartX = p.x; this._touchStartY = p.y; this._touchMoved = false;
       this.mouseX = p.x; this.mouseY = p.y;
       this.events.push({ type: EVT.MouseButtonPressed, a: 0, b: p.x, c: p.y, d: 0 });
+      for (const t of e.changedTouches) {
+        const q = touchAt(t);
+        this.events.push({ type: EVT.TouchBegan, a: fingerSlot(t.identifier), b: q.x, c: q.y, d: 0 });
+      }
       e.preventDefault();
     }, { passive: false });
     this.canvas.addEventListener('touchmove', (e) => {
@@ -1966,6 +1985,10 @@ void main() {
       if (Math.abs(p.x - this._touchStartX) > 16 || Math.abs(p.y - this._touchStartY) > 16) this._touchMoved = true;
       this.mouseX = p.x; this.mouseY = p.y;
       this.events.push({ type: EVT.MouseMoved, a: p.x, b: p.y, c: 0, d: 0 });
+      for (const t of e.changedTouches) {
+        const q = touchAt(t);
+        this.events.push({ type: EVT.TouchMoved, a: fingerSlot(t.identifier), b: q.x, c: q.y, d: 0 });
+      }
       e.preventDefault();
     }, { passive: false });
     const onTouchEnd = (e) => {
@@ -1973,6 +1996,11 @@ void main() {
       this.mouseDown[0] = false;
       const p = touchAt(e.changedTouches[0]);
       this.events.push({ type: EVT.MouseButtonReleased, a: 0, b: p.x, c: p.y, d: 0 });
+      for (const t of e.changedTouches) {
+        const q = touchAt(t);
+        this.events.push({ type: EVT.TouchEnded, a: fingerSlot(t.identifier), b: q.x, c: q.y, d: 0 });
+        this._fingerSlots.delete(t.identifier);
+      }
       e.preventDefault();
       // Double-tap toggles fullscreen, but only on a CLEAN tap: not a swipe (moved)
       // and not in the bottom fire-button zone, so firing + steering never trigger it.
