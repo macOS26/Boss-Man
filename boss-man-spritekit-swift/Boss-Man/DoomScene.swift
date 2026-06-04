@@ -90,6 +90,9 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var joystickCenter = CGPoint.zero
     private var joystickActive = false
     private var joystickThumb: SKShapeNode?
+    // X-pattern D-pad: four ring-sector wedges (up/down/left/right) split by an X, so
+    // the diagonals press forward + a turn together. Keyed "up"/"down"/"left"/"right".
+    private var dpadWedges: [String: SKShapeNode] = [:]
     private var fireButtonCenter = CGPoint.zero
     private let fireButtonRadius: CGFloat = 129.375
     private var controlsShown = false
@@ -217,13 +220,13 @@ final class DoomScene: SKScene, BossControllerDelegate {
             let fx0 = camX + d * rdx0, fy0 = camY + d * rdy0
             let stepX = d * (rdx1 - rdx0) / Double(W), stepY = d * (rdy1 - rdy0) / Double(W)
             var runStart: CGFloat = 0
-            var runParity = (Int(floor(fx0)) + Int(floor(fy0))) & 1
+            var runParity = (Int(fx0.rounded(.down)) + Int(fy0.rounded(.down))) & 1
             var x: CGFloat = 1
             while x <= W {
                 var parity = -1
                 if x < W {
                     let wx = fx0 + stepX * Double(x), wy = fy0 + stepY * Double(x)
-                    parity = (Int(floor(wx)) + Int(floor(wy))) & 1
+                    parity = (Int(wx.rounded(.down)) + Int(wy.rounded(.down))) & 1
                 }
                 if parity != runParity {
                     let r = CGRect(x: runStart, y: yu, width: x - runStart, height: rowH)
@@ -1096,14 +1099,48 @@ final class DoomScene: SKScene, BossControllerDelegate {
         joystickCenter = CGPoint(x: fireOnLeft ? size.width - joystickRadius : joystickRadius, y: joystickRadius + 15)
         let base = SKShapeNode(circleOfRadius: joystickRadius)
         base.position = joystickCenter
-        base.fillColor = SKColor(white: 1, alpha: 0.10); base.strokeColor = SKColor(white: 1, alpha: 0.5)
+        base.fillColor = SKColor(white: 1, alpha: 0.06); base.strokeColor = SKColor(white: 1, alpha: 0.5)
         base.lineWidth = 2; base.zPosition = 300
         addChild(base)
-        let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
-        thumb.position = joystickCenter
-        thumb.fillColor = SKColor(white: 1, alpha: 0.28); thumb.strokeColor = SKColor(white: 1, alpha: 0.6)
-        thumb.lineWidth = 2; thumb.zPosition = 301
-        addChild(thumb); joystickThumb = thumb
+        // Four ring-sector wedges split by an X = the D-pad buttons. A diagonal press
+        // lights two and steers forward + a turn together. Arrow glyph in each wedge.
+        let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25C0}"),
+                                                 ("down", -.pi / 2, "\u{25BC}"), ("right", 0, "\u{25B6}")]
+        for (name, ang, glyph) in dirs {
+            let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang))
+            w.position = joystickCenter
+            w.fillColor = SKColor(white: 1, alpha: 0.12); w.strokeColor = SKColor(white: 1, alpha: 0.5)
+            w.lineWidth = 2; w.zPosition = 301
+            addChild(w); dpadWedges[name] = w
+            let arrow = SKLabelNode(text: glyph)
+            arrow.fontSize = 24; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
+            arrow.verticalAlignmentMode = .center; arrow.horizontalAlignmentMode = .center
+            let r = (joystickDeadzone + joystickRadius) / 2
+            arrow.position = CGPoint(x: joystickCenter.x + cos(ang) * r, y: joystickCenter.y + sin(ang) * r)
+            arrow.zPosition = 302
+            addChild(arrow)
+        }
+    }
+
+    // Ring-sector wedge (deadzone radius -> outer radius), 90° minus a gap at each
+    // diagonal so the four wedges read as an X. Polygon (move/addLine only) so it
+    // renders identically on macOS and the WASM SpriteKit shim.
+    private func dpadWedgePath(centerAngle: CGFloat) -> CGPath {
+        let gap: CGFloat = 0.14, inner = joystickDeadzone, outer = joystickRadius
+        let a0 = centerAngle - .pi / 4 + gap, a1 = centerAngle + .pi / 4 - gap
+        let steps = 10
+        let p = CGMutablePath()
+        for i in 0...steps {
+            let t = a0 + (a1 - a0) * CGFloat(i) / CGFloat(steps)
+            let pt = CGPoint(x: cos(t) * outer, y: sin(t) * outer)
+            if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+        }
+        for i in 0...steps {
+            let t = a1 - (a1 - a0) * CGFloat(i) / CGFloat(steps)
+            p.addLine(to: CGPoint(x: cos(t) * inner, y: sin(t) * inner))
+        }
+        p.closeSubpath()
+        return p
     }
 
     private func radius(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
@@ -1116,43 +1153,52 @@ final class DoomScene: SKScene, BossControllerDelegate {
         if !controlsShown { fire(); return }   // water gun hidden: a single tap anywhere fires
         let p = event.location(in: self)
         if radius(p, joystickCenter) <= joystickRadius {
-            joystickActive = true; moveThumb(to: p); steerJoystick(p); return
+            joystickActive = true; steerDPad(p); return
         }
         if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
     }
     override func mouseDragged(with event: NSEvent) {
         guard joystickActive else { return }
-        let p = event.location(in: self); moveThumb(to: p); steerJoystick(p)
+        steerDPad(event.location(in: self))
     }
     override func mouseUp(with event: NSEvent) {
         guard joystickActive else { return }
         joystickActive = false
-        joystickThumb?.position = joystickCenter
         pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown)
+        highlightDPad(up: false, down: false, left: false, right: false)
     }
 
-    private func steerJoystick(_ p: CGPoint) {
+    // X-pattern D-pad steering: 8 sectors of 45°. The cardinals do one thing; the four
+    // diagonals press forward/back AND queue a turn at once (forward + left/right).
+    private func steerDPad(_ p: CGPoint) {
         let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
         guard (dx * dx + dy * dy).squareRoot() >= joystickDeadzone else {
-            pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown); return
-        }
-        if abs(dy) >= abs(dx) {                                    // up = forward, down = backward
-            if dy > 0 { pressed.insert(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown) }
-            else { pressed.insert(KeyCode.arrowDown); pressed.remove(KeyCode.arrowUp) }
-        } else {                                                   // left / right = turn
             pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown)
-            wantDir = dx > 0 ? (x: -moveDir.y, y: moveDir.x) : (x: moveDir.y, y: -moveDir.x)
+            highlightDPad(up: false, down: false, left: false, right: false); return
         }
+        // Classify into 8 sectors via the dx/dy ratio (no atan2 — unavailable on WASM).
+        // tan(67.5°) ≈ 2.4142: one axis that much larger than the other = a cardinal;
+        // anything in between is a diagonal (forward/back AND a turn).
+        let ax = abs(dx), ay = abs(dy), k: CGFloat = 2.4142
+        var fwd = 0, turn = 0                       // fwd: +1 fwd / -1 back; turn: -1 left / +1 right
+        if ay > ax * k {                            // up / down
+            fwd = dy > 0 ? 1 : -1
+        } else if ax > ay * k {                     // left / right
+            turn = dx > 0 ? 1 : -1
+        } else {                                    // diagonal: forward/back + a turn
+            fwd = dy > 0 ? 1 : -1
+            turn = dx > 0 ? 1 : -1
+        }
+        if fwd > 0 { pressed.insert(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown) }
+        else if fwd < 0 { pressed.insert(KeyCode.arrowDown); pressed.remove(KeyCode.arrowUp) }
+        else { pressed.remove(KeyCode.arrowUp); pressed.remove(KeyCode.arrowDown) }
+        if turn < 0 { wantDir = (x: moveDir.y, y: -moveDir.x) }        // turn left
+        else if turn > 0 { wantDir = (x: -moveDir.y, y: moveDir.x) }   // turn right
+        highlightDPad(up: fwd > 0, down: fwd < 0, left: turn < 0, right: turn > 0)
     }
-    private func moveThumb(to p: CGPoint) {
-        let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
-        let mag = (dx * dx + dy * dy).squareRoot(), limit = joystickRadius - joystickKnobRadius
-        if mag > limit, mag > 0 {
-            let s = limit / mag
-            joystickThumb?.position = CGPoint(x: joystickCenter.x + dx * s, y: joystickCenter.y + dy * s)
-        } else {
-            joystickThumb?.position = p
-        }
+    private func highlightDPad(up: Bool, down: Bool, left: Bool, right: Bool) {
+        let on: [String: Bool] = ["up": up, "down": down, "left": left, "right": right]
+        for (k, v) in on { dpadWedges[k]?.fillColor = SKColor(white: 1, alpha: v ? 0.34 : 0.12) }
     }
 
     required init?(coder: NSCoder) { fatalError(Strings.System.initCoderUnsupported) }
