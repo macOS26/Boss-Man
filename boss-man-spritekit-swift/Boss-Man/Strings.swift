@@ -311,10 +311,10 @@ enum MazeZoom {
     static var isDoom: Bool { current == doom }
     static var label: String {
         switch current {
-        case 1980: return "1980.05.22"    // Pac-Man
-        case 1982: return "1982.02.03"    // Ms. Pac-Man
-        case 1983: return "1983.10.28"    // Jr. Pac-Man
-        case 1993: return "1993.12.10"    // DOOM
+        case 1980: return "1980 05 22"    // Pac-Man
+        case 1982: return "1982 02 03"    // Ms. Pac-Man
+        case 1983: return "1983 10 28"    // Jr. Pac-Man
+        case 1993: return "1993 12 10"    // DOOM
         default:   return "\(current)"
         }
     }
