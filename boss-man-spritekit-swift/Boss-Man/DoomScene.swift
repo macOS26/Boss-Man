@@ -884,7 +884,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
     // +point popup, same as the 100% game's ScorePopup, in BOTH views: on Pete in
     // the 3D corridor, and on Pete in the mini-map (a matching rise+fade label).
     private func popPoints(_ n: Int) {
-        ScorePopup.show(n, at: CGPoint(x: size.width / 2, y: peteBaseY + viewH * 0.30), in: self)   // above Pete's avatar, not behind it
+        ScorePopup.show(n, at: CGPoint(x: size.width / 2, y: peteBaseY + viewH * 0.30), in: self, fontSize: 54)   // big in the 3D view, above Pete
         let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
         mini.text = Strings.Score.popup(n)
         mini.fontSize = 40; mini.fontColor = .systemYellow
