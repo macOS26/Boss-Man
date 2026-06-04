@@ -309,7 +309,15 @@ enum MazeZoom {
         return cycle.contains(z) ? z : 1993
     }
     static var isDoom: Bool { current == doom }
-    static var label: String { isDoom ? "\(doom)" : "\(current)" }
+    static var label: String {
+        switch current {
+        case 1980: return "May 22 1980"   // Pac-Man
+        case 1982: return "Feb 3 1982"    // Ms. Pac-Man
+        case 1983: return "Oct 28 1983"   // Jr. Pac-Man
+        case 1993: return "Dec 10 1993"   // DOOM
+        default:   return "\(current)"
+        }
+    }
     static func advance() {
         let i = cycle.firstIndex(of: current) ?? 0
         Persistence.set(cycle[(i + 1) % cycle.count], forKey: Strings.DefaultsKey.mazeZoom)

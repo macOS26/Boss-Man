@@ -163,7 +163,7 @@ final class TitleScene: SKScene {
     // fixed offsets means changing the value never re-centres the row (no number jump).
     private func makeHint(icon: String, iconSize: CGFloat, value: String, y: CGFloat, color: SKColor, left: Bool = false) -> SKLabelNode {
         let N = SpriteFactory.worldRenderScale
-        let btnW: CGFloat = 270, btnH: CGFloat = 50, margin: CGFloat = 16
+        let btnW: CGFloat = 292, btnH: CGFloat = 50, margin: CGFloat = 16
         let cx = left ? margin + btnW / 2 : size.width - margin - btnW / 2
         let container = SKNode()
         container.position = CGPoint(x: cx, y: y)
