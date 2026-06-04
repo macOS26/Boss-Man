@@ -737,15 +737,11 @@ final class DoomScene: SKScene, BossControllerDelegate {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn (←/→): a side turn needs centre alignment (the lane must be open there),
-        // but if that lane is walled just spin 180° in place — Pete can reverse anywhere,
-        // even mid-corridor with nowhere to turn.
-        if let t = wantDir {
-            if abs(px - ccx) < 0.2, abs(py - ccy) < 0.2, open(col + t.x, row + t.y) {
-                px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
-            } else if !open(col + t.x, row + t.y) {
-                moveDir = (x: -moveDir.x, y: -moveDir.y); wantDir = nil; targetAngle = cardinal(moveDir)
-            }
+        // Turn (←/→): rotate the facing 90° to that side at a tile centre. Pete may face a
+        // walled lane (he just can't advance), and two presses reverse him as 90°+90°, so he
+        // only ever turns 90° at a time, never a sudden 180° flip.
+        if let t = wantDir, abs(px - ccx) < 0.2, abs(py - ccy) < 0.2 {
+            px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)

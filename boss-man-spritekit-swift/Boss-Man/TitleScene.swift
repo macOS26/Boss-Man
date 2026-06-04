@@ -49,17 +49,17 @@ final class TitleScene: SKScene {
         // Two title buttons: green "(P)lay" and blue "(E)ditor". Click/tap either
         // or press P / E.
         let promptY = size.height * 0.15 + 20
-        let green = SKColor(calibratedRed: 0.0,  green: 0.55, blue: 0.18, alpha: 1)
-        let blue  = SKColor(calibratedRed: 0.10, green: 0.35, blue: 0.85, alpha: 1)
-        let bw: CGFloat = 180, bh: CGFloat = 52, gap: CGFloat = 28
+        let green = SKColor.systemGreen
+        let blue  = SKColor.systemBlue
+        let bw: CGFloat = 240, bh: CGFloat = 52, gap: CGFloat = 28
         playButtonRect = makeTitleButton(
             text: Strings.Title.playGame, color: green,
             center: CGPoint(x: size.width / 2 - bw / 2 - gap / 2, y: promptY),
-            size: CGSize(width: bw, height: bh), textDY: -1)
+            size: CGSize(width: bw, height: bh), textDY: -1, icon: "🕹️")
         editorButtonRect = makeTitleButton(
             text: Strings.Title.levelEditor, color: blue,
             center: CGPoint(x: size.width / 2 + bw / 2 + gap / 2, y: promptY),
-            size: CGSize(width: bw, height: bh))
+            size: CGSize(width: bw, height: bh), icon: "✏️")
 
         let high = Persistence.int(forKey: Strings.DefaultsKey.highScore)
         if high > 0 {
@@ -91,16 +91,11 @@ final class TitleScene: SKScene {
 
         // Window controls hug the bottom-right corner; the gameplay toggles
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
-        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "Fullscreen", y: 40,
-                                   color: SKColor(calibratedRed: 0.58, green: 0.24, blue: 0.26, alpha: 0.95))   // maroon
-        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "Window", y: 114,
-                                   color: SKColor(calibratedRed: 0.15, green: 0.45, blue: 0.55, alpha: 0.95))   // teal
-        mazeLabel       = makeHint(icon: "⏳", iconSize: 42, value: mazeText(), y: 188,
-                                   color: SKColor(calibratedRed: 0.45, green: 0.26, blue: 0.58, alpha: 0.95))   // purple
-        bossTracksLabel = makeHint(icon: "👻", iconSize: 42, value: bossTracksText(), y: 40,
-                                   color: SKColor(calibratedRed: 0.24, green: 0.30, blue: 0.62, alpha: 0.95), left: true)   // indigo
-        waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: 114,
-                                   color: SKColor(calibratedRed: 0.16, green: 0.50, blue: 0.27, alpha: 0.95), left: true)   // green
+        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "Fullscreen", y: 40, color: .systemRed)
+        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "Window", y: 114, color: .systemTeal)
+        mazeLabel       = makeHint(icon: "⏳", iconSize: 42, value: mazeText(), y: 188, color: .systemPurple)
+        bossTracksLabel = makeHint(icon: "👻", iconSize: 42, value: bossTracksText(), y: 40, color: .systemIndigo, left: true)
+        waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: 114, color: .systemOrange, left: true)
     }
 
     // MARK: - Settings text
@@ -133,27 +128,42 @@ final class TitleScene: SKScene {
     // MARK: - Builders
     @discardableResult
     private func makeTitleButton(text: String, color: SKColor, center: CGPoint,
-                                 size s: CGSize, textDY: CGFloat = 0) -> CGRect {
+                                 size s: CGSize, textDY: CGFloat = 0, icon: String? = nil) -> CGRect {
         let N = SpriteFactory.worldRenderScale
         let container = SKNode()
         container.position = center
         container.zPosition = 5
         addChild(container)
         let bg = SKShapeNode(rect: CGRect(x: -s.width / 2 * N, y: -s.height / 2 * N, width: s.width * N, height: s.height * N),
-                             cornerRadius: 10 * N)
+                             cornerRadius: 12 * N)
         bg.setScale(1 / N)
         bg.fillColor = color
-        bg.strokeColor = .clear
+        bg.strokeColor = SKColor(white: 1, alpha: 0.55)   // match the side toggle buttons
+        bg.lineWidth = 2 * N
         container.addChild(bg)
-        let label = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+
+        let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
         label.text = text
         label.fontSize = 34 * N
         label.setScale(1 / N)
         label.fontColor = .white
-        label.horizontalAlignmentMode = .center
         label.verticalAlignmentMode = .center
-        label.position = CGPoint(x: 0, y: textDY)
         label.zPosition = 6
+        if let icon = icon {
+            let iconNode = SKLabelNode(text: icon)
+            iconNode.fontSize = 42 * N
+            iconNode.setScale(1 / N)
+            iconNode.verticalAlignmentMode = .center
+            iconNode.horizontalAlignmentMode = .center
+            iconNode.position = CGPoint(x: -s.width / 2 + 40, y: textDY)
+            iconNode.zPosition = 6
+            container.addChild(iconNode)
+            label.horizontalAlignmentMode = .left
+            label.position = CGPoint(x: -s.width / 2 + 84, y: textDY)
+        } else {
+            label.horizontalAlignmentMode = .center
+            label.position = CGPoint(x: 0, y: textDY)
+        }
         container.addChild(label)
         return CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2, width: s.width, height: s.height)
     }
@@ -188,7 +198,7 @@ final class TitleScene: SKScene {
 
         let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
         label.text = value
-        label.fontSize = 26 * N
+        label.fontSize = 32 * N
         label.setScale(1 / N)
         label.fontColor = .white
         label.horizontalAlignmentMode = .left
