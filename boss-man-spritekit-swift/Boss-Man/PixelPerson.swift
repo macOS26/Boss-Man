@@ -173,22 +173,26 @@ final class PixelPerson: SKNode {
         rightArm.addChild(rh)
         rightHand = rh
 
-        // Back view: a square (flat-top, sharp-cornered) rectangle, but the dark stroke uses
-        // round joins/caps so the OUTLINE is rounded while the shape stays rectangular.
-        let hd = backView
-            ? SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs))
-            : SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
+        // Head: identical shape front and back — a rounded rect whose top is squared off by
+        // the flat hair strip below, so the silhouette is a FLAT TOP with ROUNDED BOTTOM corners.
+        let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
         hd.fillColor = backView ? hairColor : skin
         hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
-        hd.lineWidth = (backView ? 2 : 1) * rs
-        if backView { hd.lineJoin = .round; hd.lineCap = .round }
+        hd.lineWidth = 1 * rs
         hd.position = CGPoint(x: 0, y: (13 + headYOffset) * rs)
         hd.zPosition = 4
         bodyContainer.addChild(hd)
         head = hd
 
+        // Flat strip across the top — squares the top corners (rounded bottom stays). Hair on
+        // the front; hair-coloured on the back so it just flattens the top, same shape.
+        let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
+        hair.fillColor = hairColor
+        hair.strokeColor = .clear
+        hair.position = CGPoint(x: 0, y: 4 * rs)
+        head.addChild(hair)
+
         if backView {
-            // No hair strip: the back keeps the head's own rounded top corners + dark stroke.
             let earSize = CGSize(width: 3 * rs, height: 6 * rs)
             for sx: CGFloat in [-1, 1] {
                 let ear = SKShapeNode(rectOf: earSize, cornerRadius: 1 * rs)
@@ -199,13 +203,6 @@ final class PixelPerson: SKNode {
                 ear.zPosition = -1     // head sits in front; only the outer edge of each ear pokes out
                 head.addChild(ear)
             }
-        } else {
-            // Flat hair strip squares off the front head's rounded top corners.
-            let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
-            hair.fillColor = hairColor
-            hair.strokeColor = .clear
-            hair.position = CGPoint(x: 0, y: 4 * rs)
-            head.addChild(hair)
         }
 
         if wearsSunglasses {
