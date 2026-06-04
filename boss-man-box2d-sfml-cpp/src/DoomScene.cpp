@@ -810,8 +810,14 @@ void DoomScene::render(sf::RenderTarget& target) {
         auto m = e.renderer.metrics();
         float scale = viewH() * 0.42f / m.height;
         float cx = viewW_ / 2.f;
-        float cy = screenY(radarH_ + viewH() * 0.5f);
-        e.renderer.draw(target, {cx, cy}, e.facingLeft, false, MoveDirection::None,
+        // Grounded where Pete + the dots stand: plant the boss's soles on Pete's feet
+        // line, Pete-sized, drawn over the faded Pete. No jump onto Pete's shoulders.
+        PixelPersonRenderer peteRef(peteBackConfig());
+        auto pm = peteRef.metrics();
+        float peteScale = viewH() * 0.42f / pm.height;
+        float peteFeetYUp = radarH_ + viewH() * 0.42f / 2.f + 6.f - pm.feetOffset * peteScale;
+        float originYUp = peteFeetYUp + m.feetOffset * scale;
+        e.renderer.draw(target, {cx, screenY(originYUp)}, e.facingLeft, false, MoveDirection::None,
                         0.f, 1.0f, scale);
     }
 
@@ -1209,7 +1215,7 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
                 sf::RectangleShape wall({cell, cell});
                 wall.setOrigin(cell / 2.f, cell / 2.f);
                 wall.setPosition(p);
-                const Color& cub = CUBICLE_COLORS[0];
+                const Color& cub = CUBICLE_COLORS[(state_.level - 1) % 12];   // current level's colour
                 wall.setFillColor(sf::Color((uint8_t)(cub.r * 255 * 0.55f),
                                             (uint8_t)(cub.g * 255 * 0.55f),
                                             (uint8_t)(cub.b * 255 * 0.55f)));

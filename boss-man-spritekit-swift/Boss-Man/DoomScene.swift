@@ -517,7 +517,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         addChild(panel)
 
         let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
-        let cubicle = SpriteFactory.cubicleColors[0]
+        let cubicle = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
 
         // The maze floor and cubicle walls never change, so we bake them to ONE
         // texture and draw a single sprite — the MazeBuilder trick the 100% game
