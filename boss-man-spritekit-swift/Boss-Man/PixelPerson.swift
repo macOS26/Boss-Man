@@ -192,19 +192,6 @@ final class PixelPerson: SKNode {
         hair.position = CGPoint(x: 0, y: 4 * rs)
         head.addChild(hair)
 
-        if backView {
-            let earSize = CGSize(width: 3 * rs, height: 6 * rs)
-            for sx: CGFloat in [-1, 1] {
-                let ear = SKShapeNode(rectOf: earSize, cornerRadius: 1 * rs)
-                ear.fillColor = NSColor(calibratedRed: 0.96, green: 0.67, blue: 0.62, alpha: 1)   // slightly pink flesh
-                ear.strokeColor = .clear
-                ear.alpha = 0.5
-                ear.position = CGPoint(x: sx * 7 * rs, y: -1 * rs)
-                ear.zPosition = -1     // head sits in front; only the outer edge of each ear pokes out
-                head.addChild(ear)
-            }
-        }
-
         if wearsSunglasses {
             let shades = SKLabelNode(text: Strings.Emoji.sunglasses)
             shades.fontSize = 11 * rs
