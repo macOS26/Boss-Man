@@ -673,7 +673,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
             let id = ObjectIdentifier(e.node)
             let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1   // gridMap bottom-up -> raster top-down (smooth)
             let nh = bossNativeH[id] ?? 36
-            all.append((e.node, nh, 0.5, bx, by, viewH * 0.34, e.name, bossFeet[id] ?? -nh / 2))   // never bigger than Pete (0.42)
+            all.append((e.node, nh, 0.3, bx, by, .greatestFiniteMagnitude, e.name, bossFeet[id] ?? -nh / 2))   // no size cap (cap made him sink); worldH 0.3 keeps him ~Pete-size at the catch
         }
         for s in shots where s.alive {
             all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
