@@ -54,6 +54,8 @@ final class DoomScene: SKScene, BossControllerDelegate {
     private var viewH: CGFloat { size.height - radarH }
     private var viewMidY: CGFloat { radarH + viewH * 0.70 }   // horizon, lifted for a look-down view
     private var bars: [SKShapeNode] = []
+    private let floorA = SKShapeNode()   // alternating floor-tile checker, cast per frame
+    private let floorB = SKShapeNode()
     private var zbuf: [Double] = []
 
     // MARK: - Billboards (pooled: built once, projected each frame)
@@ -166,25 +168,72 @@ final class DoomScene: SKScene, BossControllerDelegate {
         // horizon over the dark checker-floor colour. One thin band per device row
         // so the gradient is smooth, then baked to a single sprite (the bands are
         // static, so this is ~240 fewer draw calls per frame on Apple).
+        // Ceiling + floor derive from the level's cubicle colour (dark at the ceiling,
+        // a touch brighter at the horizon) so the whole 3D environment matches the level.
+        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
         let tree = SKNode()
-        let horC: (CGFloat, CGFloat, CGFloat) = (0.10, 0.10, 0.13)   // maze background, lit at horizon
-        let topC: (CGFloat, CGFloat, CGFloat) = (0.02, 0.02, 0.035)  // darker toward the ceiling
         let skyBottom = viewMidY, skyTop = size.height
         let n = max(1, Int(skyTop - skyBottom))
         for i in 0..<n {
             let t = CGFloat(i) / CGFloat(max(1, n - 1))      // 0 horizon .. 1 ceiling
-            let col = SKColor(red: horC.0 + (topC.0 - horC.0) * t,
-                              green: horC.1 + (topC.1 - horC.1) * t,
-                              blue: horC.2 + (topC.2 - horC.2) * t, alpha: 1)
+            let factor = 0.18 + (0.05 - 0.18) * t            // cube brightness: horizon -> ceiling
+            let col = cube.blended(withFraction: 1 - factor, of: .black) ?? cube
             let band = SKShapeNode(rect: CGRect(x: 0, y: skyBottom + CGFloat(i), width: size.width, height: 2))
             band.fillColor = col; band.strokeColor = .clear
             tree.addChild(band)
         }
         let ground = SKShapeNode(rect: CGRect(x: 0, y: radarH, width: size.width, height: viewMidY - radarH))
-        ground.fillColor = SKColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1)   // floor-tile colour
+        ground.fillColor = cube.blended(withFraction: 0.88, of: .black) ?? cube   // dark level-tinted floor base
         ground.strokeColor = .clear
         tree.addChild(ground)
         addBaked(tree, to: self, z: -3)
+
+        // Alternating floor-tile checker (cast per frame in castFloor), drawn above the
+        // baked ground (z -3) and below the walls (z 0). Two nodes, one per shade.
+        floorA.fillColor = cube.blended(withFraction: 0.87, of: .black) ?? cube   // ~cube * 0.13
+        floorB.fillColor = cube.blended(withFraction: 0.76, of: .black) ?? cube   // ~cube * 0.24
+        floorA.strokeColor = .clear; floorB.strokeColor = .clear
+        floorA.zPosition = -2; floorB.zPosition = -2
+        floorA.isAntialiased = false; floorB.isAntialiased = false
+        addChild(floorA); addChild(floorB)
+    }
+
+    // Floor-cast the maze floor as an alternating checker so the tile grid reads in 3D
+    // (matches the C++ DoomScene::drawFloor). Each scene row below the horizon maps to a
+    // perpendicular distance; the world position sweeps left-ray -> right-ray across the
+    // row; cell parity picks the shade. Coalesced into per-row run rects in two paths.
+    private func castFloor() {
+        let dirX = cos(angle), dirY = sin(angle)
+        let planeX = -dirY * planeScale, planeY = dirX * planeScale
+        let rdx0 = dirX - planeX, rdy0 = dirY - planeY
+        let rdx1 = dirX + planeX, rdy1 = dirY + planeY
+        let W = size.width, rowH: CGFloat = 2
+        let pathA = CGMutablePath(), pathB = CGMutablePath()
+        var yu = radarH
+        while yu < viewMidY - 0.5 {
+            let distFromHorizon = Double(viewMidY - yu)
+            let d = Double(viewH) / (2.0 * distFromHorizon)
+            let fx0 = camX + d * rdx0, fy0 = camY + d * rdy0
+            let stepX = d * (rdx1 - rdx0) / Double(W), stepY = d * (rdy1 - rdy0) / Double(W)
+            var runStart: CGFloat = 0
+            var runParity = (Int(floor(fx0)) + Int(floor(fy0))) & 1
+            var x: CGFloat = 1
+            while x <= W {
+                var parity = -1
+                if x < W {
+                    let wx = fx0 + stepX * Double(x), wy = fy0 + stepY * Double(x)
+                    parity = (Int(floor(wx)) + Int(floor(wy))) & 1
+                }
+                if parity != runParity {
+                    let r = CGRect(x: runStart, y: yu, width: x - runStart, height: rowH)
+                    if runParity == 1 { pathA.addRect(r) } else { pathB.addRect(r) }
+                    runStart = x; runParity = parity
+                }
+                x += 1
+            }
+            yu += rowH
+        }
+        floorA.path = pathA; floorB.path = pathB
     }
 
     // Bake a static node tree to one texture and add it as a single sprite (one
@@ -602,6 +651,7 @@ final class DoomScene: SKScene, BossControllerDelegate {
         var back = camBack
         while back > 0.05 && isWall(px - dirX * back, py - dirY * back) { back -= 0.1 }
         camX = px - dirX * back; camY = py - dirY * back
+        castFloor()
 
         // One ray per column CENTRE. A column whose ray exits the map through an
         // opening (tunnel / no wall) is "open" -> drawn as nothing (black), not a wall.

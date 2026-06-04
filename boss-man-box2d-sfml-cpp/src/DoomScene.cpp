@@ -90,8 +90,8 @@ DoomScene::DoomScene(SoundManager& sound, RoundState& state,
     viewHeight_ = (float)WINDOW_HEIGHT;
     zbuf_.assign(columns_, 0.0);
 
-    // Round state for the bonus: level 1, fresh dot tally over the office map.
-    state_.level = 1;
+    // Fresh dot tally for the bonus; keep the level set by the caller (title = 1,
+    // the editor's test = the level being edited) so the HUD + wall colour match.
     state_.collectedDots = 0;
     state_.reportItems.clear();
     state_.currentReportScore = 0;
@@ -834,13 +834,16 @@ void DoomScene::drawSky(sf::RenderTarget& target) {
     // Floor: flat region below the horizon, (0.11,0.12,0.13). Both above the radar.
     float skyBottom = viewMidY(), skyTop = viewHeight_; // y-up
     int n = std::max(1, (int)(skyTop - skyBottom));
+    // Ceiling + floor derive from the level's cubicle colour (dark at the ceiling,
+    // a touch brighter at the horizon) so the whole 3D environment matches the level.
+    const Color cube = CUBICLE_COLORS[(state_.level - 1) % 12];
     sf::VertexArray sky(sf::Quads);
     auto lerp = [](float a, float b, float t) { return a + (b - a) * t; };
     for (int i = 0; i < n; ++i) {
         float t = (float)i / (float)std::max(1, n - 1); // 0 horizon .. 1 ceiling
-        sf::Color col((uint8_t)(lerp(0.10f, 0.02f, t) * 255),
-                      (uint8_t)(lerp(0.10f, 0.02f, t) * 255),
-                      (uint8_t)(lerp(0.13f, 0.035f, t) * 255));
+        sf::Color col((uint8_t)(lerp(cube.r * 0.18f, cube.r * 0.05f, t) * 255),
+                      (uint8_t)(lerp(cube.g * 0.18f, cube.g * 0.05f, t) * 255),
+                      (uint8_t)(lerp(cube.b * 0.18f, cube.b * 0.05f, t) * 255));
         float yTop = screenY(skyBottom + i + 1);
         float yBot = screenY(skyBottom + i);
         sky.append(sf::Vertex({0.f, yTop}, col));
@@ -852,7 +855,8 @@ void DoomScene::drawSky(sf::RenderTarget& target) {
 
     sf::RectangleShape ground({viewW_, viewMidY() - radarH_});
     ground.setPosition(0.f, screenY(viewMidY())); // top of floor band (y-down)
-    ground.setFillColor(sf::Color(28, 31, 33));   // (0.11,0.12,0.13)
+    ground.setFillColor(sf::Color((uint8_t)(cube.r * 0.12f * 255), (uint8_t)(cube.g * 0.12f * 255),
+                                  (uint8_t)(cube.b * 0.12f * 255))); // dark level-tinted floor base
     target.draw(ground);
 }
 
@@ -868,7 +872,9 @@ void DoomScene::drawFloor(sf::RenderTarget& target, double dirX, double dirY,
     double rdx1 = dirX + planeX, rdy1 = dirY + planeY;   // rightmost ray (cameraX = +1)
     const float horizonDY = screenY(viewMidY());          // device-y of the horizon
     const float bottomDY  = screenY(radarH_);             // device-y of the floor band bottom
-    const sf::Color colA(24, 27, 29), colB(40, 45, 48);
+    const Color lc = CUBICLE_COLORS[(state_.level - 1) % 12];
+    const sf::Color colA((uint8_t)(lc.r * 0.13f * 255), (uint8_t)(lc.g * 0.13f * 255), (uint8_t)(lc.b * 0.13f * 255)),
+                    colB((uint8_t)(lc.r * 0.24f * 255), (uint8_t)(lc.g * 0.24f * 255), (uint8_t)(lc.b * 0.24f * 255));
     const int W = (int)viewW_;
     sf::VertexArray quads(sf::Quads);
     int yStart = (int)std::ceil(horizonDY) + 1, yEnd = (int)std::floor(bottomDY);
