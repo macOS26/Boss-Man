@@ -143,7 +143,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Leaderboard sticky-note panel (drawn first; title sits on top if overlapping) ---
     const float panelW = 320.f, panelH = 400.f;
     const float panelCX = panelW / 2.f + 32.f;
-    const float panelCY = H * 0.5f - 20.f;
+    const float panelCY = H * 0.5f - 28.f;   // leaderboard raised 8px
     const float panelLeft = panelCX - panelW / 2.f;
     const float panelTop = panelCY - panelH / 2.f;
 
@@ -262,6 +262,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         const float btnW = 292.f, btnH = 50.f, margin = 16.f;
         const float cxRight = W - margin - btnW / 2.f;
         const float cxLeft = margin + btnW / 2.f;
+        const float playYSK = H * 0.15f + 20.f;   // PLAY/EDITOR row; the middle side buttons align here
         auto hint = [&](float cx, float ySK, sf::Color fill, const char* emoji,
                         const std::string& value, int bossIcon = -1) -> sf::FloatRect {
             float yc = H - ySK;
@@ -289,15 +290,15 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
                      cx - btnW / 2.f + 80.f, yc, 0, 0.f, 255, "WINDOW", true);
             return r;
         };
-        fullscreenRect_ = hint(cxRight, 40.f, sf::Color(192, 47, 50),
+        fullscreenRect_ = hint(cxRight, playYSK - 74.f, sf::Color(192, 47, 50),
             "\xf0\x9f\x93\xba", "FULLSCREEN");                           // 📺 systemRed
-        windowRect_     = hint(cxRight, 114.f, sf::Color(0, 157, 168),
-            "\xf0\x9f\xaa\x9f", "WINDOW");                               // 🪟 systemTeal
-        mazeZoomRect_   = hint(cxRight, 188.f, sf::Color(164, 41, 182),
+        windowRect_     = hint(cxRight, playYSK, sf::Color(0, 157, 168),
+            "\xf0\x9f\xaa\x9f", "WINDOW");                               // 🪟 systemTeal (even with EDITOR)
+        mazeZoomRect_   = hint(cxRight, playYSK + 74.f, sf::Color(164, 41, 182),
             "", MazeZoom::label(), 1);                                  // pink boss (Dom) icon, systemPurple
-        bossTracksRect_ = hint(cxLeft, 40.f, sf::Color(80, 92, 192),
+        bossTracksRect_ = hint(cxLeft, playYSK - 74.f, sf::Color(80, 92, 192),
             "", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDSTER", 0); // red boss (Bill) icon, systemIndigo
-        waterGunRect_   = hint(cxLeft, 114.f, sf::Color(192, 108, 33),
+        waterGunRect_   = hint(cxLeft, playYSK, sf::Color(192, 108, 33),  // GUN even with PLAY
             "\xf0\x9f\x94\xab",                                          // 🔫 systemOrange
             Settings::waterGunHide() ? "HIDDEN" : (Settings::waterGunLeft() ? "LEFT" : "RIGHT"));
     }

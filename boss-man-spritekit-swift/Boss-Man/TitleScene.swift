@@ -78,7 +78,7 @@ final class TitleScene: SKScene {
             titleFont: Strings.Font.markerFeltThin,
             bodyFont: Strings.Font.menloBold
         )
-        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5 + 20)
+        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5 + 28)   // leaderboard raised 8px
         addChild(panel)
 
         let controlsHint = SKLabelNode(fontNamed: Strings.Font.menloBold)
@@ -91,13 +91,13 @@ final class TitleScene: SKScene {
 
         // Window controls hug the bottom-right corner; the gameplay toggles
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
-        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "FULLSCREEN", y: 40, color: .systemRed)
-        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "WINDOW", y: 114, color: .systemTeal)
-        mazeLabel       = makeHint(icon: "", iconSize: 42, value: mazeText(), y: 188, color: .systemPurple,
+        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "FULLSCREEN", y: promptY - 74, color: .systemRed)
+        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "WINDOW", y: promptY, color: .systemTeal)   // even with EDITOR
+        mazeLabel       = makeHint(icon: "", iconSize: 42, value: mazeText(), y: promptY + 74, color: .systemPurple,
                                     sprite: SpriteFactory.bossPersonForBlueprint(1))
-        bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: 40, color: .systemIndigo, left: true,
+        bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: promptY - 74, color: .systemIndigo, left: true,
                                    sprite: SpriteFactory.bossPersonForBlueprint(0))
-        waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: 114, color: .systemOrange, left: true)
+        waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: promptY, color: .systemOrange, left: true)   // GUN even with PLAY
     }
 
     // MARK: - Settings text
