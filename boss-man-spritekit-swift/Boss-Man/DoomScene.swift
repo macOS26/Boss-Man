@@ -341,11 +341,11 @@ final class DoomScene: SKScene, BossControllerDelegate {
         if goldDisc.isActive { endGoldDiscMode() }
         pete.stopWalking()
         let killer = SpriteFactory.bossPersonForBlueprint(blueprintIndex)
-        killerNativeH = max(1, killer.calculateAccumulatedFrame().height)
-        killer.setScale(viewH * 0.42 / killerNativeH)        // normal size — no lunge/grow
-        killer.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.5)
         killer.zPosition = 500
-        addChild(killer)
+        addChild(killer)                                     // attach BEFORE measuring (a detached frame reads wrong, ballooning him)
+        killerNativeH = max(1, killer.calculateAccumulatedFrame().height)
+        killer.setScale(viewH * 0.42 / killerNativeH)        // exactly Pete's size, never larger
+        killer.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.5)
         killerSprite = killer
         deathFramesLeft = deathFrames
     }
@@ -691,12 +691,19 @@ final class DoomScene: SKScene, BossControllerDelegate {
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
-            let targetH = min(viewH / CGFloat(tY) * item.worldH, item.maxH)
-            let s = targetH / item.nativeH
+            // A capped sprite (boss) keeps its feet on ONE fixed floor line and only SCALES as
+            // it nears — no vertical slide, never larger than the cap. Size grows monotonically
+            // as viewH/depth up to the cap, then holds. Uncapped sprites (pellets) recede along
+            // the floor normally. (Previously the size capped while the floor kept dropping, so
+            // bosses floated, jumped, and ballooned past Pete.)
+            let capped = item.maxH < viewH * 2
+            let capDepth = viewH * item.worldH / item.maxH      // depth at which targetH == maxH
+            let d = capped ? max(Double(capDepth), tY) : tY
+            let floorDepth = capped ? Double(capDepth) : tY     // fixed floor for capped sprites
+            let targetH = viewH / CGFloat(d) * item.worldH
             node.isHidden = false
-            node.setScale(s)
-            // Stand on the corridor floor: bottom of the slice at this depth.
-            let floorY = viewMidY - (viewH / CGFloat(tY)) / 2
+            node.setScale(targetH / item.nativeH)
+            let floorY = viewMidY - (viewH / CGFloat(floorDepth)) / 2
             node.position = CGPoint(x: screenX, y: floorY + targetH / 2)
             node.zPosition = min(40, CGFloat(2 + 30 / tY))      // nearer over farther, but always behind Pete
             if let label = label {
