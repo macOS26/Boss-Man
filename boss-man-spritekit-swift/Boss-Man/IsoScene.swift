@@ -149,9 +149,10 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     // maze is projected ONCE at build time; only the moving sprites are projected per frame.)
     private let isoWorld = SKNode()
     private let isoMaze = SKNode()
-    private var isoDotRowCells: [Int: [Int]] = [:]    // row -> columns holding a dot; all batched into ONE node per row
-    private var isoDotRowNode: [Int: SKShapeNode] = [:]
-    private var isoDotCollected: Set<Int> = []        // collected mapKeys; the row node is rebuilt (rarely) on pickup
+    private var isoDotRowCells: [Int: [Int]] = [:]    // row -> columns holding a dot; batched per row (body + lit top)
+    private var isoDotBodyNode: [Int: SKShapeNode] = [:]
+    private var isoDotTopNode: [Int: SKShapeNode] = [:]
+    private var isoDotCollected: Set<Int> = []        // collected mapKeys; the row nodes are rebuilt (rarely) on pickup
     private var isoDotsLeft = 0
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
@@ -182,15 +183,16 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private func addSub(_ p: CGMutablePath, _ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) {
         p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath()
     }
-    // One dot block (near face + lit top) appended as subpaths; gold discs are a touch bigger.
-    private func appendDotBlock(_ p: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
-        let h = gold ? 0.26 : 0.16, yT: CGFloat = gold ? 0.28 : 0.20   // dots 50% shorter than before
+    // One RAISED dot block: two side faces into `body`, the lit square into `top`; gold discs are bigger/taller.
+    private func appendDotFaces(_ body: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
+        let h = gold ? 0.28 : 0.20, yT: CGFloat = gold ? 0.95 : 0.7    // raised so it reads as a cube from overhead
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5
-        let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
+        let bNE = proj(cx0 + h, ry0 - h, 0), bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
         let uSE = proj(cx0 + h, ry0 + h, yT), uSW = proj(cx0 - h, ry0 + h, yT)
-        addSub(p, bSW, bSE, uSE, uSW)   // near face
-        addSub(p, uNW, uNE, uSE, uSW)   // lit top
+        addSub(body, bSW, bSE, uSE, uSW)   // near (south) face
+        addSub(body, bSE, bNE, uNE, uSE)   // east face (free-standing nub shows two sides)
+        addSub(top, uNW, uNE, uSE, uSW)    // lit top
     }
     private func isDotTile(_ ch: Character) -> Bool {
         ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar || ch == Strings.Tile.goldDiscChar
@@ -204,6 +206,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let topEdge = cube.blended(withFraction: 0.22, of: .white) ?? cube
         let floorC = SKColor(white: 0.085, alpha: 1), floorEdge = SKColor(white: 0.15, alpha: 1)
         let dotEdge = SKColor.systemYellow.blended(withFraction: 0.25, of: .white) ?? .systemYellow
+        let dotBody = SKColor.systemYellow.blended(withFraction: 0.34, of: .black) ?? .systemYellow   // shaded sides so the raised dot reads in 3D
         let mid = Double(colsCount) / 2
         // FPS: every wall/floor face of a depth row is the same colour, so coalesce them into ONE
         // SKShapeNode per (row, faceType) — many subpaths, one draw call — instead of ~3 nodes per cell.
@@ -233,21 +236,23 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if hasSide  { addQuad(pSide, sideC, sideC, z + 0.1) }
             if hasFront { addQuad(pFront, frontC, frontC, z + 0.2) }
             if hasTop   { addQuad(pTop, cube, topEdge, z + 0.3) }
-            if !dotCols.isEmpty {                            // all the row's dots batched into one node; rebuilt only on pickup
+            if !dotCols.isEmpty {                            // the row's dots batched (body + lit top); rebuilt only on pickup
                 isoDotRowCells[r] = dotCols
-                let pDot = CGMutablePath()
-                for c in dotCols { appendDotBlock(pDot, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
-                isoDotRowNode[r] = addQuad(pDot, .systemYellow, dotEdge, z + 0.6)
+                let pBody = CGMutablePath(), pTop = CGMutablePath()
+                for c in dotCols { appendDotFaces(pBody, pTop, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
+                isoDotBodyNode[r] = addQuad(pBody, dotBody, dotBody, z + 0.6)
+                isoDotTopNode[r] = addQuad(pTop, .systemYellow, dotEdge, z + 0.7)
                 isoDotsLeft += dotCols.count
             }
         }
     }
 
     private func rebuildDotRow(_ r: Int) {
-        guard let node = isoDotRowNode[r], let cols = isoDotRowCells[r] else { return }
-        let p = CGMutablePath()
-        for c in cols where !isoDotCollected.contains(mapKey(c, r)) { appendDotBlock(p, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
-        node.path = p
+        guard let cols = isoDotRowCells[r] else { return }
+        let pBody = CGMutablePath(), pTop = CGMutablePath()
+        for c in cols where !isoDotCollected.contains(mapKey(c, r)) { appendDotFaces(pBody, pTop, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
+        isoDotBodyNode[r]?.path = pBody
+        isoDotTopNode[r]?.path = pTop
     }
 
     override func didMove(to view: SKView) {
