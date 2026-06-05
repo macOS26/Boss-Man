@@ -913,8 +913,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 let m = emojiBillboard(info.emoji, isoTW * 0.75)
                 spriteLayer.addChild(m); isoTraveler = m; isoTravelerEmoji = info.emoji
             }
-            let g = travelerSpawner!.grid                     // authoritative gridMap tile (bottom-up) -> raster, same as bosses (no wall clip)
-            let tcol = Double(g.x) + 0.5, trow = Double(rowsCount) - 0.5 - Double(g.y)
+            let g0 = Double(tnode.position.x) / 32.0 - 0.5, g1 = Double(tnode.position.y) / 32.0 - 0.5   // SMOOTH gridMap pos (SKAction walk), same conversion bosses use
+            let tcol = g0 + 0.5, trow = Double(rowsCount) - 0.5 - g1
             if let m = isoTraveler {
                 m.isHidden = false
                 placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), spriteH * 0.9)
@@ -1156,14 +1156,15 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if let d = e.mover?.dir { mn.setFacing(d) }
         }
         for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
-        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // traveler on the minimap, same grid source as iso (in sync)
+        if let info = travelerSpawner?.activeTraveler, let tn = travelerSpawner?.node {   // traveler on the minimap, same SMOOTH source as iso (in sync)
             if mapTraveler == nil || mapTravelerEmoji != info.emoji {
                 mapTraveler?.removeFromParent()
                 let t = emojiBillboard(info.emoji, mapCell * 0.7); t.zPosition = 5
                 mapLayer.addChild(t); mapTraveler = t; mapTravelerEmoji = info.emoji
             }
             mapTraveler?.isHidden = false
-            mapTraveler?.position = mapLocal(Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y))
+            let g0 = Double(tn.position.x) / 32.0 - 0.5, g1 = Double(tn.position.y) / 32.0 - 0.5
+            mapTraveler?.position = mapLocal(g0 + 0.5, Double(rowsCount) - 0.5 - g1)
         } else {
             mapTraveler?.isHidden = true
         }
