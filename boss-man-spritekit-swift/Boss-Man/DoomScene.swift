@@ -830,16 +830,13 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn (←/→) near a tile centre: if that side lane is OPEN, take the 90° turn and
-        // round Pete onto the junction square from up to ~0.4 tile away (cornering — a slightly
-        // early/late press still catches). If a 90° turn isn't possible (side lane walled),
-        // spin 180° instead so Pete can reverse anywhere he can't corner.
-        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4 {
-            if open(col + t.x, row + t.y) {
-                px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
-            } else {
-                px = ccx; py = ccy; moveDir = (x: -moveDir.x, y: -moveDir.y); wantDir = nil; targetAngle = cardinal(moveDir)
-            }
+        // Turn near a tile centre: take the queued turn only if that lane is OPEN, rounding
+        // Pete onto the junction square from up to ~0.4 tile away (cornering — a slightly
+        // early/late press still catches). A ←/→ press is ALWAYS a 90° turn: if the side lane
+        // is walled it stays queued for the next junction, never an auto-180°. The down button
+        // queues the opposite heading, which corners here too since the lane behind is open.
+        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
+            px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)

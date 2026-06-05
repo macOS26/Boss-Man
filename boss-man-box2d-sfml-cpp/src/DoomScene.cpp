@@ -367,14 +367,13 @@ void DoomScene::step() {
     int col = (int)std::floor(px_), row = (int)std::floor(py_);
     double ccx = col + 0.5, ccy = row + 0.5;
 
-    // Turn (←/→) near a tile centre: take the 90° turn if the side lane is open
-    // (cornering from up to ~0.4 tile), else spin 180° to reverse anywhere.
-    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4) {
-        if (open(col + wantDirX_, row + wantDirY_)) {
-            px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
-        } else {
-            px_ = ccx; py_ = ccy; moveDirX_ = -moveDirX_; moveDirY_ = -moveDirY_;
-        }
+    // Turn near a tile centre: take the queued turn only if that lane is open (cornering
+    // from up to ~0.4 tile). A ←/→ press is ALWAYS a 90° turn: if the side lane is walled
+    // it stays queued for the next junction, never an auto-180°. The down button queues the
+    // opposite heading, which corners here too since the lane behind is open.
+    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4 &&
+        open(col + wantDirX_, row + wantDirY_)) {
+        px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
         wantDirSet_ = false;
         targetAngle_ = cardinal(moveDirX_, moveDirY_);
     }
