@@ -160,6 +160,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var isoTravelerEmoji = ""
     private var mapTraveler: SKNode?                   // minimap mirror of the traveler (kept in sync with the iso mirror)
     private var mapTravelerEmoji = ""
+    private var travCol = 0.0, travRow = 0.0          // SMOOTHED traveler position (glides between its discrete grid tiles)
+    private var travActive = false
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
     // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
@@ -903,16 +905,22 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             }
         }
 
-        // Show the REAL traveler node (the one TravelerSpawner walks via SKActions) directly in the iso
-        // view — reparent it into the sprite layer and plant it on its tile each frame, exactly like the
-        // 2D game shows it and like the bosses. Its `grid` advances as it walks (no mirror to break).
-        if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
-            if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
-            tnode.isHidden = false
-            let g = travelerSpawner.grid
-            let tcol = Double(g.x) + 0.5, trow = Double(rowsCount) - 0.5 - Double(g.y)
-            placeIsoSprite(tnode, CGFloat(tcol), CGFloat(trow), isoTW * 0.9)
-            tnode.zPosition = CGFloat(trow) * 4 + 0.6
+        // The real node's SKAction walk fights any position we set, so hide it and draw a SEPARATE mirror
+        // at the SMOOTHED grid position (reliable + glides). travCol/travRow are updated in step().
+        if travActive, let info = travelerSpawner?.activeTraveler {
+            travelerSpawner?.node?.isHidden = true
+            if isoTraveler == nil || isoTravelerEmoji != info.emoji {
+                isoTraveler?.removeFromParent()
+                let m = emojiBillboard(info.emoji, isoTW * 0.9); spriteLayer.addChild(m)
+                isoTraveler = m; isoTravelerEmoji = info.emoji
+            }
+            if let m = isoTraveler {
+                m.isHidden = false
+                placeIsoSprite(m, CGFloat(travCol), CGFloat(travRow), isoTW * 0.9)
+                m.zPosition = CGFloat(travRow) * 4 + 0.6
+            }
+        } else {
+            isoTraveler?.isHidden = true
         }
 
         let shotH = isoTW * 0.34            // water-gun pellets fly at mid-height (lift 0.55), not on the floor
@@ -1147,14 +1155,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if let d = e.mover?.dir { mn.setFacing(d) }
         }
         for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
-        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // traveler on the minimap, from grid (node.position is the iso coord now)
+        if travActive, let info = travelerSpawner?.activeTraveler {   // minimap traveler, same SMOOTHED position as iso
             if mapTraveler == nil || mapTravelerEmoji != info.emoji {
                 mapTraveler?.removeFromParent()
                 let t = emojiBillboard(info.emoji, mapCell * 0.7); t.zPosition = 5
                 mapLayer.addChild(t); mapTraveler = t; mapTravelerEmoji = info.emoji
             }
             mapTraveler?.isHidden = false
-            mapTraveler?.position = mapLocal(Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y))
+            mapTraveler?.position = mapLocal(travCol, travRow)
         } else {
             mapTraveler?.isHidden = true
         }
@@ -1170,6 +1178,12 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let wp = workerController.worldPosition      // derive raster grid coords that the iso view + minimap render from
         px = Double(wp.x) / 32.0
         py = Double(rowsCount) - Double(wp.y) / 32.0
+        if travelerSpawner?.activeTraveler != nil, let g = travelerSpawner?.grid {   // glide the traveler between its discrete grid tiles
+            let tc = Double(g.x) + 0.5, tr = Double(rowsCount) - 0.5 - Double(g.y)
+            if !travActive || abs(tc - travCol) > 2 || abs(tr - travRow) > 2 { travCol = tc; travRow = tr }   // (re)spawn / tunnel: snap
+            else { travCol += (tc - travCol) * 0.3; travRow += (tr - travRow) * 0.3 }
+            travActive = true
+        } else { travActive = false }
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
         syncBossNodes()
         // Capture each boss's SMOOTH world position from the mover itself, not node.position:
