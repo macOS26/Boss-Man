@@ -137,6 +137,7 @@ final class TravelerSpawner {
         // body is non-dynamic on wasm (and it is harmless on apple).
         let body = SKPhysicsBody(circleOfRadius: 10)
         body.isDynamic = true
+        body.affectedByGravity = false   // the SKAction walk owns its position; default scene gravity would otherwise drift node.position off its aisle (the iso/3D mirrors read node.position)
         body.categoryBitMask = PhysicsCategory.fish
         body.contactTestBitMask = PhysicsCategory.worker
         body.collisionBitMask = 0
