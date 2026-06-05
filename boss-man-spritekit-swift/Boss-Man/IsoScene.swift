@@ -150,7 +150,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private let isoWorld = SKNode()
     private let isoMaze = SKNode()
     private var isoDotRowCells: [Int: [Int]] = [:]    // row -> columns holding a dot; batched per row (body + lit top)
-    private var isoDotBodyNode: [Int: SKShapeNode] = [:]
+    private var isoDotFrontNode: [Int: SKShapeNode] = [:]
+    private var isoDotSideNode: [Int: SKShapeNode] = [:]
     private var isoDotTopNode: [Int: SKShapeNode] = [:]
     private var isoDotCollected: Set<Int> = []        // collected mapKeys; the row nodes are rebuilt (rarely) on pickup
     private var isoDotsLeft = 0
@@ -197,15 +198,17 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath()
     }
     // One RAISED dot block: two side faces into `body`, the lit square into `top`; gold discs are bigger/taller.
-    private func appendDotFaces(_ body: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
+    private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
         let h = gold ? 0.28 : 0.20, yT: CGFloat = gold ? 0.95 : 0.7    // raised so it reads as a cube from overhead
-        let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5
-        let bNE = proj(cx0 + h, ry0 - h, 0), bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
+        let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
+        let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
+        let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
         let uSE = proj(cx0 + h, ry0 + h, yT), uSW = proj(cx0 - h, ry0 + h, yT)
-        addSub(body, bSW, bSE, uSE, uSW)   // near (south) face
-        addSub(body, bSE, bNE, uNE, uSE)   // east face (free-standing nub shows two sides)
-        addSub(top, uNW, uNE, uSE, uSW)    // lit top
+        addSub(front, bSW, bSE, uSE, uSW)                                   // near (south) face, like the walls
+        if cx0 < mid { addSub(side, bNE, bSE, uSE, uNE) }                   // east face (left of centre), like the walls
+        else if cx0 > mid { addSub(side, bNW, bSW, uSW, uNW) }              // west face (right of centre)
+        addSub(top, uNW, uNE, uSE, uSW)                                     // lit top
     }
     private func isDotTile(_ ch: Character) -> Bool {
         ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar   // gold disc is a round billboard, not a raised block
@@ -226,7 +229,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         // Checkerboard floor (VOXEL 3D): two shades by (col+row) parity.
         let floorP = [SKColor(white: 0.07, alpha: 1), SKColor(white: 0.14, alpha: 1)]
         let floorEdge = SKColor(white: 0.16, alpha: 1)
-        let dotBody = SKColor.systemYellow.blended(withFraction: 0.34, of: .black) ?? .systemYellow
+        let dotFront = SKColor.systemYellow.blended(withFraction: 0.30, of: .black) ?? .systemYellow   // same shading the walls use
+        let dotSide  = SKColor.systemYellow.blended(withFraction: 0.50, of: .black) ?? .systemYellow
         let mid = Double(colsCount) / 2
         // FPS: coalesce same-colour faces of a depth row into ONE SKShapeNode (many subpaths, one draw).
         // Parity splits each face-type into two nodes (even/odd) so the checker + block alternation reads.
@@ -259,12 +263,13 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 if hasFront[par] { addQuad(pFront[par], frontP[par], frontP[par], z + 0.2) }
                 if hasTop[par]   { addQuad(pTop[par], topP[par], edgeP[par], z + 0.3) }
             }
-            if !dotCols.isEmpty {                            // the row's dots batched (body + lit top); rebuilt only on pickup
+            if !dotCols.isEmpty {                            // the row's dots batched (front/side/top), exactly like the walls; rebuilt only on pickup
                 isoDotRowCells[r] = dotCols
-                let pBody = CGMutablePath(), pTopD = CGMutablePath()
-                for c in dotCols { appendDotFaces(pBody, pTopD, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
-                isoDotBodyNode[r] = addQuad(pBody, dotBody, dotBody, z + 0.6)
-                isoDotTopNode[r] = addQuad(pTopD, .systemYellow, .systemYellow, z + 0.7)   // stroke = fill, like the walls (no jagged outline)
+                let pF = CGMutablePath(), pS = CGMutablePath(), pT = CGMutablePath()
+                for c in dotCols { appendDotFaces(pF, pS, pT, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
+                isoDotSideNode[r]  = addQuad(pS, dotSide, dotSide, z + 0.55)
+                isoDotFrontNode[r] = addQuad(pF, dotFront, dotFront, z + 0.6)
+                isoDotTopNode[r]   = addQuad(pT, .systemYellow, .systemYellow, z + 0.7)
                 isoDotsLeft += dotCols.count
             }
         }
@@ -272,10 +277,11 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
 
     private func rebuildDotRow(_ r: Int) {
         guard let cols = isoDotRowCells[r] else { return }
-        let pBody = CGMutablePath(), pTop = CGMutablePath()
-        for c in cols where !isoDotCollected.contains(mapKey(c, r)) { appendDotFaces(pBody, pTop, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
-        isoDotBodyNode[r]?.path = pBody
-        isoDotTopNode[r]?.path = pTop
+        let pF = CGMutablePath(), pS = CGMutablePath(), pT = CGMutablePath()
+        for c in cols where !isoDotCollected.contains(mapKey(c, r)) { appendDotFaces(pF, pS, pT, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
+        isoDotFrontNode[r]?.path = pF
+        isoDotSideNode[r]?.path = pS
+        isoDotTopNode[r]?.path = pT
     }
 
     // The non-dot collectibles (water gun, pellets, the 4 TPS machines, the brown box) as iso emoji
@@ -589,17 +595,9 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         _ = sound.playCaughtByBoss()
         if goldDisc.isActive { endGoldDiscMode() }
         pete.stopWalking()
-        pete.alpha = 0.2                                      // Pete fades as Bill (z 500, in front) takes him
         node.stopWalking()
-        let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
-        node.isHidden = false
-        node.setScale(size.height * 0.16 / nh)               // a close-up sized to the iso world, not the first-person play height
-        if node.parent !== self { node.removeFromParent(); addChild(node) }   // lift the catcher out of the offset iso world for a fixed screen close-up
-        node.position = CGPoint(x: size.width / 2, y: size.height * 0.45)      // centred where Pete sits, so you see who caught you
-        node.zPosition = 500
-        for e in bossController.entities where e.node !== node { e.node.isHidden = true }   // only the catcher shows
-        for (_, l) in bossNames { l.isHidden = true }
-        for s in shots { s.node.isHidden = true }
+        // No fake close-up in iso: the overhead view already shows the boss right where it caught Pete,
+        // so just freeze in place for a beat (update() skips step/render while dying) then respawn.
         deathFramesLeft = deathFrames
     }
 

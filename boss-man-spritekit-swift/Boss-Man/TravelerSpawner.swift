@@ -64,12 +64,9 @@ final class TravelerSpawner {
         scene.run(.sequence([
             .wait(forDuration: delay),
             .run { [weak self] in
-                guard let self,
-                      let traveler = self.pendingTraveler,
-                      self.keepSpawning?() == true,
-                      self.node == nil
-                else { return }
-                self.spawn(traveler)
+                guard let self, let traveler = self.pendingTraveler, self.node == nil else { return }
+                if self.keepSpawning?() == true { self.spawn(traveler) }
+                else { self.scheduleNextSpawn(after: 1.0) }   // blocked (paused/dying): retry, don't give up forever
             }
         ]), withKey: Strings.ActionKey.travelerVisit1)
     }
