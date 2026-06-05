@@ -158,6 +158,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var isoPickups: [Int: SKNode] = [:]        // water gun / pellets / machine emojis / brown box, built once, hidden|grayed on collect
     private var isoTraveler: SKNode?                   // iso mirror of the walking traveler (the REAL node keeps its SKAction walk in the scene root)
     private var isoTravelerEmoji = ""
+    private var isoTravelerPoints: SKLabelNode?        // yellow point value floating over the mirror's head (the real node's label is hidden)
     private var mapTraveler: SKNode?                   // minimap mirror of the traveler (kept in sync with the iso mirror)
     private var mapTravelerEmoji = ""
     private var travCol = 0.0, travRow = 0.0          // SMOOTHED traveler position (tween between grid tiles, like the 2D SKAction)
@@ -918,6 +919,11 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 isoTraveler?.removeFromParent()
                 let m = emojiBillboard(info.emoji, isoTW * 0.9); spriteLayer.addChild(m)
                 isoTraveler = m; isoTravelerEmoji = info.emoji
+                isoTravelerPoints?.removeFromParent()
+                let p = SKLabelNode(fontNamed: Strings.Font.menloBold)
+                p.text = "\(info.points)"; p.fontColor = .systemYellow
+                p.verticalAlignmentMode = .baseline; p.horizontalAlignmentMode = .center
+                spriteLayer.addChild(p); isoTravelerPoints = p
             }
             if let m = isoTraveler {
                 m.isHidden = false
@@ -925,9 +931,16 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 m.position.y += 3                              // traveler up 3px
                 m.xScale = abs(m.xScale) * travFlip            // face its travel direction (like the 2D traveler)
                 m.zPosition = CGFloat(travRow) * 4 + 0.6
+                if let p = isoTravelerPoints {                 // yellow point value over its head (separate node so the facing flip never mirrors the text)
+                    p.isHidden = false
+                    p.fontSize = max(9, isoTW * 0.34)
+                    p.position = CGPoint(x: m.position.x, y: m.position.y + isoTW * 0.9 + 2)
+                    p.zPosition = m.zPosition + 0.1
+                }
             }
         } else {
             isoTraveler?.isHidden = true
+            isoTravelerPoints?.isHidden = true
         }
 
         let shotH = isoTW * 0.34            // water-gun pellets fly at mid-height (lift 0.55), not on the floor
@@ -1211,6 +1224,9 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             state.bumpScore(by: caught.traveler.points)
             sound.playFishOrTreat()
             popPoints(caught.traveler.points)
+            captureFade(isoTraveler); isoTraveler = nil; isoTravelerEmoji = ""   // the spawner fades the (hidden) real node; play the same fade on the visible mirror + its label
+            captureFade(isoTravelerPoints); isoTravelerPoints = nil
+            captureFade(mapTraveler); mapTraveler = nil; mapTravelerEmoji = ""
             refreshHUD()
             hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
         }
@@ -1346,15 +1362,23 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         sound.playMachine(named: name)
         grayPickup(col, row); refreshHUD()   // dim it like the 100% 2D maze, don't remove it
     }
+    // Grow + fade + remove, matching the spawner's consumeCatch fade on the real
+    // node — played on the visible iso/minimap mirrors (which are detached first).
+    private func captureFade(_ node: SKNode?) {
+        guard let node else { return }
+        node.removeAllActions()
+        node.run(.sequence([.group([.scale(by: 1.5, duration: 0.25), .fadeOut(withDuration: 0.25)]), .removeFromParent()]))
+    }
     // +point popup, same as the 100% game's ScorePopup, in BOTH views: on Pete in
     // the 3D corridor, and on Pete in the mini-map (a matching rise+fade label).
     private func popPoints(_ n: Int) {
         // At Pete's iso screen position (pete rides in the scrolled isoWorld), ABOVE the maze blocks
         // (z up to ~124) + minimap panel (200) so it always shows — ScorePopup's z=12 hid it behind the maze.
+        let world = proj(Double(px), Double(py), 0)   // Pete's iso world spot computed fresh — pete.position is still the mover's scene coords during step(), before render() reprojects it
         let big = SKLabelNode(fontNamed: Strings.Font.menloBold)
         big.text = Strings.Score.popup(n)
         big.fontSize = max(30, isoTW * 0.45); big.fontColor = .systemYellow
-        big.position = CGPoint(x: pete.position.x + isoWorld.position.x, y: pete.position.y + isoWorld.position.y + isoTW)
+        big.position = CGPoint(x: world.x + isoWorld.position.x, y: world.y + isoWorld.position.y + isoTW)
         big.zPosition = 600
         addChild(big)
         big.run(.sequence([.group([.moveBy(x: 0, y: 55, duration: 0.7), .fadeOut(withDuration: 0.7)]), .removeFromParent()]))
