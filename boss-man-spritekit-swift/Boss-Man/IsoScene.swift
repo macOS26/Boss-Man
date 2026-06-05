@@ -206,7 +206,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
         let h = gold ? 0.28 : 0.20
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
-        let yT = ((gold ? 1.2 : 0.95) * isoWH - 6) / max(1, isoWH)     // dot block height, 3px shorter
+        let yT = ((gold ? 1.2 : 0.95) * isoWH - 9) / max(1, isoWH)     // dot block height, 6px shorter total
         let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
         let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
@@ -276,7 +276,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 isoDotSideNode[r]  = addQuad(pS, dotSide, dotSide, z + 0.55)
                 isoDotFrontNode[r] = addQuad(pF, dotFront, dotFront, z + 0.6)
                 isoDotTopNode[r]   = addQuad(pT, .systemYellow, .systemYellow, z + 0.7)
-                for n in [isoDotSideNode[r], isoDotFrontNode[r], isoDotTopNode[r]] { n?.position.y += 3 }   // raise dots 3px
+                for n in [isoDotSideNode[r], isoDotFrontNode[r], isoDotTopNode[r]] { n?.position.y += 6 }   // raise dots off the floor
                 isoDotsLeft += dotCols.count
             }
         }
@@ -1190,18 +1190,12 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let wp = workerController.worldPosition      // derive raster grid coords that the iso view + minimap render from
         px = Double(wp.x) / 32.0
         py = Double(rowsCount) - Double(wp.y) / 32.0
-        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // tween between grid tiles over the move duration = continuous like the 2D SKAction
-            let tc = Double(g.x) + 0.5, tr = Double(rowsCount) - 0.5 - Double(g.y)
-            if !travActive || abs(tc - travToCol) > 1.5 || abs(tr - travToRow) > 1.5 {   // (re)spawn / wrap: snap, never animate across the maze
-                travFromCol = tc; travFromRow = tr; travToCol = tc; travToRow = tr; travProgress = 1
-            } else if tc != travToCol || tr != travToRow {                              // arrived at a new tile: tween from the old tile to it
-                travFromCol = travToCol; travFromRow = travToRow; travToCol = tc; travToRow = tr; travProgress = 0
-            }
-            travProgress = min(1, travProgress + 1.0 / 13.0)                            // ~13 frames per tile (moveInterval 0.22s @ 60fps)
-            travCol = travFromCol + (travToCol - travFromCol) * travProgress
-            travRow = travFromRow + (travToRow - travFromRow) * travProgress
-            let dx = travToCol - travFromCol
-            if abs(dx) > 0.001, abs(dx) < 2 { travFlip = info.facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1) }
+        if let info = travelerSpawner?.activeTraveler, let tn = travelerSpawner?.node {   // REAL continuous in-lane position (its SKAction.move), exactly like Pete/bosses use worldPosition — always stays in the lane
+            let nc = Double(tn.position.x) / 32.0
+            let nr = Double(rowsCount) - Double(tn.position.y) / 32.0
+            let dx = nc - travCol
+            if travActive, abs(dx) > 0.001, abs(dx) < 2 { travFlip = info.facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1) }
+            travCol = nc; travRow = nr
             travActive = true
         } else { travActive = false }
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
@@ -1360,7 +1354,15 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     // +point popup, same as the 100% game's ScorePopup, in BOTH views: on Pete in
     // the 3D corridor, and on Pete in the mini-map (a matching rise+fade label).
     private func popPoints(_ n: Int) {
-        ScorePopup.show(n, at: CGPoint(x: size.width / 2, y: peteBaseY + viewH * 0.30), in: self, fontSize: 54)   // big in the 3D view, above Pete
+        // At Pete's iso screen position (pete rides in the scrolled isoWorld), ABOVE the maze blocks
+        // (z up to ~124) + minimap panel (200) so it always shows — ScorePopup's z=12 hid it behind the maze.
+        let big = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        big.text = Strings.Score.popup(n)
+        big.fontSize = max(30, isoTW * 0.45); big.fontColor = .systemYellow
+        big.position = CGPoint(x: pete.position.x + isoWorld.position.x, y: pete.position.y + isoWorld.position.y + isoTW)
+        big.zPosition = 600
+        addChild(big)
+        big.run(.sequence([.group([.moveBy(x: 0, y: 55, duration: 0.7), .fadeOut(withDuration: 0.7)]), .removeFromParent()]))
         let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
         mini.text = Strings.Score.popup(n)
         mini.fontSize = 40; mini.fontColor = .systemYellow
