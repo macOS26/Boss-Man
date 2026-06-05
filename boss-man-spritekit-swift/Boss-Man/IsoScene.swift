@@ -162,6 +162,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var mapTravelerEmoji = ""
     private var travCol = 0.0, travRow = 0.0          // SMOOTHED traveler position (glides between its discrete grid tiles)
     private var travActive = false
+    private var travFlip: CGFloat = 1                 // horizontal facing (same convention as the 2D traveler)
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
     // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
@@ -919,6 +920,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if let m = isoTraveler {
                 m.isHidden = false
                 placeIsoSprite(m, CGFloat(travCol), CGFloat(travRow), isoTW * 0.9)
+                m.xScale = abs(m.xScale) * travFlip            // face its travel direction (like the 2D traveler)
                 m.zPosition = CGFloat(travRow) * 4 + 0.6
                 // The traveler walks the maze edges, so the zoomed follow-camera usually scrolls it off
                 // screen. Clamp the mirror to the viewport edge so you ALWAYS see it (an on-screen marker).
@@ -1185,8 +1187,13 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let wp = workerController.worldPosition      // derive raster grid coords that the iso view + minimap render from
         px = Double(wp.x) / 32.0
         py = Double(rowsCount) - Double(wp.y) / 32.0
-        if travelerSpawner?.activeTraveler != nil, let tn = travelerSpawner?.node {   // SMOOTH: the node's SKAction.move interpolates continuously (same as 2D)
-            travCol = Double(tn.position.x) / 32.0
+        if let info = travelerSpawner?.activeTraveler, let tn = travelerSpawner?.node {   // SMOOTH: the node's SKAction.move interpolates continuously (same as 2D)
+            let nc = Double(tn.position.x) / 32.0
+            let dx = nc - travCol
+            if travActive, abs(dx) > 0.001, abs(dx) < 2 {   // flip to face travel direction, same convention as TravelerSpawner
+                travFlip = info.facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1)
+            }
+            travCol = nc
             travRow = Double(rowsCount) - Double(tn.position.y) / 32.0
             travActive = true
         } else { travActive = false }
