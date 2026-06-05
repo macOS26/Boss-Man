@@ -277,7 +277,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 isoDotSideNode[r]  = addQuad(pS, dotSide, dotSide, z + 0.55)
                 isoDotFrontNode[r] = addQuad(pF, dotFront, dotFront, z + 0.6)
                 isoDotTopNode[r]   = addQuad(pT, .systemYellow, .systemYellow, z + 0.7)
-                for n in [isoDotSideNode[r], isoDotFrontNode[r], isoDotTopNode[r]] { n?.position.y += 6 }   // raise dots off the floor
+                for n in [isoDotSideNode[r], isoDotFrontNode[r], isoDotTopNode[r]] { n?.position.y += 10 }   // raise dots off the floor
                 isoDotsLeft += dotCols.count
             }
         }
