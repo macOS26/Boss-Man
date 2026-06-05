@@ -201,47 +201,58 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private func buildIso() {
         setupProjection()
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        let frontC = cube.blended(withFraction: 0.30, of: .black) ?? cube
-        let sideC  = cube.blended(withFraction: 0.50, of: .black) ?? cube
-        let topEdge = cube.blended(withFraction: 0.22, of: .white) ?? cube
-        let floorC = SKColor(white: 0.085, alpha: 1), floorEdge = SKColor(white: 0.15, alpha: 1)
+        // Alternating cubicle blocks (VOXEL 3D parity): even cells dimmed to ~82%, odd cells full.
+        let cubeP = [cube.blended(withFraction: 0.18, of: .black) ?? cube, cube]
+        var topP = [SKColor](), frontP = [SKColor](), sideP = [SKColor](), edgeP = [SKColor]()
+        for base in cubeP {
+            topP.append(base)
+            frontP.append(base.blended(withFraction: 0.30, of: .black) ?? base)
+            sideP.append(base.blended(withFraction: 0.50, of: .black) ?? base)
+            edgeP.append(base.blended(withFraction: 0.22, of: .white) ?? base)
+        }
+        // Checkerboard floor (VOXEL 3D): two shades by (col+row) parity.
+        let floorP = [SKColor(white: 0.07, alpha: 1), SKColor(white: 0.14, alpha: 1)]
+        let floorEdge = SKColor(white: 0.16, alpha: 1)
         let dotEdge = SKColor.systemYellow.blended(withFraction: 0.25, of: .white) ?? .systemYellow
-        let dotBody = SKColor.systemYellow.blended(withFraction: 0.34, of: .black) ?? .systemYellow   // shaded sides so the raised dot reads in 3D
+        let dotBody = SKColor.systemYellow.blended(withFraction: 0.34, of: .black) ?? .systemYellow
         let mid = Double(colsCount) / 2
-        // FPS: every wall/floor face of a depth row is the same colour, so coalesce them into ONE
-        // SKShapeNode per (row, faceType) — many subpaths, one draw call — instead of ~3 nodes per cell.
+        // FPS: coalesce same-colour faces of a depth row into ONE SKShapeNode (many subpaths, one draw).
+        // Parity splits each face-type into two nodes (even/odd) so the checker + block alternation reads.
         for r in 0..<rowsCount {
             let row = map[r]
             let z = CGFloat(r) * 4                          // near rows (high r) draw over far rows (painter's)
-            let pFloor = CGMutablePath(), pFront = CGMutablePath(), pSide = CGMutablePath(), pTop = CGMutablePath()
-            var hasFloor = false, hasFront = false, hasSide = false, hasTop = false
+            let pFloor = [CGMutablePath(), CGMutablePath()], pFront = [CGMutablePath(), CGMutablePath()]
+            let pSide = [CGMutablePath(), CGMutablePath()], pTop = [CGMutablePath(), CGMutablePath()]
+            var hasFloor = [false, false], hasFront = [false, false], hasSide = [false, false], hasTop = [false, false]
             var dotCols: [Int] = []
             for c in 0..<min(colsCount, row.count) {
-                let ch = row[c]; let dc = Double(c)
+                let ch = row[c]; let dc = Double(c); let par = (c + r) & 1
                 let fNW = proj(dc, Double(r), 0), fNE = proj(dc + 1, Double(r), 0)
                 let fSE = proj(dc + 1, Double(r + 1), 0), fSW = proj(dc, Double(r + 1), 0)
                 if ch == Strings.Tile.wallChar {
                     let tNW = proj(dc, Double(r), 1), tNE = proj(dc + 1, Double(r), 1)
                     let tSE = proj(dc + 1, Double(r + 1), 1), tSW = proj(dc, Double(r + 1), 1)
-                    addSub(pFront, fSW, fSE, tSE, tSW); hasFront = true
-                    if dc + 0.5 < mid { addSub(pSide, fNE, fSE, tSE, tNE); hasSide = true }      // left of centre: east face shows
-                    else if dc + 0.5 > mid { addSub(pSide, fNW, fSW, tSW, tNW); hasSide = true }
-                    addSub(pTop, tNW, tNE, tSE, tSW); hasTop = true
+                    addSub(pFront[par], fSW, fSE, tSE, tSW); hasFront[par] = true
+                    if dc + 0.5 < mid { addSub(pSide[par], fNE, fSE, tSE, tNE); hasSide[par] = true }
+                    else if dc + 0.5 > mid { addSub(pSide[par], fNW, fSW, tSW, tNW); hasSide[par] = true }
+                    addSub(pTop[par], tNW, tNE, tSE, tSW); hasTop[par] = true
                 } else {
-                    addSub(pFloor, fNW, fNE, fSE, fSW); hasFloor = true
+                    addSub(pFloor[par], fNW, fNE, fSE, fSW); hasFloor[par] = true
                     if isDotTile(ch) { dotCols.append(c) }
                 }
             }
-            if hasFloor { addQuad(pFloor, floorC, floorEdge, z - 1) }
-            if hasSide  { addQuad(pSide, sideC, sideC, z + 0.1) }
-            if hasFront { addQuad(pFront, frontC, frontC, z + 0.2) }
-            if hasTop   { addQuad(pTop, cube, topEdge, z + 0.3) }
+            for par in 0...1 {
+                if hasFloor[par] { addQuad(pFloor[par], floorP[par], floorEdge, z - 1) }
+                if hasSide[par]  { addQuad(pSide[par], sideP[par], sideP[par], z + 0.1) }
+                if hasFront[par] { addQuad(pFront[par], frontP[par], frontP[par], z + 0.2) }
+                if hasTop[par]   { addQuad(pTop[par], topP[par], edgeP[par], z + 0.3) }
+            }
             if !dotCols.isEmpty {                            // the row's dots batched (body + lit top); rebuilt only on pickup
                 isoDotRowCells[r] = dotCols
-                let pBody = CGMutablePath(), pTop = CGMutablePath()
-                for c in dotCols { appendDotFaces(pBody, pTop, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
+                let pBody = CGMutablePath(), pTopD = CGMutablePath()
+                for c in dotCols { appendDotFaces(pBody, pTopD, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
                 isoDotBodyNode[r] = addQuad(pBody, dotBody, dotBody, z + 0.6)
-                isoDotTopNode[r] = addQuad(pTop, .systemYellow, dotEdge, z + 0.7)
+                isoDotTopNode[r] = addQuad(pTopD, .systemYellow, dotEdge, z + 0.7)
                 isoDotsLeft += dotCols.count
             }
         }
