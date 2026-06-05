@@ -378,11 +378,10 @@ void DoomScene::step() {
         targetAngle_ = cardinal(moveDirX_, moveDirY_);
     }
 
-    // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
-    bool fwd = pressUp_, back = pressDown_;
-    bool hasDir = fwd || back;
-    int tdx = fwd ? moveDirX_ : -moveDirX_;
-    int tdy = fwd ? moveDirY_ : -moveDirY_;
+    // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
+    bool hasDir = pressUp_;
+    int tdx = moveDirX_;
+    int tdy = moveDirY_;
     if (hasDir) {
         bool atCenter = std::abs(px_ - ccx) < 0.06 && std::abs(py_ - ccy) < 0.06;
         GridPos partner = atCenter && !open(col + tdx, row + tdy)
@@ -695,13 +694,15 @@ void DoomScene::keyDown(int code, bool isRepeat) {
         wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; // turn right
         return;
     }
-    if (code == K_UP || code == K_W) { pressUp_ = true; pressDown_ = false; return; }
-    if (code == K_DOWN || code == K_S) { pressDown_ = true; pressUp_ = false; return; }
+    if (code == K_UP || code == K_W) { pressUp_ = true; return; }
+    if (code == K_DOWN || code == K_S) {
+        wantDirSet_ = true; wantDirX_ = -moveDirX_; wantDirY_ = -moveDirY_; // about-face 180, not reverse
+        return;
+    }
 }
 
 void DoomScene::keyUp(int code) {
     if (code == K_UP || code == K_W) pressUp_ = false;
-    else if (code == K_DOWN || code == K_S) pressDown_ = false;
 }
 
 static float radiusBetween(sf::Vector2f a, sf::Vector2f b) {

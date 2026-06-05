@@ -837,10 +837,9 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
             px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
         }
-        // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
+        // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
-        let back = pressed.contains(KeyCode.arrowDown) || pressed.contains(KeyCode.keyS)
-        let tdir: (x: Int, y: Int)? = fwd ? moveDir : (back ? (x: -moveDir.x, y: -moveDir.y) : nil)
+        let tdir: (x: Int, y: Int)? = fwd ? moveDir : nil
         if let d = tdir {
             let atCenter = abs(px - ccx) < 0.06 && abs(py - ccy) < 0.06
             if atCenter, !open(col + d.x, row + d.y),
@@ -1088,7 +1087,8 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)   // turn left
         case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)   // turn right
-        case KeyCode.arrowUp, KeyCode.keyW, KeyCode.arrowDown, KeyCode.keyS: pressed.insert(code)
+        case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)  // about-face 180, not reverse
+        case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
         }
     }
