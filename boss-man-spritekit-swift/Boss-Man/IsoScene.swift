@@ -177,14 +177,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var pVpY: CGFloat = 0                                   // vanishing line above the far edge
     private func persp(_ rowEdge: Double) -> CGFloat { CGFloat(pFocal / (pFocal + (Double(rowsCount) - rowEdge))) }
 
-    // 1-POINT PERSPECTIVE IN DEPTH ONLY: x depends only on col (NO convergence) so every column line and
-    // vertical wall edge stays perfectly straight down; the row axis (depth) + wall height converge toward
-    // a vanishing line in Y, so the maze recedes without ever tilting a vertical.
+    // 1-POINT PERSPECTIVE: the whole board converges toward a centre vanishing point with depth. Vertical
+    // wall edges (constant col+row, varying height) stay perfectly vertical; only the depth (top) edges
+    // converge. Walls are drawn front + top only (no side faces) so there are no slanted side trapezoids.
     private func proj(_ colEdge: Double, _ rowEdge: Double, _ y: CGFloat) -> CGPoint {
         let p = persp(rowEdge)
-        let sx = (CGFloat(colEdge) - CGFloat(colsCount) / 2) * isoTW
+        let x0 = (CGFloat(colEdge) - CGFloat(colsCount) / 2) * isoTW
         let y0 = -CGFloat(rowEdge) * isoTH + y * isoWH
-        return CGPoint(x: sx, y: pVpY + (y0 - pVpY) * p)
+        return CGPoint(x: x0 * p, y: pVpY + (y0 - pVpY) * p)
     }
     private func perspScale(_ row: Double) -> CGFloat { persp(row) } // sprites shrink slightly with depth
 
@@ -198,7 +198,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private func addSub(_ p: CGMutablePath, _ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) {
         p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath()
     }
-    // One RAISED dot block: two side faces into `body`, the lit square into `top`; gold discs are bigger/taller.
+    // One RAISED dot block: near (south) face into `front`, a position-based side into `side`, lit top.
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
         let h = gold ? 0.28 : 0.20, yT: CGFloat = gold ? 0.95 : 0.7    // raised so it reads as a cube from overhead
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
@@ -206,10 +206,10 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
         let uSE = proj(cx0 + h, ry0 + h, yT), uSW = proj(cx0 - h, ry0 + h, yT)
-        addSub(front, bSW, bSE, uSE, uSW)                                   // near (south) face, like the walls
-        if cx0 < mid { addSub(side, bNE, bSE, uSE, uNE) }                   // east face (left of centre), like the walls
-        else if cx0 > mid { addSub(side, bNW, bSW, uSW, uNW) }              // west face (right of centre)
-        addSub(top, uNW, uNE, uSE, uSW)                                     // lit top
+        addSub(front, bSW, bSE, uSE, uSW)                                  // near (south) face
+        if cx0 < mid { addSub(side, bNE, bSE, uSE, uNE) }                  // east face (left of centre)
+        else if cx0 > mid { addSub(side, bNW, bSW, uSW, uNW) }             // west face (right of centre)
+        addSub(top, uNW, uNE, uSE, uSW)                                    // lit top
     }
     private func isDotTile(_ ch: Character) -> Bool {
         ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar   // gold disc is a round billboard, not a raised block
@@ -250,8 +250,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                     let tNW = proj(dc, Double(r), 1), tNE = proj(dc + 1, Double(r), 1)
                     let tSE = proj(dc + 1, Double(r + 1), 1), tSW = proj(dc, Double(r + 1), 1)
                     addSub(pFront[par], fSW, fSE, tSE, tSW); hasFront[par] = true
-                    if dc + 0.5 < mid { addSub(pSide[par], fNE, fSE, tSE, tNE); hasSide[par] = true }
-                    else if dc + 0.5 > mid { addSub(pSide[par], fNW, fSW, tSW, tNW); hasSide[par] = true }
+                    if dc + 0.5 < mid { addSub(pSide[par], fNE, fSE, tSE, tNE); hasSide[par] = true }   // east face (left of centre)
+                    else if dc + 0.5 > mid { addSub(pSide[par], fNW, fSW, tSW, tNW); hasSide[par] = true }   // west face (right of centre)
                     addSub(pTop[par], tNW, tNE, tSE, tSW); hasTop[par] = true
                 } else {
                     addSub(pFloor[par], fNW, fNE, fSE, fSW); hasFloor[par] = true
@@ -264,7 +264,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 if hasFront[par] { addQuad(pFront[par], frontP[par], frontP[par], z + 0.2) }
                 if hasTop[par]   { addQuad(pTop[par], topP[par], edgeP[par], z + 0.3) }
             }
-            if !dotCols.isEmpty {                            // the row's dots batched (front/side/top), exactly like the walls; rebuilt only on pickup
+            if !dotCols.isEmpty {                            // the row's dots batched (front + side + top, like the walls); rebuilt only on pickup
                 isoDotRowCells[r] = dotCols
                 let pF = CGMutablePath(), pS = CGMutablePath(), pT = CGMutablePath()
                 for c in dotCols { appendDotFaces(pF, pS, pT, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
