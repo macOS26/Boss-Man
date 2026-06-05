@@ -225,7 +225,7 @@ final class TitleScene: SKScene {
 
     // MARK: - Actions (shared)
     private func startGame() {
-        if MazeZoom.isDoom { startBonus(); return }   // DOOM mode = first-person 3D
+        if MazeZoom.is3D { startBonus(); return }   // RAYCAST 3D / VOXEL 3D = first-person bonus
         view?.preferredFramesPerSecond = 60
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit
@@ -241,8 +241,8 @@ final class TitleScene: SKScene {
 
     private func startBonus() {
         view?.preferredFramesPerSecond = 60
-        let bonus = DoomScene(size: size)
-        bonus.scaleMode = .aspectFit
+        let bonus: Bonus3DScene = MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)
+        bonus.scaleMode = SKSceneScaleMode.aspectFit
         view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
     }
 
