@@ -10,3 +10,4 @@ protocol Bonus3DScene: SKScene {
 
 extension DoomScene: Bonus3DScene {}
 extension VoxelScene: Bonus3DScene {}
+extension IsoScene: Bonus3DScene {}

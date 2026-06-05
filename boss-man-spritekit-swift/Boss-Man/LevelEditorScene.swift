@@ -782,7 +782,8 @@ final class LevelEditorScene: SKScene {
         // Test in whatever maze mode is selected: BOSS 3D launches the first-person
         // view of the edited level; the other eras run the 2D follow-camera at zoom.
         if MazeZoom.is3D {
-            let bonus: Bonus3DScene = MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)
+            let bonus: Bonus3DScene = MazeZoom.isIso ? IsoScene(size: size)
+                                   : MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)
             bonus.scaleMode = SKSceneScaleMode.aspectFit
             bonus.practiceMode = true
             bonus.startingLevel = currentLevelIndex + 1

@@ -304,14 +304,16 @@ extension Strings.Speech {
 enum MazeZoom {
     static let doom = 1993  // sentinel: the single-hit raycaster (RAYCAST 3D)
     static let voxel = 1994 // sentinel: the overhead voxel-span view (VOXEL 3D)
-    static let cycle = [1980, 1982, 1983, 1993, 1994]
+    static let iso = 1995   // sentinel: the isometric block view (ISOMETRIC)
+    static let cycle = [1980, 1982, 1983, 1993, 1994, 1995]
     static var current: Int {
         let z = Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)
         return cycle.contains(z) ? z : 1983
     }
     static var isDoom: Bool { current == doom }
     static var isVoxel: Bool { current == voxel }
-    static var is3D: Bool { isDoom || isVoxel }   // either first-person bonus (vs the 2D follow-camera eras)
+    static var isIso: Bool { current == iso }
+    static var is3D: Bool { isDoom || isVoxel || isIso }   // any full-screen scene mode (vs the 2D follow-camera eras)
     // The 2D follow-camera zoom for each era (100 = no camera). Ms. Pac-Man = 150%,
     // Jr. Pac-Man = 200%; Pac-Man is classic 100%, DOOM uses the 3D path instead.
     static var zoomPercent: Int {
@@ -328,6 +330,7 @@ enum MazeZoom {
         case 1983: return "MACRO 2D"
         case 1993: return "RAYCAST 3D"
         case 1994: return "VOXEL 3D"
+        case 1995: return "ISOMETRIC"
         default:   return "\(current)"
         }
     }

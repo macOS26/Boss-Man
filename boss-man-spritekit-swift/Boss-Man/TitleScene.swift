@@ -241,7 +241,8 @@ final class TitleScene: SKScene {
 
     private func startBonus() {
         view?.preferredFramesPerSecond = 60
-        let bonus: Bonus3DScene = MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)
+        let bonus: Bonus3DScene = MazeZoom.isIso ? IsoScene(size: size)
+                               : MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)
         bonus.scaleMode = SKSceneScaleMode.aspectFit
         view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
     }

@@ -23,15 +23,15 @@ class SoundManager;
 // Wolfenstein-style DDA raycaster for the walls, a blended sunset sky, and
 // billboarded game sprites (pellets, gold discs, bosses) standing in the corridors.
 // The camera trails behind Pete so you see him walking ahead of you; a top-down
-// radar sits at the bottom. Ported verbatim from the SpriteKit DoomScene master.
+// radar sits at the bottom. Ported verbatim from the SpriteKit VoxelScene master.
 //
 // Reuses the REAL game systems: BossController (speed/square+smooth, flee/splash/
 // capture/respawn), RoundState, WaterGunState, GoldDiscTimer (via goldDiscTimer),
 // SoundManager, ScorePopup, PixelPersonRenderer. Only the raycaster renderer and the
 // first-person/tank input are mode-specific.
-class DoomScene : public BossControllerDelegate, public Scene3D {
+class VoxelScene : public BossControllerDelegate, public Scene3D {
 public:
-    DoomScene(SoundManager& sound, RoundState& state,
+    VoxelScene(SoundManager& sound, RoundState& state,
               const std::vector<std::string>& mapRows, int highScore);
 
     // Per-frame: advance the simulation by a fixed 1/60 step then draw. `dt` is the
@@ -185,7 +185,7 @@ private:
     // MARK: - Input state (held keys, SFML key codes)
     bool pressUp_ = false, pressDown_ = false;
 
-    // The SpriteKit DoomScene runs at a fixed 60fps and advances the tank step +
+    // The SpriteKit VoxelScene runs at a fixed 60fps and advances the tank step +
     // BossController by exactly 1/60 each frame. The C++ host ticks update() at
     // 120Hz, so we accumulate real time and fire the 1/60 sim step at 60Hz to keep
     // the verbatim 60fps tuning frame-rate independent.
@@ -197,7 +197,7 @@ private:
     void buildBillboards();
     void buildMap();
 
-    // MARK: - Per-frame logic (ported from DoomScene.step / render / projectSprites)
+    // MARK: - Per-frame logic (ported from VoxelScene.step / render / projectSprites)
     void step();
     void moveShots();
     void fire();
