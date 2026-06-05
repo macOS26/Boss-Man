@@ -25,7 +25,7 @@ final class TravelerSpawner {
 
     private var pendingTraveler: LevelTraveler?
     private var keepSpawning: (() -> Bool)?
-    private let firstVisitDelay: TimeInterval = 10
+    private let firstVisitDelay: TimeInterval = 4
     private let respawnDelay:    TimeInterval = 30
 
     init(scene: SKScene, gridMap: GridMap, sound: SoundManager,

@@ -765,20 +765,11 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         }
         // The traveler walks in 2D scene coords; pull its node into the sprite layer and project it as a
         // billboard at its current grid tile (gridMap bottom-up -> raster top-down, same flip as bosses).
-        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
-            tnode.isHidden = true   // keep the real node walking (SKActions) in the scene root; project a mirror so its smooth position isn't clobbered
-            if travelerMirror == nil || travelerMirrorEmoji != info.emoji {
-                travelerMirror?.removeFromParent()
-                let m = emojiBillboard(info.emoji, 48); spriteLayer.addChild(m)
-                travelerMirror = m; travelerMirrorEmoji = info.emoji
-            }
-            if let m = travelerMirror {
-                let g0 = Double(tnode.position.x) / 32.0 - 0.5, g1 = Double(tnode.position.y) / 32.0 - 0.5   // SMOOTH walk position
-                let nh = max(1, m.calculateAccumulatedFrame().height)
-                all.append((m, nh, 0.42, g0 + 0.5, Double(rowsCount) - 0.5 - g1, .greatestFiniteMagnitude, nil, -nh / 2))
-            }
-        } else {
-            travelerMirror?.isHidden = true
+        if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
+            if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
+            let g = travelerSpawner.grid
+            let nh = max(1, tnode.calculateAccumulatedFrame().height)
+            all.append((tnode, nh, 0.42, Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y), .greatestFiniteMagnitude, nil, -nh / 2))
         }
         for item in all {
             let node = item.node

@@ -170,7 +170,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let zoom: CGFloat = 2.4                                     // ZOOMED IN: bigger tiles/lanes; the view scrolls to follow Pete, the minimap shows the rest
         isoTW = size.width / CGFloat(max(1, colsCount)) * zoom      // tile width
         isoTH = isoTW * 0.62                                        // more top-down (TH closer to TW = more overhead)
-        isoWH = isoTW * 0.46                                        // taller blocks
+        isoWH = isoTW * 0.46 - 2                                    // blocks, 2px lower
         pVpY = isoTH * 6                                            // vanishing line above the far edge (depth converges toward it)
     }
     private let pFocal = 70.0                                      // 1-pt depth convergence strength (smaller = stronger)
@@ -200,8 +200,9 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     }
     // One RAISED dot block: near (south) face into `front`, a position-based side into `side`, lit top.
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
-        let h = gold ? 0.28 : 0.20, yT: CGFloat = gold ? 1.2 : 0.95    // raised higher so it reads as a cube from overhead
+        let h = gold ? 0.28 : 0.20
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
+        let yT = ((gold ? 1.2 : 0.95) * isoWH - 3) / max(1, isoWH)     // dot block height, 3px lower
         let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
         let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
@@ -306,6 +307,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 }
                 spriteLayer.addChild(node)
                 placeIsoSprite(node, CGFloat(c) + 0.5, CGFloat(r) + 0.5, s)
+                node.position.y += 3                            // raise the TPS/machine emojis 3px
                 node.zPosition = CGFloat(r) * 4 + 0.55          // above the row's blocks, below Pete
                 isoPickups[mapKey(c, r)] = node
             }
@@ -901,25 +903,16 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             }
         }
 
-        // The traveler walks via SKActions on its real node in the scene root — DON'T reparent or
-        // reposition it (that clobbers the walk). Keep it hidden, walking, and mirror it in iso from
-        // its live position so it actually travels the maze.
-        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
-            tnode.isHidden = true
-            if isoTraveler == nil || isoTravelerEmoji != info.emoji {
-                isoTraveler?.removeFromParent()
-                let m = emojiBillboard(info.emoji, isoTW * 0.9)
-                spriteLayer.addChild(m); isoTraveler = m; isoTravelerEmoji = info.emoji
-            }
-            let g0 = Double(tnode.position.x) / 32.0 - 0.5, g1 = Double(tnode.position.y) / 32.0 - 0.5   // SMOOTH gridMap pos (SKAction walk), same conversion bosses use
-            let tcol = g0 + 0.5, trow = Double(rowsCount) - 0.5 - g1
-            if let m = isoTraveler {
-                m.isHidden = false
-                placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), isoTW * 0.9)
-                m.zPosition = CGFloat(trow) * 4 + 0.6
-            }
-        } else {
-            isoTraveler?.isHidden = true
+        // Show the REAL traveler node (the one TravelerSpawner walks via SKActions) directly in the iso
+        // view — reparent it into the sprite layer and plant it on its tile each frame, exactly like the
+        // 2D game shows it and like the bosses. Its `grid` advances as it walks (no mirror to break).
+        if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
+            if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
+            tnode.isHidden = false
+            let g = travelerSpawner.grid
+            let tcol = Double(g.x) + 0.5, trow = Double(rowsCount) - 0.5 - Double(g.y)
+            placeIsoSprite(tnode, CGFloat(tcol), CGFloat(trow), isoTW * 0.9)
+            tnode.zPosition = CGFloat(trow) * 4 + 0.6
         }
 
         let shotH = isoTW * 0.34            // water-gun pellets fly at mid-height (lift 0.55), not on the floor
@@ -1154,15 +1147,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if let d = e.mover?.dir { mn.setFacing(d) }
         }
         for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
-        if let info = travelerSpawner?.activeTraveler, let tn = travelerSpawner?.node {   // traveler on the minimap, same SMOOTH source as iso (in sync)
+        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // traveler on the minimap, from grid (node.position is the iso coord now)
             if mapTraveler == nil || mapTravelerEmoji != info.emoji {
                 mapTraveler?.removeFromParent()
                 let t = emojiBillboard(info.emoji, mapCell * 0.7); t.zPosition = 5
                 mapLayer.addChild(t); mapTraveler = t; mapTravelerEmoji = info.emoji
             }
             mapTraveler?.isHidden = false
-            let g0 = Double(tn.position.x) / 32.0 - 0.5, g1 = Double(tn.position.y) / 32.0 - 0.5
-            mapTraveler?.position = mapLocal(g0 + 0.5, Double(rowsCount) - 0.5 - g1)
+            mapTraveler?.position = mapLocal(Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y))
         } else {
             mapTraveler?.isHidden = true
         }
