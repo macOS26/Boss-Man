@@ -367,12 +367,10 @@ void DoomScene::step() {
     int col = (int)std::floor(px_), row = (int)std::floor(py_);
     double ccx = col + 0.5, ccy = row + 0.5;
 
-    // Turn near a tile centre: take the queued turn only if that lane is open (cornering
-    // from up to ~0.4 tile). A ←/→ press is ALWAYS a 90° turn: if the side lane is walled
-    // it stays queued for the next junction, never an auto-180°. The down button queues the
-    // opposite heading, which corners here too since the lane behind is open.
-    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4 &&
-        open(col + wantDirX_, row + wantDirY_)) {
+    // Turn near a tile centre: a ←/→ press ALWAYS rotates Pete 90° and the down button
+    // rotates 180°, EVEN INTO A WALL — he simply faces it and stops (the forward logic
+    // below never moves into a wall). Snap onto the square from up to ~0.4 tile away.
+    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4) {
         px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
         wantDirSet_ = false;
         targetAngle_ = cardinal(moveDirX_, moveDirY_);

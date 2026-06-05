@@ -830,12 +830,11 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn near a tile centre: take the queued turn only if that lane is OPEN, rounding
-        // Pete onto the junction square from up to ~0.4 tile away (cornering — a slightly
-        // early/late press still catches). A ←/→ press is ALWAYS a 90° turn: if the side lane
-        // is walled it stays queued for the next junction, never an auto-180°. The down button
-        // queues the opposite heading, which corners here too since the lane behind is open.
-        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
+        // Turn near a tile centre: a ←/→ press ALWAYS rotates Pete 90° to face that way and
+        // the down button rotates 180°, EVEN INTO A WALL — he simply faces it and stops (the
+        // forward logic below never moves into a wall). Snap onto the square from up to ~0.4
+        // tile away so a slightly early/late press still lands centred.
+        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4 {
             px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
