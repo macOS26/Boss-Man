@@ -559,7 +559,7 @@ void Game::processInput() {
             // Test in whatever maze mode is selected: BOSS 3D (1993) launches the
             // first-person view of the edited level; the other eras run the 2D
             // follow-camera at their zoom percent.
-            if (MazeZoom::isDoom()) {
+            if (MazeZoom::is3D()) {
                 startDoom3D(editor.currentLevelIndex + 1, true);
             } else {
                 gameState = GameState::Playing;
@@ -581,7 +581,7 @@ void Game::processInput() {
         if (input.pRequested) {
             // The DOOM era (1993) launches the first-person 3D bonus; the other eras
             // run the 2D follow-camera game at their zoom percent.
-            if (MazeZoom::isDoom()) {
+            if (MazeZoom::is3D()) {
                 startDoom3D();
             } else {
                 gameState = GameState::Playing;
@@ -1349,7 +1349,7 @@ void Game::restartGame() {
     hud.isGameOver = false;
     // PLAY from a DOOM game-over replays DOOM (matches SpriteKit DoomScene.restartDoom);
     // otherwise the era's zoomPercent (1993 -> 100) would drop you into a 2D 100% game.
-    if (MazeZoom::isDoom()) { startDoom3D(state.level, state.practiceMode); return; }
+    if (MazeZoom::is3D()) { startDoom3D(state.level, state.practiceMode); return; }
     gameState = GameState::Playing;
     state.resetForNewGame();
     resetSceneAndBuild();

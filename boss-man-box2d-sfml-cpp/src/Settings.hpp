@@ -17,14 +17,17 @@ namespace bm {
 // 3D path); the other eras drive the 2D follow-camera at zoomPercent. Invalid /
 // unset storage collapses to defaultEra, matching MazeZoom.current.
 struct MazeZoom {
-    static constexpr int doom = 1993;
+    static constexpr int doom = 1993;   // RAYCAST 3D (single-hit raycaster)
+    static constexpr int voxel = 1994;  // VOXEL 3D (overhead voxel-span view)
     static constexpr int defaultEra = 1983;
-    static constexpr std::array<int, 4> cycle{1980, 1982, 1983, 1993};
+    static constexpr std::array<int, 5> cycle{1980, 1982, 1983, 1993, 1994};
 
     static int current();
     static bool isDoom() { return current() == doom; }
+    static bool isVoxel() { return current() == voxel; }
+    static bool is3D() { return isDoom() || isVoxel(); }   // either first-person bonus
     // The 2D follow-camera zoom for each era (100 = no camera). Ms. Pac-Man = 150%,
-    // Jr. Pac-Man = 200%; Pac-Man is classic 100%, DOOM uses the 3D path instead.
+    // Jr. Pac-Man = 200%; Pac-Man is classic 100%, the 3D modes use the 3D path instead.
     static int zoomPercent() {
         switch (current()) {
             case 1982: return 150;
@@ -34,10 +37,11 @@ struct MazeZoom {
     }
     static std::string label() {
         switch (current()) {
-            case 1980: return "LUMBERGH";
-            case 1982: return "MORE FLAIR";
-            case 1983: return "MIKE JUDGE";
-            case 1993: return "MILTON 3D";
+            case 1980: return "FULLVIEW 2D";
+            case 1982: return "ZOOMLENSE 2D";
+            case 1983: return "MACROLENSE 2D";
+            case 1993: return "RAYCAST 3D";
+            case 1994: return "VOXEL 3D";
             default:   return std::to_string(current());
         }
     }
