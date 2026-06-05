@@ -387,7 +387,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     }
 
     private func buildPete() {
-        pete = SpriteFactory.petePersonBack(walkExaggeration: 1)
+        pete = SpriteFactory.petePerson(walkExaggeration: 1)   // iso looks down on Pete from the front, not his back
         let nativeH = max(1, pete.calculateAccumulatedFrame().height)
         let target = viewH * 0.42
         pete.setScale(target / nativeH)
@@ -484,7 +484,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         node.stopWalking()
         let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
         node.isHidden = false
-        node.setScale(viewH * 0.42 / nh)                     // Pete's size, never larger
+        node.setScale(isoCubeH * 3.0 / nh)                   // a close-up sized to the iso world, not the first-person play height
         if node.parent !== self { node.removeFromParent(); addChild(node) }   // lift the catcher out of the offset iso world for a fixed screen close-up
         node.position = CGPoint(x: size.width / 2, y: size.height * 0.45)      // centred where Pete sits, so you see who caught you
         node.zPosition = 500
@@ -579,10 +579,9 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     private func togglePause() {
         isUserPaused.toggle()
         hud.showPaused(isUserPaused)   // same PAUSED text the 2D game uses
-        spriteLayer.isPaused = isUserPaused   // freeze every SKAction (boss walks, pickup throbs)
-        mapLayer.isPaused = isUserPaused       // and the radar copies
-        if isUserPaused { pete.stopWalking(); mapPete.stopWalking(); sound.pauseAudio() }
-        else { pete.startWalking(); mapPete.startWalking(); sound.resumeAudio() }
+        isoWorld.isPaused = isUserPaused   // freeze every SKAction (boss walks, pickup throbs)
+        if isUserPaused { pete.stopWalking(); sound.pauseAudio() }
+        else { pete.startWalking(); sound.resumeAudio() }
     }
 
     private func mapKey(_ c: Int, _ r: Int) -> Int { r * colsCount + c }
