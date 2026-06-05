@@ -699,6 +699,10 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 yLoL = r.yLoA + sLo * (xL - cxA); yLoR = r.yLoA + sLo * (xR - cxA)
                 yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA)
             }
+            if isCap {   // a cap can't cross the horizon; clamp so far corners don't over-angle past it
+                yLoL = min(yLoL, viewMidY); yLoR = min(yLoR, viewMidY)
+                yHiL = min(yHiL, viewMidY); yHiR = min(yHiR, viewMidY)
+            }
             let dAvg = r.depthSum / Double(r.n)
             let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
             let color: SKColor
@@ -814,8 +818,11 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
             // Sampling a window (not one column) stops the per-step blink when the centre
             // column straddles a side-opening edge as a boss walks.
             if col >= 0, col < columns {
+                // Sample the NEAREST wall across the sprite's whole screen footprint, so a dot whose
+                // body overlaps a wall a few columns from its centre is still hidden behind it.
+                let footHalf = max(1, min(5, Int((viewH / CGFloat(tY) * item.worldH) / (size.width / CGFloat(columns)) * 0.5)))
                 var wallZ = zbuf[col]
-                for c in max(0, col - 1)...min(columns - 1, col + 1) { wallZ = min(wallZ, zbuf[c]) }
+                for c in max(0, col - footHalf)...min(columns - 1, col + footHalf) { wallZ = min(wallZ, zbuf[c]) }
                 if tY > wallZ + 0.3 { node.isHidden = true; continue }
             }
             if tY > 18 { node.isHidden = true; continue }       // far cull
