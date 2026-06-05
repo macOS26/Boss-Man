@@ -1189,14 +1189,17 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let wp = workerController.worldPosition      // derive raster grid coords that the iso view + minimap render from
         px = Double(wp.x) / 32.0
         py = Double(rowsCount) - Double(wp.y) / 32.0
-        if let info = travelerSpawner?.activeTraveler, let tn = travelerSpawner?.node {   // SMOOTH: the node's SKAction.move interpolates continuously (same as 2D)
-            let nc = Double(tn.position.x) / 32.0
-            let dx = nc - travCol
+        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // drive from the RELIABLE grid tile (follows the maze), glide between tiles, SNAP big jumps
+            let tc = Double(g.x) + 0.5, tr = Double(rowsCount) - 0.5 - Double(g.y)
+            let dx = tc - travCol
             if travActive, abs(dx) > 0.001, abs(dx) < 2 {   // flip to face travel direction, same convention as TravelerSpawner
                 travFlip = info.facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1)
             }
-            travCol = nc
-            travRow = Double(rowsCount) - Double(tn.position.y) / 32.0
+            if !travActive || abs(tc - travCol) > 1.5 || abs(tr - travRow) > 1.5 {   // (re)spawn / wrap: snap, never animate across the maze
+                travCol = tc; travRow = tr
+            } else {                                          // per-tile: glide smoothly toward the next tile
+                travCol += (tc - travCol) * 0.18; travRow += (tr - travRow) * 0.18
+            }
             travActive = true
         } else { travActive = false }
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
