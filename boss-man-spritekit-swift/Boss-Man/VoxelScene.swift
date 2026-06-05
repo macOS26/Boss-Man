@@ -48,18 +48,20 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
     }
 
     // MARK: - Layout / projection
-    private let columns = 200
-    private let planeScale = 0.5773          // tan(fov/2), fov 60° (no tan() on wasm)
+    private let columns = 220
+    private let planeScale = 1.2              // tan(fov/2): wide ~100° FOV so a big swath of maze shows left/right
     private var radarH: CGFloat = 180
     private var viewH: CGFloat { size.height - radarH }
     private var viewMidY: CGFloat { radarH + viewH * 0.70 }   // horizon, lifted for a look-down view
-    // Overhead-ish framing so the bosses read better: a raised camera (eyeHeight > 0.5 drops the
+    // Overhead-ish framing so the whole maze reads: a raised camera (eyeHeight > 0.5 drops the
     // walls below the horizon = looking DOWN on the maze) plus shorter walls you can see over.
     // 0.5 / 1.0 is the flat eye-level look; raise eyeHeight and lower wallHeightScale to tilt down.
     private let eyeHeight: CGFloat = 0.7
     private let wallHeightScale: CGFloat = 0.5
-    private var bars: [SKShapeNode] = []
-    private var wallTops: [SKShapeNode] = []   // the flat z=wallHeightScale caps, seen because the camera is above them
+    private let maxVoxelDist = 30.0          // how far down the maze the voxel-span march draws
+    private let voxelLevels = 12             // brightness buckets (one node each) for the wall fronts / tops
+    private var voxelFront: [SKShapeNode] = []   // walls: one node per brightness bucket (fronts)
+    private var voxelTop: [SKShapeNode] = []     // walls: one node per brightness bucket (flat tops)
     private let floorA = SKShapeNode()   // alternating floor-tile checker, cast per frame
     private let floorB = SKShapeNode()
     private let floorFar = SKShapeNode()  // far rows: solid (the checker aliases to garbage at distance)
@@ -269,13 +271,17 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
     }
 
     private func buildColumns() {
-        for _ in 0..<columns {
-            let top = SKShapeNode()                  // drawn just under the fronts; they share the front-top edge
-            top.strokeColor = .clear; top.isAntialiased = true; top.zPosition = -0.05
-            addChild(top); wallTops.append(top)
-            let bar = SKShapeNode()
-            bar.strokeColor = .clear; bar.isAntialiased = true; bar.zPosition = 0
-            addChild(bar); bars.append(bar)
+        // One node per brightness bucket: every wall rect in the frame is accumulated into the
+        // matching bucket's compound path, so the whole maze draws in ~2*voxelLevels nodes.
+        for _ in 0..<voxelLevels {
+            let top = SKShapeNode()
+            top.strokeColor = .clear; top.isAntialiased = false; top.zPosition = -0.05
+            addChild(top); voxelTop.append(top)
+        }
+        for _ in 0..<voxelLevels {
+            let front = SKShapeNode()
+            front.strokeColor = .clear; front.isAntialiased = false; front.zPosition = 0
+            addChild(front); voxelFront.append(front)
         }
     }
 
@@ -674,119 +680,74 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         camX = px - dirX * back; camY = py - dirY * back
         castFloor()
 
-        // One ray per column CENTRE. A column whose ray exits the map through an
-        // opening (tunnel / no wall) is "open" -> drawn as nothing (black), not a wall.
-        var cTop = [CGFloat](repeating: 0, count: columns)
-        var cBot = [CGFloat](repeating: 0, count: columns)
-        var cDist = [Double](repeating: 0, count: columns)
-        var cSide = [Int](repeating: 0, count: columns)
-        var cOpen = [Bool](repeating: false, count: columns)
-        var cFace = [Int](repeating: -1, count: columns)
-        var cPar = [Int](repeating: 0, count: columns)
-        var cTopBack = [CGFloat](repeating: 0, count: columns)   // screen-y of the wall-top cap's FAR edge
-        for i in 0..<columns {
-            let cameraX = 2.0 * (Double(i) + 0.5) / Double(columns) - 1.0
+        // Voxel-span walls: per column, march the WHOLE ray and paint every wall (front + flat top)
+        // from the bottom up with occlusion (topY = highest pixel painted so far). Because the
+        // camera is above the walls, each wall's top recedes toward the horizon; walls behind walls
+        // show their tops over the nearer ones, so the maze reads in 3D far into the distance. Every
+        // rect is accumulated into a brightness bucket, so the whole frame draws in a handful of nodes.
+        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        for b in 0..<voxelLevels {
+            let f = (CGFloat(b) + 0.5) / CGFloat(voxelLevels)
+            let shade = cube.blended(withFraction: 1 - f, of: .black) ?? cube
+            voxelFront[b].fillColor = shade
+            voxelTop[b].fillColor = shade.blended(withFraction: 0.3, of: .white) ?? shade
+        }
+        let frontPaths = (0..<voxelLevels).map { _ in CGMutablePath() }
+        let topPaths = (0..<voxelLevels).map { _ in CGMutablePath() }
+        var frontUsed = [Bool](repeating: false, count: voxelLevels)
+        var topUsed = [Bool](repeating: false, count: voxelLevels)
+        let w = size.width / CGFloat(columns)
+        let half = wallHeightScale - eyeHeight    // negative: tops sit below the horizon (looking down)
+        for col in 0..<columns {
+            let cameraX = 2.0 * (Double(col) + 0.5) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
             var mapX = Int(camX.rounded(.down)), mapY = Int(camY.rounded(.down))
             let ddx = rdx == 0 ? 1e30 : abs(1 / rdx), ddy = rdy == 0 ? 1e30 : abs(1 / rdy)
             var stepX = 0, stepY = 0, sideX = 0.0, sideY = 0.0
             if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
             if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
-            var side = 0, guardN = 0, hitWall = false
-            while guardN < 256 {
+            let xL = CGFloat(col) * w, ww = w + 0.75   // slight overlap so columns tile without seams
+            var topY = radarH
+            var firstHit = true
+            var guardN = 0
+            while guardN < 160 {
                 guardN += 1
-                if sideX < sideY { sideX += ddx; mapX += stepX; side = 0 } else { sideY += ddy; mapY += stepY; side = 1 }
+                let dEntry: Double, side: Int
+                if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX; side = 0 }
+                else             { dEntry = sideY; sideY += ddy; mapY += stepY; side = 1 }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
-                if map[mapY][mapX] == Strings.Tile.wallChar { hitWall = true; break }
-            }
-            let perp = side == 0 ? (sideX - ddx) : (sideY - ddy)
-            let d = hitWall ? max(0.05, perp) : 1e9   // exited an opening -> no wall (black), not a blue dead end
-            let lineH = min(viewH * 4, viewH / CGFloat(d))
-            cBot[i] = viewMidY - lineH * eyeHeight                       // wall base on the floor (raised camera = lower)
-            cTop[i] = viewMidY + lineH * (wallHeightScale - eyeHeight)   // shortened top; sits below the horizon
-            // The wall-top cap is the flat z=wallHeightScale plane over the mass the ray crosses; march
-            // on through the contiguous wall run to its BACK face so the cap recedes toward the horizon.
-            var dBack = d
-            if hitWall {
-                var mx = mapX, my = mapY, sx = sideX, sy = sideY, g2 = 0
-                while g2 < 64 {
-                    g2 += 1
-                    let bDist = sx < sy ? sx : sy
-                    if sx < sy { sx += ddx; mx += stepX } else { sy += ddy; my += stepY }
-                    dBack = bDist
-                    if my < 0 || my >= rowsCount || mx < 0 || mx >= colsCount { break }
-                    if map[my][mx] != Strings.Tile.wallChar { break }
-                    if bDist > 20 { break }   // cap already at the horizon; deeper cells are invisible
+                if dEntry > maxVoxelDist { break }
+                if map[mapY][mapX] != Strings.Tile.wallChar { continue }   // floor cell: the floor cast fills it
+                let dN = max(0.05, dEntry)
+                let dF = max(dN + 0.001, min(sideX, sideY))
+                let baseY = viewMidY - viewH * eyeHeight / CGFloat(dN)        // wall base (on the floor)
+                let frontTopY = viewMidY + viewH * half / CGFloat(dN)        // front-top edge
+                let capBackY = viewMidY + viewH * half / CGFloat(dF)         // cap's far edge (toward horizon)
+                if firstHit { zbuf[col] = dN; firstHit = false }             // sprite occlusion uses the nearest wall
+                if capBackY <= topY { continue }                            // entirely behind a nearer wall
+                let depth = CGFloat(max(0.10, min(1.0, 1.0 - dN / maxVoxelDist)))
+                let frontLo = max(baseY, topY)
+                if frontTopY > frontLo {
+                    let f = depth * (side == 1 ? 0.62 : 1.0) * (((mapX + mapY) & 1) == 1 ? 1.0 : 0.82)
+                    let b = min(voxelLevels - 1, max(0, Int(f * CGFloat(voxelLevels))))
+                    frontPaths[b].addRect(CGRect(x: xL, y: frontLo, width: ww, height: frontTopY - frontLo))
+                    frontUsed[b] = true
                 }
+                let topLo = max(frontTopY, topY)
+                if capBackY > topLo {
+                    let b = min(voxelLevels - 1, max(0, Int(depth * CGFloat(voxelLevels))))
+                    topPaths[b].addRect(CGRect(x: xL, y: topLo, width: ww, height: capBackY - topLo))
+                    topUsed[b] = true
+                }
+                topY = max(topY, capBackY)
+                if topY >= viewMidY - 1 { break }   // reached the horizon
             }
-            cTopBack[i] = viewMidY + viewH / CGFloat(max(dBack, d)) * (wallHeightScale - eyeHeight)
-            cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall
-            // Identity of the exact wall FACE hit (grid line + axis). Two columns share a
-            // face only if they land on the same line; depth deltas vary with distance, so
-            // keying on depth falsely splits far columns (jagged) and merges near corners.
-            cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1
-            cPar[i] = (mapX + mapY) & 1   // wall-cell parity -> per-cell checker shade (aligns with the floor)
-            zbuf[i] = d
+            if firstHit { zbuf[col] = 1e9 }
         }
-        let w = size.width / CGFloat(columns)
-        // One straight-edged quad per contiguous wall FACE. Screen-space top/bottom of a
-        // flat wall are exact straight lines (inverse depth is linear in screen-x), so a
-        // single quad spanning the face is exact: square walls, no stairstep, no wobble,
-        // and a sharp vertical break wherever the face changes (corner / opening).
-        // Cubicle/wall colour for this level, matching the 2D game; shaded per-quad by
-        // depth + side below so it reads as the same wall in first person.
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        var bar = 0
-        var i = 0
-        while i < columns {
-            if cOpen[i] { i += 1; continue }
-            var j = i
-            while j + 1 < columns && cFace[j + 1] == cFace[i] && cPar[j + 1] == cPar[i] { j += 1 }
-            let xL = CGFloat(i) * w, xR = CGFloat(j + 1) * w + 1   // 1px overlap hides AA seams at corners
-            var topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j]
-            var tbkL = cTopBack[i], tbkR = cTopBack[j]
-            if j > i {
-                let cxL = (CGFloat(i) + 0.5) * w, cxR = (CGFloat(j) + 0.5) * w
-                let mT = (cTop[j] - cTop[i]) / (cxR - cxL), mB = (cBot[j] - cBot[i]) / (cxR - cxL)
-                let mK = (cTopBack[j] - cTopBack[i]) / (cxR - cxL)
-                topL = cTop[i] + mT * (xL - cxL); topR = cTop[i] + mT * (xR - cxL)
-                botL = cBot[i] + mB * (xL - cxL); botR = cBot[i] + mB * (xR - cxL)
-                tbkL = cTopBack[i] + mK * (xL - cxL); tbkR = cTopBack[i] + mK * (xR - cxL)
-            }
-            let p = CGMutablePath()
-            p.move(to: CGPoint(x: xL, y: botL))
-            p.addLine(to: CGPoint(x: xL, y: topL))
-            p.addLine(to: CGPoint(x: xR, y: topR))
-            p.addLine(to: CGPoint(x: xR, y: botR))
-            p.closeSubpath()
-            let n = bars[bar]
-            n.path = p; n.isHidden = false
-            let mid = (i + j) / 2
-            let depth = CGFloat(max(0.12, min(1.0, 1.0 - cDist[mid] / 16)))
-            let f = depth * (cSide[i] == 1 ? 0.62 : 1.0)
-                    * (cPar[i] == 1 ? 1.0 : 0.82)   // adjacent cells alternate shade for grid readability
-            n.fillColor = cube.blended(withFraction: 1 - f, of: .black) ?? cube
-            // Flat top cap: front-top edge up to the receding back edge, a brighter horizontal shade so
-            // it reads as a lit surface you look down on (and the floor just beyond shows above it).
-            let tn = wallTops[bar]
-            if tbkL - topL > 0.5 || tbkR - topR > 0.5 {
-                let pt = CGMutablePath()
-                pt.move(to: CGPoint(x: xL, y: topL))
-                pt.addLine(to: CGPoint(x: xL, y: tbkL))
-                pt.addLine(to: CGPoint(x: xR, y: tbkR))
-                pt.addLine(to: CGPoint(x: xR, y: topR))
-                pt.closeSubpath()
-                tn.path = pt; tn.isHidden = false
-                let base = cube.blended(withFraction: 1 - depth, of: .black) ?? cube
-                tn.fillColor = base.blended(withFraction: 0.3, of: .white) ?? base
-            } else {
-                tn.isHidden = true
-            }
-            bar += 1
-            i = j + 1
+        for b in 0..<voxelLevels {
+            voxelFront[b].isHidden = !frontUsed[b]; if frontUsed[b] { voxelFront[b].path = frontPaths[b] }
+            voxelTop[b].isHidden = !topUsed[b]; if topUsed[b] { voxelTop[b].path = topPaths[b] }
         }
-        for k in bar..<bars.count { bars[k].isHidden = true }
-        for k in bar..<wallTops.count { wallTops[k].isHidden = true }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         updateMap()
     }
