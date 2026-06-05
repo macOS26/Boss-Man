@@ -154,6 +154,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var isoDotTopNode: [Int: SKShapeNode] = [:]
     private var isoDotCollected: Set<Int> = []        // collected mapKeys; the row nodes are rebuilt (rarely) on pickup
     private var isoDotsLeft = 0
+    private var isoPickups: [Int: SKNode] = [:]        // water gun / pellets / machine emojis / brown box, built once, hidden|grayed on collect
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
     // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
@@ -266,6 +267,32 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         isoDotTopNode[r]?.path = pTop
     }
 
+    // The non-dot collectibles (water gun, pellets, the 4 TPS machines, the brown box) as iso emoji
+    // billboards, built ONCE and planted on their tile — hidden/grayed on pickup, mirrored in the minimap.
+    private func buildIsoPickups() {
+        let s = isoTW * 0.7
+        for r in 0..<rowsCount {
+            let row = map[r]
+            for c in 0..<min(colsCount, row.count) {
+                let node: SKNode
+                switch row[c] {
+                case Strings.Tile.waterGunChar:    node = throbbing(emojiBillboard(Strings.Emoji.waterGun, s), 1.18, 0.5)
+                case Strings.Tile.printerChar:     node = emojiBillboard(Strings.Emoji.printer, s)
+                case Strings.Tile.faxChar:         node = emojiBillboard(Strings.Emoji.fax, s)
+                case Strings.Tile.coverSheetChar:  node = emojiBillboard(Strings.Emoji.coverSheet, s)
+                case Strings.Tile.bookBinderChar:  node = emojiBillboard(Strings.Emoji.bookBinder, s)
+                case Strings.Tile.brownBoxChar:    node = emojiBillboard(Strings.Emoji.brownBox, s)
+                case Strings.Tile.waterPelletChar: node = throbbing(SpriteFactory.waterPelletVisual(radius: isoTW * 0.3), 1.25, 0.5)
+                default: continue
+                }
+                spriteLayer.addChild(node)
+                placeIsoSprite(node, CGFloat(c) + 0.5, CGFloat(r) + 0.5, s)
+                node.zPosition = CGFloat(r) * 4 + 0.55          // above the row's blocks, below Pete
+                isoPickups[mapKey(c, r)] = node
+            }
+        }
+    }
+
     override func didMove(to view: SKView) {
         view.preferredFramesPerSecond = 60
         anchorPoint = .zero
@@ -281,6 +308,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         workerHost.alpha = 0                 // the real worker runs here, hidden; Pete is drawn in iso + minimap from its grid
         addChild(workerHost)
         buildIso()
+        buildIsoPickups()                    // water gun / pellets / machine emojis / brown box in the iso world
         buildPete()
         buildMap()                           // the 2D minimap: the real tilemap + worker + bosses
         setupBossController()
@@ -868,6 +896,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             placeIsoSprite(tnode, CGFloat(tcol), CGFloat(trow), spriteH * 0.9)
             tnode.zPosition = CGFloat(trow) * 4 + 0.6
         }
+
+        let shotH = isoTW * 0.3              // water-gun pellets, planted on their tile, depth-sorted like the others
+        for s in shots where s.alive {
+            if s.node.parent !== spriteLayer { s.node.removeFromParent(); spriteLayer.addChild(s.node) }
+            s.node.isHidden = false
+            placeIsoSprite(s.node, CGFloat(s.x), CGFloat(s.y), shotH)
+            s.node.zPosition = CGFloat(s.y) * 4 + 0.5
+        }
     }
 
     private func render_unused_firstperson() {
@@ -1131,6 +1167,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
         if workerController.direction != nil { pete.startWalking() } else { pete.stopWalking() }
+        moveShots()                          // water-gun pellets: advance, splash bosses, cull (loop-driven, no Task.sleep)
         updateMap()                          // keep the 2D minimap in sync with the real worker + bosses
     }
 
@@ -1139,16 +1176,32 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     func workerDidEnterTile(_ grid: CGPoint) {
         let c = Int(grid.x), r = rowsCount - 1 - Int(grid.y)   // gridMap (bottom-up) -> raster (top-down)
         guard r >= 0, r < rowsCount, c >= 0, c < map[r].count else { return }
-        let key = mapKey(c, r)
-        guard isDotTile(map[r][c]), !isoDotCollected.contains(key) else { return }
-        isoDotCollected.insert(key); isoDotsLeft -= 1
-        rebuildDotRow(r)                                       // hide the eaten dot in the iso view
-        mapPickups[key]?.isHidden = true                      // and in the minimap
-        switch map[r][c] {
-        case Strings.Tile.goldDiscChar: sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
-        default:                        sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
+        let key = mapKey(c, r), ch = map[r][c]
+        if isDotTile(ch) {                                     // dots + gold disc: raised blocks
+            guard !isoDotCollected.contains(key) else { return }
+            isoDotCollected.insert(key); isoDotsLeft -= 1
+            rebuildDotRow(r); mapPickups[key]?.isHidden = true
+            if ch == Strings.Tile.goldDiscChar { sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode() }
+            else                                { sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1) }
+            refreshHUD(); return
         }
-        refreshHUD()
+        switch ch {                                            // power-ups, machines, brown box (TPS turn-in)
+        case Strings.Tile.waterGunChar:
+            guard !collected.contains(key) else { return }
+            collected.insert(key); waterGun.activate(); waterGunPickedUp = true
+            sound.playWaterGunPickup(); state.bumpScore(by: 75); popPoints(75); hidePickup(c, r); refreshHUD()
+        case Strings.Tile.waterPelletChar:
+            guard !collected.contains(key) else { return }
+            collected.insert(key); state.bumpScore(by: 50); sound.playWaterGunPickup(); popPoints(50)
+            if waterGunPickedUp { waterGun.reloadPellets(8) }
+            hidePickup(c, r); refreshHUD()
+        case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, c, r)
+        case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, c, r)
+        case Strings.Tile.coverSheetChar: collectMachine(Strings.Machine.coverSheet, key, c, r)
+        case Strings.Tile.bookBinderChar: collectMachine(Strings.Machine.bookBinder, key, c, r)
+        case Strings.Tile.brownBoxChar:   collectTPSReport()
+        default: break
+        }
     }
 
     private func collectIsoDot() {
@@ -1187,14 +1240,17 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     }
 
     private func fire() {
+        guard let faceDir = workerController.direction else { return }   // real driver's heading (raster cardinal)
         guard waterGun.consumePellet() else { return }
         sound.playWaterGunShoot()
         refreshHUD()
+        let dir = (x: faceDir == .left ? -1 : faceDir == .right ? 1 : 0,
+                   y: faceDir == .up ? -1 : faceDir == .down ? 1 : 0)
         let pellet = SpriteFactory.waterPelletVisual(radius: 9)
         pellet.isHidden = true; spriteLayer.addChild(pellet)
         let mapNode = SpriteFactory.waterPelletVisual(radius: mapCell * 0.22)
         mapNode.position = mapLocal(px, py); mapNode.zPosition = 3; mapLayer.addChild(mapNode)
-        shots.append(Shot(x: px, y: py, dir: moveDir, node: pellet,
+        shots.append(Shot(x: px, y: py, dir: dir, node: pellet,
                           nativeH: max(1, pellet.calculateAccumulatedFrame().height), mapNode: mapNode, alive: true))
     }
 
@@ -1273,7 +1329,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 switch ch {
                 case Strings.Tile.printerChar, Strings.Tile.faxChar, Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar:
                     let key = mapKey(c, r); collected.remove(key)
-                    for i in billboards.indices where Int(billboards[i].x) == c && Int(billboards[i].y) == r { billboards[i].node.alpha = 1 }
+                    isoPickups[key]?.alpha = 1
                     mapPickups[key]?.alpha = 1
                 default: break
                 }
@@ -1281,16 +1337,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         }
     }
     private func hidePickup(_ col: Int, _ row: Int) {
-        for i in billboards.indices where billboards[i].alive && Int(billboards[i].x) == col && Int(billboards[i].y) == row {
-            billboards[i].alive = false; billboards[i].node.isHidden = true
-        }
-        mapPickups[mapKey(col, row)]?.isHidden = true
+        let key = mapKey(col, row)
+        isoPickups[key]?.isHidden = true
+        mapPickups[key]?.isHidden = true
     }
     private func grayPickup(_ col: Int, _ row: Int) {
-        for i in billboards.indices where Int(billboards[i].x) == col && Int(billboards[i].y) == row {
-            billboards[i].node.alpha = 0.55
-        }
-        mapPickups[mapKey(col, row)]?.alpha = 0.55
+        let key = mapKey(col, row)
+        isoPickups[key]?.alpha = 0.55
+        mapPickups[key]?.alpha = 0.55
     }
 
     private func exit() {
