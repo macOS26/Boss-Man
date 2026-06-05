@@ -171,14 +171,22 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         isoTW = size.width / CGFloat(max(1, colsCount)) * zoom      // tile width
         isoTH = isoTW * 0.62                                        // more top-down (TH closer to TW = more overhead)
         isoWH = isoTW * 0.34                                        // short blocks, seen mostly from the top
+        pVpY = isoTH * 6                                            // vanishing line above the far edge (depth converges toward it)
     }
-    // Grid corner (colEdge, rowEdge) at height y (0 floor, 1 wall top) -> board-space point (y-up).
-    // PARALLEL: x depends only on col, y only on row+height, so vertical edges stay straight (no angle).
+    private let pFocal = 120.0                                     // 1-pt depth convergence strength (larger = gentler)
+    private var pVpY: CGFloat = 0                                   // vanishing line above the far edge
+    private func persp(_ rowEdge: Double) -> CGFloat { CGFloat(pFocal / (pFocal + (Double(rowsCount) - rowEdge))) }
+
+    // 1-POINT PERSPECTIVE IN DEPTH ONLY: x depends only on col (NO convergence) so every column line and
+    // vertical wall edge stays perfectly straight down; the row axis (depth) + wall height converge toward
+    // a vanishing line in Y, so the maze recedes without ever tilting a vertical.
     private func proj(_ colEdge: Double, _ rowEdge: Double, _ y: CGFloat) -> CGPoint {
-        CGPoint(x: (CGFloat(colEdge) - CGFloat(colsCount) / 2) * isoTW,
-                y: -CGFloat(rowEdge) * isoTH + y * isoWH)
+        let p = persp(rowEdge)
+        let sx = (CGFloat(colEdge) - CGFloat(colsCount) / 2) * isoTW
+        let y0 = -CGFloat(rowEdge) * isoTH + y * isoWH
+        return CGPoint(x: sx, y: pVpY + (y0 - pVpY) * p)
     }
-    private func perspScale(_ row: Double) -> CGFloat { 1 }         // parallel: constant sprite size
+    private func perspScale(_ row: Double) -> CGFloat { persp(row) } // sprites shrink slightly with depth
 
     private func quadPath(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) -> CGPath {
         let p = CGMutablePath(); p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath(); return p
