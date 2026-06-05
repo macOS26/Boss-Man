@@ -226,7 +226,6 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         // Checkerboard floor (VOXEL 3D): two shades by (col+row) parity.
         let floorP = [SKColor(white: 0.07, alpha: 1), SKColor(white: 0.14, alpha: 1)]
         let floorEdge = SKColor(white: 0.16, alpha: 1)
-        let dotEdge = SKColor.systemYellow.blended(withFraction: 0.25, of: .white) ?? .systemYellow
         let dotBody = SKColor.systemYellow.blended(withFraction: 0.34, of: .black) ?? .systemYellow
         let mid = Double(colsCount) / 2
         // FPS: coalesce same-colour faces of a depth row into ONE SKShapeNode (many subpaths, one draw).
@@ -265,7 +264,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 let pBody = CGMutablePath(), pTopD = CGMutablePath()
                 for c in dotCols { appendDotFaces(pBody, pTopD, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
                 isoDotBodyNode[r] = addQuad(pBody, dotBody, dotBody, z + 0.6)
-                isoDotTopNode[r] = addQuad(pTopD, .systemYellow, dotEdge, z + 0.7)
+                isoDotTopNode[r] = addQuad(pTopD, .systemYellow, .systemYellow, z + 0.7)   // stroke = fill, like the walls (no jagged outline)
                 isoDotsLeft += dotCols.count
             }
         }
@@ -910,14 +909,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             tnode.isHidden = true
             if isoTraveler == nil || isoTravelerEmoji != info.emoji {
                 isoTraveler?.removeFromParent()
-                let m = emojiBillboard(info.emoji, isoTW * 0.75)
+                let m = emojiBillboard(info.emoji, isoTW * 0.6)
                 spriteLayer.addChild(m); isoTraveler = m; isoTravelerEmoji = info.emoji
             }
             let g0 = Double(tnode.position.x) / 32.0 - 0.5, g1 = Double(tnode.position.y) / 32.0 - 0.5   // SMOOTH gridMap pos (SKAction walk), same conversion bosses use
             let tcol = g0 + 0.5, trow = Double(rowsCount) - 0.5 - g1
             if let m = isoTraveler {
                 m.isHidden = false
-                placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), spriteH * 0.9)
+                placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), isoTW * 0.6, 0.25)   // smaller + lifted onto its tile so it doesn't tower over wall tops
                 m.zPosition = CGFloat(trow) * 4 + 0.6
             }
         } else {
