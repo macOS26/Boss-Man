@@ -177,8 +177,8 @@ final class PixelPerson: SKNode {
         // the flat hair strip below, so the silhouette is a FLAT TOP with ROUNDED BOTTOM corners.
         let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
         hd.fillColor = backView ? hairColor : skin
-        hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
-        hd.lineWidth = 1 * rs
+        hd.strokeColor = backView ? hairColor : skin
+        hd.lineWidth = 0
         hd.position = CGPoint(x: 0, y: (13 + headYOffset) * rs)
         hd.zPosition = 4
         bodyContainer.addChild(hd)
@@ -189,7 +189,7 @@ final class PixelPerson: SKNode {
         let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
         hair.fillColor = hairColor
         hair.strokeColor = hairColor
-        hair.lineWidth = 1 * rs
+        hair.lineWidth = 0
         hair.position = CGPoint(x: 0, y: 4 * rs)
         head.addChild(hair)
 
