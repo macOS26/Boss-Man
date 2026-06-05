@@ -152,29 +152,23 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     private var isoDotCollected: Set<Int> = []        // collected mapKeys; the row node is rebuilt (rarely) on pickup
     private var isoDotsLeft = 0
 
-    private var pCx: CGFloat = 0, pYHorizon: CGFloat = 0, pYBottom: CGFloat = 0
-    private let pDNear = 8.0, pDStep = 0.22          // higher near-depth + gentler step = flatter, more top-down (see more of the field)
-    private var pWLat: CGFloat = 0, pWallBase: CGFloat = 0
-
+    // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
+    // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
+    // it is parallel, the whole board projects ONCE and the view simply translates to follow Pete (ZOOM 2D
+    // scroll) with no re-projection, and sprites keep a constant size (no depth shrink, no jitter).
+    private var isoTW: CGFloat = 0, isoTH: CGFloat = 0, isoWH: CGFloat = 0
     private func setupProjection() {
-        let playH = size.height - radarH
-        let zoom: CGFloat = 1.3                                                  // > 1 so it scrolls (ZOOM 2D), lower than before to show more of the board
-        pCx = 0                                                                  // board-space centre; renderIso scrolls Pete to the screen centre
-        pYBottom = 0
-        pYHorizon = playH * zoom                                                 // board-space height to the vanishing point
-        pWLat = size.width * zoom * CGFloat(pDNear) / CGFloat(max(1, colsCount)) // near row = zoom * screen width
-        pWallBase = playH * zoom * 0.06        // 20% lower blocks; sprites (Pete/bosses = pWallBase * 1.5) ride proportionally
+        let zoom: CGFloat = 1.15                                    // board width ~ zoom * screen; near 1 shows most of the field
+        isoTW = size.width / CGFloat(max(1, colsCount)) * zoom      // tile width
+        isoTH = isoTW * 0.52                                        // overhead tilt (looking down); smaller TH = more top-down
+        isoWH = isoTW * 0.42                                        // short wall blocks
     }
-
-    // Grid corner (colEdge 0...cols, rowEdge 0...rows) at height y (0 floor, 1 wall top) -> screen point.
+    // Grid corner (colEdge, rowEdge) at height y (0 floor, 1 wall top) -> board-space point (y-up).
     private func proj(_ colEdge: Double, _ rowEdge: Double, _ y: CGFloat) -> CGPoint {
-        let d = pDNear + (Double(rowsCount) - rowEdge) * pDStep
-        let f = CGFloat(pDNear / d)
-        let sx = pCx + (CGFloat(colEdge) - CGFloat(colsCount) / 2) * pWLat / CGFloat(d)
-        let floorY = pYHorizon - (pYHorizon - pYBottom) * f
-        return CGPoint(x: sx, y: floorY + y * pWallBase * f)
+        CGPoint(x: (CGFloat(colEdge) - CGFloat(colsCount) / 2) * isoTW,
+                y: -CGFloat(rowEdge) * isoTH + y * isoWH)
     }
-    private func perspScale(_ row: Double) -> CGFloat { CGFloat(pDNear / (pDNear + (Double(rowsCount) - row) * pDStep)) }
+    private func perspScale(_ row: Double) -> CGFloat { 1 }         // parallel: constant sprite size
 
     private func quadPath(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) -> CGPath {
         let p = CGMutablePath(); p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath(); return p
@@ -815,7 +809,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let foot = proj(Double(px), Double(py), 0)
         isoWorld.position = CGPoint(x: size.width / 2 - foot.x, y: anchorY - foot.y)   // scroll to follow Pete (ZOOM 2D style)
 
-        let spriteH = pWallBase * 1.1
+        let spriteH = isoTW * 0.95          // Pete/bosses ~ one tile tall in the overhead view
         placeIsoSprite(pete, CGFloat(px), CGFloat(py), spriteH)
         pete.zPosition = CGFloat(py) * 4 + 0.6
         if !dying { pete.setFacing(facing(moveDir)) }
