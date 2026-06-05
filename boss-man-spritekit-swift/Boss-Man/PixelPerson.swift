@@ -188,7 +188,7 @@ final class PixelPerson: SKNode {
         // the front; hair-coloured on the back so it just flattens the top, same shape.
         let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
         hair.fillColor = hairColor
-        hair.strokeColor = .black
+        hair.strokeColor = hairColor
         hair.lineWidth = 1 * rs
         hair.position = CGPoint(x: 0, y: 4 * rs)
         head.addChild(hair)
