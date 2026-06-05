@@ -925,11 +925,6 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 m.position.y += 3                              // traveler up 3px
                 m.xScale = abs(m.xScale) * travFlip            // face its travel direction (like the 2D traveler)
                 m.zPosition = CGFloat(travRow) * 4 + 0.6
-                // The traveler walks the maze edges, so the zoomed follow-camera usually scrolls it off
-                // screen. Clamp the mirror to the viewport edge so you ALWAYS see it (an on-screen marker).
-                let sx = m.position.x + isoWorld.position.x, sy = m.position.y + isoWorld.position.y
-                let cx = min(max(sx, 26), size.width - 26), cy = min(max(sy, radarH + 26), size.height - 26)
-                if cx != sx || cy != sy { m.position = CGPoint(x: cx - isoWorld.position.x, y: cy - isoWorld.position.y) }
             }
         } else {
             isoTraveler?.isHidden = true
