@@ -330,7 +330,7 @@ enum MazeZoom {
         case 1983: return "MACRO 2D"
         case 1993: return "RAYCAST 3D"
         case 1994: return "VOXEL 3D"
-        case 1995: return "ISOMETRIC 3D"
+        case 1995: return "ISOMET 3D"
         default:   return "\(current)"
         }
     }

@@ -160,7 +160,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var isoTravelerEmoji = ""
     private var mapTraveler: SKNode?                   // minimap mirror of the traveler (kept in sync with the iso mirror)
     private var mapTravelerEmoji = ""
-    private var travCol = 0.0, travRow = 0.0          // SMOOTHED traveler position (glides between its discrete grid tiles)
+    private var travCol = 0.0, travRow = 0.0          // SMOOTHED traveler position (tween between grid tiles, like the 2D SKAction)
+    private var travFromCol = 0.0, travFromRow = 0.0, travToCol = 0.0, travToRow = 0.0, travProgress = 1.0
     private var travActive = false
     private var travFlip: CGFloat = 1                 // horizontal facing (same convention as the 2D traveler)
 
@@ -311,7 +312,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 }
                 spriteLayer.addChild(node)
                 placeIsoSprite(node, CGFloat(c) + 0.5, CGFloat(r) + 0.5, s)
-                node.position.y += 9                            // raise the gold discs / pellets / gun / machine emojis 9px
+                node.position.y += 6                            // raise the gold discs / pellets / gun / machine emojis 6px
                 node.zPosition = CGFloat(r) * 4 + 0.55          // above the row's blocks, below Pete
                 isoPickups[mapKey(c, r)] = node
             }
@@ -890,7 +891,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         pete.position.y += 3                            // Pete up 3px
         pete.zPosition = CGFloat(py) * 4 + 0.6
         if !dying, let d = workerController.direction { pete.setFacing(d) }
-        peteName.position = CGPoint(x: pete.position.x, y: pete.position.y + pete.calculateAccumulatedFrame().height + 2)
+        peteName.position = CGPoint(x: pete.position.x, y: pete.position.y + spriteH + 2)   // fixed height, not the walk-bobbing frame, so the name holds steady
         peteName.zPosition = pete.zPosition + 0.1
 
         for e in bossController.entities {
@@ -904,7 +905,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if !e.name.isEmpty {
                 let label = bossNameplate(for: e.node, text: e.name); label.isHidden = false
                 label.fontSize = max(10, 14 * perspScale(brow))
-                label.position = CGPoint(x: e.node.position.x, y: e.node.position.y + e.node.calculateAccumulatedFrame().height + 2)
+                label.position = CGPoint(x: e.node.position.x, y: e.node.position.y + spriteH + 2)   // fixed height, no walk bob
                 label.zPosition = e.node.zPosition + 0.1
             }
         }
@@ -1189,17 +1190,18 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let wp = workerController.worldPosition      // derive raster grid coords that the iso view + minimap render from
         px = Double(wp.x) / 32.0
         py = Double(rowsCount) - Double(wp.y) / 32.0
-        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // drive from the RELIABLE grid tile (follows the maze), glide between tiles, SNAP big jumps
+        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // tween between grid tiles over the move duration = continuous like the 2D SKAction
             let tc = Double(g.x) + 0.5, tr = Double(rowsCount) - 0.5 - Double(g.y)
-            let dx = tc - travCol
-            if travActive, abs(dx) > 0.001, abs(dx) < 2 {   // flip to face travel direction, same convention as TravelerSpawner
-                travFlip = info.facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1)
+            if !travActive || abs(tc - travToCol) > 1.5 || abs(tr - travToRow) > 1.5 {   // (re)spawn / wrap: snap, never animate across the maze
+                travFromCol = tc; travFromRow = tr; travToCol = tc; travToRow = tr; travProgress = 1
+            } else if tc != travToCol || tr != travToRow {                              // arrived at a new tile: tween from the old tile to it
+                travFromCol = travToCol; travFromRow = travToRow; travToCol = tc; travToRow = tr; travProgress = 0
             }
-            if !travActive || abs(tc - travCol) > 1.5 || abs(tr - travRow) > 1.5 {   // (re)spawn / wrap: snap, never animate across the maze
-                travCol = tc; travRow = tr
-            } else {                                          // per-tile: glide smoothly toward the next tile
-                travCol += (tc - travCol) * 0.18; travRow += (tr - travRow) * 0.18
-            }
+            travProgress = min(1, travProgress + 1.0 / 13.0)                            // ~13 frames per tile (moveInterval 0.22s @ 60fps)
+            travCol = travFromCol + (travToCol - travFromCol) * travProgress
+            travRow = travFromRow + (travToRow - travFromRow) * travProgress
+            let dx = travToCol - travFromCol
+            if abs(dx) > 0.001, abs(dx) < 2 { travFlip = info.facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1) }
             travActive = true
         } else { travActive = false }
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
