@@ -892,7 +892,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         pete.position.y += 3                            // Pete up 3px
         pete.zPosition = CGFloat(py) * 4 + 0.6
         if !dying, let d = workerController.direction { pete.setFacing(d) }
-        peteName.position = CGPoint(x: pete.position.x, y: pete.position.y + spriteH * perspScale(py) * 0.5 + 8)   // just above the head: offset scaled to the sprite's real on-screen height, not the unscaled spriteH
+        peteName.position = CGPoint(x: pete.position.x, y: pete.position.y + spriteH * perspScale(py) * 0.5 + 10)   // just above the head: offset scaled to the sprite's real on-screen height, not the unscaled spriteH
         peteName.zPosition = pete.zPosition + 0.1
 
         for e in bossController.entities {
@@ -905,8 +905,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if let d = e.mover?.dir { e.node.setFacing(d) }
             if !e.name.isEmpty {
                 let label = bossNameplate(for: e.node, text: e.name); label.isHidden = false
-                label.fontSize = max(10, 14 * perspScale(brow))
-                label.position = CGPoint(x: e.node.position.x, y: e.node.position.y + spriteH * perspScale(brow) * 0.5 + 8)   // just above the head, offset scaled to real on-screen height
+                label.position = CGPoint(x: e.node.position.x, y: e.node.position.y + spriteH * perspScale(brow) * 0.5 + 10)   // just above the head, offset scaled to real on-screen height; same fixed font size as PETE (no depth scaling)
                 label.zPosition = e.node.zPosition + 0.1
             }
         }
