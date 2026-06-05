@@ -197,7 +197,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let p = CGMutablePath(); p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath(); return p
     }
     @discardableResult private func addQuad(_ path: CGPath, _ fill: SKColor, _ stroke: SKColor, _ z: CGFloat) -> SKShapeNode {
-        let n = SKShapeNode(path: path); n.fillColor = fill; n.strokeColor = stroke; n.lineWidth = 0.5; n.isAntialiased = false; n.zPosition = z
+        let n = SKShapeNode(path: path); n.fillColor = fill; n.strokeColor = .clear; n.lineWidth = 0; n.isAntialiased = false; n.zPosition = z
         isoMaze.addChild(n); return n
     }
     private func addSub(_ p: CGMutablePath, _ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) {

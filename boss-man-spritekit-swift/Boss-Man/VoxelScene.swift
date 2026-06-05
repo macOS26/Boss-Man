@@ -824,11 +824,27 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         }
         // The traveler walks in 2D scene coords; pull its node into the sprite layer and project it as a
         // billboard at its current grid tile (gridMap bottom-up -> raster top-down, same flip as bosses).
-        if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
-            if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
-            let g = travelerSpawner.grid
-            let nh = max(1, tnode.calculateAccumulatedFrame().height)
-            all.append((tnode, nh, 0.42, Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y), .greatestFiniteMagnitude, nil, -nh / 2))
+        // Smooth traveler (matches ISO): keep the real node's SKAction walk UNCLOBBERED in the scene root
+        // (hidden) and project a SEPARATE mirror from its CONTINUOUS position, so it glides in-lane instead of
+        // hopping the discrete grid. projectSprites overwrites node.position, so the real node never enters `all`.
+        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
+            tnode.isHidden = true
+            if travelerMirror == nil || travelerMirrorEmoji != info.emoji {
+                travelerMirror?.removeFromParent()
+                let wrap = SKNode(); let e = emojiBillboard(info.emoji, 40); e.name = Strings.NodeName.travelerEmoji
+                wrap.addChild(e); spriteLayer.addChild(wrap)
+                travelerMirror = wrap; travelerMirrorEmoji = info.emoji
+            }
+            if let m = travelerMirror {
+                if let realE = tnode.childNode(withName: Strings.NodeName.travelerEmoji),
+                   let mE = m.childNode(withName: Strings.NodeName.travelerEmoji) {
+                    mE.xScale = abs(mE.xScale) * (realE.xScale < 0 ? -1 : 1)   // copy the real emoji's facing; the child flip survives the wrapper's setScale
+                }
+                let nh = max(1, m.calculateAccumulatedFrame().height)
+                all.append((m, nh, 0.42, Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0, .greatestFiniteMagnitude, nil, -nh / 2))
+            }
+        } else {
+            travelerMirror?.isHidden = true
         }
         // Pass 1: project, far-cull and wall-occlude every sprite; keep the survivors with their depth.
         var vis: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, maxH: CGFloat, name: String?, bottom: CGFloat, tX: Double, tY: Double)] = []
