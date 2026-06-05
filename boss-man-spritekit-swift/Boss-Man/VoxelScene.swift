@@ -841,13 +841,14 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
             guard tY > 0.15 else { node.isHidden = true; continue }
             let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
             // Occlude against the NEAREST wall across the sprite's whole screen footprint, so a dot whose
-            // body overlaps a wall a few columns from its centre is still hidden behind it.
-            if col >= 0, col < columns {
-                let footHalf = max(1, min(5, Int((viewH / CGFloat(tY) * item.worldH) / (size.width / CGFloat(columns)) * 0.5)))
-                var wallZ = zbuf[col]
-                for c in max(0, col - footHalf)...min(columns - 1, col + footHalf) { wallZ = min(wallZ, zbuf[c]) }
-                if tY > wallZ + 0.3 { node.isHidden = true; continue }
-            }
+            // body overlaps a wall a few columns from its centre is still hidden behind it. Clamp the column
+            // so a sprite whose centre sits just past the screen edge still occludes against the edge wall —
+            // skipping it leaked dots/pickups onto the left/right borders.
+            let colC = max(0, min(columns - 1, col))
+            let footHalf = max(1, min(5, Int((viewH / CGFloat(tY) * item.worldH) / (size.width / CGFloat(columns)) * 0.5)))
+            var wallZ = zbuf[colC]
+            for c in max(0, colC - footHalf)...min(columns - 1, colC + footHalf) { wallZ = min(wallZ, zbuf[c]) }
+            if tY > wallZ + 0.3 { node.isHidden = true; continue }
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }

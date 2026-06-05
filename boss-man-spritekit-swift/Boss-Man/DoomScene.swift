@@ -782,12 +782,13 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
             let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
             // Occlude only when walls are nearer than the sprite across its whole footprint.
             // Sampling a window (not one column) stops the per-step blink when the centre
-            // column straddles a side-opening edge as a boss walks.
-            if col >= 0, col < columns {
-                var wallZ = zbuf[col]
-                for c in max(0, col - 4)...min(columns - 1, col + 4) { wallZ = max(wallZ, zbuf[c]) }
-                if tY > wallZ + 0.3 { node.isHidden = true; continue }
-            }
+            // column straddles a side-opening edge as a boss walks. Clamp the column so a sprite
+            // whose centre sits just past the screen edge still occludes against the edge wall —
+            // skipping it leaked dots/pickups onto the left/right borders.
+            let colC = max(0, min(columns - 1, col))
+            var wallZ = zbuf[colC]
+            for c in max(0, colC - 4)...min(columns - 1, colC + 4) { wallZ = max(wallZ, zbuf[c]) }
+            if tY > wallZ + 0.3 { node.isHidden = true; continue }
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
