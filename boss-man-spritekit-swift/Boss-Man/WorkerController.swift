@@ -14,6 +14,7 @@ final class WorkerController {
     private(set) var grid: CGPoint
     private(set) var direction: MoveDirection?
     private(set) var queuedDirection: MoveDirection?
+    var worldPosition: CGPoint { mover.worldPosition }   // smooth tile-to-tile position (read by render-only scenes like ISOMETRIC)
 
     private let gridMap: GridMap
     private let sound: SoundManager

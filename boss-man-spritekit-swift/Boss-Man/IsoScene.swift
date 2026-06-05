@@ -6,7 +6,7 @@ import AppKit
 // sunset sky, and billboarded game sprites (pellets, gold discs, bosses) standing
 // in the corridors. The camera trails behind Pete so you see him walking ahead of
 // you. A top-down radar sits at the bottom. Common to both ports.
-final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
+final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate, SKTouchResponder {
 
     // MARK: - Maze (loaded for the selected level; the editor's test plays the edited rows)
     private lazy var map: [[Character]] =
@@ -82,6 +82,8 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     private var pathfinder: Pathfinder!
     private var bossController: BossController!
     private var travelerSpawner: TravelerSpawner!   // the fish/treat that walks across the maze (same spawner as 2D)
+    private var workerController: WorkerController!  // REAL 2D physics for Pete (TileMover collision); iso/minimap render from it
+    private let workerHost = SKNode()               // hidden parent so the mover runs; Pete is drawn in iso + minimap from worker.grid
     private var bossMapNodes: [ObjectIdentifier: PixelPerson] = [:]   // radar mirror per boss node
     private var bossNativeH: [ObjectIdentifier: CGFloat] = [:]        // cached unscaled height for projection
     private var bossFeet: [ObjectIdentifier: CGFloat] = [:]           // cached LOCAL feet offset (frame.minY relative to origin)
@@ -260,8 +262,11 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         isoWorld.addChild(spriteLayer)       // Pete + bosses ride in world space and depth-sort against the blocks
         nameLayer.zPosition = 150
         isoWorld.addChild(nameLayer)
+        workerHost.alpha = 0                 // the real worker runs here, hidden; Pete is drawn in iso + minimap from its grid
+        addChild(workerHost)
         buildIso()
         buildPete()
+        buildMap()                           // the 2D minimap: the real tilemap + worker + bosses
         setupBossController()
         buildHUD()
         buildControls()
@@ -553,10 +558,12 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         state.lives -= 1
         refreshHUD()
         if state.lives <= 0 { gameOver = true; showGameOver(); return }
-        px = spawnPx; py = spawnPy; wantDir = nil; pressed.removeAll()
-        let sc = Int(spawnPx.rounded(.down)), sr = Int(spawnPy.rounded(.down))
-        for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) { moveDir = d; break }
-        targetAngle = cardinal(moveDir); angle = targetAngle
+        let spawnGrid = CGPoint(x: Int(spawnPx), y: rowsCount - 1 - Int(spawnPy))
+        workerController.teleport(to: spawnGrid)     // real engine respawn (resets the mover + grid)
+        workerController.resetMotion()
+        workerController.applySpawnShield()
+        pressed.removeAll()
+        px = spawnPx; py = spawnPy                   // keep the derived coords in sync for the first frame
         bossController.teleportAllToSpawn()   // 3s spawnGrace; peteShielded follows isAnyBossSpawning
         pete.alpha = 1
         pete.startWalking()
@@ -713,6 +720,13 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         gridMap = GridMap(tileSize: 32, rows: rows)
         gridMap.xOffset = 0; gridMap.yOffset = 0
         pathfinder = Pathfinder(map: gridMap)
+        // Pete's movement is the REAL WorkerController/TileMover (grid collision, tile-centring, tunnels) —
+        // no hand-rolled px/py. It lives hidden; the iso view and the minimap both render from its position.
+        let spawnGrid = CGPoint(x: Int(spawnPx), y: rowsCount - 1 - Int(spawnPy))
+        workerController = WorkerController(spawnGrid: spawnGrid, gridMap: gridMap, sound: sound)
+        workerController.delegate = self
+        workerHost.addChild(workerController.node)
+        workerController.applySpawnShield()
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound, containerOriginX: 0)
         bossController.delegate = self
         // Spawn positions from the level data, in the bottom-up grid GridMap uses.
@@ -812,7 +826,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let spriteH = isoTW * 0.95          // Pete/bosses ~ one tile tall in the overhead view
         placeIsoSprite(pete, CGFloat(px), CGFloat(py), spriteH)
         pete.zPosition = CGFloat(py) * 4 + 0.6
-        if !dying { pete.setFacing(facing(moveDir)) }
+        if !dying, let d = workerController.direction { pete.setFacing(d) }
         peteName.position = CGPoint(x: pete.position.x, y: pete.position.y + pete.calculateAccumulatedFrame().height + 2)
         peteName.zPosition = pete.zPosition + 0.1
 
@@ -1056,7 +1070,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
 
     private func updateMap() {
         mapPete.position = mapLocal(px, py)
-        mapPete.setFacing(facing(moveDir))
+        if let d = workerController.direction { mapPete.setFacing(d) }
         for e in bossController.entities {
             guard let mn = bossMapNodes[ObjectIdentifier(e.node)], let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
             mn.position = mapLocal(g.0 + 0.5, Double(rowsCount) - 0.5 - g.1)
@@ -1071,31 +1085,10 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
     private func step() {
-        let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
-        let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
-        let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Pac-Man cornering: take the queued heading at a tile centre if that lane is open (else hold it).
-        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
-            px = ccx; py = ccy; moveDir = t; wantDir = nil
-        }
-        // Always glide forward along the current lane (classic Pac-Man auto-move); stop dead at a wall.
-        let d = moveDir
-        let atCenter = abs(px - ccx) < 0.06 && abs(py - ccy) < 0.06
-        if atCenter, !open(col + d.x, row + d.y),
-           let partner = gridMap.tunnelPartner(of: CGPoint(x: col, y: rowsCount - 1 - row)) {
-            px = Double(Int(partner.x)) + 0.5
-            py = Double(rowsCount - 1 - Int(partner.y)) + 0.5
-        } else {
-            if d.x != 0 { py += max(-speed, min(speed, ccy - py)) }   // stay centred on the lane
-            else        { px += max(-speed, min(speed, ccx - px)) }
-            if open(col + d.x, row + d.y) {
-                px += Double(d.x) * speed; py += Double(d.y) * speed
-            } else {                                                  // stop at the wall, not past the tile centre
-                if d.x > 0 { px = min(px + speed, ccx) } else if d.x < 0 { px = max(px - speed, ccx) }
-                if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
-            }
-        }
-        collectIsoDot()
+        workerController.advance(1.0 / 60.0)        // REAL TileMover physics: grid collision, tile-centring, tunnels (no stuck)
+        let wp = workerController.worldPosition      // derive raster grid coords that the iso view + minimap render from
+        px = Double(wp.x) / 32.0
+        py = Double(rowsCount) - Double(wp.y) / 32.0
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
         syncBossNodes()
         // Capture each boss's SMOOTH world position from the mover itself, not node.position:
@@ -1108,6 +1101,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
             bossGrid[ObjectIdentifier(e.node)] = (Double(p.x) / 32.0 - 0.5, Double(p.y) / 32.0 - 0.5)
         }
         peteShielded = bossController.isAnyBossSpawning   // shielded exactly while bosses flash in (spawnGrace)
+        workerController.setShielded(peteShielded)
         checkBossCatch()
         if let caught = travelerSpawner?.tryCatch(at: workerGrid) {   // walked onto the traveler's tile
             state.bumpScore(by: caught.traveler.points)
@@ -1120,7 +1114,25 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
             frightenSecondsLeft -= 1.0 / 60.0
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
-        pete.startWalking(); bob += 0.22   // Pac-Man auto-moves, so Pete is always walking (render() plants him)
+        if workerController.direction != nil { pete.startWalking() } else { pete.stopWalking() }
+        updateMap()                          // keep the 2D minimap in sync with the real worker + bosses
+    }
+
+    // MARK: - WorkerControllerDelegate (real engine drives Pete; pickups fire here, not a per-frame scan)
+    var isGameOver: Bool { gameOver }
+    func workerDidEnterTile(_ grid: CGPoint) {
+        let c = Int(grid.x), r = rowsCount - 1 - Int(grid.y)   // gridMap (bottom-up) -> raster (top-down)
+        guard r >= 0, r < rowsCount, c >= 0, c < map[r].count else { return }
+        let key = mapKey(c, r)
+        guard isDotTile(map[r][c]), !isoDotCollected.contains(key) else { return }
+        isoDotCollected.insert(key); isoDotsLeft -= 1
+        rebuildDotRow(r)                                       // hide the eaten dot in the iso view
+        mapPickups[key]?.isHidden = true                      // and in the minimap
+        switch map[r][c] {
+        case Strings.Tile.goldDiscChar: sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
+        default:                        sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
+        }
+        refreshHUD()
     }
 
     private func collectIsoDot() {
@@ -1316,10 +1328,10 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
         case KeyCode.space:                     if !event.isARepeat { fire() }
-        case KeyCode.arrowUp,    KeyCode.keyW:  wantDir = (x: 0, y: -1)   // grid north = screen NE
-        case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: 1, y: 0)    // grid east  = screen SE
-        case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: 0, y: 1)    // grid south = screen SW
-        case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: -1, y: 0)   // grid west  = screen NW
+        case KeyCode.arrowUp,    KeyCode.keyW:  workerController.queueDirection(.up)
+        case KeyCode.arrowRight, KeyCode.keyD:  workerController.queueDirection(.right)
+        case KeyCode.arrowDown,  KeyCode.keyS:  workerController.queueDirection(.down)
+        case KeyCode.arrowLeft,  KeyCode.keyA:  workerController.queueDirection(.left)
         default:                                break
         }
     }
@@ -1455,10 +1467,10 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         // Queue an absolute grid heading the moment a finger ENTERS a wedge (Pete auto-moves, Pac-Man style).
         if !w.isEmpty, w != prev {
             switch w {
-            case "up":    wantDir = (x: 0, y: -1)   // grid north = screen NE
-            case "right": wantDir = (x: 1, y: 0)    // grid east  = screen SE
-            case "down":  wantDir = (x: 0, y: 1)    // grid south = screen SW
-            case "left":  wantDir = (x: -1, y: 0)   // grid west  = screen NW
+            case "up":    workerController.queueDirection(.up)
+            case "right": workerController.queueDirection(.right)
+            case "down":  workerController.queueDirection(.down)
+            case "left":  workerController.queueDirection(.left)
             default:      break
             }
         }
