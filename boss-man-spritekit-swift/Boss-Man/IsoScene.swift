@@ -147,7 +147,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     // maze is projected ONCE at build time; only the moving sprites are projected per frame.)
     private let isoWorld = SKNode()
     private let isoMaze = SKNode()
-    private var isoDots: [Int: SKShapeNode] = [:]
+    private var isoDots: [Int: [SKShapeNode]] = [:]   // each dot is a little raised block: its face nodes, hidden together on pickup
     private var isoDotsLeft = 0
 
     private var pCx: CGFloat = 0, pYHorizon: CGFloat = 0, pYBottom: CGFloat = 0
@@ -161,7 +161,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         pYBottom = 0
         pYHorizon = playH * zoom                                                 // board-space height to the vanishing point
         pWLat = size.width * zoom * CGFloat(pDNear) / CGFloat(max(1, colsCount)) // near row = zoom * screen width
-        pWallBase = playH * zoom * 0.15
+        pWallBase = playH * zoom * 0.075       // low blocks; sprites (Pete/bosses = pWallBase * 1.5) ride at the same half-height
     }
 
     // Grid corner (colEdge 0...cols, rowEdge 0...rows) at height y (0 floor, 1 wall top) -> screen point.
@@ -207,11 +207,22 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 } else {
                     addQuad(quadPath(fNW, fNE, fSE, fSW), floorC, floorEdge, z - 1)
                     if ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar || ch == Strings.Tile.goldDiscChar {
-                        let h = ch == Strings.Tile.goldDiscChar ? 0.34 : 0.20
-                        let d0 = proj(dc + 0.5 - h, Double(r) + 0.5 - h, 0.01), d1 = proj(dc + 0.5 + h, Double(r) + 0.5 - h, 0.01)
-                        let d2 = proj(dc + 0.5 + h, Double(r) + 0.5 + h, 0.01), d3 = proj(dc + 0.5 - h, Double(r) + 0.5 + h, 0.01)
-                        let dot = addQuad(quadPath(d0, d1, d2, d3), .systemYellow, .systemYellow, z + 0.5)
-                        isoDots[mapKey(c, r)] = dot; isoDotsLeft += 1
+                        let big = ch == Strings.Tile.goldDiscChar
+                        let h = big ? 0.30 : 0.18                     // footprint half-size (tiles)
+                        let yT: CGFloat = big ? 0.55 : 0.40          // block height (fraction of a wall)
+                        let cx0 = dc + 0.5, ry0 = Double(r) + 0.5
+                        let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
+                        let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
+                        let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
+                        let uSE = proj(cx0 + h, ry0 + h, yT), uSW = proj(cx0 - h, ry0 + h, yT)
+                        let topY = SKColor.systemYellow
+                        let frontY = topY.blended(withFraction: 0.30, of: .black) ?? topY
+                        let sideY = topY.blended(withFraction: 0.50, of: .black) ?? topY
+                        var faces = [addQuad(quadPath(bSW, bSE, uSE, uSW), frontY, frontY, z + 0.6)]   // near face
+                        if cx0 < mid { faces.append(addQuad(quadPath(bNE, bSE, uSE, uNE), sideY, sideY, z + 0.55)) }
+                        else if cx0 > mid { faces.append(addQuad(quadPath(bNW, bSW, uSW, uNW), sideY, sideY, z + 0.55)) }
+                        faces.append(addQuad(quadPath(uNW, uNE, uSE, uSW), topY, topY, z + 0.7))        // lit top
+                        isoDots[mapKey(c, r)] = faces; isoDotsLeft += 1
                     }
                 }
             }
@@ -1096,9 +1107,9 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     private func collectIsoDot() {
         let c = Int(px.rounded(.down)), r = Int(py.rounded(.down))
         guard r >= 0, r < rowsCount, c >= 0, c < map[r].count else { return }
-        guard let dot = isoDots[mapKey(c, r)], !dot.isHidden else { return }
+        guard let faces = isoDots[mapKey(c, r)], let first = faces.first, !first.isHidden else { return }
         guard abs(px - (Double(c) + 0.5)) < 0.45, abs(py - (Double(r) + 0.5)) < 0.45 else { return }
-        dot.isHidden = true; isoDotsLeft -= 1
+        faces.forEach { $0.isHidden = true }; isoDotsLeft -= 1
         switch map[r][c] {
         case Strings.Tile.goldDiscChar: sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
         default:                        sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
