@@ -155,6 +155,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var isoDotCollected: Set<Int> = []        // collected mapKeys; the row nodes are rebuilt (rarely) on pickup
     private var isoDotsLeft = 0
     private var isoPickups: [Int: SKNode] = [:]        // water gun / pellets / machine emojis / brown box, built once, hidden|grayed on collect
+    private var isoTraveler: SKNode?                   // iso mirror of the walking traveler (the REAL node keeps its SKAction walk in the scene root)
+    private var isoTravelerEmoji = ""
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
     // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
@@ -897,12 +899,25 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             }
         }
 
-        if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
-            if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
-            let g = travelerSpawner.grid
-            let tcol = Double(g.x) + 0.5, trow = Double(rowsCount) - 0.5 - Double(g.y)
-            placeIsoSprite(tnode, CGFloat(tcol), CGFloat(trow), spriteH * 0.9)
-            tnode.zPosition = CGFloat(trow) * 4 + 0.6
+        // The traveler walks via SKActions on its real node in the scene root — DON'T reparent or
+        // reposition it (that clobbers the walk). Keep it hidden, walking, and mirror it in iso from
+        // its live position so it actually travels the maze.
+        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
+            tnode.isHidden = true
+            if isoTraveler == nil || isoTravelerEmoji != info.emoji {
+                isoTraveler?.removeFromParent()
+                let m = emojiBillboard(info.emoji, isoTW * 0.75)
+                spriteLayer.addChild(m); isoTraveler = m; isoTravelerEmoji = info.emoji
+            }
+            let gx = Double(tnode.position.x) / 32.0 - 0.5, gy = Double(tnode.position.y) / 32.0 - 0.5
+            let tcol = gx + 0.5, trow = Double(rowsCount) - 0.5 - gy
+            if let m = isoTraveler {
+                m.isHidden = false
+                placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), spriteH * 0.9)
+                m.zPosition = CGFloat(trow) * 4 + 0.6
+            }
+        } else {
+            isoTraveler?.isHidden = true
         }
 
         let shotH = isoTW * 0.3              // water-gun pellets, planted on their tile, depth-sorted like the others
