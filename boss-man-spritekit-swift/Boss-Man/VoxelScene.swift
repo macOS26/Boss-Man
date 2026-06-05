@@ -48,8 +48,8 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
     }
 
     // MARK: - Layout / projection
-    private let columns = 240
-    private let planeScale = 1.2             // wide ~100° FOV: a big swath of maze shows left/right (coalesced like DOOM)
+    private let columns = 280
+    private let planeScale = 1.8             // very wide ~121° FOV: a big swath of maze shows left/right (coalesced like DOOM)
     private var radarH: CGFloat = 180
     private var viewH: CGFloat { size.height - radarH }
     private var viewMidY: CGFloat { radarH + viewH * 0.70 }   // horizon, lifted for a look-down view
