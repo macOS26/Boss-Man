@@ -205,7 +205,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
         let h = gold ? 0.28 : 0.20
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
-        let yT = ((gold ? 1.2 : 0.95) * isoWH - 3) / max(1, isoWH)     // dot block height, 3px lower
+        let yT = ((gold ? 1.2 : 0.95) * isoWH - 6) / max(1, isoWH)     // dot block height, 3px shorter
         let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
         let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
@@ -275,6 +275,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 isoDotSideNode[r]  = addQuad(pS, dotSide, dotSide, z + 0.55)
                 isoDotFrontNode[r] = addQuad(pF, dotFront, dotFront, z + 0.6)
                 isoDotTopNode[r]   = addQuad(pT, .systemYellow, .systemYellow, z + 0.7)
+                for n in [isoDotSideNode[r], isoDotFrontNode[r], isoDotTopNode[r]] { n?.position.y += 3 }   // raise dots 3px
                 isoDotsLeft += dotCols.count
             }
         }
@@ -310,7 +311,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 }
                 spriteLayer.addChild(node)
                 placeIsoSprite(node, CGFloat(c) + 0.5, CGFloat(r) + 0.5, s)
-                node.position.y += 6                            // raise the TPS/machine emojis 6px
+                node.position.y += 9                            // raise the gold discs / pellets / gun / machine emojis 9px
                 node.zPosition = CGFloat(r) * 4 + 0.55          // above the row's blocks, below Pete
                 isoPickups[mapKey(c, r)] = node
             }
@@ -920,6 +921,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if let m = isoTraveler {
                 m.isHidden = false
                 placeIsoSprite(m, CGFloat(travCol), CGFloat(travRow), isoTW * 0.9)
+                m.position.y += 3                              // traveler up 3px
                 m.xScale = abs(m.xScale) * travFlip            // face its travel direction (like the 2D traveler)
                 m.zPosition = CGFloat(travRow) * 4 + 0.6
                 // The traveler walks the maze edges, so the zoomed follow-camera usually scrolls it off
