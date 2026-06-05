@@ -427,7 +427,7 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
         node.isHidden = false
         node.setScale(viewH * 0.42 / nh)                     // Pete's size, never larger
-        node.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.5)
+        node.position = CGPoint(x: size.width / 2, y: peteBaseY)   // grounded right where Pete stands, so you see the catcher
         node.zPosition = 500
         for e in bossController.entities where e.node !== node { e.node.isHidden = true }   // only the catcher shows
         for (_, l) in bossNames { l.isHidden = true }
@@ -668,7 +668,9 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
     override func update(_ currentTime: TimeInterval) {
         if isUserPaused || gameOver { return }
         if dying { updateDeath(); return }
-        step(); render()
+        step()
+        if dying { return }   // step() just caught Pete: startDeath pinned the catcher — don't let render re-project it past Pete
+        render()
     }
 
     private var camX = 0.0, camY = 0.0
