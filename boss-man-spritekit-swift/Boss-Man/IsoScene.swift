@@ -147,21 +147,23 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     // maze is projected ONCE at build time; only the moving sprites are projected per frame.)
     private let isoWorld = SKNode()
     private let isoMaze = SKNode()
-    private var isoDots: [Int: [SKShapeNode]] = [:]   // each dot is a little raised block: its face nodes, hidden together on pickup
+    private var isoDotRowCells: [Int: [Int]] = [:]    // row -> columns holding a dot; all batched into ONE node per row
+    private var isoDotRowNode: [Int: SKShapeNode] = [:]
+    private var isoDotCollected: Set<Int> = []        // collected mapKeys; the row node is rebuilt (rarely) on pickup
     private var isoDotsLeft = 0
 
     private var pCx: CGFloat = 0, pYHorizon: CGFloat = 0, pYBottom: CGFloat = 0
-    private let pDNear = 5.0, pDStep = 0.32          // moderate convergence so the board stays wide enough to scroll without side gaps
+    private let pDNear = 8.0, pDStep = 0.22          // higher near-depth + gentler step = flatter, more top-down (see more of the field)
     private var pWLat: CGFloat = 0, pWallBase: CGFloat = 0
 
     private func setupProjection() {
         let playH = size.height - radarH
-        let zoom: CGFloat = 1.7                                                  // > 1: board is larger than the screen, so it scrolls (like ZOOM 2D)
+        let zoom: CGFloat = 1.3                                                  // > 1 so it scrolls (ZOOM 2D), lower than before to show more of the board
         pCx = 0                                                                  // board-space centre; renderIso scrolls Pete to the screen centre
         pYBottom = 0
         pYHorizon = playH * zoom                                                 // board-space height to the vanishing point
         pWLat = size.width * zoom * CGFloat(pDNear) / CGFloat(max(1, colsCount)) // near row = zoom * screen width
-        pWallBase = playH * zoom * 0.075       // low blocks; sprites (Pete/bosses = pWallBase * 1.5) ride at the same half-height
+        pWallBase = playH * zoom * 0.06        // 20% lower blocks; sprites (Pete/bosses = pWallBase * 1.5) ride proportionally
     }
 
     // Grid corner (colEdge 0...cols, rowEdge 0...rows) at height y (0 floor, 1 wall top) -> screen point.
@@ -181,6 +183,22 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let n = SKShapeNode(path: path); n.fillColor = fill; n.strokeColor = stroke; n.lineWidth = 0.5; n.isAntialiased = false; n.zPosition = z
         isoMaze.addChild(n); return n
     }
+    private func addSub(_ p: CGMutablePath, _ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) {
+        p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath()
+    }
+    // One dot block (near face + lit top) appended as subpaths; gold discs are a touch bigger.
+    private func appendDotBlock(_ p: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
+        let h = gold ? 0.26 : 0.16, yT: CGFloat = gold ? 0.28 : 0.20   // dots 50% shorter than before
+        let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5
+        let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
+        let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
+        let uSE = proj(cx0 + h, ry0 + h, yT), uSW = proj(cx0 - h, ry0 + h, yT)
+        addSub(p, bSW, bSE, uSE, uSW)   // near face
+        addSub(p, uNW, uNE, uSE, uSW)   // lit top
+    }
+    private func isDotTile(_ ch: Character) -> Bool {
+        ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar || ch == Strings.Tile.goldDiscChar
+    }
 
     private func buildIso() {
         setupProjection()
@@ -189,10 +207,16 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let sideC  = cube.blended(withFraction: 0.50, of: .black) ?? cube
         let topEdge = cube.blended(withFraction: 0.22, of: .white) ?? cube
         let floorC = SKColor(white: 0.085, alpha: 1), floorEdge = SKColor(white: 0.15, alpha: 1)
+        let dotEdge = SKColor.systemYellow.blended(withFraction: 0.25, of: .white) ?? .systemYellow
         let mid = Double(colsCount) / 2
+        // FPS: every wall/floor face of a depth row is the same colour, so coalesce them into ONE
+        // SKShapeNode per (row, faceType) — many subpaths, one draw call — instead of ~3 nodes per cell.
         for r in 0..<rowsCount {
             let row = map[r]
             let z = CGFloat(r) * 4                          // near rows (high r) draw over far rows (painter's)
+            let pFloor = CGMutablePath(), pFront = CGMutablePath(), pSide = CGMutablePath(), pTop = CGMutablePath()
+            var hasFloor = false, hasFront = false, hasSide = false, hasTop = false
+            var dotCols: [Int] = []
             for c in 0..<min(colsCount, row.count) {
                 let ch = row[c]; let dc = Double(c)
                 let fNW = proj(dc, Double(r), 0), fNE = proj(dc + 1, Double(r), 0)
@@ -200,33 +224,34 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 if ch == Strings.Tile.wallChar {
                     let tNW = proj(dc, Double(r), 1), tNE = proj(dc + 1, Double(r), 1)
                     let tSE = proj(dc + 1, Double(r + 1), 1), tSW = proj(dc, Double(r + 1), 1)
-                    addQuad(quadPath(fSW, fSE, tSE, tSW), frontC, frontC, z + 0.2)              // near (south) face
-                    if dc + 0.5 < mid { addQuad(quadPath(fNE, fSE, tSE, tNE), sideC, sideC, z + 0.1) }   // left of centre: east face shows
-                    else if dc + 0.5 > mid { addQuad(quadPath(fNW, fSW, tSW, tNW), sideC, sideC, z + 0.1) }
-                    addQuad(quadPath(tNW, tNE, tSE, tSW), cube, topEdge, z + 0.3)               // lit top
+                    addSub(pFront, fSW, fSE, tSE, tSW); hasFront = true
+                    if dc + 0.5 < mid { addSub(pSide, fNE, fSE, tSE, tNE); hasSide = true }      // left of centre: east face shows
+                    else if dc + 0.5 > mid { addSub(pSide, fNW, fSW, tSW, tNW); hasSide = true }
+                    addSub(pTop, tNW, tNE, tSE, tSW); hasTop = true
                 } else {
-                    addQuad(quadPath(fNW, fNE, fSE, fSW), floorC, floorEdge, z - 1)
-                    if ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar || ch == Strings.Tile.goldDiscChar {
-                        let big = ch == Strings.Tile.goldDiscChar
-                        let h = big ? 0.30 : 0.18                     // footprint half-size (tiles)
-                        let yT: CGFloat = big ? 0.55 : 0.40          // block height (fraction of a wall)
-                        let cx0 = dc + 0.5, ry0 = Double(r) + 0.5
-                        let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
-                        let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
-                        let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
-                        let uSE = proj(cx0 + h, ry0 + h, yT), uSW = proj(cx0 - h, ry0 + h, yT)
-                        let topY = SKColor.systemYellow
-                        let frontY = topY.blended(withFraction: 0.30, of: .black) ?? topY
-                        let sideY = topY.blended(withFraction: 0.50, of: .black) ?? topY
-                        var faces = [addQuad(quadPath(bSW, bSE, uSE, uSW), frontY, frontY, z + 0.6)]   // near face
-                        if cx0 < mid { faces.append(addQuad(quadPath(bNE, bSE, uSE, uNE), sideY, sideY, z + 0.55)) }
-                        else if cx0 > mid { faces.append(addQuad(quadPath(bNW, bSW, uSW, uNW), sideY, sideY, z + 0.55)) }
-                        faces.append(addQuad(quadPath(uNW, uNE, uSE, uSW), topY, topY, z + 0.7))        // lit top
-                        isoDots[mapKey(c, r)] = faces; isoDotsLeft += 1
-                    }
+                    addSub(pFloor, fNW, fNE, fSE, fSW); hasFloor = true
+                    if isDotTile(ch) { dotCols.append(c) }
                 }
             }
+            if hasFloor { addQuad(pFloor, floorC, floorEdge, z - 1) }
+            if hasSide  { addQuad(pSide, sideC, sideC, z + 0.1) }
+            if hasFront { addQuad(pFront, frontC, frontC, z + 0.2) }
+            if hasTop   { addQuad(pTop, cube, topEdge, z + 0.3) }
+            if !dotCols.isEmpty {                            // all the row's dots batched into one node; rebuilt only on pickup
+                isoDotRowCells[r] = dotCols
+                let pDot = CGMutablePath()
+                for c in dotCols { appendDotBlock(pDot, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
+                isoDotRowNode[r] = addQuad(pDot, .systemYellow, dotEdge, z + 0.6)
+                isoDotsLeft += dotCols.count
+            }
         }
+    }
+
+    private func rebuildDotRow(_ r: Int) {
+        guard let node = isoDotRowNode[r], let cols = isoDotRowCells[r] else { return }
+        let p = CGMutablePath()
+        for c in cols where !isoDotCollected.contains(mapKey(c, r)) { appendDotBlock(p, c, r, map[r][c] == Strings.Tile.goldDiscChar) }
+        node.path = p
     }
 
     override func didMove(to view: SKView) {
@@ -786,11 +811,11 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
 
     private func renderIso() {
         throbClock += 1.0 / 60.0
-        let anchorY = radarH + (size.height - radarH) * 0.40
+        let anchorY = radarH + (size.height - radarH) * 0.50
         let foot = proj(Double(px), Double(py), 0)
         isoWorld.position = CGPoint(x: size.width / 2 - foot.x, y: anchorY - foot.y)   // scroll to follow Pete (ZOOM 2D style)
 
-        let spriteH = pWallBase * 1.5
+        let spriteH = pWallBase * 1.1
         placeIsoSprite(pete, CGFloat(px), CGFloat(py), spriteH)
         pete.zPosition = CGFloat(py) * 4 + 0.6
         if !dying { pete.setFacing(facing(moveDir)) }
@@ -1107,9 +1132,10 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     private func collectIsoDot() {
         let c = Int(px.rounded(.down)), r = Int(py.rounded(.down))
         guard r >= 0, r < rowsCount, c >= 0, c < map[r].count else { return }
-        guard let faces = isoDots[mapKey(c, r)], let first = faces.first, !first.isHidden else { return }
+        let key = mapKey(c, r)
+        guard isDotTile(map[r][c]), !isoDotCollected.contains(key) else { return }
         guard abs(px - (Double(c) + 0.5)) < 0.45, abs(py - (Double(r) + 0.5)) < 0.45 else { return }
-        faces.forEach { $0.isHidden = true }; isoDotsLeft -= 1
+        isoDotCollected.insert(key); isoDotsLeft -= 1; rebuildDotRow(r)
         switch map[r][c] {
         case Strings.Tile.goldDiscChar: sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
         default:                        sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
