@@ -187,22 +187,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // apple calls natively, and KeyCode abstracts the per-platform raw codes. Only
     // the input device with no counterpart on the other platform stays behind #if:
     // apple's gamepad / mouse-delta (inputController) and key-repeat filter, web's
-    // touch swipe, and apple's Carbon username-key translation.
-    #if os(macOS)
-    private func usernameKeyCode(for event: NSEvent) -> Int {
-        switch event.keyCode {
-        case 36, 76: return 58
-        case 53:     return 36
-        case 51:     return 59
-        case 49:     return 57
-        default:
-            guard let u = (event.charactersIgnoringModifiers ?? "").uppercased().unicodeScalars.first else { return -1 }
-            if u.value >= 65, u.value <= 90 { return Int(u.value) - 65 }
-            if u.value >= 48, u.value <= 57 { return 26 + Int(u.value) - 48 }
-            return -1
-        }
-    }
-    #endif
+    // touch swipe, and apple's Carbon username-key translation (usernameKeyCode,
+    // shared with DoomScene in GameOverKeyCompat.swift).
 
     private func swipeDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
         guard max(abs(dx), abs(dy)) >= swipeThreshold else { return nil }

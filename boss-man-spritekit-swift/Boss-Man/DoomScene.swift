@@ -830,11 +830,11 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn near a tile centre: a ←/→ press ALWAYS rotates Pete 90° to face that way and
-        // the down button rotates 180°, EVEN INTO A WALL — he simply faces it and stops (the
-        // forward logic below never moves into a wall). Snap onto the square from up to ~0.4
-        // tile away so a slightly early/late press still lands centred.
-        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4 {
+        // Turn near a tile centre: take a ←/→ turn ONLY into an open lane (Pete never turns to
+        // face a wall — a blocked turn stays queued for the next junction where that lane opens).
+        // The down button queues the opposite heading, an about-face that ALWAYS corners here
+        // since the lane behind Pete is open. Snap onto the square from up to ~0.4 tile away.
+        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
             px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
         }
         // Hold ↑ = forward along facing, ↓ = backward; release = stop in tracks.
@@ -858,9 +858,14 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 }
             }
         } else {
-            // Released: coast to the centre of the nearest square so Pete always lands
-            // centred (a 90° turn already snaps to centre).
-            let tx = px.rounded(.down) + 0.5, ty = py.rounded(.down) + 0.5
+            // Released: always finish the step FORWARD onto a tile centre. If Pete is past the
+            // current centre with an open lane ahead, glide onto the next centre; otherwise
+            // settle on the current tile's centre. Either way he lands rounded to a tile centre.
+            let past = (moveDir.x != 0 && Double(moveDir.x) * (px - ccx) > 0) ||
+                       (moveDir.y != 0 && Double(moveDir.y) * (py - ccy) > 0)
+            let ahead = past && open(col + moveDir.x, row + moveDir.y)
+            let tx = Double(ahead ? col + moveDir.x : col) + 0.5
+            let ty = Double(ahead ? row + moveDir.y : row) + 0.5
             px += max(-speed, min(speed, tx - px))
             py += max(-speed, min(speed, ty - py))
         }
@@ -1044,13 +1049,13 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         view?.presentScene(TitleScene(size: size), transition: .fade(withDuration: 0.5))
     }
 
-    // Same game-over screen as the 2D levels (score + high score; name entry skipped).
+    // Same game-over screen as the 2D levels, with name entry when the score qualifies.
     private func showGameOver() {
         sound.stopAllAudio()
         let screen = GameOverScreen(
             size: size, font: Strings.Font.menloBold,
             score: state.score, highScore: state.highScore,
-            defaultName: "", allowEntry: false,
+            defaultName: LocalHighScores.savedUsername ?? "", allowEntry: !state.practiceMode,
             onPlay: { [weak self] in self?.restartDoom() },
             onEsc:  { [weak self] in self?.exit() })
         screen.zPosition = 2000
@@ -1069,9 +1074,12 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if gameOverScreen != nil {                    // game-over screen: Space/P replay, ESC title
-            if code == KeyCode.space || code == KeyCode.keyP { restartDoom() }
-            else if code == KeyCode.esc { exit() }
+        if let s = gameOverScreen {                   // type the name (when qualified); PLAY/ESC otherwise
+            #if os(macOS)
+            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
+            #else
+            s.handleKey(code, shift: false)
+            #endif
             return
         }
         switch code {

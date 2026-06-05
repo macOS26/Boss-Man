@@ -367,10 +367,12 @@ void DoomScene::step() {
     int col = (int)std::floor(px_), row = (int)std::floor(py_);
     double ccx = col + 0.5, ccy = row + 0.5;
 
-    // Turn near a tile centre: a ←/→ press ALWAYS rotates Pete 90° and the down button
-    // rotates 180°, EVEN INTO A WALL — he simply faces it and stops (the forward logic
-    // below never moves into a wall). Snap onto the square from up to ~0.4 tile away.
-    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4) {
+    // Turn near a tile centre: take a ←/→ turn ONLY into an open lane (Pete never turns to
+    // face a wall — a blocked turn stays queued for the next junction where that lane opens).
+    // The down button queues the opposite heading, an about-face that ALWAYS corners here
+    // since the lane behind Pete is open. Snap onto the square from up to ~0.4 tile away.
+    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4 &&
+        open(col + wantDirX_, row + wantDirY_)) {
         px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
         wantDirSet_ = false;
         targetAngle_ = cardinal(moveDirX_, moveDirY_);
@@ -401,9 +403,14 @@ void DoomScene::step() {
             }
         }
     } else {
-        // Released: coast to the centre of the nearest square so Pete always lands
-        // centred (a 90° turn already snaps to centre).
-        double tx = std::floor(px_) + 0.5, ty = std::floor(py_) + 0.5;
+        // Released: always finish the step FORWARD onto a tile centre. If Pete is past the
+        // current centre with an open lane ahead, glide onto the next centre; otherwise settle
+        // on the current tile's centre. Either way he lands rounded to a tile centre.
+        bool past = (moveDirX_ != 0 && moveDirX_ * (px_ - ccx) > 0) ||
+                    (moveDirY_ != 0 && moveDirY_ * (py_ - ccy) > 0);
+        bool ahead = past && open(col + moveDirX_, row + moveDirY_);
+        double tx = (ahead ? col + moveDirX_ : col) + 0.5;
+        double ty = (ahead ? row + moveDirY_ : row) + 0.5;
         px_ += std::max(-speed, std::min(speed, tx - px_));
         py_ += std::max(-speed, std::min(speed, ty - py_));
     }

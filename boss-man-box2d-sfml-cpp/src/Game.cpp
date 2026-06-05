@@ -622,14 +622,19 @@ void Game::processInput() {
         if (input.escapeRequested) returnToTitle();
     } else if (gameState == GameState::Doom3D && doomScene) {
         // ESC leaves the bonus to the title; running out of lives shows the shared
-        // game-over combo (no name entry, like the SpriteKit DoomScene).
+        // game-over combo, with name entry when the score qualifies (like the 2D modes).
         if (doomScene->wantsExit()) {
             doomScene->clearExit();
             returnToTitle();
         } else if (doomScene->isGameOver()) {
             gameState = GameState::GameOver;
-            goName.clear(); goCommitted = false; goQualified = false;   // DOOM = no name entry (Swift allowEntry: false)
-            if (!state.practiceMode) state.saveHighScore();
+            goName.clear(); goCommitted = false; goQualified = false;
+            if (!state.practiceMode) {
+                state.saveHighScore();
+                goQualified = leaderboard.qualifies(state.score);
+                goName = leaderboard.savedName();
+                if (goName.empty()) { const char* user = std::getenv("USER"); goName = user ? user : ""; }
+            }
             doomScene.reset();
             // The shared game-over screen draws over the 2D world render path; clear
             // the level so no stray maze/bosses/Pete from a prior 2D game show behind it.
