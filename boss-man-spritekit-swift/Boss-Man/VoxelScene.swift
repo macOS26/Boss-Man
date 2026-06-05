@@ -81,6 +81,7 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
     private var bossController: BossController!
+    private var travelerSpawner: TravelerSpawner!   // the fish/treat that walks across the maze (same spawner as 2D)
     private var bossMapNodes: [ObjectIdentifier: PixelPerson] = [:]   // radar mirror per boss node
     private var bossNativeH: [ObjectIdentifier: CGFloat] = [:]        // cached unscaled height for projection
     private var bossFeet: [ObjectIdentifier: CGFloat] = [:]           // cached LOCAL feet offset (frame.minY relative to origin)
@@ -623,6 +624,13 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         }
         bossController.spawn(forLevel: 1, spawnOverrides: overrides)
         syncBossNodes()
+        // The traveler (fish/treat) walks the maze and is caught for points, exactly as in 2D —
+        // the spawner drives the tile walk; the 3D view projects it as a billboard (see projectSprites).
+        travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound, containerOriginX: 0)
+        travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count]) { [weak self] in
+            guard let self else { return false }
+            return !self.gameOver && !self.isUserPaused && !self.dying
+        }
     }
 
     // Re-parent controller boss nodes into the 3D sprite layer (driven as billboards,
@@ -810,6 +818,14 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         for s in shots where s.alive {
             all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
         }
+        // The traveler walks in 2D scene coords; pull its node into the sprite layer and project it as a
+        // billboard at its current grid tile (gridMap bottom-up -> raster top-down, same flip as bosses).
+        if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
+            if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
+            let g = travelerSpawner.grid
+            let nh = max(1, tnode.calculateAccumulatedFrame().height)
+            all.append((tnode, nh, 0.42, Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y), .greatestFiniteMagnitude, nil, -nh / 2))
+        }
         // Pass 1: project, far-cull and wall-occlude every sprite; keep the survivors with their depth.
         var vis: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, maxH: CGFloat, name: String?, bottom: CGFloat, tX: Double, tY: Double)] = []
         for item in all {
@@ -960,6 +976,13 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         }
         peteShielded = bossController.isAnyBossSpawning   // shielded exactly while bosses flash in (spawnGrace)
         checkBossCatch()
+        if let caught = travelerSpawner?.tryCatch(at: workerGrid) {   // walked onto the traveler's tile
+            state.bumpScore(by: caught.traveler.points)
+            sound.playFishOrTreat()
+            popPoints(caught.traveler.points)
+            refreshHUD()
+            hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
+        }
         if frightenSecondsLeft > 0 {                      // loop-driven (no Task.sleep on wasm)
             frightenSecondsLeft -= 1.0 / 60.0
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
