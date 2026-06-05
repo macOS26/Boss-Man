@@ -170,7 +170,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     // scroll) with no re-projection, and sprites keep a constant size (no depth shrink, no jitter).
     private var isoTW: CGFloat = 0, isoTH: CGFloat = 0, isoWH: CGFloat = 0
     private func setupProjection() {
-        let zoom: CGFloat = 2.4                                     // ZOOMED IN: bigger tiles/lanes; the view scrolls to follow Pete, the minimap shows the rest
+        let zoom: CGFloat = 1.5                                     // shows more of the board so the perimeter-walking traveler is seen following the lanes
         isoTW = size.width / CGFloat(max(1, colsCount)) * zoom      // tile width
         isoTH = isoTW * 0.62                                        // more top-down (TH closer to TW = more overhead)
         isoWH = isoTW * 0.46 - 2                                    // blocks, 2px lower
@@ -275,7 +275,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 isoDotSideNode[r]  = addQuad(pS, dotSide, dotSide, z + 0.55)
                 isoDotFrontNode[r] = addQuad(pF, dotFront, dotFront, z + 0.6)
                 isoDotTopNode[r]   = addQuad(pT, .systemYellow, .systemYellow, z + 0.7)
-                for n in [isoDotSideNode[r], isoDotFrontNode[r], isoDotTopNode[r]] { n?.position.y += 3 }   // raise dots 3px
+                for n in [isoDotSideNode[r], isoDotFrontNode[r], isoDotTopNode[r]] { n?.position.y += 7 }   // raise dots (3 + 4px)
                 isoDotsLeft += dotCols.count
             }
         }
@@ -923,12 +923,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 placeIsoSprite(m, CGFloat(travCol), CGFloat(travRow), isoTW * 0.9)
                 m.position.y += 3                              // traveler up 3px
                 m.xScale = abs(m.xScale) * travFlip            // face its travel direction (like the 2D traveler)
-                m.zPosition = CGFloat(travRow) * 4 + 0.6
-                // The traveler walks the maze edges, so the zoomed follow-camera usually scrolls it off
-                // screen. Clamp the mirror to the viewport edge so you ALWAYS see it (an on-screen marker).
-                let sx = m.position.x + isoWorld.position.x, sy = m.position.y + isoWorld.position.y
-                let cx = min(max(sx, 26), size.width - 26), cy = min(max(sy, radarH + 26), size.height - 26)
-                if cx != sx || cy != sy { m.position = CGPoint(x: cx - isoWorld.position.x, y: cy - isoWorld.position.y) }
+                m.zPosition = CGFloat(travRow) * 4 + 0.6       // follows its real maze tile (no edge clamp)
             }
         } else {
             isoTraveler?.isHidden = true
