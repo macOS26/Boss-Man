@@ -687,9 +687,9 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let floorClamp = radarH - viewH           // keep near-wall quads from running absurdly far off-screen
         struct VQuad { var p0, p1, p2, p3: CGPoint; var color: SKColor; var depth: Double }
         var quads: [VQuad] = []
-        var openF: [Int: WallRun] = [:]           // fronts, keyed by face id
-        var openC: [Int: WallRun] = [:]           // caps,   keyed by face id
-        func emit(_ r: WallRun, isCap: Bool) {
+        var openF: [Int: WallRun] = [:]           // FRONT faces (coalesced per face -> smooth straight quads)
+        var tops = Set<Int>()                     // wall cells whose flat TOP is in view (projected per-cell)
+        func emitFront(_ r: WallRun) {
             let xL = CGFloat(r.firstCol) * w, xR = CGFloat(r.lastCol + 1) * w + 0.6
             let cxA = (CGFloat(r.firstCol) + 0.5) * w, cxB = (CGFloat(r.lastCol) + 0.5) * w
             var yLoL = r.yLoA, yLoR = r.yLoB, yHiL = r.yHiA, yHiR = r.yHiB
@@ -699,29 +699,18 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 yLoL = r.yLoA + sLo * (xL - cxA); yLoR = r.yLoA + sLo * (xR - cxA)
                 yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA)
             }
-            if isCap {   // a cap can't cross the horizon; clamp so far corners don't over-angle past it
-                yLoL = min(yLoL, viewMidY); yLoR = min(yLoR, viewMidY)
-                yHiL = min(yHiL, viewMidY); yHiR = min(yHiR, viewMidY)
-            }
             let dAvg = r.depthSum / Double(r.n)
-            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
-            let color: SKColor
-            if isCap {
-                let base = cube.blended(withFraction: 1 - f, of: .black) ?? cube
-                color = base.blended(withFraction: 0.3, of: .white) ?? base
-            } else {
-                let fs = f * (r.side == 1 ? 0.62 : 1.0)
-                color = cube.blended(withFraction: 1 - fs, of: .black) ?? cube
-            }
+            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist))) * (r.side == 1 ? 0.62 : 1.0)
+            let color = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             quads.append(VQuad(p0: CGPoint(x: xL, y: yLoL), p1: CGPoint(x: xL, y: yHiL),
                                p2: CGPoint(x: xR, y: yHiR), p3: CGPoint(x: xR, y: yLoR), color: color, depth: dAvg))
         }
-        func addSeg(_ open: inout [Int: WallRun], _ fid: Int, _ col: Int, _ yLo: CGFloat, _ yHi: CGFloat, _ d: Double, _ side: Int, _ isCap: Bool) {
-            if var r = open[fid], r.lastCol == col - 1 {
-                r.lastCol = col; r.yLoB = yLo; r.yHiB = yHi; r.depthSum += d; r.n += 1; open[fid] = r
+        func addFront(_ fid: Int, _ col: Int, _ yLo: CGFloat, _ yHi: CGFloat, _ d: Double, _ side: Int) {
+            if var r = openF[fid], r.lastCol == col - 1 {
+                r.lastCol = col; r.yLoB = yLo; r.yHiB = yHi; r.depthSum += d; r.n += 1; openF[fid] = r
             } else {
-                if let r = open[fid] { emit(r, isCap: isCap) }
-                open[fid] = WallRun(firstCol: col, lastCol: col, yLoA: yLo, yHiA: yHi, yLoB: yLo, yHiB: yHi, depthSum: d, n: 1, side: side)
+                if let r = openF[fid] { emitFront(r) }
+                openF[fid] = WallRun(firstCol: col, lastCol: col, yLoA: yLo, yHiA: yHi, yLoB: yLo, yHiB: yHi, depthSum: d, n: 1, side: side)
             }
         }
         for col in 0..<columns {
@@ -745,32 +734,45 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 if map[mapY][mapX] != Strings.Tile.wallChar { prevWall = false; continue }   // floor: floor cast fills it
                 let dN = max(0.05, dEntry)
                 if firstHit { zbuf[col] = dN; firstHit = false }
-                if !prevWall {                                              // exposed face = run start
+                tops.insert(mapY * colsCount + mapX)                       // this cell's flat top is in view
+                if !prevWall {                                            // exposed face -> coalesced front quad
                     let fid = side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1
                     let baseY = max(floorClamp, viewMidY - viewH * eyeHeight / CGFloat(dN))
                     let frontTopY = viewMidY + viewH * half / CGFloat(dN)
-                    addSeg(&openF, fid, col, baseY, frontTopY, dN, side, false)
-                    var pmx = mapX, pmy = mapY, psx = sideX, psy = sideY, dBack = dN, pg = 0   // peek the run's back face for the cap
-                    while pg < 64 {
-                        pg += 1
-                        let pd = min(psx, psy)
-                        if psx < psy { psx += ddx; pmx += stepX } else { psy += ddy; pmy += stepY }
-                        dBack = pd
-                        if pmy < 0 || pmy >= rowsCount || pmx < 0 || pmx >= colsCount { break }
-                        if map[pmy][pmx] != Strings.Tile.wallChar { break }
-                        if pd > maxVoxelDist { break }
-                    }
-                    let capBackY = viewMidY + viewH * half / CGFloat(dBack)
-                    addSeg(&openC, fid, col, frontTopY, capBackY, dN, side, true)
+                    addFront(fid, col, baseY, frontTopY, dN, side)
                 }
                 prevWall = true
             }
             if firstHit { zbuf[col] = 1e9 }
-            for fid in Array(openF.keys) where openF[fid]!.lastCol < col { emit(openF[fid]!, isCap: false); openF.removeValue(forKey: fid) }
-            for fid in Array(openC.keys) where openC[fid]!.lastCol < col { emit(openC[fid]!, isCap: true); openC.removeValue(forKey: fid) }
+            for fid in Array(openF.keys) where openF[fid]!.lastCol < col { emitFront(openF[fid]!); openF.removeValue(forKey: fid) }
         }
-        for (_, r) in openF { emit(r, isCap: false) }
-        for (_, r) in openC { emit(r, isCap: true) }
+        for (_, r) in openF { emitFront(r) }
+        // Wall TOPS: each cell's flat top is a real box face in 3D, so project its 4 corners with TRUE
+        // 1-point perspective (corners projected independently, like the dots) — never distorts to a triangle.
+        let invDet = 1.0 / (planeX * dirY - dirX * planeY)
+        let capZ = wallHeightScale - eyeHeight
+        let corners = [(0, 0), (1, 0), (1, 1), (0, 1)]
+        for key in tops {
+            let cx = Double(key % colsCount), cy = Double(key / colsCount)
+            var pp = [CGPoint](); pp.reserveCapacity(4)
+            var dsum = 0.0, ok = true
+            for (ox, oy) in corners {
+                let relX = (cx + Double(ox)) - camX, relY = (cy + Double(oy)) - camY
+                let depth = invDet * (-planeY * relX + planeX * relY)
+                if depth < 0.12 { ok = false; break }
+                let transX = invDet * (dirY * relX - dirX * relY)
+                pp.append(CGPoint(x: size.width / 2 * (1 + CGFloat(transX / depth)),
+                                  y: viewMidY + viewH * CGFloat(capZ) / CGFloat(depth)))
+                dsum += depth
+            }
+            if !ok { continue }
+            let dAvg = dsum / 4
+            if dAvg > maxVoxelDist { continue }
+            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
+            let base = cube.blended(withFraction: 1 - f, of: .black) ?? cube
+            let color = base.blended(withFraction: 0.3, of: .white) ?? base
+            quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg))
+        }
         quads.sort { $0.depth > $1.depth }                                  // far -> near (painter's)
         var qi = 0
         for q in quads {
