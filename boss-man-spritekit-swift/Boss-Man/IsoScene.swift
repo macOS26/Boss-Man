@@ -309,7 +309,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 }
                 spriteLayer.addChild(node)
                 placeIsoSprite(node, CGFloat(c) + 0.5, CGFloat(r) + 0.5, s)
-                node.position.y += 3                            // raise the TPS/machine emojis 3px
+                node.position.y += 6                            // raise the TPS/machine emojis 6px
                 node.zPosition = CGFloat(r) * 4 + 0.55          // above the row's blocks, below Pete
                 isoPickups[mapKey(c, r)] = node
             }
@@ -885,6 +885,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
 
         let spriteH = isoTW * 0.95          // Pete/bosses ~ one tile tall in the overhead view
         placeIsoSprite(pete, CGFloat(px), CGFloat(py), spriteH)
+        pete.position.y += 3                            // Pete up 3px
         pete.zPosition = CGFloat(py) * 4 + 0.6
         if !dying, let d = workerController.direction { pete.setFacing(d) }
         peteName.position = CGPoint(x: pete.position.x, y: pete.position.y + pete.calculateAccumulatedFrame().height + 2)
@@ -895,6 +896,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             let bcol = g.0 + 0.5, brow = Double(rowsCount) - 0.5 - g.1
             e.node.isHidden = false
             placeIsoSprite(e.node, CGFloat(bcol), CGFloat(brow), spriteH)
+            e.node.position.y += 3                      // bosses up 3px
             e.node.zPosition = CGFloat(brow) * 4 + 0.6
             if let d = e.mover?.dir { e.node.setFacing(d) }
             if !e.name.isEmpty {
@@ -1183,10 +1185,9 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let wp = workerController.worldPosition      // derive raster grid coords that the iso view + minimap render from
         px = Double(wp.x) / 32.0
         py = Double(rowsCount) - Double(wp.y) / 32.0
-        if travelerSpawner?.activeTraveler != nil, let g = travelerSpawner?.grid {   // glide the traveler between its discrete grid tiles
-            let tc = Double(g.x) + 0.5, tr = Double(rowsCount) - 0.5 - Double(g.y)
-            if !travActive || abs(tc - travCol) > 2 || abs(tr - travRow) > 2 { travCol = tc; travRow = tr }   // (re)spawn / tunnel: snap
-            else { travCol += (tc - travCol) * 0.3; travRow += (tr - travRow) * 0.3 }
+        if travelerSpawner?.activeTraveler != nil, let tn = travelerSpawner?.node {   // SMOOTH: the node's SKAction.move interpolates continuously (same as 2D)
+            travCol = Double(tn.position.x) / 32.0
+            travRow = Double(rowsCount) - Double(tn.position.y) / 32.0
             travActive = true
         } else { travActive = false }
         bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
