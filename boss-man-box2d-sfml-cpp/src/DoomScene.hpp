@@ -8,6 +8,7 @@
 #include "GridMap.hpp"
 #include "Pathfinder.hpp"
 #include "BossController.hpp"
+#include "TravelerSpawner.hpp"
 #include "RoundState.hpp"
 #include "WaterGunState.hpp"
 #include "HUDRenderer.hpp"
@@ -108,6 +109,9 @@ private:
     std::unique_ptr<Pathfinder> pathfinder_;
     BossController bossController_;
     bool peteShielded_ = false;
+
+    // MARK: - Traveler (the fish/treat that walks the maze, same spawner as 2D)
+    TravelerSpawner travelerSpawner_;
 
     struct Shot {
         double x, y;

@@ -107,6 +107,11 @@ DoomScene::DoomScene(SoundManager& sound, RoundState& state,
     buildBillboards();
     buildMap();
     setupBossController();
+    // The traveler walks the maze for points, exactly as in 2D (same spawner); the 3D view
+    // projects it as an emoji billboard at its grid tile (see render()).
+    travelerSpawner_.setSound(&sound_);
+    travelerSpawner_.reset();
+    travelerSpawner_.scheduleVisits(state_.level, *pathfinder_);
 
     hud_.compactHud = true; // force the compact 150/200-style mini HUD (DOOM era zoomPercent is 100)
     refreshHUD();
@@ -442,6 +447,7 @@ void DoomScene::step() {
 
     bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(),
                            workerDir_(), goldDiscActive_, peteShielded_);
+    travelerSpawner_.update(1.0 / 60.0, gridMap_);   // fixed dt like the boss step (no wall-clock on wasm)
 
     // Capture each boss's SMOOTH world position from boss.pixelPos (the mover holds
     // the truth; the raycaster never overwrites it in this port). pixelPos is this
@@ -461,6 +467,12 @@ void DoomScene::step() {
         }
 
     checkBossCatch();
+    for (auto& tr : travelerSpawner_.travelers) {   // walked onto the traveler's tile -> catch it
+        if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
+            travelerSpawner_.catchTraveler(tr);
+            state_.bumpScore(tr.points); sound_.playFishOrTreat(); popPoints(tr.points); refreshHUD();
+        }
+    }
 
     if (frightenSecondsLeft_ > 0) {
         frightenSecondsLeft_ -= 1.0 / 60.0;
@@ -807,6 +819,34 @@ void DoomScene::render(sf::RenderTarget& target) {
         if (d.kind == 0) drawBillboardSprite(target, billboards_[d.idx]);
         else if (d.kind == 1) drawShotSprite(target, shots_[d.idx]);
         else if (d.kind == 2) drawBossBillboard(target, d.idx);
+    }
+
+    // Traveler emoji billboard (fish/treat): project its grid tile and draw it like the 2D modes,
+    // occluded by the nearest wall across its footprint, behind Pete.
+    {
+        double invDet = 1.0 / (planeX * dirY - dirX * planeY);
+        for (auto& tr : travelerSpawner_.travelers) {
+            if (!tr.active && !tr.catching) continue;
+            double wx = tr.grid.x + 0.5, wy = (rowsCount_ - 1 - tr.grid.y) + 0.5;
+            double relX = wx - camX_, relY = wy - camY_;
+            double tX = invDet * (dirY * relX - dirX * relY);
+            double tY = invDet * (-planeY * relX + planeX * relY); // depth
+            if (tY <= 0.15 || tY > 18) continue;
+            int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
+            if (col >= 0 && col < columns_) {
+                double wallZ = zbuf_[col];
+                for (int c = std::max(0, col - 1); c <= std::min(columns_ - 1, col + 1); ++c) wallZ = std::min(wallZ, zbuf_[c]);
+                if (tY > wallZ + 0.3) continue; // wall occludes the traveler
+            }
+            float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);
+            if (screenX <= -60 || screenX >= viewW_ + 60) continue;
+            float targetH = (float)(viewH() / tY * 0.42);
+            float floorYUp = viewMidY() - (float)(viewH() / tY) / 2.f;
+            float scl = tr.catching ? tr.catchScale : 1.f;
+            uint8_t a = (uint8_t)((tr.catching ? tr.catchAlpha : 1.f) * 255);
+            drawEmoji(target, tr.emoji, sf::Vector2f(screenX, screenY(floorYUp + targetH * 0.5f)),
+                      targetH * scl, sf::Color(255, 255, 255, a), tr.flipX);
+        }
     }
 
     // Pete avatar: rear silhouette, always in front of every billboard (z=90), with
