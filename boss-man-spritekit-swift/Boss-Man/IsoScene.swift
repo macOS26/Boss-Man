@@ -160,10 +160,10 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     // scroll) with no re-projection, and sprites keep a constant size (no depth shrink, no jitter).
     private var isoTW: CGFloat = 0, isoTH: CGFloat = 0, isoWH: CGFloat = 0
     private func setupProjection() {
-        let zoom: CGFloat = 1.15                                    // board width ~ zoom * screen; near 1 shows most of the field
+        let zoom: CGFloat = 2.4                                     // ZOOMED IN: bigger tiles/lanes; the view scrolls to follow Pete, the minimap shows the rest
         isoTW = size.width / CGFloat(max(1, colsCount)) * zoom      // tile width
-        isoTH = isoTW * 0.52                                        // overhead tilt (looking down); smaller TH = more top-down
-        isoWH = isoTW * 0.42                                        // short wall blocks
+        isoTH = isoTW * 0.62                                        // more top-down (TH closer to TW = more overhead)
+        isoWH = isoTW * 0.34                                        // short blocks, seen mostly from the top
     }
     // Grid corner (colEdge, rowEdge) at height y (0 floor, 1 wall top) -> board-space point (y-up).
     private func proj(_ colEdge: Double, _ rowEdge: Double, _ y: CGFloat) -> CGPoint {
