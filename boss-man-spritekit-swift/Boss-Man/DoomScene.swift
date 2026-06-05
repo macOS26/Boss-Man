@@ -1111,8 +1111,8 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
         for (name, ang, glyph) in dirs {
             let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang))
             w.position = joystickCenter
-            w.fillColor = SKColor(white: 1, alpha: 0.12); w.strokeColor = SKColor(white: 1, alpha: 0.5)
-            w.lineWidth = 2; w.zPosition = 301
+            w.fillColor = SKColor(white: 1, alpha: 0.12); w.strokeColor = .clear
+            w.lineWidth = 0; w.zPosition = 301
             addChild(w); dpadWedges[name] = w
             let arrow = SKLabelNode(text: glyph)
             arrow.fontSize = 24; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
@@ -1122,6 +1122,18 @@ final class DoomScene: SKScene, BossControllerDelegate, SKTouchResponder {
             arrow.zPosition = 302
             addChild(arrow)
         }
+        // X boundary lines (the four diagonals) only — no centre ring.
+        let xPath = CGMutablePath()
+        for k in 0..<4 {
+            let t = CGFloat.pi / 4 + CGFloat(k) * CGFloat.pi / 2
+            xPath.move(to: CGPoint(x: cos(t) * joystickDeadzone, y: sin(t) * joystickDeadzone))
+            xPath.addLine(to: CGPoint(x: cos(t) * joystickRadius, y: sin(t) * joystickRadius))
+        }
+        let xlines = SKShapeNode(path: xPath)
+        xlines.position = joystickCenter
+        xlines.strokeColor = SKColor(white: 1, alpha: 0.5); xlines.lineWidth = 2
+        xlines.zPosition = 301
+        addChild(xlines)
     }
 
     // Ring-sector wedge (deadzone radius -> outer radius), a full 90° so the four

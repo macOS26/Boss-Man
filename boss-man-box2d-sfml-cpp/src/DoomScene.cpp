@@ -1360,7 +1360,7 @@ void DoomScene::drawControls(sf::RenderTarget& target) {
         target.draw(strip);
     }
 
-    // X boundary lines (the four diagonals) + the centre deadzone ring.
+    // X boundary lines (the four diagonals).
     sf::VertexArray xlines(sf::Lines);
     sf::Color line(255, 255, 255, 128);
     for (int k = 0; k < 4; ++k) {
@@ -1371,13 +1371,6 @@ void DoomScene::drawControls(sf::RenderTarget& target) {
                                   joystickCenter_.y + std::sin(t) * joystickRadius_}, line));
     }
     target.draw(xlines);
-    sf::CircleShape hole(joystickDeadzone_, 40);
-    hole.setOrigin(joystickDeadzone_, joystickDeadzone_);
-    hole.setPosition(joystickCenter_);
-    hole.setFillColor(sf::Color::Transparent);
-    hole.setOutlineThickness(2.f);
-    hole.setOutlineColor(sf::Color(255, 255, 255, 128));
-    target.draw(hole);
 
     // Direction arrow (triangle) at each wedge centre.
     float midR = (joystickDeadzone_ + joystickRadius_) / 2.f, s = 13.f;
