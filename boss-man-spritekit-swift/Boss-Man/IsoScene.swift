@@ -141,59 +141,77 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
     private let mapCell: CGFloat = 32
     private var mapScale: CGFloat = 1
 
-    // MARK: - Isometric world (2:1 dimetric: blocks for walls, diamonds for floor, yellow squares for dots)
+    // MARK: - Isometric world (1-POINT PERSPECTIVE: a fixed elevated camera looks north across the whole
+    // board; the grid recedes to a centre vanishing point, the near row spans the full screen width and
+    // far rows converge — raised blocks for walls, yellow squares for dots. The camera never moves, so the
+    // maze is projected ONCE at build time; only the moving sprites are projected per frame.)
     private let isoWorld = SKNode()
     private let isoMaze = SKNode()
     private var isoDots: [Int: SKShapeNode] = [:]
     private var isoDotsLeft = 0
-    private let isoTW: CGFloat = 44, isoTH: CGFloat = 22, isoCubeH: CGFloat = 30
 
-    // Raster tile (col,row) -> world point (SpriteKit y-up). +col = screen SE, +row = screen SW,
-    // so deeper rows fall down-screen; depth = col+row (bigger draws in front).
-    private func isoPoint(_ col: CGFloat, _ row: CGFloat) -> CGPoint {
-        CGPoint(x: (col - row) * isoTW / 2, y: -(col + row) * isoTH / 2)
+    private var pCx: CGFloat = 0, pYHorizon: CGFloat = 0, pYBottom: CGFloat = 0
+    private let pDNear = 5.0, pDStep = 0.32          // moderate convergence so the board stays wide enough to scroll without side gaps
+    private var pWLat: CGFloat = 0, pWallBase: CGFloat = 0
+
+    private func setupProjection() {
+        let playH = size.height - radarH
+        let zoom: CGFloat = 1.7                                                  // > 1: board is larger than the screen, so it scrolls (like ZOOM 2D)
+        pCx = 0                                                                  // board-space centre; renderIso scrolls Pete to the screen centre
+        pYBottom = 0
+        pYHorizon = playH * zoom                                                 // board-space height to the vanishing point
+        pWLat = size.width * zoom * CGFloat(pDNear) / CGFloat(max(1, colsCount)) // near row = zoom * screen width
+        pWallBase = playH * zoom * 0.15
     }
-    private func isoDepth(_ col: CGFloat, _ row: CGFloat) -> CGFloat { col + row }
 
-    private func isoDiamond(_ c: CGPoint, _ tw: CGFloat, _ th: CGFloat) -> CGPath {
-        let p = CGMutablePath()
-        p.move(to: CGPoint(x: c.x, y: c.y + th / 2)); p.addLine(to: CGPoint(x: c.x + tw / 2, y: c.y))
-        p.addLine(to: CGPoint(x: c.x, y: c.y - th / 2)); p.addLine(to: CGPoint(x: c.x - tw / 2, y: c.y))
-        p.closeSubpath(); return p
+    // Grid corner (colEdge 0...cols, rowEdge 0...rows) at height y (0 floor, 1 wall top) -> screen point.
+    private func proj(_ colEdge: Double, _ rowEdge: Double, _ y: CGFloat) -> CGPoint {
+        let d = pDNear + (Double(rowsCount) - rowEdge) * pDStep
+        let f = CGFloat(pDNear / d)
+        let sx = pCx + (CGFloat(colEdge) - CGFloat(colsCount) / 2) * pWLat / CGFloat(d)
+        let floorY = pYHorizon - (pYHorizon - pYBottom) * f
+        return CGPoint(x: sx, y: floorY + y * pWallBase * f)
+    }
+    private func perspScale(_ row: Double) -> CGFloat { CGFloat(pDNear / (pDNear + (Double(rowsCount) - row) * pDStep)) }
+
+    private func quadPath(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) -> CGPath {
+        let p = CGMutablePath(); p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath(); return p
+    }
+    @discardableResult private func addQuad(_ path: CGPath, _ fill: SKColor, _ stroke: SKColor, _ z: CGFloat) -> SKShapeNode {
+        let n = SKShapeNode(path: path); n.fillColor = fill; n.strokeColor = stroke; n.lineWidth = 0.5; n.isAntialiased = false; n.zPosition = z
+        isoMaze.addChild(n); return n
     }
 
     private func buildIso() {
+        setupProjection()
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        let topC = cube
-        let swC = cube.blended(withFraction: 0.48, of: .black) ?? cube   // shaded side faces give the 3D block read
-        let seC = cube.blended(withFraction: 0.26, of: .black) ?? cube
-        let floorC = SKColor(white: 0.09, alpha: 1), floorEdge = SKColor(white: 0.15, alpha: 1)
+        let frontC = cube.blended(withFraction: 0.30, of: .black) ?? cube
+        let sideC  = cube.blended(withFraction: 0.50, of: .black) ?? cube
+        let topEdge = cube.blended(withFraction: 0.22, of: .white) ?? cube
+        let floorC = SKColor(white: 0.085, alpha: 1), floorEdge = SKColor(white: 0.15, alpha: 1)
+        let mid = Double(colsCount) / 2
         for r in 0..<rowsCount {
             let row = map[r]
+            let z = CGFloat(r) * 4                          // near rows (high r) draw over far rows (painter's)
             for c in 0..<min(colsCount, row.count) {
-                let ch = row[c]
-                let base = isoPoint(CGFloat(c), CGFloat(r)), z = isoDepth(CGFloat(c), CGFloat(r))
+                let ch = row[c]; let dc = Double(c)
+                let fNW = proj(dc, Double(r), 0), fNE = proj(dc + 1, Double(r), 0)
+                let fSE = proj(dc + 1, Double(r + 1), 0), fSW = proj(dc, Double(r + 1), 0)
                 if ch == Strings.Tile.wallChar {
-                    let t = CGPoint(x: base.x, y: base.y + isoCubeH)   // raised top centre
-                    let tW = CGPoint(x: t.x - isoTW/2, y: t.y), tS = CGPoint(x: t.x, y: t.y - isoTH/2), tE = CGPoint(x: t.x + isoTW/2, y: t.y)
-                    let bW = CGPoint(x: base.x - isoTW/2, y: base.y), bS = CGPoint(x: base.x, y: base.y - isoTH/2), bE = CGPoint(x: base.x + isoTW/2, y: base.y)
-                    let lf = CGMutablePath(); lf.move(to: tW); lf.addLine(to: tS); lf.addLine(to: bS); lf.addLine(to: bW); lf.closeSubpath()
-                    let rf = CGMutablePath(); rf.move(to: tS); rf.addLine(to: tE); rf.addLine(to: bE); rf.addLine(to: bS); rf.closeSubpath()
-                    for (path, color) in [(lf, swC), (rf, seC)] {
-                        let n = SKShapeNode(path: path); n.fillColor = color; n.strokeColor = color; n.lineWidth = 0.5; n.isAntialiased = false; n.zPosition = z
-                        isoMaze.addChild(n)
-                    }
-                    let top = SKShapeNode(path: isoDiamond(t, isoTW, isoTH)); top.fillColor = topC
-                    top.strokeColor = topC.blended(withFraction: 0.25, of: .white) ?? topC; top.lineWidth = 0.5; top.isAntialiased = false; top.zPosition = z + 0.4
-                    isoMaze.addChild(top)
+                    let tNW = proj(dc, Double(r), 1), tNE = proj(dc + 1, Double(r), 1)
+                    let tSE = proj(dc + 1, Double(r + 1), 1), tSW = proj(dc, Double(r + 1), 1)
+                    addQuad(quadPath(fSW, fSE, tSE, tSW), frontC, frontC, z + 0.2)              // near (south) face
+                    if dc + 0.5 < mid { addQuad(quadPath(fNE, fSE, tSE, tNE), sideC, sideC, z + 0.1) }   // left of centre: east face shows
+                    else if dc + 0.5 > mid { addQuad(quadPath(fNW, fSW, tSW, tNW), sideC, sideC, z + 0.1) }
+                    addQuad(quadPath(tNW, tNE, tSE, tSW), cube, topEdge, z + 0.3)               // lit top
                 } else {
-                    let f = SKShapeNode(path: isoDiamond(base, isoTW, isoTH)); f.fillColor = floorC; f.strokeColor = floorEdge; f.lineWidth = 0.5; f.isAntialiased = false; f.zPosition = z - 0.5
-                    isoMaze.addChild(f)
+                    addQuad(quadPath(fNW, fNE, fSE, fSW), floorC, floorEdge, z - 1)
                     if ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar || ch == Strings.Tile.goldDiscChar {
-                        let big = ch == Strings.Tile.goldDiscChar
-                        let dot = SKShapeNode(path: isoDiamond(CGPoint(x: base.x, y: base.y + 4), isoTW * (big ? 0.5 : 0.28), isoTH * (big ? 0.5 : 0.28)))
-                        dot.fillColor = .systemYellow; dot.strokeColor = .systemYellow; dot.isAntialiased = false; dot.zPosition = z + 0.2
-                        isoMaze.addChild(dot); isoDots[mapKey(c, r)] = dot; isoDotsLeft += 1
+                        let h = ch == Strings.Tile.goldDiscChar ? 0.34 : 0.20
+                        let d0 = proj(dc + 0.5 - h, Double(r) + 0.5 - h, 0.01), d1 = proj(dc + 0.5 + h, Double(r) + 0.5 - h, 0.01)
+                        let d2 = proj(dc + 0.5 + h, Double(r) + 0.5 + h, 0.01), d3 = proj(dc + 0.5 - h, Double(r) + 0.5 + h, 0.01)
+                        let dot = addQuad(quadPath(d0, d1, d2, d3), .systemYellow, .systemYellow, z + 0.5)
+                        isoDots[mapKey(c, r)] = dot; isoDotsLeft += 1
                     }
                 }
             }
@@ -484,7 +502,7 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         node.stopWalking()
         let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
         node.isHidden = false
-        node.setScale(isoCubeH * 3.0 / nh)                   // a close-up sized to the iso world, not the first-person play height
+        node.setScale(size.height * 0.16 / nh)               // a close-up sized to the iso world, not the first-person play height
         if node.parent !== self { node.removeFromParent(); addChild(node) }   // lift the catcher out of the offset iso world for a fixed screen close-up
         node.position = CGPoint(x: size.width / 2, y: size.height * 0.45)      // centred where Pete sits, so you see who caught you
         node.zPosition = 500
@@ -749,33 +767,36 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
             isoNativeH[id] = nh; isoFeet[id] = bottom
             node.setScale(prev)
         }
-        let s = targetH / nh
+        let s = targetH * perspScale(Double(row)) / nh
         node.setScale(s)
-        let pt = isoPoint(col, row)
+        let pt = proj(Double(col), Double(row), 0)
         node.position = CGPoint(x: pt.x, y: pt.y - bottom * s)
     }
 
     private func renderIso() {
         throbClock += 1.0 / 60.0
-        let pPt = isoPoint(CGFloat(px), CGFloat(py))
-        isoWorld.position = CGPoint(x: size.width / 2 - pPt.x, y: size.height * 0.46 - pPt.y)   // centre on Pete
+        let anchorY = radarH + (size.height - radarH) * 0.40
+        let foot = proj(Double(px), Double(py), 0)
+        isoWorld.position = CGPoint(x: size.width / 2 - foot.x, y: anchorY - foot.y)   // scroll to follow Pete (ZOOM 2D style)
 
-        let spriteH = isoCubeH * 1.5
+        let spriteH = pWallBase * 1.5
         placeIsoSprite(pete, CGFloat(px), CGFloat(py), spriteH)
-        pete.zPosition = isoDepth(CGFloat(px), CGFloat(py)) + 0.45
+        pete.zPosition = CGFloat(py) * 4 + 0.6
         if !dying { pete.setFacing(facing(moveDir)) }
+        peteName.position = CGPoint(x: pete.position.x, y: pete.position.y + pete.calculateAccumulatedFrame().height + 2)
+        peteName.zPosition = pete.zPosition + 0.1
 
         for e in bossController.entities {
             guard let g = bossGrid[ObjectIdentifier(e.node)] else { e.node.isHidden = true; continue }
-            let bcol = CGFloat(g.0 + 0.5), brow = CGFloat(Double(rowsCount) - 0.5 - g.1)
+            let bcol = g.0 + 0.5, brow = Double(rowsCount) - 0.5 - g.1
             e.node.isHidden = false
-            placeIsoSprite(e.node, bcol, brow, spriteH)
-            e.node.zPosition = isoDepth(bcol, brow) + 0.45
+            placeIsoSprite(e.node, CGFloat(bcol), CGFloat(brow), spriteH)
+            e.node.zPosition = CGFloat(brow) * 4 + 0.6
             if let d = e.mover?.dir { e.node.setFacing(d) }
             if !e.name.isEmpty {
                 let label = bossNameplate(for: e.node, text: e.name); label.isHidden = false
-                label.fontSize = 13
-                label.position = CGPoint(x: e.node.position.x, y: e.node.position.y + spriteH + 4)
+                label.fontSize = max(10, 14 * perspScale(brow))
+                label.position = CGPoint(x: e.node.position.x, y: e.node.position.y + e.node.calculateAccumulatedFrame().height + 2)
                 label.zPosition = e.node.zPosition + 0.1
             }
         }
@@ -783,9 +804,9 @@ final class IsoScene: SKScene, BossControllerDelegate, SKTouchResponder {
         if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
             if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
             let g = travelerSpawner.grid
-            let tcol = CGFloat(Double(g.x) + 0.5), trow = CGFloat(Double(rowsCount) - 0.5 - Double(g.y))
-            placeIsoSprite(tnode, tcol, trow, isoCubeH * 1.3)
-            tnode.zPosition = isoDepth(tcol, trow) + 0.4
+            let tcol = Double(g.x) + 0.5, trow = Double(rowsCount) - 0.5 - Double(g.y)
+            placeIsoSprite(tnode, CGFloat(tcol), CGFloat(trow), spriteH * 0.9)
+            tnode.zPosition = CGFloat(trow) * 4 + 0.6
         }
     }
 
