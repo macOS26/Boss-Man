@@ -157,6 +157,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     private var isoPickups: [Int: SKNode] = [:]        // water gun / pellets / machine emojis / brown box, built once, hidden|grayed on collect
     private var isoTraveler: SKNode?                   // iso mirror of the walking traveler (the REAL node keeps its SKAction walk in the scene root)
     private var isoTravelerEmoji = ""
+    private var mapTraveler: SKNode?                   // minimap mirror of the traveler (kept in sync with the iso mirror)
+    private var mapTravelerEmoji = ""
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
     // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
@@ -206,7 +208,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         addSub(top, uNW, uNE, uSE, uSW)    // lit top
     }
     private func isDotTile(_ ch: Character) -> Bool {
-        ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar || ch == Strings.Tile.goldDiscChar
+        ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar   // gold disc is a round billboard, not a raised block
     }
 
     private func buildIso() {
@@ -293,6 +295,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 case Strings.Tile.bookBinderChar:  node = emojiBillboard(Strings.Emoji.bookBinder, s)
                 case Strings.Tile.brownBoxChar:    node = emojiBillboard(Strings.Emoji.brownBox, s)
                 case Strings.Tile.waterPelletChar: node = throbbing(SpriteFactory.waterPelletVisual(radius: isoTW * 0.3), 1.25, 0.5)
+                case Strings.Tile.goldDiscChar:    node = throbbing(SpriteFactory.goldDiscVisual(radius: isoTW * 0.34), 1.18, 0.5)   // round disc, not a yellow block
                 default: continue
                 }
                 spriteLayer.addChild(node)
@@ -852,8 +855,9 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
 
     private var isoNativeH: [ObjectIdentifier: CGFloat] = [:]
     private var isoFeet: [ObjectIdentifier: CGFloat] = [:]
-    // Plant a sprite's feet on tile (col,row)'s floor, scaled to targetH; native height is measured once.
-    private func placeIsoSprite(_ node: SKNode, _ col: CGFloat, _ row: CGFloat, _ targetH: CGFloat) {
+    // Plant a sprite on tile (col,row) scaled to targetH; native height measured once. `lift` raises it
+    // off the floor (0 = feet on floor for Pete/bosses; ~0.55 = mid-air for water-gun shots).
+    private func placeIsoSprite(_ node: SKNode, _ col: CGFloat, _ row: CGFloat, _ targetH: CGFloat, _ lift: CGFloat = 0) {
         let id = ObjectIdentifier(node)
         let nh: CGFloat, bottom: CGFloat
         if let n = isoNativeH[id], let b = isoFeet[id] { nh = n; bottom = b }
@@ -867,7 +871,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         }
         let s = targetH * perspScale(Double(row)) / nh
         node.setScale(s)
-        let pt = proj(Double(col), Double(row), 0)
+        let pt = proj(Double(col), Double(row), lift)
         node.position = CGPoint(x: pt.x, y: pt.y - bottom * s)
     }
 
@@ -909,8 +913,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 let m = emojiBillboard(info.emoji, isoTW * 0.75)
                 spriteLayer.addChild(m); isoTraveler = m; isoTravelerEmoji = info.emoji
             }
-            let gx = Double(tnode.position.x) / 32.0 - 0.5, gy = Double(tnode.position.y) / 32.0 - 0.5
-            let tcol = gx + 0.5, trow = Double(rowsCount) - 0.5 - gy
+            let g = travelerSpawner!.grid                     // authoritative gridMap tile (bottom-up) -> raster, same as bosses (no wall clip)
+            let tcol = Double(g.x) + 0.5, trow = Double(rowsCount) - 0.5 - Double(g.y)
             if let m = isoTraveler {
                 m.isHidden = false
                 placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), spriteH * 0.9)
@@ -920,12 +924,12 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             isoTraveler?.isHidden = true
         }
 
-        let shotH = isoTW * 0.3              // water-gun pellets, planted on their tile, depth-sorted like the others
+        let shotH = isoTW * 0.34            // water-gun pellets fly at mid-height (lift 0.55), not on the floor
         for s in shots where s.alive {
             if s.node.parent !== spriteLayer { s.node.removeFromParent(); spriteLayer.addChild(s.node) }
             s.node.isHidden = false
-            placeIsoSprite(s.node, CGFloat(s.x), CGFloat(s.y), shotH)
-            s.node.zPosition = CGFloat(s.y) * 4 + 0.5
+            placeIsoSprite(s.node, CGFloat(s.x), CGFloat(s.y), shotH, 0.55)
+            s.node.zPosition = CGFloat(s.y) * 4 + 0.65
         }
     }
 
@@ -1152,6 +1156,17 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             if let d = e.mover?.dir { mn.setFacing(d) }
         }
         for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
+        if let info = travelerSpawner?.activeTraveler, let g = travelerSpawner?.grid {   // traveler on the minimap, same grid source as iso (in sync)
+            if mapTraveler == nil || mapTravelerEmoji != info.emoji {
+                mapTraveler?.removeFromParent()
+                let t = emojiBillboard(info.emoji, mapCell * 0.7); t.zPosition = 5
+                mapLayer.addChild(t); mapTraveler = t; mapTravelerEmoji = info.emoji
+            }
+            mapTraveler?.isHidden = false
+            mapTraveler?.position = mapLocal(Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y))
+        } else {
+            mapTraveler?.isHidden = true
+        }
     }
 
     private func facing(_ d: (x: Int, y: Int)) -> MoveDirection {
@@ -1200,15 +1215,18 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let c = Int(grid.x), r = rowsCount - 1 - Int(grid.y)   // gridMap (bottom-up) -> raster (top-down)
         guard r >= 0, r < rowsCount, c >= 0, c < map[r].count else { return }
         let key = mapKey(c, r), ch = map[r][c]
-        if isDotTile(ch) {                                     // dots + gold disc: raised blocks
+        if isDotTile(ch) {                                     // plain dots: raised blocks
             guard !isoDotCollected.contains(key) else { return }
             isoDotCollected.insert(key); isoDotsLeft -= 1
             rebuildDotRow(r); mapPickups[key]?.isHidden = true
-            if ch == Strings.Tile.goldDiscChar { sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode() }
-            else                                { sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1) }
+            sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
             refreshHUD(); return
         }
         switch ch {                                            // power-ups, machines, brown box (TPS turn-in)
+        case Strings.Tile.goldDiscChar:
+            guard !collected.contains(key) else { return }
+            collected.insert(key); sound.playGoldDisc(); state.collectedGoldDiscs += 1
+            state.bumpScore(by: 5); popPoints(5); hidePickup(c, r); startGoldDiscMode(); refreshHUD()
         case Strings.Tile.waterGunChar:
             guard !collected.contains(key) else { return }
             collected.insert(key); waterGun.activate(); waterGunPickedUp = true
@@ -1269,7 +1287,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         refreshHUD()
         let dir = (x: faceDir == .left ? -1 : faceDir == .right ? 1 : 0,
                    y: faceDir == .up ? -1 : faceDir == .down ? 1 : 0)
-        let pellet = SpriteFactory.waterPelletVisual(radius: 9)
+        let pellet = SpriteFactory.waterPelletVisual(radius: 12)   // detailed blue pellet from the level art
         pellet.isHidden = true; spriteLayer.addChild(pellet)
         let mapNode = SpriteFactory.waterPelletVisual(radius: mapCell * 0.22)
         mapNode.position = mapLocal(px, py); mapNode.zPosition = 3; mapLayer.addChild(mapNode)
