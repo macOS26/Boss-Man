@@ -65,7 +65,7 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         var firstCol: Int, lastCol: Int
         var yLoA: CGFloat, yHiA: CGFloat   // span at the first column's centre
         var yLoB: CGFloat, yHiB: CGFloat   // span at the last column's centre
-        var depthSum: Double, n: Int, side: Int
+        var depthSum: Double, n: Int, side: Int, par: Int
     }
     private let floorA = SKShapeNode()   // alternating floor-tile checker, cast per frame
     private let floorB = SKShapeNode()
@@ -700,17 +700,18 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA)
             }
             let dAvg = r.depthSum / Double(r.n)
-            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist))) * (r.side == 1 ? 0.62 : 1.0)
+            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
+                    * (r.side == 1 ? 0.62 : 1.0) * (r.par == 1 ? 1.0 : 0.82)   // alternate cubicle blocks
             let color = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             quads.append(VQuad(p0: CGPoint(x: xL, y: yLoL), p1: CGPoint(x: xL, y: yHiL),
                                p2: CGPoint(x: xR, y: yHiR), p3: CGPoint(x: xR, y: yLoR), color: color, depth: dAvg))
         }
-        func addFront(_ fid: Int, _ col: Int, _ yLo: CGFloat, _ yHi: CGFloat, _ d: Double, _ side: Int) {
-            if var r = openF[fid], r.lastCol == col - 1 {
-                r.lastCol = col; r.yLoB = yLo; r.yHiB = yHi; r.depthSum += d; r.n += 1; openF[fid] = r
+        func addFront(_ key: Int, _ col: Int, _ yLo: CGFloat, _ yHi: CGFloat, _ d: Double, _ side: Int, _ par: Int) {
+            if var r = openF[key], r.lastCol == col - 1 {
+                r.lastCol = col; r.yLoB = yLo; r.yHiB = yHi; r.depthSum += d; r.n += 1; openF[key] = r
             } else {
-                if let r = openF[fid] { emitFront(r) }
-                openF[fid] = WallRun(firstCol: col, lastCol: col, yLoA: yLo, yHiA: yHi, yLoB: yLo, yHiB: yHi, depthSum: d, n: 1, side: side)
+                if let r = openF[key] { emitFront(r) }
+                openF[key] = WallRun(firstCol: col, lastCol: col, yLoA: yLo, yHiA: yHi, yLoB: yLo, yHiB: yHi, depthSum: d, n: 1, side: side, par: par)
             }
         }
         for col in 0..<columns {
@@ -737,9 +738,10 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
                 tops.insert(mapY * colsCount + mapX)                       // this cell's flat top is in view
                 if !prevWall {                                            // exposed face -> coalesced front quad
                     let fid = side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1
+                    let par = (mapX + mapY) & 1                            // break the run per cell so blocks alternate
                     let baseY = max(floorClamp, viewMidY - viewH * eyeHeight / CGFloat(dN))
                     let frontTopY = viewMidY + viewH * half / CGFloat(dN)
-                    addFront(fid, col, baseY, frontTopY, dN, side)
+                    addFront(fid * 2 + par, col, baseY, frontTopY, dN, side, par)
                 }
                 prevWall = true
             }
@@ -768,7 +770,8 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
             if !ok { continue }
             let dAvg = dsum / 4
             if dAvg > maxVoxelDist { continue }
-            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
+            let par = (Int(cx) + Int(cy)) & 1
+            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist))) * (par == 1 ? 1.0 : 0.82)
             let base = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             let color = base.blended(withFraction: 0.3, of: .white) ?? base
             quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg))
