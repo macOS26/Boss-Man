@@ -171,21 +171,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         isoTW = size.width / CGFloat(max(1, colsCount)) * zoom      // tile width
         isoTH = isoTW * 0.62                                        // more top-down (TH closer to TW = more overhead)
         isoWH = isoTW * 0.34                                        // short blocks, seen mostly from the top
-        pVpY = isoTH * 8                                            // vanishing point above the far edge for the slight perspective
     }
-    private let pFocal = 150.0                                      // SLIGHT 1-pt perspective: large focal = gentle convergence (far rows ~83%)
-    private var pVpY: CGFloat = 0                                   // vanishing point sits above the far edge
-    private func persp(_ rowEdge: Double) -> CGFloat { CGFloat(pFocal / (pFocal + (Double(rowsCount) - rowEdge))) }
-
-    // Grid corner (colEdge, rowEdge) at height y (0 floor, 1 wall top) -> board-space point (y-up),
-    // with a mild 1-pt convergence toward a vanishing point above centre (far rows pull in + up a touch).
+    // Grid corner (colEdge, rowEdge) at height y (0 floor, 1 wall top) -> board-space point (y-up).
+    // PARALLEL: x depends only on col, y only on row+height, so vertical edges stay straight (no angle).
     private func proj(_ colEdge: Double, _ rowEdge: Double, _ y: CGFloat) -> CGPoint {
-        let p = persp(rowEdge)
-        let x0 = (CGFloat(colEdge) - CGFloat(colsCount) / 2) * isoTW
-        let y0 = -CGFloat(rowEdge) * isoTH + y * isoWH
-        return CGPoint(x: x0 * p, y: pVpY + (y0 - pVpY) * p)
+        CGPoint(x: (CGFloat(colEdge) - CGFloat(colsCount) / 2) * isoTW,
+                y: -CGFloat(rowEdge) * isoTH + y * isoWH)
     }
-    private func perspScale(_ row: Double) -> CGFloat { persp(row) } // sprites shrink slightly with depth
+    private func perspScale(_ row: Double) -> CGFloat { 1 }         // parallel: constant sprite size
 
     private func quadPath(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) -> CGPath {
         let p = CGMutablePath(); p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath(); return p
