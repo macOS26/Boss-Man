@@ -170,10 +170,10 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let zoom: CGFloat = 2.4                                     // ZOOMED IN: bigger tiles/lanes; the view scrolls to follow Pete, the minimap shows the rest
         isoTW = size.width / CGFloat(max(1, colsCount)) * zoom      // tile width
         isoTH = isoTW * 0.62                                        // more top-down (TH closer to TW = more overhead)
-        isoWH = isoTW * 0.34                                        // short blocks, seen mostly from the top
+        isoWH = isoTW * 0.46                                        // taller blocks
         pVpY = isoTH * 6                                            // vanishing line above the far edge (depth converges toward it)
     }
-    private let pFocal = 120.0                                     // 1-pt depth convergence strength (larger = gentler)
+    private let pFocal = 70.0                                      // 1-pt depth convergence strength (smaller = stronger)
     private var pVpY: CGFloat = 0                                   // vanishing line above the far edge
     private func persp(_ rowEdge: Double) -> CGFloat { CGFloat(pFocal / (pFocal + (Double(rowsCount) - rowEdge))) }
 
@@ -200,7 +200,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     }
     // One RAISED dot block: near (south) face into `front`, a position-based side into `side`, lit top.
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
-        let h = gold ? 0.28 : 0.20, yT: CGFloat = gold ? 0.95 : 0.7    // raised so it reads as a cube from overhead
+        let h = gold ? 0.28 : 0.20, yT: CGFloat = gold ? 1.2 : 0.95    // raised higher so it reads as a cube from overhead
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
         let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
         let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
@@ -908,14 +908,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             tnode.isHidden = true
             if isoTraveler == nil || isoTravelerEmoji != info.emoji {
                 isoTraveler?.removeFromParent()
-                let m = emojiBillboard(info.emoji, isoTW * 0.6)
+                let m = emojiBillboard(info.emoji, isoTW * 0.9)
                 spriteLayer.addChild(m); isoTraveler = m; isoTravelerEmoji = info.emoji
             }
             let g0 = Double(tnode.position.x) / 32.0 - 0.5, g1 = Double(tnode.position.y) / 32.0 - 0.5   // SMOOTH gridMap pos (SKAction walk), same conversion bosses use
             let tcol = g0 + 0.5, trow = Double(rowsCount) - 0.5 - g1
             if let m = isoTraveler {
                 m.isHidden = false
-                placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), isoTW * 0.6, 0.25)   // smaller + lifted onto its tile so it doesn't tower over wall tops
+                placeIsoSprite(m, CGFloat(tcol), CGFloat(trow), isoTW * 0.9)
                 m.zPosition = CGFloat(trow) * 4 + 0.6
             }
         } else {
