@@ -810,21 +810,19 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         for s in shots where s.alive {
             all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
         }
+        // Pass 1: project, far-cull and wall-occlude every sprite; keep the survivors with their depth.
+        var vis: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, maxH: CGFloat, name: String?, bottom: CGFloat, tX: Double, tY: Double)] = []
         for item in all {
             let node = item.node
-            let label = item.name.map { bossNameplate(for: node, text: $0) }
-            label?.isHidden = true
+            item.name.map { bossNameplate(for: node, text: $0) }?.isHidden = true
             let relX = item.x - camX, relY = item.y - camY
             let tX = invDet * (dirY * relX - dirX * relY)
             let tY = invDet * (-planeY * relX + planeX * relY)   // depth
             guard tY > 0.15 else { node.isHidden = true; continue }
             let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
-            // Occlude only when walls are nearer than the sprite across its whole footprint.
-            // Sampling a window (not one column) stops the per-step blink when the centre
-            // column straddles a side-opening edge as a boss walks.
+            // Occlude against the NEAREST wall across the sprite's whole screen footprint, so a dot whose
+            // body overlaps a wall a few columns from its centre is still hidden behind it.
             if col >= 0, col < columns {
-                // Sample the NEAREST wall across the sprite's whole screen footprint, so a dot whose
-                // body overlaps a wall a few columns from its centre is still hidden behind it.
                 let footHalf = max(1, min(5, Int((viewH / CGFloat(tY) * item.worldH) / (size.width / CGFloat(columns)) * 0.5)))
                 var wallZ = zbuf[col]
                 for c in max(0, col - footHalf)...min(columns - 1, col + footHalf) { wallZ = min(wallZ, zbuf[c]) }
@@ -833,23 +831,29 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
-            // TRUE 1-point perspective, identical to the dots: size = viewH/depth, feet planted on
-            // the floor row at THIS depth. maxH only clamps the size at point-blank range so the
-            // catch close-up isn't a full-screen sprite; it never moves the floor.
-            let targetH = min(viewH / CGFloat(tY) * item.worldH, item.maxH)
-            var s = targetH / item.nativeH
-            // Post-spawn pulse: a respawned boss throbs while it can't yet catch Pete
-            // (spawn grace / immobilized), then settles to full size. Feet stay planted
-            // because position uses s below. Matches the C++ DoomScene throb.
-            if item.name != nil, let boss = item.node as? PixelPerson, bossController.isImmobilized(boss: boss) {
-                s *= 1 + 0.18 * abs(sin(throbClock * .pi * 3))
+            vis.append((node, item.nativeH, item.worldH, item.maxH, item.name, item.bottom, tX, tY))
+        }
+        // Pass 2: draw strictly far -> near (assign rising zPositions) so a nearer sprite always paints
+        // over a farther one — a dot and a machine at similar depth no longer tie and flip.
+        vis.sort { $0.tY > $1.tY }
+        let zStep = vis.count > 1 ? 80.0 / Double(vis.count - 1) : 0
+        for (i, v) in vis.enumerated() {
+            let node = v.node, tY = v.tY
+            // TRUE 1-point perspective, identical to the dots: size = viewH/depth, feet planted on the
+            // floor row at THIS depth. maxH only clamps the size at point-blank range; it never moves the floor.
+            let targetH = min(viewH / CGFloat(tY) * v.worldH, v.maxH)
+            var s = targetH / v.nativeH
+            if v.name != nil, let boss = node as? PixelPerson, bossController.isImmobilized(boss: boss) {
+                s *= 1 + 0.18 * abs(sin(throbClock * .pi * 3))   // post-spawn throb, feet planted (position uses s)
             }
             node.isHidden = false
             node.setScale(s)
+            let screenX = (size.width / 2) * CGFloat(1 + v.tX / tY)
             let floorY = viewMidY - (viewH / CGFloat(tY)) * eyeHeight
-            node.position = CGPoint(x: screenX, y: floorY - item.bottom * s)
-            node.zPosition = min(40, CGFloat(2 + 30 / tY))      // nearer over farther, but always behind Pete
-            if let label = label {
+            node.position = CGPoint(x: screenX, y: floorY - v.bottom * s)
+            node.zPosition = 2 + CGFloat(Double(i) * zStep)     // 2..82, far->near; always below Pete (90)
+            if let name = v.name {
+                let label = bossNameplate(for: node, text: name)
                 label.isHidden = false
                 label.fontSize = max(13, min(24, targetH * 0.16))
                 label.position = CGPoint(x: screenX, y: floorY + targetH + label.fontSize * 0.7)
