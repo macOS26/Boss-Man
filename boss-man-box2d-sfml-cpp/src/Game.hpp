@@ -22,6 +22,7 @@
 #include "LevelEditor.hpp"
 #include "DoomScene.hpp"
 #include "VoxelScene.hpp"
+#include "IsoScene.hpp"
 #include "Scene3D.hpp"
 
 namespace bm {

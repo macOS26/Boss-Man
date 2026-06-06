@@ -355,10 +355,12 @@ void Game::startDoom3D(int level, bool practice) {
     state.level = level;
     auto rows = currentLevelRows();
     if (rows.empty()) return;
-    if (MazeZoom::isVoxel())
+    if (MazeZoom::isIso())
+        doomScene = std::make_unique<IsoScene>(sound, state, rows, state.highScore);     // ISO 3D: isometric overhead
+    else if (MazeZoom::isVoxel())
         doomScene = std::make_unique<VoxelScene>(sound, state, rows, state.highScore);   // VOXEL 3D: painter's boxy renderer
     else
-        doomScene = std::make_unique<DoomScene>(sound, state, rows, state.highScore);    // RAY 3D (and ISO until ported): raycaster
+        doomScene = std::make_unique<DoomScene>(sound, state, rows, state.highScore);    // RAY 3D: raycaster
     gameState = GameState::Doom3D;
 }
 

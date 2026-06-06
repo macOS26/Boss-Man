@@ -81,6 +81,7 @@ set(SOURCES
     src/PixelPersonRenderer.cpp
     src/DoomScene.cpp
     src/VoxelScene.cpp
+    src/IsoScene.cpp
     src/EmojiText.cpp
     src/TitleScreen.cpp
     src/LevelStore.cpp
