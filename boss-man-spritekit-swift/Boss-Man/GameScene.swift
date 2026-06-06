@@ -252,7 +252,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             swipeStart = nil
             return
         }
-        swipeStart = p
+        swipeStart = ControlMode.current.isHidden ? p : nil   // swipe-to-move only in HIDDEN mode; stick/dpad uses the widget
         swipeFired = false
         #endif
     }
@@ -294,6 +294,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             }
             return
         }
+        guard ControlMode.current.isHidden else { return }   // drag-to-steer only in HIDDEN mode
         guard let anchor = moveAnchor else { moveAnchor = p; return }
         if let d = swipeDirection(p.x - anchor.x, p.y - anchor.y) {
             steer(d); moveAnchor = p
@@ -842,9 +843,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // MARK: - Fire button
     private func installFireButton() {
-        fireButtonHidden = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide)
+        fireButtonHidden = !ControlMode.current.showsControl
         if fireButtonHidden { return }
-        let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        let onLeft = !ControlMode.current.onLeft   // fire button opposite the movement widget
         fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter
@@ -857,9 +858,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // MARK: - Joystick
     private func installJoystick() {
-        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
-        let fireOnLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        let onLeft = !fireOnLeft
+        if !ControlMode.current.showsControl { return }
+        let onLeft = ControlMode.current.onLeft   // movement widget side
         joystickCenter = CGPoint(x: onLeft ? joystickRadius : size.width - joystickRadius, y: joystickRadius + 15)
 
         let base = SKShapeNode(circleOfRadius: joystickRadius)

@@ -95,29 +95,15 @@ final class TitleScene: SKScene {
         mazeLabel       = makeHint(icon: "📷", iconSize: 42, value: mazeText(), y: promptY + 74, color: .systemPurple)
         bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: promptY - 74, color: .systemIndigo, left: true,
                                    sprite: SpriteFactory.bossPersonForBlueprint(0))
-        waterGunLabel   = makeHint(icon: "🕹️", iconSize: 42, value: waterGunText(), y: promptY, color: .systemOrange, left: true)   // joystick side (the gun sits opposite); even with PLAY
+        waterGunLabel   = makeHint(icon: "🕹️", iconSize: 42, value: controlModeText(), y: promptY, color: .systemOrange, left: true)   // control mode: hidden / stick / dpad + side; even with PLAY
     }
 
     // MARK: - Settings text
     private func bossTracksText() -> String {
         isSquareTracks() ? "HUNTER" : "SPEEDSTER"
     }
-    private func waterGunText() -> String {
-        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) { return "HIDDEN" }
-        return Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "LEFT" : "RIGHT"
-    }
-
-    // Cycle Left -> Right -> Hide -> Left (two bools: waterGunLeft + waterGunHide).
-    private func cycleWaterGun() {
-        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) {          // Hide -> Left
-            Persistence.set(false, forKey: Strings.DefaultsKey.waterGunHide)
-            Persistence.set(true,  forKey: Strings.DefaultsKey.waterGunLeft)
-        } else if Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) {   // Left -> Right
-            Persistence.set(false, forKey: Strings.DefaultsKey.waterGunLeft)
-        } else {                                                                 // Right -> Hide
-            Persistence.set(true,  forKey: Strings.DefaultsKey.waterGunHide)
-        }
-    }
+    private func controlModeText() -> String { ControlMode.current.label }
+    private func cycleControlMode() { ControlMode.advance() }   // HIDDEN -> STICK LEFT -> STICK RIGHT -> DPAD LEFT -> DPAD RIGHT
     private func isSquareTracks() -> Bool {
         Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
     }
@@ -285,8 +271,8 @@ final class TitleScene: SKScene {
             return
         }
         if let wg = waterGunLabel, labelHit(wg, p) {
-            cycleWaterGun()
-            wg.text = waterGunText()
+            cycleControlMode()
+            wg.text = controlModeText()
             return
         }
     }

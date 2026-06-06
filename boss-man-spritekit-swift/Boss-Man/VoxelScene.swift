@@ -1204,9 +1204,9 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
 
     // MARK: - On-screen joystick + fire button (drive the same tank input)
     private func buildControls() {
-        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
+        if !ControlMode.current.showsControl { return }
         controlsShown = true
-        let fireOnLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        let fireOnLeft = !ControlMode.current.onLeft   // fire button opposite the dpad
         fireButtonCenter = CGPoint(x: fireOnLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter

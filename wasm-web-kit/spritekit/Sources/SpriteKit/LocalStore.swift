@@ -29,3 +29,14 @@ public enum LocalStore {
         }
     }
 }
+
+// Browser "Save As" download: the host wraps the contents in a Blob and clicks a
+// download anchor so the user keeps a real file. Web equivalent of revealing a
+// saved file in Finder; the localStorage blob stays the source of truth.
+public enum WebDownload {
+    public static func file(named name: String, contents: String) {
+        withUTF8Ptr(name) { np, nn in
+            withUTF8Ptr(contents) { cp, cn in win_download(np, nn, cp, cn) }
+        }
+    }
+}

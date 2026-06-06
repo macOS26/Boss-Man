@@ -174,8 +174,7 @@ enum Strings {
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
         static let mazeZoom               = "BossMan.mazeZoom"
-        static let waterGunLeft           = "BossMan.waterGunLeft"
-        static let waterGunHide           = "BossMan.waterGunHide"
+        static let controlMode            = "BossMan.controlMode"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
         static let editorLevelPrefix      = "BossMan.editorLevel."
     }
@@ -332,6 +331,34 @@ enum MazeZoom: Int, CaseIterable {
         case .iso3D:   return "ISO 3D"
         case .ray3D:   return "RAY 3D"
         case .voxel3D: return "VOXEL 3D"
+        }
+    }
+}
+
+// MARK: - On-screen control mode (title-screen toggle: stick/dpad side, or hidden)
+enum ControlMode: Int, CaseIterable {
+    case hidden, stickLeft, stickRight, dpadLeft, dpadRight
+
+    static var current: ControlMode {
+        ControlMode(rawValue: Persistence.int(forKey: Strings.DefaultsKey.controlMode)) ?? .hidden
+    }
+    static func advance() {
+        Persistence.set((current.rawValue + 1) % allCases.count, forKey: Strings.DefaultsKey.controlMode)
+    }
+
+    var showsStick: Bool { self == .stickLeft || self == .stickRight }
+    var showsDpad:  Bool { self == .dpadLeft  || self == .dpadRight  }
+    var isHidden:   Bool { self == .hidden }
+    var showsControl: Bool { showsStick || showsDpad }
+    var onLeft: Bool { self == .stickLeft || self == .dpadLeft }   // movement widget side; fire button is opposite
+
+    var label: String {
+        switch self {
+        case .hidden:     return "HIDDEN"
+        case .stickLeft:  return "STICK LEFT"
+        case .stickRight: return "STICK RIGHT"
+        case .dpadLeft:   return "DPAD LEFT"
+        case .dpadRight:  return "DPAD RIGHT"
         }
     }
 }

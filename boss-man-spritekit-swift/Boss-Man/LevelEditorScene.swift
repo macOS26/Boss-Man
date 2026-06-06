@@ -41,15 +41,17 @@ struct EditorTile: Equatable {
     ]
 }
 
-// MARK: - Level store (platform-specific persistence)
-// Custom edited levels live under their own Persistence key (UserDefaults on
-// macOS, localStorage on wasm) as the rows joined by newlines; built-in levels
-// seed from the read-only Levels.officeMaps asset.
+// MARK: - Level store (JSON file on every platform)
+// Custom edited levels live in levels.json as one object { "<index>": [rows] };
+// built-in levels seed from the read-only Levels.officeMaps asset. The file is a
+// real file under Application Support on macOS (revealed in Finder by SHOW) and a
+// localStorage blob on wasm (downloaded by SHOW) — both via LevelStoreIO. The
+// payload is hand-rolled JSON because Foundation's JSONEncoder/Codable is absent
+// on the WASI toolchain.
 enum LevelStore {
     static let mapCols = 37
     static let mapRows = 17
-
-    static func key(_ index: Int) -> String { Strings.DefaultsKey.editorLevelPrefix + String(index) }
+    static let fileName = "levels.json"
 
     static func normalize(_ rows: [String]) -> [String] {
         var out = rows.map { row -> String in
@@ -62,25 +64,106 @@ enum LevelStore {
         return out
     }
 
-    static func hasOverride(index: Int) -> Bool {
-        !(Persistence.string(forKey: key(index)) ?? "").isEmpty
+    private static func overrides() -> [Int: [String]] {
+        guard let raw = LevelStoreIO.readBlob(), !raw.isEmpty else { return [:] }
+        return decode(raw)
     }
 
+    private static func writeOverrides(_ map: [Int: [String]]) {
+        LevelStoreIO.writeBlob(encode(map))
+    }
+
+    static func hasOverride(index: Int) -> Bool { overrides()[index] != nil }
+
     static func loadLevel(index: Int) -> [String] {
-        if let stored = Persistence.string(forKey: key(index)), !stored.isEmpty {
-            return normalize(stored.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
-        }
+        if let rows = overrides()[index], !rows.isEmpty { return normalize(rows) }
         let maps = Levels.officeMaps
         let safe = (index >= 0 && index < maps.count) ? maps[index] : (maps.first ?? [])
         return normalize(safe)
     }
 
     static func saveLevel(index: Int, rows: [String]) {
-        Persistence.setString(rows.joined(separator: "\n"), forKey: key(index))
+        var map = overrides(); map[index] = rows; writeOverrides(map)
     }
 
     static func resetLevel(index: Int) {
-        Persistence.setString("", forKey: key(index))
+        var map = overrides(); map[index] = nil; writeOverrides(map)
+    }
+
+    // SHOW: materialize the file and reveal it (Finder on macOS, download on wasm).
+    static func revealFile() {
+        LevelStoreIO.exportAndReveal(encode(overrides()))
+    }
+
+    // MARK: - Hand-rolled JSON (no Codable; runs on apple + WASI)
+    private static func encode(_ map: [Int: [String]]) -> String {
+        let keys = map.keys.sorted()
+        if keys.isEmpty { return "{}" }
+        var out = "{\n"
+        for (i, k) in keys.enumerated() {
+            out += "  \"\(k)\": [\n"
+            let rows = map[k] ?? []
+            for (j, row) in rows.enumerated() {
+                out += "    \"\(escape(row))\"" + (j < rows.count - 1 ? ",\n" : "\n")
+            }
+            out += "  ]" + (i < keys.count - 1 ? ",\n" : "\n")
+        }
+        return out + "}"
+    }
+
+    private static func decode(_ raw: String) -> [Int: [String]] {
+        var result: [Int: [String]] = [:]
+        let a = Array(raw), n = a.count
+        var i = 0
+        while i < n {
+            guard a[i] == "\"" else { i += 1; continue }
+            let (keyStr, afterKey) = readString(a, n, i)
+            i = afterKey
+            while i < n, a[i] == " " || a[i] == "\n" || a[i] == "\t" || a[i] == "\r" || a[i] == ":" { i += 1 }
+            guard i < n, a[i] == "[" else { continue }   // a row string, not a "<index>": [ key
+            i += 1
+            var rows: [String] = []
+            while i < n, a[i] != "]" {
+                if a[i] == "\"" {
+                    let (s, after) = readString(a, n, i)
+                    rows.append(s); i = after
+                } else { i += 1 }
+            }
+            if i < n { i += 1 }
+            if let idx = Int(keyStr) { result[idx] = rows }
+        }
+        return result
+    }
+
+    private static func readString(_ a: [Character], _ n: Int, _ start: Int) -> (String, Int) {
+        var i = start + 1, s = ""
+        while i < n, a[i] != "\"" {
+            if a[i] == "\\", i + 1 < n {
+                switch a[i + 1] {
+                case "n": s.append("\n")
+                case "t": s.append("\t")
+                case "r": s.append("\r")
+                default:  s.append(a[i + 1])
+                }
+                i += 2
+            } else { s.append(a[i]); i += 1 }
+        }
+        return (s, min(i + 1, n))
+    }
+
+    private static func escape(_ s: String) -> String {
+        var out = ""
+        for ch in s {
+            switch ch {
+            case "\"": out += "\\\""
+            case "\\": out += "\\\\"
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
+            default:   out.append(ch)
+            }
+        }
+        return out
     }
 }
 
@@ -279,6 +362,7 @@ final class LevelEditorScene: SKScene {
             (Strings.Editor.save,  SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
             (Strings.Editor.copy,  SKColor(red: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
             (Strings.Editor.paste, SKColor(red: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
+            (Strings.Editor.revealFile, SKColor(red: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal),
         ]
         btnData.append((Strings.Editor.play, SKColor(red: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), Strings.EditorButton.play))
         btnData.append((Strings.Editor.back, SKColor(red: 0.45, green: 0.4,  blue: 0.15, alpha: 1.0), Strings.EditorButton.back))
@@ -666,6 +750,7 @@ final class LevelEditorScene: SKScene {
         case Strings.EditorButton.save:   saveCurrentLevel()
         case Strings.EditorButton.copy:   copyLevel()
         case Strings.EditorButton.paste:  pasteLevel()
+        case Strings.EditorButton.reveal: LevelStore.revealFile()
         case Strings.EditorButton.play:   playCurrentLevel()
         case Strings.EditorButton.back:
             autosaveIfDirty()
