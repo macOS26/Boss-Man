@@ -622,10 +622,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             turnTaken = true
         }
         if wantDir == nil && !turnTaken {
-            let lh = pressed.contains(KeyCode.arrowLeft) || pressed.contains(KeyCode.keyA)
-                  || dpadFinger.values.contains { $0.contains("left") }
-            let rh = pressed.contains(KeyCode.arrowRight) || pressed.contains(KeyCode.keyD)
-                  || dpadFinger.values.contains { $0.contains("right") }
+            let lh = dpadFinger.values.contains { $0.contains("left") }
+            let rh = dpadFinger.values.contains { $0.contains("right") }
             if lh      { wantDir = (x: moveDir.y, y: -moveDir.x) }
             else if rh { wantDir = (x: -moveDir.y, y: moveDir.x) }
         }
@@ -928,8 +926,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
         case KeyCode.space:                     if !event.isARepeat { fire() }
-        case KeyCode.arrowLeft,  KeyCode.keyA:  pressed.insert(code); wantDir = (x: moveDir.y, y: -moveDir.x)
-        case KeyCode.arrowRight, KeyCode.keyD:  pressed.insert(code); wantDir = (x: -moveDir.y, y: moveDir.x)
+        case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
+        case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
         case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)  // about-face 180, not reverse
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
