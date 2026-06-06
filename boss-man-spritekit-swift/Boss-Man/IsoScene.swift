@@ -952,7 +952,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 if let p = isoTravelerPoints {                 // yellow point value over its head (separate node so the facing flip never mirrors the text)
                     p.isHidden = false
                     p.fontSize = max(9, isoTW * 0.34)
-                    p.position = CGPoint(x: m.position.x, y: m.position.y + isoTW * 0.9 + 2)
+                    p.position = CGPoint(x: m.position.x, y: m.position.y + isoTW * 0.9 - 8)
                     p.zPosition = m.zPosition + 0.1
                 }
             }
