@@ -871,6 +871,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         base.zPosition = 50
         uiLayer.addChild(base)
 
+        if ControlMode.current.showsDpad { installDpadFace(); return }   // DPAD: a 4-wedge cross; STICK: the follow-thumb below
+
         let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
         thumb.position = joystickCenter
         thumb.fillColor = SKColor(white: 1, alpha: 0.28)
@@ -879,6 +881,51 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         thumb.zPosition = 51
         uiLayer.addChild(thumb)
         joystickThumb = thumb
+    }
+
+    // DPAD mode: a 4-wedge directional cross (same hit-area as the stick; direction comes from joystickDirection).
+    private func installDpadFace() {
+        let dirs: [(CGFloat, String)] = [(.pi / 2, "\u{25B2}"), (.pi, "\u{25C0}"), (-.pi / 2, "\u{25BC}"), (0, "\u{25B6}")]
+        for (ang, glyph) in dirs {
+            let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang))
+            w.position = joystickCenter
+            w.fillColor = SKColor(white: 1, alpha: 0.14); w.strokeColor = .clear; w.zPosition = 51
+            uiLayer.addChild(w)
+            let arrow = SKLabelNode(text: glyph)
+            arrow.fontSize = 30; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
+            arrow.verticalAlignmentMode = .center; arrow.horizontalAlignmentMode = .center
+            let r = (joystickDeadzone + joystickRadius) / 2
+            arrow.position = CGPoint(x: joystickCenter.x + cos(ang) * r, y: joystickCenter.y + sin(ang) * r)
+            arrow.zPosition = 52
+            uiLayer.addChild(arrow)
+        }
+        let xPath = CGMutablePath()
+        for k in 0..<4 {
+            let t = CGFloat.pi / 4 + CGFloat(k) * CGFloat.pi / 2
+            xPath.move(to: CGPoint(x: cos(t) * joystickDeadzone, y: sin(t) * joystickDeadzone))
+            xPath.addLine(to: CGPoint(x: cos(t) * joystickRadius, y: sin(t) * joystickRadius))
+        }
+        let xlines = SKShapeNode(path: xPath)
+        xlines.position = joystickCenter
+        xlines.strokeColor = SKColor(white: 1, alpha: 0.5); xlines.lineWidth = 2; xlines.zPosition = 51
+        uiLayer.addChild(xlines)
+    }
+    private func dpadWedgePath(centerAngle: CGFloat) -> CGPath {
+        let inner = joystickDeadzone, outer = joystickRadius
+        let a0 = centerAngle - .pi / 4, a1 = centerAngle + .pi / 4
+        let steps = 10
+        let p = CGMutablePath()
+        for i in 0...steps {
+            let t = a0 + (a1 - a0) * CGFloat(i) / CGFloat(steps)
+            let pt = CGPoint(x: cos(t) * outer, y: sin(t) * outer)
+            if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+        }
+        for i in 0...steps {
+            let t = a1 - (a1 - a0) * CGFloat(i) / CGFloat(steps)
+            p.addLine(to: CGPoint(x: cos(t) * inner, y: sin(t) * inner))
+        }
+        p.closeSubpath()
+        return p
     }
 
     private func joystickDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {

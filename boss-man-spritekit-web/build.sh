@@ -34,9 +34,19 @@ TOOLCHAINS="$SWIFT_TOOLCHAIN" \
 
 # Auto-publish into web/ when building release so the page is one curl away.
 if [ "${CONFIG_ARGS[1]:-}" = "release" ]; then
-  cp .build/wasm32-unknown-wasip1/release/BossMan.wasm web/bossman.wasm
-  echo
-  echo "✓ Release artifact published: web/bossman.wasm"
+  REL=.build/wasm32-unknown-wasip1/release/BossMan.wasm
+  if command -v wasm-opt >/dev/null 2>&1; then
+    # wasm-opt -Oz reads the binary's own target_features section, so it only
+    # emits instructions the current runtime already supports. Squeezes a few
+    # more % out after the compiler's -Osize + wasm-ld --gc-sections dead-strip.
+    wasm-opt -Oz "$REL" -o web/bossman.wasm
+    echo
+    echo "✓ Release artifact published (wasm-opt -Oz): web/bossman.wasm"
+  else
+    cp "$REL" web/bossman.wasm
+    echo
+    echo "✓ Release artifact published (install binaryen for a smaller wasm): web/bossman.wasm"
+  fi
 else
   cp .build/wasm32-unknown-wasip1/debug/BossMan.wasm web/bossman.wasm
   echo

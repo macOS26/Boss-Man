@@ -108,6 +108,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     // Each finger lights at most one wedge; two fingers light two (forward + a turn)
     // ONLY when the phone actually has two fingers down. Keyed "up/down/left/right".
     private var dpadWedges: [String: SKShapeNode] = [:]
+    private var dpadThumb: SKShapeNode?            // STICK mode: the follow-thumb over the same angle->direction logic
     private var dpadFinger: [Int: String] = [:]   // active finger id -> its wedge
     private var usingTouch = false                 // a real touch arrived: ignore the synthetic mouse pointer
     private var fireButtonCenter = CGPoint.zero
@@ -1538,6 +1539,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         base.fillColor = SKColor(white: 1, alpha: 0.06); base.strokeColor = SKColor(white: 1, alpha: 0.5)
         base.lineWidth = 2; base.zPosition = 300
         addChild(base)
+        if ControlMode.current.showsStick { addStickThumb(); return }   // STICK: a round follow-thumb instead of the wedge cross
         // Four ring-sector wedges split by an X = the D-pad buttons. A diagonal press
         // lights two and steers forward + a turn together. Arrow glyph in each wedge.
         let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25C0}"),
@@ -1568,6 +1570,21 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         xlines.strokeColor = SKColor(white: 1, alpha: 0.5); xlines.lineWidth = 2
         xlines.zPosition = 301
         addChild(xlines)
+    }
+    // STICK mode: a thumb knob that rides the finger; direction still comes from dpadWedgeAt (shared angle logic).
+    private func addStickThumb() {
+        let thumb = SKShapeNode(circleOfRadius: joystickRadius * 0.42)
+        thumb.position = joystickCenter
+        thumb.fillColor = SKColor(white: 1, alpha: 0.22); thumb.strokeColor = SKColor(white: 1, alpha: 0.6)
+        thumb.lineWidth = 2; thumb.zPosition = 301
+        addChild(thumb); dpadThumb = thumb
+    }
+    private func moveStickThumb(to p: CGPoint, release: Bool) {
+        guard let thumb = dpadThumb else { return }
+        if release { thumb.position = joystickCenter; return }
+        let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
+        let mag = (dx * dx + dy * dy).squareRoot(), lim = joystickRadius * 0.58
+        thumb.position = (mag > lim && mag > 0) ? CGPoint(x: joystickCenter.x + dx / mag * lim, y: joystickCenter.y + dy / mag * lim) : p
     }
 
     // Ring-sector wedge (deadzone radius -> outer radius), a full 90° so the four
@@ -1647,6 +1664,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let prev = dpadFinger[finger] ?? ""
         let w = phase == 2 ? "" : dpadWedgeAt(p)
         if w.isEmpty { dpadFinger[finger] = nil } else { dpadFinger[finger] = w }
+        moveStickThumb(to: p, release: phase == 2)
         // Queue an absolute grid heading the moment a finger ENTERS a wedge (Pete auto-moves, Pac-Man style).
         if !w.isEmpty, w != prev {
             switch w {
