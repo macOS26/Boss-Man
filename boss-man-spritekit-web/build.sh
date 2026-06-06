@@ -19,7 +19,7 @@ CONFIG_ARGS=()
 PASSTHROUGH=()
 for arg in "$@"; do
   case "$arg" in
-    release) CONFIG_ARGS=(-c release -Xswiftc -Osize -Xlinker -s) ;;  # -Osize + strip symbols: ~44% smaller wasm (11.7MB->6.6MB), no behaviour change
+    release) CONFIG_ARGS=(-c release -Xswiftc -Osize -Xlinker -s -Xswiftc -Xfrontend -Xswiftc -disable-reflection-metadata) ;;  # -Osize + strip + drop reflection field metadata (Mirror only; conformance/cast metadata kept). LTO/hermetic-seal externalize the runtime DSO-image hook and break wasm instantiation
     debug)   CONFIG_ARGS=(-c debug)   ;;
     *)       PASSTHROUGH+=("$arg")    ;;
   esac
