@@ -249,7 +249,7 @@ class Runtime {
   // ==========================================================================
   wasiImports() {
     const WASI_EBADF = 8;
-    return {
+    const impl = {
       fd_write: (fd, iovsPtr, iovsLen, nwrittenPtr) => {
         const dv = this.dv();
         const parts = [];
@@ -287,6 +287,23 @@ class Runtime {
         return 0;
       },
       fd_fdstat_set_flags: (_fd, _flags) => 0,
+      fd_filestat_get: (_fd, statPtr) => {
+        // zero the 64-byte WASI filestat so callers see a benign, empty descriptor
+        const dv = this.dv();
+        for (let i = 0; i < 64; i++) dv.setUint8(statPtr + i, 0);
+        return 0;
+      },
+      path_filestat_get: (_fd, _flags, _pathPtr, _pathLen, statPtr) => {
+        // no virtual filesystem: report ENOENT(44), same as path_open
+        const dv = this.dv();
+        for (let i = 0; i < 64; i++) dv.setUint8(statPtr + i, 0);
+        return 44;
+      },
+      // FS syscalls that write an out-pointer: zero it so callers never read garbage.
+      fd_pread: (_fd, _iovsPtr, _iovsLen, _offLo, _offHi, nreadPtr) => { this.dv().setUint32(nreadPtr, 0, true); return 0; },
+      fd_readdir: (_fd, _buf, _bufLen, _cookieLo, _cookieHi, bufusedPtr) => { this.dv().setUint32(bufusedPtr, 0, true); return 0; },
+      fd_tell: (_fd, offsetPtr) => { const dv = this.dv(); dv.setUint32(offsetPtr, 0, true); dv.setUint32(offsetPtr + 4, 0, true); return 0; },
+      path_readlink: (_fd, _p, _pl, _buf, _bufLen, bufusedPtr) => { this.dv().setUint32(bufusedPtr, 0, true); return 44; },
       environ_sizes_get: (countPtr, sizePtr) => {
         const dv = this.dv();
         dv.setUint32(countPtr, 0, true);
@@ -328,6 +345,11 @@ class Runtime {
       },
       sched_yield: () => 0,
     };
+    // Any WASI fn not explicitly shimmed above resolves to a benign no-op returning 0 (success),
+    // so Foundation pulling in extra fs/time syscalls (fd_filestat_set_size, path_rename, ...) never
+    // breaks linking. The output-writing ones (fd_read/seek/tell/pread/readdir, *_filestat_get) are
+    // shimmed explicitly so callers never read uninitialized out-pointers.
+    return new Proxy(impl, { get: (t, p) => (p in t ? t[p] : () => 0) });
   }
 
   // ==========================================================================
