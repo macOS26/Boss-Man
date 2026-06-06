@@ -85,14 +85,16 @@ void drawRoundedRect(sf::RenderTarget& t, const sf::FloatRect& r, float radius,
         }
     }
     body.setFillColor(fill);
-    t.draw(body);
+    // One shape carrying both fill and outline: the web shim emulates an outline by
+    // filling the outward-expanded polygon BEHIND the fill, so the solid fill covers
+    // the interior and the stroke shows only as the ring outside it. A separate
+    // transparent-fill border shape would instead paint the stroke colour over the
+    // whole interior (no hollow-ring primitive on web), washing the fill out.
     if (lineWidth > 0.f && stroke.a > 0) {
-        sf::ConvexShape border = body;
-        border.setFillColor(sf::Color::Transparent);
-        border.setOutlineColor(stroke);
-        border.setOutlineThickness(lineWidth);
-        t.draw(border);
+        body.setOutlineColor(stroke);
+        body.setOutlineThickness(lineWidth);
     }
+    t.draw(body);
 }
 } // namespace
 

@@ -414,10 +414,10 @@ class Runtime {
       },
       gfx_set_blend: (mode) => {
         const c = this.ctx2d();
+        c.globalAlpha = 1;   // SFML carries alpha in the fill/vertex colour; never inherit a leaked globalAlpha (it washed opaque shape fills out)
         switch (mode) {
           case 1: c.globalCompositeOperation = 'lighter'; break;
           case 2: c.globalCompositeOperation = 'multiply'; break;
-          case 3: c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; break;
           default: c.globalCompositeOperation = 'source-over'; break;
         }
       },
