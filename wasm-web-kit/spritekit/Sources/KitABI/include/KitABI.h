@@ -210,6 +210,8 @@ double sb64_floor(double x);
 double sb64_ceil(double x);
 double sb64_fmod(double a, double b);
 double sb64_pow(double a, double b);
+double sb64_exp(double x);
+double sb64_tanh(double x);
 double sb64_hypot(double x, double y);
 int    sb64_rand(void);
 void   sb64_srand(unsigned int seed);

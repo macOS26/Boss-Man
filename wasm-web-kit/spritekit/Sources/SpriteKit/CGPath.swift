@@ -122,8 +122,10 @@ public final class CGMutablePath {
 }
 public typealias CGPath = CGMutablePath
 
-// Trig helper: per-frame action math needs sin/cos/atan2 once in a while. We
-// piggyback on Foundation/libm; the 16-entry unit-circle is for tight loops.
+// Math helpers — C libm wrappers exposed to Swift so game code can call
+// sin/cos/exp/tanh/pow without importing Foundation. Foundation drags ICU
+// into the wasm binary; these free-function overloads replace it for Float
+// and Double. (CGFloat == Double, so the CGFloat overloads cover Double.)
 public func sincos(_ a: Double) -> (Double, Double) {
     let s = sb64_sin(a), c = sb64_cos(a)
     return (c, s)
@@ -131,6 +133,16 @@ public func sincos(_ a: Double) -> (Double, Double) {
 public func atan2c(_ y: CGFloat, _ x: CGFloat) -> CGFloat { CGFloat(sb64_atan2(Double(y), Double(x))) }
 public func cos(_ x: CGFloat) -> CGFloat { sb64_cos(x) }
 public func sin(_ x: CGFloat) -> CGFloat { sb64_sin(x) }
+public func sin(_ x: Float) -> Float { Float(sb64_sin(Double(x))) }
+public func cos(_ x: Float) -> Float { Float(sb64_cos(Double(x))) }
+public func exp(_ x: Float) -> Float { Float(sb64_exp(Double(x))) }
+public func exp(_ x: Double) -> Double { sb64_exp(x) }
+public func tanh(_ x: Float) -> Float { Float(sb64_tanh(Double(x))) }
+public func tanh(_ x: Double) -> Double { sb64_tanh(x) }
+public func pow(_ base: Float, _ exp: Float) -> Float { Float(sb64_pow(Double(base), Double(exp))) }
+public func pow(_ base: Double, _ exp: Double) -> Double { sb64_pow(base, exp) }
+public func floor(_ x: Float) -> Float { Float(sb64_floor(Double(x))) }
+public func floor(_ x: Double) -> Double { sb64_floor(x) }
 
 // 32-entry quarter-rotation unit circle for coarse ellipse/arc flattening.
 func unitCircle(_ i: Int, of n: Int) -> (Double, Double) {

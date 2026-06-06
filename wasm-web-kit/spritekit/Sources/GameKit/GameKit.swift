@@ -1,4 +1,3 @@
-import Foundation
 import SpriteKit
 import UIKit
 import KitABI
@@ -132,7 +131,13 @@ public final class GKGameCenterViewController: UIViewController {
 
 // GK callbacks all use Swift.Error — comes from the stdlib, no redeclaration needed.
 
+#if canImport(ObjectiveC)
+// On macOS, GameKit notification constants extend Foundation's Notification.Name.
+// On wasm the observer code is behind canImport(ObjectiveC) and never compiles,
+// so there's no reference to resolve.
+import Foundation
 public extension Notification.Name {
     static let GKPlayerAuthenticationDidChangeNotificationName =
         Notification.Name("GKPlayerAuthenticationDidChangeNotificationName")
 }
+#endif

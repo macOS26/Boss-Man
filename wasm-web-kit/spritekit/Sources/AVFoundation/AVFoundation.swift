@@ -1,4 +1,4 @@
-import SpriteKit
+@_exported import SpriteKit
 import KitABI
 
 // =============================================================================
