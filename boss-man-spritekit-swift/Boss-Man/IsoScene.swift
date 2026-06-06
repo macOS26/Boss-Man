@@ -221,19 +221,15 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar   // gold disc is a round billboard, not a raised block
     }
 
-    // SpriteFactory.wallTile's vector pieces (no noise) projected onto one face: an inset panel border into
-    // `border`, and the gray monitor trim band into `trim` (top face only, so each cubicle shows ONE bar like
-    // the top-down tile). Corners are bottom-left,bottom-right,top-right,top-left in the face's own 2D sense.
-    private func appendCubicleDetail(_ bl: CGPoint, _ br: CGPoint, _ tr: CGPoint, _ tl: CGPoint,
-                                     _ trim: CGMutablePath, _ border: CGMutablePath, withTrim: Bool) {
+    // SpriteFactory.wallTile's gray monitor trim band (no noise, no frame) projected onto the top face, so each
+    // cubicle shows ONE bar like the top-down tile. Corners are bottom-left,bottom-right,top-right,top-left.
+    private func appendCubicleTrim(_ bl: CGPoint, _ br: CGPoint, _ tr: CGPoint, _ tl: CGPoint, _ trim: CGMutablePath) {
         func L(_ u: CGFloat, _ v: CGFloat) -> CGPoint {
             let bx = bl.x + (br.x - bl.x) * u, by = bl.y + (br.y - bl.y) * u
             let tx = tl.x + (tr.x - tl.x) * u, ty = tl.y + (tr.y - tl.y) * u
             return CGPoint(x: bx + (tx - bx) * v, y: by + (ty - by) * v)
         }
-        let i: CGFloat = 0.08
-        border.move(to: L(i, i)); border.addLine(to: L(1 - i, i)); border.addLine(to: L(1 - i, 1 - i)); border.addLine(to: L(i, 1 - i)); border.closeSubpath()
-        if withTrim { addSub(trim, L(0.18, 0.64), L(0.82, 0.64), L(0.82, 0.78), L(0.18, 0.78)) }
+        addSub(trim, L(0.18, 0.64), L(0.82, 0.64), L(0.82, 0.78), L(0.18, 0.78))
     }
 
     private func buildIso() {
@@ -253,7 +249,6 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let floorEdge = SKColor(white: 0.16, alpha: 1)
         let dotFront = SKColor.systemYellow.blended(withFraction: 0.30, of: .black) ?? .systemYellow   // same shading the walls use
         let dotSide  = SKColor.systemYellow.blended(withFraction: 0.50, of: .black) ?? .systemYellow
-        let borderColor = cube.blended(withFraction: 0.35, of: .white) ?? cube   // cubicle panel frame: lighter than every shaded face so it reads on top/front/side alike
         let mid = Double(colsCount) / 2
         // FPS: coalesce same-colour faces of a depth row into ONE SKShapeNode (many subpaths, one draw).
         // Parity splits each face-type into two nodes (even/odd) so the checker + block alternation reads.
@@ -262,7 +257,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
             let z = CGFloat(r) * 4                          // near rows (high r) draw over far rows (painter's)
             let pFloor = [CGMutablePath(), CGMutablePath()], pFront = [CGMutablePath(), CGMutablePath()]
             let pSide = [CGMutablePath(), CGMutablePath()], pTop = [CGMutablePath(), CGMutablePath()]
-            let pTrim = CGMutablePath(), pBorder = CGMutablePath()   // cubicle detail batched per row (one gray-fill + one border-stroke node)
+            let pTrim = CGMutablePath()                     // cubicle gray trim bars batched per row (one fill node)
             var hasFloor = [false, false], hasFront = [false, false], hasSide = [false, false], hasTop = [false, false]
             var hasWall = false
             var dotCols: [Int] = []
@@ -274,11 +269,10 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                     let tNW = proj(dc, Double(r), 1), tNE = proj(dc + 1, Double(r), 1)
                     let tSE = proj(dc + 1, Double(r + 1), 1), tSW = proj(dc, Double(r + 1), 1)
                     addSub(pFront[par], fSW, fSE, tSE, tSW); hasFront[par] = true
-                    appendCubicleDetail(fSW, fSE, tSE, tSW, pTrim, pBorder, withTrim: false)   // front face: panel frame only
-                    if dc + 0.5 < mid { addSub(pSide[par], fNE, fSE, tSE, tNE); hasSide[par] = true; appendCubicleDetail(fSE, fNE, tNE, tSE, pTrim, pBorder, withTrim: false) }   // east face (left of centre)
-                    else if dc + 0.5 > mid { addSub(pSide[par], fNW, fSW, tSW, tNW); hasSide[par] = true; appendCubicleDetail(fSW, fNW, tNW, tSW, pTrim, pBorder, withTrim: false) }   // west face (right of centre)
+                    if dc + 0.5 < mid { addSub(pSide[par], fNE, fSE, tSE, tNE); hasSide[par] = true }   // east face (left of centre)
+                    else if dc + 0.5 > mid { addSub(pSide[par], fNW, fSW, tSW, tNW); hasSide[par] = true }   // west face (right of centre)
                     addSub(pTop[par], tNW, tNE, tSE, tSW); hasTop[par] = true
-                    appendCubicleDetail(tSW, tSE, tNE, tNW, pTrim, pBorder, withTrim: true)   // top face: full cubicle (frame + gray trim bar)
+                    appendCubicleTrim(tSW, tSE, tNE, tNW, pTrim)   // gray monitor bar on the top face
                     hasWall = true
                 } else {
                     addSub(pFloor[par], fNW, fNE, fSE, fSW); hasFloor[par] = true
@@ -291,9 +285,8 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
                 if hasFront[par] { addQuad(pFront[par], frontP[par], frontP[par], z + 0.2) }
                 if hasTop[par]   { addQuad(pTop[par], topP[par], edgeP[par], z + 0.3) }
             }
-            if hasWall {                                    // gray monitor bars (top faces) + cubicle panel frames (all faces), one batched node each
+            if hasWall {                                    // gray monitor bars (top faces), one batched fill node
                 let t = SKShapeNode(path: pTrim); t.fillColor = SpriteFactory.wallTrimColor; t.strokeColor = .clear; t.lineWidth = 0; t.isAntialiased = false; t.zPosition = z + 0.40; isoMaze.addChild(t)
-                let b = SKShapeNode(path: pBorder); b.fillColor = .clear; b.strokeColor = borderColor; b.lineWidth = 1.2; b.isAntialiased = false; b.zPosition = z + 0.42; isoMaze.addChild(b)
             }
             if !dotCols.isEmpty {                            // the row's dots batched (front + side + top, like the walls); rebuilt only on pickup
                 isoDotRowCells[r] = dotCols
