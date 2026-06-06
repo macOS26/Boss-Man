@@ -78,6 +78,28 @@ void quad(sf::VertexArray& va, sf::Vector2f a, sf::Vector2f b, sf::Vector2f c, s
     va.append(sf::Vertex(d, col));
 }
 
+// Layered power-up disc, matching SpriteFactory.goldDiscVisual / waterPelletVisual:
+// soft halo (coreR*1.35), solid core (coreR) with a thin stroke, white specular
+// (coreR*0.3) offset up-left. `c` is the disc CENTRE in y-down screen space.
+void drawPowerDisc(sf::RenderTarget& t, sf::Vector2f c, float coreR, bool gold, uint8_t a) {
+    auto disc = [&](float radius, sf::Color fill, float strokeW, sf::Color stroke, float ox, float oy) {
+        sf::CircleShape s(radius, 28);
+        s.setOrigin(radius, radius);
+        s.setPosition(c.x + ox, c.y - oy);   // oy is y-up
+        s.setFillColor(fill);
+        if (strokeW > 0.f) { s.setOutlineThickness(strokeW); s.setOutlineColor(stroke); }
+        t.draw(s);
+    };
+    sf::Color halo = gold ? sf::Color(255, 231, 0, (uint8_t)(0.30f * a)) : sf::Color(50, 200, 240, (uint8_t)(0.25f * a));
+    sf::Color core = gold ? sf::Color(255, 231, 0, (uint8_t)(0.85f * a)) : sf::Color(50, 200, 240, (uint8_t)(0.85f * a));
+    sf::Color strokeC = gold ? sf::Color(178, 127, 0, a) : sf::Color(10, 122, 255, a);
+    float strokeW = std::max(1.f, coreR * (gold ? 0.10f : 0.14f));
+    disc(coreR * 1.35f, halo, 0.f, sf::Color::Transparent, 0.f, 0.f);
+    disc(coreR, core, strokeW, strokeC, 0.f, 0.f);
+    disc(coreR * 0.3f, sf::Color(255, 255, 255, (uint8_t)(0.75f * a)), 0.f, sf::Color::Transparent,
+         -coreR * 0.28f, coreR * 0.28f);
+}
+
 } // namespace
 
 IsoScene::IsoScene(SoundManager& sound, RoundState& state,
@@ -104,6 +126,7 @@ IsoScene::IsoScene(SoundManager& sound, RoundState& state,
     setupControllers();
     buildIso();
     buildPickups();
+    buildRadar();
     travelerSpawner_.setSound(&sound_);
     travelerSpawner_.reset();
     travelerSpawner_.scheduleVisits(state_.level, *pathfinder_);
@@ -629,6 +652,26 @@ sf::Vector2f IsoScene::mapLocal(double x, double y) const {
     return {sx, sy};
 }
 
+// The radar floor checker + walls never change, so batch them into ONE vertex array
+// built once (was ~600 RectangleShapes / draw calls per frame).
+void IsoScene::buildRadar() {
+    float mapH = (float)rowsCount_ * mapCell_, mapW = (float)colsCount_ * mapCell_;
+    mapScale_ = (radarH_ - 8.f) / mapH;
+    mapOrigin_ = sf::Vector2f((viewW_ - mapW * mapScale_) / 2.f, 4.f);
+    float h = mapCell_ * mapScale_ / 2.f;
+    const Color cub = CUBICLE_COLORS[(state_.level - 1) % 12];
+    sf::Color wallCol = mul(cub, 0.55f);
+    radarStaticVA_ = sf::VertexArray(sf::Quads);
+    for (int r = 0; r < rowsCount_; ++r)
+        for (int c = 0; c < (int)map_[r].size(); ++c) {
+            sf::Vector2f p = mapLocal(c + 0.5, r + 0.5);
+            sf::Color fc = ((c + r) % 2 == 0) ? sf::Color(28, 31, 33) : sf::Color(23, 26, 28);
+            quad(radarStaticVA_, {p.x - h, p.y - h}, {p.x + h, p.y - h}, {p.x + h, p.y + h}, {p.x - h, p.y + h}, fc);
+            if (map_[r][c] == Tile::wall)
+                quad(radarStaticVA_, {p.x - h, p.y - h}, {p.x + h, p.y - h}, {p.x + h, p.y + h}, {p.x - h, p.y + h}, wallCol);
+        }
+}
+
 // MARK: - Input
 
 void IsoScene::keyDown(int code, bool isRepeat) {
@@ -759,15 +802,12 @@ void IsoScene::drawSpritesForRow(sf::RenderTarget& target, int row) {
         uint8_t a = (uint8_t)(p.alpha * 255);
         if (p.kind == Tile::goldDisc || p.kind == Tile::waterPellet) {
             bool gold = (p.kind == Tile::goldDisc);
-            double sz = isoTW_ * (gold ? 0.34 : 0.30) * perspScale(rw);
-            double throb = 1.0 + 0.18 * (0.5 - 0.5 * std::cos(animTime_ * 6.0));
-            float rr = (float)(sz * throb);
-            sf::Vector2f c = toScreen(proj(col, rw, 0));
-            c.y -= 6.f;
-            sf::CircleShape disc(rr, 20);
-            disc.setOrigin(rr, rr); disc.setPosition(c);
-            disc.setFillColor(gold ? sf::Color(255, 231, 0, a) : sf::Color(50, 200, 240, a));
-            target.draw(disc);
+            double peak = gold ? 1.18 : 1.25;                 // throbbing(peak, 0.5) -> 1s period
+            double throb = 1.0 + (peak - 1.0) * (0.5 - 0.5 * std::cos(animTime_ * 6.2832));
+            float baseHalo = (float)(isoTW_ * 0.35 * perspScale(rw));   // disc height = isoTW*0.7 (placeIsoSprite targetH)
+            sf::Vector2f foot = toScreen(proj(col, rw, 0));
+            sf::Vector2f c(foot.x, foot.y - baseHalo - 6.f);  // feet planted on the floor + the Swift +6 lift
+            drawPowerDisc(target, c, (float)(baseHalo / 1.35 * throb), gold, a);
         } else {
             double sz = isoTW_ * 0.7;
             double throb = (p.kind == Tile::waterGun) ? 1.0 + 0.18 * (0.5 - 0.5 * std::cos(animTime_ * 6.0)) : 1.0;
@@ -779,16 +819,12 @@ void IsoScene::drawSpritesForRow(sf::RenderTarget& target, int row) {
         }
     }
 
-    // Shots (cyan water pellets).
+    // Shots (cyan water pellets): same layered disc, height isoTW*0.34, lifted 0.55, feet planted.
     for (auto& s : shots_) {
         if (!s.alive || (int)std::floor(s.y) != row) continue;
-        double sz = isoTW_ * 0.34 * perspScale(s.y);
-        sf::Vector2f c = toScreen(proj(s.x, s.y, 0.55));
-        float rr = (float)(sz * 0.5);
-        sf::CircleShape disc(rr, 16);
-        disc.setOrigin(rr, rr); disc.setPosition(c);
-        disc.setFillColor(sf::Color(50, 200, 240, 217));
-        target.draw(disc);
+        float baseHalo = (float)(isoTW_ * 0.17 * perspScale(s.y));
+        sf::Vector2f foot = toScreen(proj(s.x, s.y, 0.55));
+        drawPowerDisc(target, sf::Vector2f(foot.x, foot.y - baseHalo), baseHalo / 1.35f, false, 255);
     }
 
     // Traveler (fish/treat).
@@ -853,31 +889,26 @@ void IsoScene::drawSky(sf::RenderTarget& target) {
 }
 
 void IsoScene::drawMap(sf::RenderTarget& target) {
-    float mapH = (float)rowsCount_ * mapCell_, mapW = (float)colsCount_ * mapCell_;
-    mapScale_ = (radarH_ - 8.f) / mapH;
-    mapOrigin_ = sf::Vector2f((viewW_ - mapW * mapScale_) / 2.f, 4.f);
-
     sf::RectangleShape panel({viewW_, radarH_});
     panel.setPosition(0.f, viewHeight_ - radarH_);
     panel.setFillColor(sf::Color(10, 10, 13));
     target.draw(panel);
 
-    float cell = mapCell_ * mapScale_;
-    const Color cub = CUBICLE_COLORS[(state_.level - 1) % 12];
-    for (int r = 0; r < rowsCount_; ++r)
-        for (int c = 0; c < (int)map_[r].size(); ++c) {
-            sf::Vector2f p = mapLocal(c + 0.5, r + 0.5);
-            sf::RectangleShape floor({cell, cell});
-            floor.setOrigin(cell / 2.f, cell / 2.f); floor.setPosition(p);
-            floor.setFillColor((c + r) % 2 == 0 ? sf::Color(28, 31, 33) : sf::Color(23, 26, 28));
-            target.draw(floor);
-            if (map_[r][c] == Tile::wall) {
-                sf::RectangleShape wall({cell, cell});
-                wall.setOrigin(cell / 2.f, cell / 2.f); wall.setPosition(p);
-                wall.setFillColor(mul(cub, 0.55f));
-                target.draw(wall);
+    target.draw(radarStaticVA_);   // batched floor checker + walls (one draw call)
+
+    // Dots batched into one vertex array (one draw call instead of ~200 circles).
+    {
+        float dh = mapCell_ * 0.1f * mapScale_;
+        sf::VertexArray dotsVA(sf::Quads);
+        for (int r = 0; r < rowsCount_; ++r)
+            for (int c = 0; c < (int)map_[r].size(); ++c) {
+                if (!isDotTile(map_[r][c]) || isoDotCollected_.count(mapKey(c, r))) continue;
+                sf::Vector2f p = mapLocal(c + 0.5, r + 0.5);
+                quad(dotsVA, {p.x - dh, p.y - dh}, {p.x + dh, p.y - dh},
+                     {p.x + dh, p.y + dh}, {p.x - dh, p.y + dh}, sf::Color(255, 231, 0));
             }
-        }
+        if (dotsVA.getVertexCount()) target.draw(dotsVA);
+    }
 
     for (auto& p : pickups_) {
         if (!p.alive) continue;
@@ -895,17 +926,6 @@ void IsoScene::drawMap(sf::RenderTarget& target) {
             drawEmoji(target, pickupEmoji(p.kind), pos, mapCell_ * 0.7f * mapScale_, sf::Color(255, 255, 255, a));
         }
     }
-    // Dots on the radar.
-    for (int r = 0; r < rowsCount_; ++r)
-        for (int c = 0; c < (int)map_[r].size(); ++c) {
-            if (!isDotTile(map_[r][c]) || isoDotCollected_.count(mapKey(c, r))) continue;
-            sf::Vector2f pos = mapLocal(c + 0.5, r + 0.5);
-            float r2 = mapCell_ * 0.1f * mapScale_;
-            sf::CircleShape dot(r2, 10); dot.setOrigin(r2, r2); dot.setPosition(pos);
-            dot.setFillColor(sf::Color(255, 231, 0));
-            target.draw(dot);
-        }
-
     for (size_t i = 0; i < bossController_.entities.size(); ++i) {
         auto& e = bossController_.entities[i];
         if (!e.isActive && !e.isCaptured && !e.captureReturning) continue;

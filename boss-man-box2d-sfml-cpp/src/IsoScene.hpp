@@ -149,6 +149,8 @@ private:
     sf::Vector2f mapLocal(double x, double y) const;
     int mapKey(int c, int r) const { return r * colsCount_ + c; }
     std::unordered_set<int> hiddenPickups_;
+    sf::VertexArray radarStaticVA_;   // floor checker + walls, batched once (one draw call)
+    void buildRadar();
 
     // Score popups (rise + fade), same flavours as VoxelScene.
     struct MiniPop { std::string text; sf::Vector2f pos; float timer; float fontSize; };
