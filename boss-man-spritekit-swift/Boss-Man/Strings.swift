@@ -170,7 +170,7 @@ enum Strings {
         static let leaderboard            = "BossMan.leaderboard"
         static let localHighScores        = "BossMan.leaderboard"
         static let playerName             = "BossMan.playerName"
-        static let localLeaderboardUsername = "BossMan.username"
+        static let localLeaderboardName   = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
         static let mazeZoom               = "BossMan.mazeZoom"

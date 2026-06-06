@@ -14,7 +14,7 @@ struct LocalHighScores {
 
     static let maxEntries = 10
     private static let storeKey = Strings.DefaultsKey.localHighScores
-    private static let usernameKey = Strings.DefaultsKey.localLeaderboardUsername
+    private static let usernameKey = Strings.DefaultsKey.localLeaderboardName
 
     // MARK: - Username
     static var savedUsername: String? {

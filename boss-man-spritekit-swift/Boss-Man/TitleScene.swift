@@ -92,8 +92,7 @@ final class TitleScene: SKScene {
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
         fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "FULLSCREEN", y: promptY - 74, color: .systemRed)
         escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "WINDOW", y: promptY, color: .systemTeal)   // even with EDITOR
-        mazeLabel       = makeHint(icon: "", iconSize: 42, value: mazeText(), y: promptY + 74, color: .systemPurple,
-                                    sprite: SpriteFactory.bossPersonForBlueprint(1))
+        mazeLabel       = makeHint(icon: "📷", iconSize: 42, value: mazeText(), y: promptY + 74, color: .systemPurple)
         bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: promptY - 74, color: .systemIndigo, left: true,
                                    sprite: SpriteFactory.bossPersonForBlueprint(0))
         waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: promptY, color: .systemOrange, left: true)   // GUN even with PLAY
