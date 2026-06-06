@@ -221,12 +221,12 @@ final class HUD {
         }
     }
 
-    // ASCII-only uppercase. String.uppercased() drags ICU's tables into the wasm,
-    // so map a-z to A-Z by scalar and leave everything else (emoji, digits) alone.
+    // ASCII-only uppercase over UTF-8 bytes; String.uppercased()/.unicodeScalars
+    // pull stdlib Unicode machinery, and multibyte UTF-8 is never in the a-z range.
     private static func allCaps(_ s: String) -> String {
-        String(String.UnicodeScalarView(s.unicodeScalars.map {
-            ($0.value >= 97 && $0.value <= 122) ? Unicode.Scalar($0.value - 32)! : $0
-        }))
+        var b = Array(s.utf8)
+        for i in b.indices where b[i] >= 97 && b[i] <= 122 { b[i] &-= 32 }
+        return String(decoding: b, as: UTF8.self)
     }
 
     private static let emojiByName: [String: String] = [

@@ -32,10 +32,9 @@ struct LocalHighScores {
     // upcase compare: String.uppercased() would drag ICU's tables into the wasm.
     private static func isAnonymous(_ name: String) -> Bool {
         if name.isEmpty { return true }
-        let up = String(String.UnicodeScalarView(name.unicodeScalars.map {
-            ($0.value >= 97 && $0.value <= 122) ? Unicode.Scalar($0.value - 32)! : $0
-        }))
-        return up == "ANON"
+        var b = Array(name.utf8)
+        for i in b.indices where b[i] >= 97 && b[i] <= 122 { b[i] &-= 32 }
+        return b == Array("ANON".utf8)
     }
 
     // MARK: - Write (per-name best)
