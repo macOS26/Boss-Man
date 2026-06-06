@@ -230,13 +230,26 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
             sf::FloatRect r(cx - bw / 2.f, yc - bh / 2.f, bw, bh);
             drawRoundedRect(target, r, 12.f, fill, border, 2.f);
             float ly = yc - textDY;
-            drawEmoji(target, emoji, sf::Vector2f(cx - bw / 2.f + 40.f, ly), 42.f);
+            if (emoji) {
+                drawEmoji(target, emoji, sf::Vector2f(cx - bw / 2.f + 40.f, ly), 42.f);
+            } else {
+                // Yellow vector play-triangle (matches the SpriteKit playTriangle): apex points right.
+                float ix = cx - bw / 2.f + 40.f, iy = ly;
+                const float tw = 22.f, th = 26.f;
+                sf::ConvexShape tri;
+                tri.setPointCount(3);
+                tri.setPoint(0, sf::Vector2f(ix - tw / 2.f, iy - th / 2.f));
+                tri.setPoint(1, sf::Vector2f(ix - tw / 2.f, iy + th / 2.f));
+                tri.setPoint(2, sf::Vector2f(ix + tw / 2.f, iy));
+                tri.setFillColor(sf::Color(255, 204, 0));   // systemYellow
+                target.draw(tri);
+            }
             drawText(target, fontWide_, label, 34, sf::Color::White,
                      cx - bw / 2.f + 84.f, ly, 0, 0.f, 255, "EDITOR", true);
             return r;
         };
         playRect_   = button(W / 2.f - bw / 2.f - gap / 2.f, sf::Color(33, 157, 64),
-                             "\xf0\x9f\x95\xb9\xef\xb8\x8f", "PLAY", -1.f);   // 🕹️ systemGreen
+                             nullptr, "PLAY", -1.f);   // yellow play-triangle, systemGreen
         editorRect_ = button(W / 2.f + bw / 2.f + gap / 2.f, sf::Color(0, 108, 192),
                              "\xe2\x9c\x8f\xef\xb8\x8f", "EDITOR", 0.f);      // ✏️ systemBlue
     }
@@ -295,12 +308,12 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         windowRect_     = hint(cxRight, playYSK, sf::Color(0, 157, 168),
             "\xf0\x9f\xaa\x9f", "WINDOW");                               // 🪟 systemTeal (even with EDITOR)
         mazeZoomRect_   = hint(cxRight, playYSK + 74.f, sf::Color(164, 41, 182),
-            "", MazeZoom::label(), 1);                                  // pink boss (Dom) icon, systemPurple
+            "\xf0\x9f\x93\xb7", MazeZoom::label());                     // 📷 camera, systemPurple
         bossTracksRect_ = hint(cxLeft, playYSK - 74.f, sf::Color(80, 92, 192),
             "", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDSTER", 0); // red boss (Bill) icon, systemIndigo
-        waterGunRect_   = hint(cxLeft, playYSK, sf::Color(192, 108, 33),  // GUN even with PLAY
-            "\xf0\x9f\x94\xab",                                          // 🔫 systemOrange
-            Settings::waterGunHide() ? "HIDDEN" : (Settings::waterGunLeft() ? "LEFT" : "RIGHT"));
+        waterGunRect_   = hint(cxLeft, playYSK, sf::Color(192, 108, 33),  // control mode, even with PLAY
+            "\xf0\x9f\x95\xb9\xef\xb8\x8f",                              // 🕹️ systemOrange
+            ControlMode::label());
     }
 }
 

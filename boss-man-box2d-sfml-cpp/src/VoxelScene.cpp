@@ -119,9 +119,9 @@ VoxelScene::VoxelScene(SoundManager& sound, RoundState& state,
     // On-screen controls (joystick + fire button), unless the Water Gun setting hides
     // them. Centers are stored in SFML y-down logical coords (the bottom corner),
     // tucked 15px above the bottom edge like the SpriteKit installFireButton.
-    if (!Settings::waterGunHide()) {
+    if (ControlMode::showsControl()) {
         controlsShown_ = true;
-        bool fireOnLeft = Settings::waterGunLeft();
+        bool fireOnLeft = !ControlMode::onLeft();   // fire button opposite the movement widget
         float bottomY = viewHeight_ - (fireButtonRadius_ + 15.f);
         fireButtonCenter_ = sf::Vector2f(fireOnLeft ? fireButtonRadius_ : viewW_ - fireButtonRadius_,
                                          bottomY);

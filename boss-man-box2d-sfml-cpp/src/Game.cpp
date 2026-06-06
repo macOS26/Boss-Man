@@ -364,17 +364,7 @@ void Game::handleTitleHit(float x, float y) {
     case TitleScreen::Hit::Play:       input.pRequested = true; break;
     case TitleScreen::Hit::Editor:     input.eRequested = true; break;
     case TitleScreen::Hit::BossTracks: Settings::setBossTracksSquare(!Settings::bossTracksSquare()); break;
-    case TitleScreen::Hit::WaterGun:
-        // Cycle Left -> Right -> Hide -> Left (two bools: left + hide).
-        if (Settings::waterGunHide()) {
-            Settings::setWaterGunHide(false);
-            Settings::setWaterGunLeft(true);
-        } else if (Settings::waterGunLeft()) {
-            Settings::setWaterGunLeft(false);
-        } else {
-            Settings::setWaterGunHide(true);
-        }
-        break;
+    case TitleScreen::Hit::WaterGun: ControlMode::advance(); break;   // HIDDEN -> STICK LEFT -> STICK RIGHT -> DPAD LEFT -> DPAD RIGHT
     case TitleScreen::Hit::MazeZoom:   Settings::advanceMazeZoom(); break;
     case TitleScreen::Hit::Fullscreen:
     case TitleScreen::Hit::Window:     input.fullscreenToggleRequested = true; break;
@@ -476,7 +466,7 @@ void Game::processInput() {
                 sf::Vector2f p = window.mapPixelToCoords({event.mouseButton.x, event.mouseButton.y}, baseView);
                 sf::Vector2f c = joystickCenter2D();
                 float jdx = p.x - c.x, jdy = p.y - c.y;
-                if (!Settings::waterGunHide() && jdx * jdx + jdy * jdy <= JOYSTICK_RADIUS * JOYSTICK_RADIUS) {
+                if (ControlMode::showsControl() && jdx * jdx + jdy * jdy <= JOYSTICK_RADIUS * JOYSTICK_RADIUS) {
                     joystickActive2D_ = true; steerJoystick2D(p.x, p.y);   // on the joystick: steer, don't fire
                 } else {
                     input.fireRequested = true;
@@ -505,7 +495,7 @@ void Game::processInput() {
             touchStartX = (float)event.touch.x;
             touchStartY = (float)event.touch.y;
             touchMoved = false;
-            if (gameState == GameState::Playing && !Settings::waterGunHide()) {
+            if (gameState == GameState::Playing && ControlMode::showsControl()) {
                 sf::Vector2f p = window.mapPixelToCoords({(int)touchStartX, (int)touchStartY}, baseView);
                 sf::Vector2f c = joystickCenter2D();
                 float jdx = p.x - c.x, jdy = p.y - c.y;
@@ -942,9 +932,9 @@ void Game::render() {
         // bottom corner (faint white fill + white stroke, NO inner core), matching
         // the SpriteKit installFireButton. Left-click anywhere fires; the Hide
         // setting suppresses the button. Side follows the Water Gun setting.
-        if (!Settings::waterGunHide()) {
+        if (ControlMode::showsControl()) {
             const float R = FIRE_BUTTON_RADIUS;
-            float cx = Settings::waterGunLeft() ? R : (float)WINDOW_WIDTH - R;
+            float cx = !ControlMode::onLeft() ? R : (float)WINDOW_WIDTH - R;
             float cy = (float)WINDOW_HEIGHT - (R + 15.f);
             sf::CircleShape ring(R, 64);
             ring.setOrigin(R, R);
@@ -1205,9 +1195,9 @@ void Game::endGoldDiscMode() {
 }
 
 bool Game::fireButtonHitTest(float x, float y) const {
-    if (Settings::waterGunHide()) return true; // hidden: a tap anywhere fires
+    if (!ControlMode::showsControl()) return true; // hidden: a tap anywhere fires
     const float R = FIRE_BUTTON_RADIUS;
-    float cx = Settings::waterGunLeft() ? R : (float)WINDOW_WIDTH - R;
+    float cx = !ControlMode::onLeft() ? R : (float)WINDOW_WIDTH - R;
     float cy = (float)WINDOW_HEIGHT - (R + 15.f);
     float dx = x - cx, dy = y - cy;
     return dx * dx + dy * dy <= R * R;
@@ -1215,7 +1205,7 @@ bool Game::fireButtonHitTest(float x, float y) const {
 
 sf::Vector2f Game::joystickCenter2D() const {
     const float R = JOYSTICK_RADIUS;
-    float cx = Settings::waterGunLeft() ? (float)WINDOW_WIDTH - R : R;   // opposite the fire button
+    float cx = !ControlMode::onLeft() ? (float)WINDOW_WIDTH - R : R;   // opposite the fire button
     float cy = (float)WINDOW_HEIGHT - (R + 15.f);
     return {cx, cy};
 }
@@ -1322,7 +1312,7 @@ void Game::refreshHUD() {
     hud.reportItems = state.reportItems;
     hud.lives = state.lives;
     hud.waterGunActive = waterGun.isActive;
-    hud.waterGunVisible = waterGunPickedUp && !Settings::waterGunHide();
+    hud.waterGunVisible = waterGunPickedUp && ControlMode::showsControl();
     hud.waterGunPellets = waterGun.pelletsRemaining;
     hud.goldDiscActive = goldDiscActive;
 }
