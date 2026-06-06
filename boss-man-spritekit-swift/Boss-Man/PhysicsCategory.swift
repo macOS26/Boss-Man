@@ -1,5 +1,3 @@
-import Foundation
-
 struct PhysicsCategory {
     static let worker: UInt32 = 1 << 0
     static let wall: UInt32 = 1 << 1

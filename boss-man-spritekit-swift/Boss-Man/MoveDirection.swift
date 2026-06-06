@@ -1,5 +1,3 @@
-import Foundation
-
 enum MoveDirection: CaseIterable {
     case left, right, down, up
 

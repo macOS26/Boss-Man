@@ -1,5 +1,3 @@
-import Foundation
-
 // Constants shared verbatim across apple + wasm, extracted from each port's
 // Strings.swift so the level grammar, emoji glyphs, and character names live in
 // one place. Platform-specific Strings enums (fonts, DefaultsKey, Title, Editor,
