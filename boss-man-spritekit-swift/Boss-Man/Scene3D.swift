@@ -616,16 +616,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         // face a wall — a blocked turn stays queued for the next junction where that lane opens).
         // The down button queues the opposite heading, an about-face that ALWAYS corners here
         // since the lane behind Pete is open. Snap onto the square from up to ~0.4 tile away.
-        var turnTaken = false
         if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
             px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
-            turnTaken = true
-        }
-        if wantDir == nil && !turnTaken {
-            let lh = dpadFinger.values.contains { $0.contains("left") }
-            let rh = dpadFinger.values.contains { $0.contains("right") }
-            if lh      { wantDir = (x: moveDir.y, y: -moveDir.x) }
-            else if rh { wantDir = (x: -moveDir.y, y: moveDir.x) }
         }
         // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
