@@ -47,6 +47,17 @@ if [ "${CONFIG_ARGS[1]:-}" = "release" ]; then
     echo
     echo "✓ Release artifact published (install binaryen for a smaller wasm): web/bossman.wasm"
   fi
+  # Pre-compress so a static host can serve the negotiated variant; the wire
+  # transfer drops to a fraction of the on-disk wasm (browser inflates to run).
+  raw=$(wc -c < web/bossman.wasm)
+  if command -v brotli >/dev/null 2>&1; then
+    brotli -f -q 11 web/bossman.wasm -o web/bossman.wasm.br
+    printf "✓ brotli: web/bossman.wasm.br  (%d -> %d bytes)\n" "$raw" "$(wc -c < web/bossman.wasm.br)"
+  else
+    echo "(brotli not installed: skipped web/bossman.wasm.br)"
+  fi
+  gzip -9 -kf web/bossman.wasm
+  printf "✓ gzip:   web/bossman.wasm.gz  (%d -> %d bytes)\n" "$raw" "$(wc -c < web/bossman.wasm.gz)"
 else
   cp .build/wasm32-unknown-wasip1/debug/BossMan.wasm web/bossman.wasm
   echo
