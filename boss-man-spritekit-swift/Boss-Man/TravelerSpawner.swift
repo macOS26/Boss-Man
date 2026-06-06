@@ -22,6 +22,14 @@ final class TravelerSpawner {
     private(set) var grid = CGPoint.zero
     private var previousGrid: CGPoint?
     private(set) var activeTraveler: LevelTraveler?
+    // The traveler's OWN PRNG, reseeded from a persisted counter every spawn, so each visit roams a fresh
+    // random path that still drifts toward the exit (the shared game RNG is fixed-seed/deterministic).
+    private var rng = Xoshiro256(seed: 0)
+    private static func nextSeed() -> UInt64 {
+        let n = Persistence.int(forKey: Strings.DefaultsKey.travelerSeed) &+ 1
+        Persistence.set(n, forKey: Strings.DefaultsKey.travelerSeed)
+        return UInt64(bitPattern: Int64(n))
+    }
 
     private var pendingTraveler: LevelTraveler?
     private var keepSpawning: (() -> Bool)?
@@ -127,6 +135,7 @@ final class TravelerSpawner {
         node?.removeFromParent()
 
         let wrapper = SKNode()
+        rng = Xoshiro256(seed: TravelerSpawner.nextSeed())   // fresh random walk every visit
         resolveDoorway()
         grid = spawnGrid
         previousGrid = nil
@@ -228,12 +237,12 @@ final class TravelerSpawner {
         }
         guard !candidates.isEmpty else { return }
         let next: CGPoint
-        if Int.random(in: 0..<10, using: &GameRandom.shared) < 6, let towardExit = candidates.min(by: {
+        if Int.random(in: 0..<10, using: &rng) < 6, let towardExit = candidates.min(by: {
             Pathfinder.manhattanDistance($0, exitGrid) < Pathfinder.manhattanDistance($1, exitGrid)
         }) {
             next = towardExit
         } else {
-            next = candidates.randomElement(using: &GameRandom.shared)!
+            next = candidates.randomElement(using: &rng)!
         }
         let dx = next.x - grid.x
         if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {

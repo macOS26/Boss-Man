@@ -175,6 +175,7 @@ enum Strings {
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
         static let mazeZoom               = "BossMan.mazeZoom"
         static let controlMode            = "BossMan.controlMode"
+        static let travelerSeed           = "BossMan.travelerSeed"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
         static let editorLevelPrefix      = "BossMan.editorLevel."
     }
