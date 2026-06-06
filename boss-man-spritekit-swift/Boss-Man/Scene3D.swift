@@ -975,7 +975,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         if ControlMode.current.showsStick { addStickThumb(); return }   // STICK: a round follow-thumb instead of the wedge cross
         // Four ring-sector wedges split by an X = the D-pad buttons. A diagonal press
         // lights two and steers forward + a turn together. Arrow glyph in each wedge.
-        let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25C0}"),
+        let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25B6}"),
                                                  ("down", -.pi / 2, "\u{25BC}"), ("right", 0, "\u{25B6}")]
         for (name, ang, glyph) in dirs {
             let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang, inner: joystickDeadzone, outer: joystickRadius))
@@ -986,6 +986,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             let arrow = SKLabelNode(text: glyph)
             arrow.fontSize = 24; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
             arrow.verticalAlignmentMode = .center; arrow.horizontalAlignmentMode = .center
+            if name == "left" { arrow.xScale = -1 }
             let r = (joystickDeadzone + joystickRadius) / 2
             arrow.position = CGPoint(x: joystickCenter.x + cos(ang) * r, y: joystickCenter.y + sin(ang) * r)
             arrow.zPosition = 302
