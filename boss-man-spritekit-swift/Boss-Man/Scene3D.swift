@@ -90,6 +90,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var dpadWedges: [String: SKShapeNode] = [:]
     var dpadThumb: SKShapeNode?
     var dpadFinger: [Int: String] = [:]
+    var joyFingers = Set<Int>()   // fingers captured by the joystick from press to release; drags re-engage even after leaving the ring
     var usingTouch = false
     var fireButtonCenter = CGPoint.zero
     let fireButtonRadius: CGFloat = 129.375
@@ -1007,11 +1008,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
     override func mouseDragged(with event: NSEvent) {
         if usingTouch { return }
-        if dpadFinger[0] != nil { dpadSet(finger: 0, phase: 1, at: event.location(in: self)) }
+        if joyFingers.contains(0) { dpadSet(finger: 0, phase: 1, at: event.location(in: self)) }
     }
     override func mouseUp(with event: NSEvent) {
         if usingTouch { return }
-        if dpadFinger[0] != nil { dpadSet(finger: 0, phase: 2, at: event.location(in: self)) }
+        if joyFingers.contains(0) { dpadSet(finger: 0, phase: 2, at: event.location(in: self)); joyFingers.remove(0) }
     }
 
     // MARK: - Multi-touch D-pad (phone). Each finger lights at most one wedge, so
@@ -1022,16 +1023,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         pointerBegan(finger: finger, at: p)
     }
     func touchMoved(finger: Int, at p: CGPoint) {
-        if dpadFinger[finger] != nil { dpadSet(finger: finger, phase: 1, at: p) }
+        if joyFingers.contains(finger) { dpadSet(finger: finger, phase: 1, at: p) }
     }
     func touchEnded(finger: Int, at p: CGPoint) {
-        if dpadFinger[finger] != nil { dpadSet(finger: finger, phase: 2, at: p) }
+        if joyFingers.contains(finger) { dpadSet(finger: finger, phase: 2, at: p); joyFingers.remove(finger) }
     }
 
     private func pointerBegan(finger: Int, at p: CGPoint) {
         guard !isUserPaused, !dying else { return }
         if !controlsShown { fire(); return }   // water gun hidden: a tap anywhere fires
-        if radius(p, joystickCenter) <= joystickRadius { dpadSet(finger: finger, phase: 0, at: p); return }
+        if radius(p, joystickCenter) <= joystickRadius { joyFingers.insert(finger); dpadSet(finger: finger, phase: 0, at: p); return }
         if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
     }
 
