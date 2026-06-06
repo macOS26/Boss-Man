@@ -1,4 +1,4 @@
-import CoreGraphics
+import SpriteKit
 
 // MARK: - Shared geometry / game logic (no class dependency)
 
