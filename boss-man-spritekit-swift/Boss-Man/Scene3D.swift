@@ -1036,13 +1036,21 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
     }
 
-    // Which single wedge a point is in ("" = centre hole / outside the ring).
+    // Octant the point falls in ("" = centre hole / outside the ring). Up combines with a
+    // turn (upleft/upright = drive forward AND veer) so one finger can steer while moving;
+    // down is the about-face and never combines (straight-down only).
     func dpadWedgeAt(_ p: CGPoint) -> String {
         let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
         let mag = (dx * dx + dy * dy).squareRoot()
         if mag < joystickDeadzone || mag > joystickRadius { return "" }
-        if abs(dy) >= abs(dx) { return dy > 0 ? "up" : "down" }   // scene y-up: up = forward
-        return dx > 0 ? "right" : "left"
+        switch Int((atan2(dy, dx) / (.pi / 4)).rounded()) & 7 {   // scene y-up: 0=E,1=NE,2=N,3=NW,4=W,5=SW,6=S,7=SE
+        case 1:  return "upright"
+        case 2:  return "up"
+        case 3:  return "upleft"
+        case 6:  return "down"            // about-face only when pointed straight down
+        case 0, 7: return "right"         // E / SE: turn in place, no forward
+        default: return "left"            // W / SW
+        }
     }
 
     func dpadSet(finger: Int, phase: Int, at p: CGPoint) {
@@ -1050,14 +1058,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let w = phase == 2 ? "" : dpadWedgeAt(p)
         if w.isEmpty { dpadFinger[finger] = nil } else { dpadFinger[finger] = w }
         moveStickThumb(to: p, release: phase == 2)
-        // One-shot turn the moment a finger ENTERS a turn wedge: left/right = 90°, down = 180°.
-        if !w.isEmpty, w != prev {
-            switch w {
-            case "left":  wantDir = (x: moveDir.y, y: -moveDir.x)
-            case "right": wantDir = (x: -moveDir.y, y: moveDir.x)
-            case "down":  wantDir = (x: -moveDir.x, y: -moveDir.y)
-            default:      break
-            }
+        // One-shot turn the moment a lateral / about-face component newly appears under
+        // this finger: left/right = 90° (combinable with forward), down = 180° about-face.
+        if w != prev {
+            if w.contains("left"),  !prev.contains("left")  { wantDir = (x: moveDir.y, y: -moveDir.x) }
+            if w.contains("right"), !prev.contains("right") { wantDir = (x: -moveDir.y, y: moveDir.x) }
+            if w == "down", prev != "down"                  { wantDir = (x: -moveDir.x, y: -moveDir.y) }
         }
         applyDpad()
     }
@@ -1065,11 +1071,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     func applyDpad() {
         var up = false, down = false, left = false, right = false
         for (_, w) in dpadFinger {
-            switch w {
-            case "up": up = true; case "down": down = true
-            case "left": left = true; case "right": right = true
-            default: break
-            }
+            if w.contains("up")    { up = true }
+            if w.contains("down")  { down = true }
+            if w.contains("left")  { left = true }
+            if w.contains("right") { right = true }
         }
         if up { pressed.insert(KeyCode.arrowUp) } else { pressed.remove(KeyCode.arrowUp) }
         pressed.remove(KeyCode.arrowDown)   // up = forward (held); down is a 180° turn, not reverse
