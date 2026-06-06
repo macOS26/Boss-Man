@@ -954,13 +954,47 @@ void Game::render() {
             base.setOutlineThickness(2.f);
             base.setOutlineColor(sf::Color(255, 255, 255, 128));
             window.draw(base);
-            sf::CircleShape thumb(JOYSTICK_KNOB, 48);
-            thumb.setOrigin(JOYSTICK_KNOB, JOYSTICK_KNOB);
-            thumb.setPosition(joystickThumb2D_);
-            thumb.setFillColor(sf::Color(255, 255, 255, 71));   // white @ 0.28
-            thumb.setOutlineThickness(2.f);
-            thumb.setOutlineColor(sf::Color(255, 255, 255, 153));
-            window.draw(thumb);
+            if (ControlMode::showsDpad()) {   // DPAD: a 4-wedge cross (same hit-area; direction from steerJoystick2D)
+                const float PI = 3.14159265f;
+                const float angs[4] = {-PI / 2, PI / 2, 0.f, PI};   // up/down/right/left (SFML y-down)
+                for (float ang : angs) {
+                    float a0 = ang - PI / 4, a1 = ang + PI / 4;
+                    sf::VertexArray strip(sf::TriangleStrip);
+                    sf::Color fill(255, 255, 255, 36);
+                    for (int i = 0; i <= 14; ++i) {
+                        float t = a0 + (a1 - a0) * (float)i / 14;
+                        strip.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_DEADZONE, jc.y + std::sin(t) * JOYSTICK_DEADZONE}, fill));
+                        strip.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_RADIUS, jc.y + std::sin(t) * JOYSTICK_RADIUS}, fill));
+                    }
+                    window.draw(strip);
+                }
+                sf::VertexArray xlines(sf::Lines);
+                sf::Color line(255, 255, 255, 128);
+                for (int k = 0; k < 4; ++k) {
+                    float t = PI / 4 + (float)k * PI / 2;
+                    xlines.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_DEADZONE, jc.y + std::sin(t) * JOYSTICK_DEADZONE}, line));
+                    xlines.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_RADIUS, jc.y + std::sin(t) * JOYSTICK_RADIUS}, line));
+                }
+                window.draw(xlines);
+                float midR = (JOYSTICK_DEADZONE + JOYSTICK_RADIUS) / 2.f, s = 13.f;
+                for (float ang : angs) {
+                    sf::ConvexShape tri(3);
+                    tri.setPoint(0, {std::cos(ang) * s, std::sin(ang) * s});
+                    tri.setPoint(1, {std::cos(ang + 2.5f) * s, std::sin(ang + 2.5f) * s});
+                    tri.setPoint(2, {std::cos(ang - 2.5f) * s, std::sin(ang - 2.5f) * s});
+                    tri.setPosition(jc.x + std::cos(ang) * midR, jc.y + std::sin(ang) * midR);
+                    tri.setFillColor(sf::Color(255, 255, 255, 178));
+                    window.draw(tri);
+                }
+            } else {
+                sf::CircleShape thumb(JOYSTICK_KNOB, 48);
+                thumb.setOrigin(JOYSTICK_KNOB, JOYSTICK_KNOB);
+                thumb.setPosition(joystickThumb2D_);
+                thumb.setFillColor(sf::Color(255, 255, 255, 71));   // white @ 0.28
+                thumb.setOutlineThickness(2.f);
+                thumb.setOutlineColor(sf::Color(255, 255, 255, 153));
+                window.draw(thumb);
+            }
         }
 
         if (gameState == GameState::GameOver) drawGameOver();

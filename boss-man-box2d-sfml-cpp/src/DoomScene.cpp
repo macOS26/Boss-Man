@@ -735,6 +735,13 @@ void DoomScene::dpadSet(unsigned finger, float x, float y, int phase) {
     std::string prev = dpadFinger_.count(finger) ? dpadFinger_[finger] : std::string();
     std::string w = (phase == 2) ? std::string() : dpadWedgeAt(x, y);
     if (w.empty()) dpadFinger_.erase(finger); else dpadFinger_[finger] = w;
+    // STICK mode: the thumb rides the finger (direction still comes from dpadWedgeAt).
+    if (phase == 2) joystickThumb_ = joystickCenter_;
+    else {
+        float dx = x - joystickCenter_.x, dy = y - joystickCenter_.y;
+        float mag = std::sqrt(dx * dx + dy * dy), lim = joystickRadius_ * 0.58f;
+        joystickThumb_ = (mag > lim && mag > 0.f) ? sf::Vector2f(joystickCenter_.x + dx / mag * lim, joystickCenter_.y + dy / mag * lim) : sf::Vector2f(x, y);
+    }
     // One-shot turn the moment a finger ENTERS a turn wedge: left/right = 90°, down = 180°.
     if (!w.empty() && w != prev) {
         if (w == "left")       { wantDirSet_ = true; wantDirX_ = moveDirY_;  wantDirY_ = -moveDirX_; }
@@ -1389,6 +1396,18 @@ void DoomScene::drawControls(sf::RenderTarget& target) {
     base.setOutlineThickness(2.f);
     base.setOutlineColor(sf::Color(255, 255, 255, 128));
     target.draw(base);
+
+    if (ControlMode::showsStick()) {   // STICK: a round follow-thumb instead of the wedge cross
+        float tr = joystickRadius_ * 0.42f;
+        sf::CircleShape thumb(tr, 48);
+        thumb.setOrigin(tr, tr);
+        thumb.setPosition(joystickThumb_);
+        thumb.setFillColor(sf::Color(255, 255, 255, 56));    // white @ 0.22
+        thumb.setOutlineThickness(2.f);
+        thumb.setOutlineColor(sf::Color(255, 255, 255, 153)); // white @ 0.6
+        target.draw(thumb);
+        return;
+    }
 
     // Four ring-sector wedges (X-split, meeting at the diagonals); active ones brighten.
     struct Wedge { float ang; bool on; };

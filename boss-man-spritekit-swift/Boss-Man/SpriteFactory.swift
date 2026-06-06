@@ -233,6 +233,39 @@ enum SpriteFactory {
         return n
     }
 
+    // MARK: - Effects
+    // A radial burst of cyan/blue droplets that grow, then shrink and fade, played
+    // where a water-gun pellet hits a boss. Shared by the 2D maze and every 3D
+    // view so the splash reads the same everywhere; spread scales the burst to the
+    // boss's on-screen size. Self-removes; caller sets position and zPosition.
+    static func waterSplash(spread: CGFloat = 1) -> SKNode {
+        let node = SKNode()
+        let count = 10
+        for i in 0..<count {
+            let angle = CGFloat(i) / CGFloat(count) * .pi * 2
+            let radius = (22 + nextNoise() * 26) * spread
+            let drop = SKShapeNode(circleOfRadius: (3 + nextNoise() * 3) * spread)
+            drop.fillColor = nextNoise() < 0.5 ? .systemCyan : .systemBlue
+            drop.strokeColor = .clear
+            drop.alpha = 0.85
+            node.addChild(drop)
+            let dx = cos(angle) * radius
+            let dy = sin(angle) * radius
+            drop.run(.sequence([
+                .group([
+                    .moveBy(x: dx, y: dy, duration: 0.35),
+                    .sequence([
+                        .scale(to: 1.4, duration: 0.1),
+                        .group([.scale(to: 0.1, duration: 0.25), .fadeOut(withDuration: 0.25)])
+                    ])
+                ]),
+                .removeFromParent()
+            ]))
+        }
+        node.run(.sequence([.wait(forDuration: 0.5), .removeFromParent()]))
+        return node
+    }
+
     // Boss visual for a blueprint index, colors from the shared BossBlueprint.
     // On MIB levels every boss is an all-black suit + tie with sunglasses;
     // sunglasses are never a per-boss trait otherwise.
