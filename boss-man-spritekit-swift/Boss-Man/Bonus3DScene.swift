@@ -8,6 +8,3 @@ protocol Bonus3DScene: SKScene {
     var startingLevel: Int { get set }
 }
 
-extension DoomScene: Bonus3DScene {}
-extension VoxelScene: Bonus3DScene {}
-extension IsoScene: Bonus3DScene {}

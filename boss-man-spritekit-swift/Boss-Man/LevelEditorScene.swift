@@ -104,7 +104,7 @@ enum LevelStore {
             out += "  \"\(k)\": [\n"
             let rows = map[k] ?? []
             for (j, row) in rows.enumerated() {
-                out += "    \"\(escape(row))\"" + (j < rows.count - 1 ? ",\n" : "\n")
+                out += "    \"\(jsonEscape(row))\"" + (j < rows.count - 1 ? ",\n" : "\n")
             }
             out += "  ]" + (i < keys.count - 1 ? ",\n" : "\n")
         }
@@ -151,20 +151,6 @@ enum LevelStore {
         return (s, min(i + 1, n))
     }
 
-    private static func escape(_ s: String) -> String {
-        var out = ""
-        for ch in s {
-            switch ch {
-            case "\"": out += "\\\""
-            case "\\": out += "\\\\"
-            case "\n": out += "\\n"
-            case "\r": out += "\\r"
-            case "\t": out += "\\t"
-            default:   out.append(ch)
-            }
-        }
-        return out
-    }
 }
 
 // MARK: - Level editor scene

@@ -85,7 +85,7 @@ struct LocalHighScores {
         var out = "["
         for (i, e) in entries.enumerated() {
             if i > 0 { out += "," }
-            out += "{\"n\":\"\(escape(e.name))\",\"s\":\(e.score)}"
+            out += "{\"n\":\"\(jsonEscape(e.name))\",\"s\":\(e.score)}"
         }
         return out + "]"
     }
@@ -137,18 +137,4 @@ struct LocalHighScores {
         return nil
     }
 
-    private static func escape(_ s: String) -> String {
-        var out = ""
-        for ch in s {
-            switch ch {
-            case "\"": out += "\\\""
-            case "\\": out += "\\\\"
-            case "\n": out += "\\n"
-            case "\r": out += "\\r"
-            case "\t": out += "\\t"
-            default:   out.append(ch)
-            }
-        }
-        return out
-    }
 }

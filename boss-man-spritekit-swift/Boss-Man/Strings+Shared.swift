@@ -217,3 +217,20 @@ extension Strings {
         static let hudSwap          = "hudSwap"
     }
 }
+
+// MARK: - JSON string escaping (shared by LocalHighScores and LevelEditorScene)
+
+func jsonEscape(_ s: String) -> String {
+    var out = ""
+    for ch in s {
+        switch ch {
+        case "\"": out += "\\\""
+        case "\\": out += "\\\\"
+        case "\n": out += "\\n"
+        case "\r": out += "\\r"
+        case "\t": out += "\\t"
+        default:   out.append(ch)
+        }
+    }
+    return out
+}

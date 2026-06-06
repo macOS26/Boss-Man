@@ -2,7 +2,7 @@ import SpriteKit
 import AppKit
 
 // MARK: - Shared base for the 3D bonus scenes (Doom raycaster, Voxel painter, Iso overhead)
-class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
+class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // MARK: - Maze (loaded for the selected level; the editor's test plays the edited rows)
     lazy var map: [[Character]] =
@@ -81,19 +81,19 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
     let sound = SoundManager()
 
     // MARK: - On-screen controls (same layout/sizing as the 100% game)
-    private let joystickRadius: CGFloat = 129.375
-    private let joystickDeadzone: CGFloat = 20   // D-pad centre hole + input deadzone (smaller = more reach)
-    private var joystickCenter = CGPoint.zero
+    let joystickRadius: CGFloat = 129.375
+    let joystickDeadzone: CGFloat = 20
+    var joystickCenter = CGPoint.zero
     // X-pattern D-pad: four ring-sector wedges (up/down/left/right) split by an X.
     // Each finger lights at most one wedge; two fingers light two (forward + a turn)
     // ONLY when the phone actually has two fingers down. Keyed "up/down/left/right".
-    private var dpadWedges: [String: SKShapeNode] = [:]
-    private var dpadThumb: SKShapeNode?            // STICK mode: the follow-thumb over the same angle->direction logic
-    var dpadFinger: [Int: String] = [:]   // active finger id -> its wedge
-    private var usingTouch = false                 // a real touch arrived: ignore the synthetic mouse pointer
-    private var fireButtonCenter = CGPoint.zero
-    private let fireButtonRadius: CGFloat = 129.375
-    private var controlsShown = false
+    var dpadWedges: [String: SKShapeNode] = [:]
+    var dpadThumb: SKShapeNode?
+    var dpadFinger: [Int: String] = [:]
+    var usingTouch = false
+    var fireButtonCenter = CGPoint.zero
+    let fireButtonRadius: CGFloat = 129.375
+    var controlsShown = false
 
     let spriteLayer = SKNode()
     let nameLayer = SKNode()
@@ -273,7 +273,7 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
     }
 
     func buildPete() {
-        pete = SpriteFactory.petePersonBack(walkExaggeration: 1)
+        pete = makePete()
         let nativeH = max(1, pete.calculateAccumulatedFrame().height)
         let target = viewH * 0.42
         pete.setScale(target / nativeH)
@@ -415,38 +415,15 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
         for s in shots where s.alive {
             let dGrid = CGPoint(x: CGFloat(Int(s.x.rounded(.down))), y: CGFloat(rowsCount - 1 - Int(s.y.rounded(.down))))
             let dir: MoveDirection = s.dir.x > 0 ? .right : s.dir.x < 0 ? .left : (s.dir.y > 0 ? .down : .up)
-            if dropletThreatens(dropletGrid: dGrid, dir: dir, boss: bossGrid) { return dir }
+            if dropletThreatens(dropletGrid: dGrid, dir: dir, boss: bossGrid, range: dropletDodgeRange, isWalkable: { gridMap.isWalkable($0) }) { return dir }
         }
         return nil
-    }
-    private func dropletThreatens(dropletGrid d: CGPoint, dir: MoveDirection, boss b: CGPoint) -> Bool {
-        let (dx, dy) = dir.delta
-        let dist: Int
-        if dx != 0 {
-            guard Int(b.y) == Int(d.y) else { return false }
-            let delta = Int(b.x) - Int(d.x)
-            guard delta != 0, (dx > 0) == (delta > 0) else { return false }
-            dist = abs(delta)
-        } else {
-            guard Int(b.x) == Int(d.x) else { return false }
-            let delta = Int(b.y) - Int(d.y)
-            guard delta != 0, (dy > 0) == (delta > 0) else { return false }
-            dist = abs(delta)
-        }
-        guard dist <= dropletDodgeRange else { return false }
-        var step = d
-        for _ in 0..<dist {
-            step = CGPoint(x: step.x + CGFloat(dx), y: step.y + CGFloat(dy))
-            if !gridMap.isWalkable(step) { return false }
-        }
-        return true
     }
 
     func togglePause() {
         isUserPaused.toggle()
-        hud.showPaused(isUserPaused)   // same PAUSED text the 2D game uses
-        spriteLayer.isPaused = isUserPaused   // freeze every SKAction (boss walks, pickup throbs)
-        mapLayer.isPaused = isUserPaused       // and the radar copies
+        hud.showPaused(isUserPaused)
+        pauseSceneLayers(isUserPaused)
         if isUserPaused { pete.stopWalking(); mapPete.stopWalking(); sound.pauseAudio() }
         else { pete.startWalking(); mapPete.startWalking(); sound.resumeAudio() }
     }
@@ -788,12 +765,12 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
             state.bumpScore(by: pts); state.currentReportScore += pts; popPoints(pts)
         }
         sound.playMachine(named: name)
-        grayPickup(col, row); refreshHUD()   // dim it like the 100% 2D maze, don't remove it
+        grayPickupInWorld(col: col, row: row); refreshHUD()
     }
     // +point popup, same as the 100% game's ScorePopup, in BOTH views: on Pete in
     // the 3D corridor, and on Pete in the mini-map (a matching rise+fade label).
     func popPoints(_ n: Int) {
-        ScorePopup.show(n, at: CGPoint(x: size.width / 2, y: peteBaseY + viewH * 0.30), in: self, fontSize: 54)   // big in the 3D view, above Pete
+        popPointsInWorld(n)
         let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
         mini.text = Strings.Score.popup(n)
         mini.fontSize = 40; mini.fontColor = .systemYellow
@@ -828,35 +805,70 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
             for (c, ch) in map[r].enumerated() {
                 switch ch {
                 case Strings.Tile.printerChar, Strings.Tile.faxChar, Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar:
-                    let key = mapKey(c, r); collected.remove(key)
-                    for i in billboards.indices where Int(billboards[i].x) == c && Int(billboards[i].y) == r { billboards[i].node.alpha = 1 }
-                    mapPickups[key]?.alpha = 1
+                    ungrayPickupInWorld(col: c, row: r)
                 default: break
                 }
             }
         }
     }
     func hidePickup(_ col: Int, _ row: Int) {
-        for i in billboards.indices where billboards[i].alive && Int(billboards[i].x) == col && Int(billboards[i].y) == row {
-            billboards[i].alive = false; billboards[i].node.isHidden = true
-        }
-        mapPickups[mapKey(col, row)]?.isHidden = true
+        hidePickupInWorld(col: col, row: row)
     }
     func grayPickup(_ col: Int, _ row: Int) {
-        for i in billboards.indices where Int(billboards[i].x) == col && Int(billboards[i].y) == row {
-            billboards[i].node.alpha = 0.55
-        }
-        mapPickups[mapKey(col, row)]?.alpha = 0.55
+        grayPickupInWorld(col: col, row: row)
     }
     // Brown box on a TPS turn-in: same dim + cooldown as a collected machine, then restore.
     func grayBrownBox(_ col: Int, _ row: Int, cooldown: TimeInterval = 15) {
         let mk = mapKey(col, row)
-        guard let i = billboards.firstIndex(where: { Int($0.x) == col && Int($0.y) == row }) else { return }
-        let n = billboards[i].node
+        guard let n = findBrownBoxNode(col: col, row: row) else { return }
         guard n.action(forKey: Strings.ActionKey.machineCooldown) == nil else { return }
         n.alpha = 0.55; mapPickups[mk]?.alpha = 0.55
         n.run(.sequence([.wait(forDuration: cooldown), .run { [weak self] in
             n.alpha = 1; self?.mapPickups[mk]?.alpha = 1 }]), withKey: Strings.ActionKey.machineCooldown)
+    }
+
+    // MARK: - Pickup hooks (IsoScene overrides for isoPickups)
+    func hidePickupInWorld(col: Int, row: Int) {
+        let key = mapKey(col, row)
+        for i in billboards.indices where billboards[i].alive && Int(billboards[i].x) == col && Int(billboards[i].y) == row {
+            billboards[i].alive = false; billboards[i].node.isHidden = true
+        }
+        mapPickups[key]?.isHidden = true
+    }
+    func grayPickupInWorld(col: Int, row: Int) {
+        let key = mapKey(col, row)
+        for i in billboards.indices where Int(billboards[i].x) == col && Int(billboards[i].y) == row {
+            billboards[i].node.alpha = 0.55
+        }
+        mapPickups[key]?.alpha = 0.55
+    }
+    func ungrayPickupInWorld(col: Int, row: Int) {
+        let key = mapKey(col, row)
+        collected.remove(key)
+        for i in billboards.indices where Int(billboards[i].x) == col && Int(billboards[i].y) == row { billboards[i].node.alpha = 1 }
+        mapPickups[key]?.alpha = 1
+    }
+    func findBrownBoxNode(col: Int, row: Int) -> SKNode? {
+        return billboards.first(where: { Int($0.x) == col && Int($0.y) == row })?.node
+    }
+    func popPointsInWorld(_ n: Int) {
+        ScorePopup.show(n, at: CGPoint(x: size.width / 2, y: peteBaseY + viewH * 0.30), in: self, fontSize: 54)
+    }
+    func pauseSceneLayers(_ paused: Bool) {
+        spriteLayer.isPaused = paused
+        mapLayer.isPaused = paused
+    }
+    func makePete() -> PixelPerson {
+        SpriteFactory.petePersonBack(walkExaggeration: 1)
+    }
+    func commonSetup() {
+        buildPete()
+        buildMap()
+        setupBossController()
+        buildHUD()
+        buildControls()
+        render()
+        sound.startBackgroundMusic()
     }
 
     func exit() {
@@ -938,7 +950,7 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
         let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25C0}"),
                                                  ("down", -.pi / 2, "\u{25BC}"), ("right", 0, "\u{25B6}")]
         for (name, ang, glyph) in dirs {
-            let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang))
+            let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang, inner: joystickDeadzone, outer: joystickRadius))
             w.position = joystickCenter
             w.fillColor = SKColor(white: 1, alpha: 0.12); w.strokeColor = .clear
             w.lineWidth = 0; w.zPosition = 301
@@ -965,7 +977,7 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
         addChild(xlines)
     }
     // STICK mode: a thumb knob that rides the finger; direction still comes from dpadWedgeAt (shared angle logic).
-    private func addStickThumb() {
+    func addStickThumb() {
         let thumb = SKShapeNode(circleOfRadius: joystickRadius * 0.42)
         thumb.position = joystickCenter
         thumb.fillColor = SKColor(white: 1, alpha: 0.22); thumb.strokeColor = SKColor(white: 1, alpha: 0.6)
@@ -980,29 +992,8 @@ class Scene3D: SKScene, BossControllerDelegate, SKTouchResponder {
         thumb.position = (mag > lim && mag > 0) ? CGPoint(x: joystickCenter.x + dx / mag * lim, y: joystickCenter.y + dy / mag * lim) : p
     }
 
-    // Ring-sector wedge (deadzone radius -> outer radius), a full 90° so the four
-    // wedges MEET at the diagonals (no dead gaps); the X reads as the stroked boundary
-    // between neighbours, and the diagonal corner sits on the edge of both wedges so a
-    // corner press fires both. Polygon (move/addLine only) so it renders on WASM too.
-    private func dpadWedgePath(centerAngle: CGFloat) -> CGPath {
-        let inner = joystickDeadzone, outer = joystickRadius
-        let a0 = centerAngle - .pi / 4, a1 = centerAngle + .pi / 4
-        let steps = 10
-        let p = CGMutablePath()
-        for i in 0...steps {
-            let t = a0 + (a1 - a0) * CGFloat(i) / CGFloat(steps)
-            let pt = CGPoint(x: cos(t) * outer, y: sin(t) * outer)
-            if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
-        }
-        for i in 0...steps {
-            let t = a1 - (a1 - a0) * CGFloat(i) / CGFloat(steps)
-            p.addLine(to: CGPoint(x: cos(t) * inner, y: sin(t) * inner))
-        }
-        p.closeSubpath()
-        return p
-    }
 
-    private func radius(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
+    func radius(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
         let dx = a.x - b.x, dy = a.y - b.y; return (dx * dx + dy * dy).squareRoot()
     }
 
