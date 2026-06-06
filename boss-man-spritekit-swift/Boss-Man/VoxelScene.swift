@@ -45,7 +45,7 @@ final class VoxelScene: Scene3D {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
-        let W = size.width, rowH: CGFloat = 2
+        let W = size.width, rowH: CGFloat = 1
         let pathA = CGMutablePath(), pathB = CGMutablePath(), pathFar = CGMutablePath()
         var yu = radarH
         while yu < viewMidY - 0.5 {
