@@ -1,5 +1,6 @@
 import SpriteKit
 import AppKit
+import AVFoundation
 
 // One spawner per game: owns the active traveler node, the spawn/exit grid
 // coords, and the self-chaining stepper that walks the traveler tile-by-tile
@@ -22,13 +23,17 @@ final class TravelerSpawner {
     private(set) var grid = CGPoint.zero
     private var previousGrid: CGPoint?
     private(set) var activeTraveler: LevelTraveler?
-    // The traveler's OWN PRNG, reseeded from a persisted counter every spawn, so each visit roams a fresh
-    // random path that still drifts toward the exit (the shared game RNG is fixed-seed/deterministic).
+    // The traveler's OWN PRNG, reseeded every spawn so each visit roams a fresh path that still drifts toward the
+    // exit. Mixes the wall clock and a per-process tick with the persisted counter so the seed keeps varying even
+    // when persisted state can't round-trip (a fresh tab / sandboxed host pinned the old persist-only seed to one
+    // value, replaying an identical path). The shared game RNG stays fixed-seed/deterministic.
     private var rng = Xoshiro256(seed: 0)
+    private static var spawnTick: UInt64 = 0
     private static func nextSeed() -> UInt64 {
+        spawnTick &+= 1
         let n = Persistence.int(forKey: Strings.DefaultsKey.travelerSeed) &+ 1
         Persistence.set(n, forKey: Strings.DefaultsKey.travelerSeed)
-        return UInt64(bitPattern: Int64(n))
+        return UInt64(bitPattern: Int64(n)) ^ (spawnTick &* 0x9E3779B97F4A7C15) ^ CACurrentMediaTime().bitPattern
     }
 
     private var pendingTraveler: LevelTraveler?
