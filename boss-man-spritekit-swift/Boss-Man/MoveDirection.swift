@@ -37,6 +37,7 @@ enum KeyCode {
     static let keyS = 1
     static let keyW = 13
     static let keyP = 35
+    static let keyB = 11
     static let keyE = 14
     static let keyF = 3
     static let esc = 53
@@ -66,6 +67,7 @@ enum KeyCode {
     static let keyS = 18
     static let keyW = 22
     static let keyP = 15
+    static let keyB = 1
     static let keyE = 4
     static let keyF = 5
     static let esc = 36

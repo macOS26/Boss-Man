@@ -117,6 +117,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var onBrownBox = false
     var spawnPx = 1.5, spawnPy = 1.5
     var isUserPaused = false
+    static var bossesEnabled = true
+    var bossOffLabel: SKLabelNode?
 
     // MARK: - Minimap (the real 2D level, centered at the bottom)
     let mapLayer = SKNode()
@@ -304,6 +306,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         hud = HUD(requiredItems: Strings.Machine.required)
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
         state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
+        let lbl = SKLabelNode(fontNamed: Strings.Font.menloBold)
+        lbl.text = "BOSS OFF"; lbl.fontSize = 20; lbl.fontColor = .systemRed
+        lbl.horizontalAlignmentMode = .right
+        lbl.position = CGPoint(x: size.width - 12, y: size.height - 44)
+        lbl.zPosition = 1001; lbl.isHidden = Scene3D.bossesEnabled
+        uiLayer.addChild(lbl); bossOffLabel = lbl
         refreshHUD()
     }
 
@@ -392,7 +400,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             let bg = e.mover?.grid ?? e.ai.grid
             guard Int(bg.x) == pgx, Int(bg.y) == pgy, !bossController.isImmobilized(boss: e.node) else { continue }
             if bossController.isInFleeMode(boss: e.node) { bossController.capture(boss: e.node) }
-            else if !peteShielded { startDeath(node: e.node); return }
+            else if !peteShielded && Scene3D.bossesEnabled { startDeath(node: e.node); return }
         }
     }
 
@@ -419,6 +427,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             if dropletThreatens(dropletGrid: dGrid, dir: dir, boss: bossGrid, range: dropletDodgeRange, isWalkable: { gridMap.isWalkable($0) }) { return dir }
         }
         return nil
+    }
+
+    func toggleBossMode() {
+        Scene3D.bossesEnabled.toggle()
+        bossOffLabel?.isHidden = Scene3D.bossesEnabled
+        hud.showMessage(Scene3D.bossesEnabled ? "BOSS ON" : "BOSS OFF", duration: 2)
     }
 
     func togglePause() {
@@ -892,7 +906,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let screen = GameOverScreen(
             size: size, font: Strings.Font.menloBold,
             score: state.score, highScore: state.highScore,
-            defaultName: LocalHighScores.savedUsername ?? "", allowEntry: !state.practiceMode,
+            defaultName: LocalHighScores.savedUsername ?? "", allowEntry: !state.practiceMode && Scene3D.bossesEnabled,
             onPlay: { [weak self] in self?.restartDoom() },
             onEsc:  { [weak self] in self?.exit() })
         screen.zPosition = 2000
@@ -917,6 +931,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
+        case KeyCode.keyB:                      toggleBossMode()
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
         case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
