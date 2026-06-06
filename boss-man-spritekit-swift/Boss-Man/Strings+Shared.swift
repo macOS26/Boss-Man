@@ -23,23 +23,23 @@ extension Strings {
         static let waterGun    = "G"
         static let waterPellet = "A"
 
-        static let floorChar         = Character(floor)
-        static let dotChar           = Character(dot)
-        static let wallChar          = Character(wall)
-        static let hideoutChar       = Character(hideout)
-        static let printerChar       = Character(printer)
-        static let faxChar           = Character(fax)
-        static let coverSheetChar    = Character(coverSheet)
-        static let bookBinderChar    = Character(bookBinder)
-        static let brownBoxChar      = Character(brownBox)
-        static let goldDiscChar      = Character(goldDisc)
-        static let workerChar        = Character(worker)
-        static let boss1Char         = Character(boss1)
-        static let boss2Char         = Character(boss2)
-        static let boss3Char         = Character(boss3)
-        static let boss4Char         = Character(boss4)
-        static let waterGunChar      = Character(waterGun)
-        static let waterPelletChar   = Character(waterPellet)
+        static let floorChar         = Array(floor.utf8)[0]
+        static let dotChar           = Array(dot.utf8)[0]
+        static let wallChar          = Array(wall.utf8)[0]
+        static let hideoutChar       = Array(hideout.utf8)[0]
+        static let printerChar       = Array(printer.utf8)[0]
+        static let faxChar           = Array(fax.utf8)[0]
+        static let coverSheetChar    = Array(coverSheet.utf8)[0]
+        static let bookBinderChar    = Array(bookBinder.utf8)[0]
+        static let brownBoxChar      = Array(brownBox.utf8)[0]
+        static let goldDiscChar      = Array(goldDisc.utf8)[0]
+        static let workerChar        = Array(worker.utf8)[0]
+        static let boss1Char         = Array(boss1.utf8)[0]
+        static let boss2Char         = Array(boss2.utf8)[0]
+        static let boss3Char         = Array(boss3.utf8)[0]
+        static let boss4Char         = Array(boss4.utf8)[0]
+        static let waterGunChar      = Array(waterGun.utf8)[0]
+        static let waterPelletChar   = Array(waterPellet.utf8)[0]
     }
 
     // MARK: - Machine icons (emoji)

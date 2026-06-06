@@ -5,8 +5,8 @@ import AppKit
 class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // MARK: - Maze (loaded for the selected level; the editor's test plays the edited rows)
-    lazy var map: [[Character]] =
-        LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1))).map { Array($0) }
+    lazy var map: [[UInt8]] =
+        LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1))).map { Array($0.utf8) }
     var rowsCount: Int { map.count }
     var colsCount: Int { map.first?.count ?? 0 }
 
@@ -514,7 +514,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         // Spawn positions from the level data, in the bottom-up grid GridMap uses.
         var overrides: [(blueprintIndex: Int, position: CGPoint)] = []
         for (ri, row) in rows.reversed().enumerated() {
-            for (ci, ch) in Array(row).enumerated() {
+            for (ci, ch) in row.utf8.enumerated() {
                 switch ch {
                 case Strings.Tile.boss1Char: overrides.append((0, CGPoint(x: ci, y: ri)))
                 case Strings.Tile.boss2Char: overrides.append((1, CGPoint(x: ci, y: ri)))

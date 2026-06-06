@@ -99,7 +99,7 @@ final class MazeBuilder {
         var wallCenters: [CGPoint] = []
 
         for (rowIndex, row) in map.rows.reversed().enumerated() {
-            for (columnIndex, char) in row.enumerated() {
+            for (columnIndex, char) in row.utf8.enumerated() {
                 let grid = CGPoint(x: columnIndex, y: rowIndex)
                 let position = map.point(for: grid)
 
@@ -324,7 +324,7 @@ final class MazeBuilder {
 
     // Tile char -> machine emoji, used by the level editor's palette glyphs.
     static func emoji(forSymbol symbol: String) -> String {
-        guard let char = symbol.first else { return symbol }
+        guard let char = symbol.utf8.first else { return symbol }
         switch char {
         case Strings.Tile.printerChar:    return Strings.Emoji.printer
         case Strings.Tile.faxChar:        return Strings.Emoji.fax

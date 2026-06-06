@@ -13,7 +13,7 @@ import AppKit
 
 // MARK: - Tile <-> Character mapping
 struct EditorTile: Equatable {
-    let character: Character
+    let character: UInt8
     let displayName: String
 
     static let empty       = EditorTile(character: Strings.Tile.floorChar,       displayName: Strings.Editor.Tile.floor)
@@ -202,8 +202,8 @@ final class LevelEditorScene: SKScene {
     var gridOffsetX: CGFloat = 12
     var gridOffsetY: CGFloat = 12
 
-    private static func paletteName(for char: Character) -> String {
-        "\(Strings.NodeName.palettePrefix)\(char)"
+    private static func paletteName(for char: UInt8) -> String {
+        "\(Strings.NodeName.palettePrefix)\(Character(UnicodeScalar(char)))"
     }
 
     private var currentCubicleColor: SKColor {
@@ -438,19 +438,19 @@ final class LevelEditorScene: SKScene {
         }
     }
 
-    func charAt(row: Int, col: Int) -> Character {
+    func charAt(row: Int, col: Int) -> UInt8 {
         guard row < mapRows.count else { return Strings.Tile.floorChar }
-        let chars = Array(mapRows[row])
+        let chars = Array(mapRows[row].utf8)
         guard col < chars.count else { return Strings.Tile.floorChar }
         return chars[col]
     }
 
-    func setChar(row: Int, col: Int, ch: Character) {
+    func setChar(row: Int, col: Int, ch: UInt8) {
         guard row < mapRows.count else { return }
-        var chars = Array(mapRows[row])
+        var chars = Array(mapRows[row].utf8)
         guard col < chars.count else { return }
         chars[col] = ch
-        mapRows[row] = String(chars)
+        mapRows[row] = String(decoding: chars, as: UTF8.self)
     }
 
     func updateTileVisual(row: Int, col: Int) {
@@ -473,7 +473,7 @@ final class LevelEditorScene: SKScene {
 
     // Bakes a tile (floor + content) to a texture once, keyed by char + parity, so
     // every cell of that kind shares one texture. nil if there's no view to bake with.
-    private func tileTexture(char: Character, parity: Int) -> SKTexture? {
+    private func tileTexture(char: UInt8, parity: Int) -> SKTexture? {
         let key = "\(char)-\(parity % 2)"
         if let t = tileTexCache[key] { return t }
         let tree = SKNode()
@@ -495,7 +495,7 @@ final class LevelEditorScene: SKScene {
         addContent(to: container, char: ch, size: size)
     }
 
-    private func renderTile(char: Character, size: CGFloat, isPaletteSwatch: Bool = false) -> SKNode {
+    private func renderTile(char: UInt8, size: CGFloat, isPaletteSwatch: Bool = false) -> SKNode {
         let container = SKNode()
         if !isPaletteSwatch { addFloor(to: container, size: size, parity: 0) }
         addContent(to: container, char: char, size: size)
@@ -511,7 +511,7 @@ final class LevelEditorScene: SKScene {
         container.addChild(floor)
     }
 
-    private func addContent(to container: SKNode, char: Character, size: CGFloat) {
+    private func addContent(to container: SKNode, char: UInt8, size: CGFloat) {
         switch char {
         case Strings.Tile.wallChar:        addWall(to: container, size: size)
         case Strings.Tile.dotChar:         addDot(to: container, size: size)

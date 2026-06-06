@@ -79,7 +79,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         else if cx0 > mid { addSub(side, bNW, bSW, uSW, uNW) }
         addSub(top, uNW, uNE, uSE, uSW)
     }
-    private func isDotTile(_ ch: Character) -> Bool {
+    private func isDotTile(_ ch: UInt8) -> Bool {
         ch == Strings.Tile.dotChar || ch == Strings.Tile.hideoutChar
     }
 
@@ -408,7 +408,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         bossController.delegate = self
         var overrides: [(blueprintIndex: Int, position: CGPoint)] = []
         for (ri, row) in rows.reversed().enumerated() {
-            for (ci, ch) in Array(row).enumerated() {
+            for (ci, ch) in row.utf8.enumerated() {
                 switch ch {
                 case Strings.Tile.boss1Char: overrides.append((0, CGPoint(x: ci, y: ri)))
                 case Strings.Tile.boss2Char: overrides.append((1, CGPoint(x: ci, y: ri)))
