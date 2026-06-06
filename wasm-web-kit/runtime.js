@@ -1741,22 +1741,6 @@ void main() {
     setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (_e) {} }, 0);
   }
 
-  // Double-tap toggles fullscreen (enter if not in it, exit if in it), real API
-  // where available and the iPhone pseudo-fullscreen otherwise.
-  _toggleFullscreen() {
-    const el = this.canvas;
-    const inFs = this._pseudoFsOn || document.fullscreenElement || document.webkitFullscreenElement;
-    if (inFs) {
-      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-      this._pseudoFullscreen(false);
-    } else {
-      if (el.requestFullscreen) el.requestFullscreen().catch(() => this._pseudoFullscreen(true));
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      else this._pseudoFullscreen(true);
-    }
-  }
-
   ensureAudio() {
     if (!this.audioCtx) {
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -2002,20 +1986,6 @@ void main() {
         this._fingerSlots.delete(t.identifier);
       }
       e.preventDefault();
-      // Double-tap toggles fullscreen, but only on a CLEAN tap: not a swipe (moved)
-      // and not in the bottom fire-button zone, so firing + steering never trigger it.
-      const cleanTap = !this._touchMoved && p.y < LOGICAL_H - 180;
-      if (cleanTap) {
-        const now = Date.now();
-        if (this._lastTapAt && now - this._lastTapAt < 300) {
-          this._lastTapAt = 0;
-          this._toggleFullscreen();
-        } else {
-          this._lastTapAt = now;
-        }
-      } else {
-        this._lastTapAt = 0;   // a swipe or fire tap breaks the double-tap chain
-      }
     };
     this.canvas.addEventListener('touchend', onTouchEnd, { passive: false });
     this.canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });

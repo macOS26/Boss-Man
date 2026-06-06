@@ -301,41 +301,37 @@ extension Strings.Speech {
 }
 
 // MARK: - Maze zoom (title-screen camera mode)
-enum MazeZoom {
-    static let doom = 1993  // sentinel: the single-hit raycaster (RAYCAST 3D)
-    static let voxel = 1994 // sentinel: the overhead voxel-span view (VOXEL 3D)
-    static let iso = 1995   // sentinel: the isometric block view (ISOMETRIC)
-    static let cycle = [1980, 1982, 1983, 1993, 1994, 1995]
-    static var current: Int {
-        let z = Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)
-        return cycle.contains(z) ? z : 1983
+enum MazeZoom: Int, CaseIterable {
+    case wide2D, zoom2D, macro2D, ray3D, voxel3D, iso3D
+
+    static var current: MazeZoom {
+        MazeZoom(rawValue: Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)) ?? .macro2D
     }
-    static var isDoom: Bool { current == doom }
-    static var isVoxel: Bool { current == voxel }
-    static var isIso: Bool { current == iso }
+    static func advance() {
+        Persistence.set((current.rawValue + 1) % allCases.count, forKey: Strings.DefaultsKey.mazeZoom)
+    }
+
+    static var isDoom: Bool  { current == .ray3D }
+    static var isVoxel: Bool { current == .voxel3D }
+    static var isIso: Bool   { current == .iso3D }
     static var is3D: Bool { isDoom || isVoxel || isIso }   // any full-screen scene mode (vs the 2D follow-camera eras)
-    // The 2D follow-camera zoom for each era (100 = no camera). Ms. Pac-Man = 150%,
-    // Jr. Pac-Man = 200%; Pac-Man is classic 100%, DOOM uses the 3D path instead.
+
+    // The 2D follow-camera zoom (100 = no camera): ZOOM 2D = 150%, MACRO 2D = 200%; the 3D modes use the scene path.
     static var zoomPercent: Int {
         switch current {
-        case 1982: return 150
-        case 1983: return 200
-        default:   return 100
+        case .zoom2D:  return 150
+        case .macro2D: return 200
+        default:       return 100
         }
     }
     static var label: String {
         switch current {
-        case 1980: return "FULL 2D"
-        case 1982: return "ZOOM 2D"
-        case 1983: return "MACRO 2D"
-        case 1993: return "RAY 3D"
-        case 1994: return "VOXEL 3D"
-        case 1995: return "ISO 3D"
-        default:   return "\(current)"
+        case .wide2D:  return "WIDE 2D"
+        case .zoom2D:  return "ZOOM 2D"
+        case .macro2D: return "MACRO 2D"
+        case .ray3D:   return "RAY 3D"
+        case .voxel3D: return "VOXEL 3D"
+        case .iso3D:   return "ISO 3D"
         }
-    }
-    static func advance() {
-        let i = cycle.firstIndex(of: current) ?? 0
-        Persistence.set(cycle[(i + 1) % cycle.count], forKey: Strings.DefaultsKey.mazeZoom)
     }
 }

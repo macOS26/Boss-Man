@@ -205,9 +205,9 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     }
     // One RAISED dot block: near (south) face into `front`, a position-based side into `side`, lit top.
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
-        let h = gold ? 0.28 : 0.20
+        let h = (gold ? 0.28 : 0.20) * 0.85                           // yellow cube dots 15% smaller
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
-        let yT = ((gold ? 1.2 : 0.95) * isoWH - 9) / max(1, isoWH)     // dot block height, 6px shorter total
+        let yT = ((gold ? 1.2 : 0.95) * 0.85 * isoWH - 9) / max(1, isoWH)     // 15% smaller, then 6px shorter
         let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
         let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
