@@ -299,7 +299,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
                 float oy = yc - (m.feetOffset - m.headOffset) / 2.f * sc;
                 boss.draw(target, sf::Vector2f(ox, oy), false, false, MoveDirection::None, 0.f, 1.f, sc);
             } else {
-                drawEmoji(target, emoji, sf::Vector2f(cx - btnW / 2.f + 38.f, yc), 50.f);   // emoji PNG renders smaller-per-point than SpriteKit; bump to match the 42pt SK visual
+                drawEmoji(target, emoji, sf::Vector2f(cx - btnW / 2.f + 38.f, yc), 42.f);   // content-cropped PNG is targetSize tall -> matches the SK iconSize 42
             }
             drawText(target, fontWide_, value, 32, sf::Color::White,
                      cx - btnW / 2.f + 80.f, yc, 0, 0.f, 255, "WINDOW", true);

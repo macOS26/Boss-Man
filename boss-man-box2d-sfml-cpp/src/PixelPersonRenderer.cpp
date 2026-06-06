@@ -170,7 +170,7 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
     };
     auto drawHead = [&] {
         sf::Color faceFill = back ? hairFill : skinFill;
-        drawR(0, headY, 14, 12, faceFill, sf::Color(0, 0, 0, 128), 1.0f, 2.0f);
+        drawR(0, headY, 14, 12, faceFill, sf::Color::Transparent, 0.f, 2.0f);
         drawR(0, headY - 4, 14, 4, hairFill);
     };
 

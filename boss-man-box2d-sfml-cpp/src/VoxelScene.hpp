@@ -84,7 +84,7 @@ private:
     static constexpr double camBack_ = 0.65;
 
     // MARK: - Layout / projection (VOXEL: wide FOV + raised, tilted-down camera, mirroring VoxelScene.swift)
-    static constexpr int columns_ = 200;
+    static constexpr int columns_ = 220;           // Scene3D default (DoomScene narrows to 200)
     static constexpr double planeScale_ = 1.2;     // tan(fov/2): wide ~100° FOV so a big swath of maze shows
     static constexpr double eyeHeight_ = 0.7;      // raised camera -> looks down
     static constexpr double wallHeightScale_ = 0.5; // short walls -> tops sit below the horizon

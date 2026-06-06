@@ -956,14 +956,23 @@ void VoxelScene::drawFloor(sf::RenderTarget& target, double dirX, double dirY,
     const float bottomDY  = screenY(radarH_);             // device-y of the floor band bottom
     const Color lc = CUBICLE_COLORS[(state_.level - 1) % 12];
     const sf::Color colA((uint8_t)(lc.r * 0.13f * 255), (uint8_t)(lc.g * 0.13f * 255), (uint8_t)(lc.b * 0.13f * 255)),
-                    colB((uint8_t)(lc.r * 0.24f * 255), (uint8_t)(lc.g * 0.24f * 255), (uint8_t)(lc.b * 0.24f * 255));
+                    colB((uint8_t)(lc.r * 0.24f * 255), (uint8_t)(lc.g * 0.24f * 255), (uint8_t)(lc.b * 0.24f * 255)),
+                    colFar((uint8_t)(lc.r * 0.19f * 255), (uint8_t)(lc.g * 0.19f * 255), (uint8_t)(lc.b * 0.19f * 255));
     const int W = (int)viewW_;
     sf::VertexArray quads(sf::Quads);
     int yStart = (int)std::ceil(horizonDY) + 1, yEnd = (int)std::floor(bottomDY);
     for (int dy = yStart; dy <= yEnd; ++dy) {
         float distFromHorizon = (float)dy - horizonDY;
         if (distFromHorizon <= 0.5f) continue;
-        double d = viewH() / (2.0 * distFromHorizon);     // perpendicular floor distance
+        double d = viewH() * eyeHeight_ / distFromHorizon;     // perpendicular floor distance (matches the walls' eye height)
+        if (d > 13) {   // checker cells shrink below ~1px here and alias to garbage; fill solid to the horizon
+            float y0 = (float)dy, y1 = (float)dy + 1.f;
+            quads.append(sf::Vertex({0.f, y0}, colFar));
+            quads.append(sf::Vertex({(float)W, y0}, colFar));
+            quads.append(sf::Vertex({(float)W, y1}, colFar));
+            quads.append(sf::Vertex({0.f, y1}, colFar));
+            continue;
+        }
         double fx = camX_ + d * rdx0, fy = camY_ + d * rdy0;
         double stepX = d * (rdx1 - rdx0) / W, stepY = d * (rdy1 - rdy0) / W;
         int runStart = 0;
