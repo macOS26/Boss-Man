@@ -394,6 +394,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // Grid-space catch (DoomScene has no physics worker body, so same-tile is the
     // catch); honors spawnGrace immobilization + the shield, like GameScene.
+    func bossesAllFar() -> Bool {
+        let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
+        return bossController.entities.allSatisfy { e in
+            let bg = e.mover?.grid ?? e.ai.grid
+            return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) >= 3
+        }
+    }
+
     func checkBossCatch() {
         let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
         for e in bossController.entities {
@@ -679,7 +687,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         collectStationary()
         moveShots()
-        bossController.advance(1.0 / 60.0)          // fixed dt = 100% game's per-frame step
+        if Scene3D.bossesEnabled || bossesAllFar() {
+            bossController.advance(1.0 / 60.0)
+        } else {
+            bossController.stopAll()
+        }
         syncBossNodes()
         // Capture each boss's SMOOTH world position from the mover itself, not node.position:
         // projectSprites overwrites node.position with screen coords for the billboard, and on

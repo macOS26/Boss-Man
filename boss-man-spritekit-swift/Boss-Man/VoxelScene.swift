@@ -162,7 +162,6 @@ final class VoxelScene: Scene3D {
             if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
             if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
             var firstHit = true
-            var prevWall = false
             var guardN = 0
             while guardN < 160 {
                 guardN += 1
@@ -171,18 +170,21 @@ final class VoxelScene: Scene3D {
                 else             { dEntry = sideY; sideY += ddy; mapY += stepY; side = 1 }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
                 if dEntry > wallFar { break }
-                if map[mapY][mapX] != Strings.Tile.wallChar { prevWall = false; continue }   // floor: floor cast fills it
+                if map[mapY][mapX] != Strings.Tile.wallChar { continue }
                 let dN = max(0.05, dEntry)
                 if firstHit { zbuf[col] = dN; firstHit = false }
-                tops.insert(mapY * colsCount + mapX)                       // this cell's flat top is in view
-                if !prevWall {                                            // exposed face -> coalesced front quad
+                tops.insert(mapY * colsCount + mapX)
+                let adjX = side == 0 ? mapX - stepX : mapX
+                let adjY = side == 1 ? mapY - stepY : mapY
+                let exposed = adjX < 0 || adjX >= colsCount || adjY < 0 || adjY >= rowsCount
+                           || map[adjY][adjX] != Strings.Tile.wallChar
+                if exposed {
                     let fid = side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1
-                    let par = (mapX + mapY) & 1                            // break the run per cell so blocks alternate
+                    let par = (mapX + mapY) & 1
                     let baseY = max(floorClamp, viewMidY - viewH * eyeHeight / CGFloat(dN))
                     let frontTopY = viewMidY + viewH * half / CGFloat(dN)
                     addFront(fid * 2 + par, col, baseY, frontTopY, dN, side, par)
                 }
-                prevWall = true
             }
             if firstHit { zbuf[col] = 1e9 }
             for fid in Array(openF.keys) where openF[fid]!.lastCol < col { emitFront(openF[fid]!); openF.removeValue(forKey: fid) }
