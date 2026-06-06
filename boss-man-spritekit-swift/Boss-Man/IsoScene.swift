@@ -939,33 +939,66 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         addChild(xlines)
     }
 
-    override func dpadSet(finger: Int, phase: Int, at p: CGPoint) {
-        let prev = dpadFinger[finger] ?? ""
-        let w = phase == 2 ? "" : dpadWedgeAt(p)
-        if w.isEmpty { dpadFinger[finger] = nil } else { dpadFinger[finger] = w }
-        moveStickThumb(to: p, release: phase == 2)
-        if !w.isEmpty, w != prev {
-            switch w {
-            case "up":    workerController.queueDirection(.up)
-            case "right": workerController.queueDirection(.right)
-            case "down":  workerController.queueDirection(.down)
-            case "left":  workerController.queueDirection(.left)
-            default:      break
-            }
+    // Iso steers the REAL WorkerController, so its joystick is the continuous-steer
+    // pointer of the 2D modes, not the 3D wedge/hold dpad: press anywhere in the ring
+    // and steer toward the pointer (deadzone-gated, no radius cap so dragging out or
+    // through the centre never strands the press), release just recenters the thumb.
+    private var joyActive = false
+    private var joyFinger: Int?
+
+    private func joystickDirection(_ p: CGPoint) -> MoveDirection? {
+        let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
+        guard (dx * dx + dy * dy).squareRoot() >= joystickDeadzone else { return nil }
+        if abs(dx) >= abs(dy) { return dx > 0 ? .right : .left }
+        return dy > 0 ? .up : .down
+    }
+    @discardableResult private func joyBegin(_ p: CGPoint) -> Bool {
+        guard !isUserPaused, !dying else { return false }
+        if !controlsShown { fire(); return false }
+        if radius(p, joystickCenter) <= joystickRadius {
+            joyActive = true
+            moveStickThumb(to: p, release: false)
+            if let d = joystickDirection(p) { workerController.queueDirection(d) }
+            return true
         }
-        applyDpad()
+        if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
+        return false
+    }
+    private func joyMove(_ p: CGPoint) {
+        guard joyActive else { return }
+        moveStickThumb(to: p, release: false)
+        if let d = joystickDirection(p) { workerController.queueDirection(d) }
+    }
+    private func joyEnd() {
+        guard joyActive else { return }
+        joyActive = false
+        moveStickThumb(to: joystickCenter, release: true)
     }
 
-    override func applyDpad() {
-        var up = false, down = false, left = false, right = false
-        for (_, w) in dpadFinger {
-            switch w {
-            case "up": up = true; case "down": down = true
-            case "left": left = true; case "right": right = true
-            default: break
-            }
-        }
-        highlightDPad(up: up, down: down, left: left, right: right)
+    override func mouseDown(with event: NSEvent) {
+        if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self)); return }
+        if usingTouch { return }
+        joyBegin(event.location(in: self))
+    }
+    override func mouseDragged(with event: NSEvent) {
+        if usingTouch { return }
+        joyMove(event.location(in: self))
+    }
+    override func mouseUp(with event: NSEvent) {
+        if usingTouch { return }
+        joyEnd()
+    }
+
+    override func touchBegan(finger: Int, at p: CGPoint) {
+        if gameOverScreen != nil { return }
+        usingTouch = true
+        if joyBegin(p), joyFinger == nil { joyFinger = finger }
+    }
+    override func touchMoved(finger: Int, at p: CGPoint) {
+        if finger == joyFinger { joyMove(p) }
+    }
+    override func touchEnded(finger: Int, at p: CGPoint) {
+        if finger == joyFinger { joyFinger = nil; joyEnd() }
     }
 
     // Layout / projection (IsoScene-specific)
