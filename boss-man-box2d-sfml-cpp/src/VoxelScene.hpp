@@ -83,9 +83,12 @@ private:
     float animTime_ = 0.0f;  // monotonic clock for pickup throbs (always advances)
     static constexpr double camBack_ = 0.65;
 
-    // MARK: - Layout / projection
+    // MARK: - Layout / projection (VOXEL: wide FOV + raised, tilted-down camera, mirroring VoxelScene.swift)
     static constexpr int columns_ = 200;
-    static constexpr double planeScale_ = 0.5773; // tan(30°), fov 60°
+    static constexpr double planeScale_ = 1.2;     // tan(fov/2): wide ~100° FOV so a big swath of maze shows
+    static constexpr double eyeHeight_ = 0.7;      // raised camera -> looks down
+    static constexpr double wallHeightScale_ = 0.5; // short walls -> tops sit below the horizon
+    static constexpr double maxVoxelDist_ = 30.0;  // how far the voxel-span march draws
     float radarH_ = 180.f;
     float viewW_ = 0.f, viewHeight_ = 0.f; // window logical width/height
     float viewH() const { return viewHeight_ - radarH_; }
@@ -220,6 +223,9 @@ private:
     // MARK: - Rendering helpers
     void renderWalls(sf::RenderTarget& target, double dirX, double dirY,
                      double planeX, double planeY);
+    // Painter's voxel walls (boxy 3D): coalesced front faces + per-cell flat tops, sorted far->near.
+    void renderVoxelWalls(sf::RenderTarget& target, double dirX, double dirY,
+                          double planeX, double planeY);
     void projectSprites(double dirX, double dirY, double planeX, double planeY);
     void drawBillboardSprite(sf::RenderTarget& target, const Billboard& b);
     void drawShotSprite(sf::RenderTarget& target, const Shot& s);

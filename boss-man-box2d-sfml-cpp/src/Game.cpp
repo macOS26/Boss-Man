@@ -355,7 +355,10 @@ void Game::startDoom3D(int level, bool practice) {
     state.level = level;
     auto rows = currentLevelRows();
     if (rows.empty()) return;
-    doomScene = std::make_unique<DoomScene>(sound, state, rows, state.highScore);
+    if (MazeZoom::isVoxel())
+        doomScene = std::make_unique<VoxelScene>(sound, state, rows, state.highScore);   // VOXEL 3D: painter's boxy renderer
+    else
+        doomScene = std::make_unique<DoomScene>(sound, state, rows, state.highScore);    // RAY 3D (and ISO until ported): raycaster
     gameState = GameState::Doom3D;
 }
 

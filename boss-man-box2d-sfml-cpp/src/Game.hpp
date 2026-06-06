@@ -21,6 +21,8 @@
 #include "LevelStore.hpp"
 #include "LevelEditor.hpp"
 #include "DoomScene.hpp"
+#include "VoxelScene.hpp"
+#include "Scene3D.hpp"
 
 namespace bm {
 
@@ -117,7 +119,7 @@ private:
     LevelStore levelStore;
     LevelEditor editor{levelStore};
     std::unique_ptr<WorkerController> worker;
-    std::unique_ptr<DoomScene> doomScene; // first-person 3D bonus (era 1993)
+    std::unique_ptr<Scene3D> doomScene; // first-person 3D bonus: DoomScene (RAY) or VoxelScene (VOXEL)
 
     GameState gameState = GameState::Title;
     GameState prevTickState_ = GameState::Playing;   // != Title so the title renders on entry (1 fps idle)

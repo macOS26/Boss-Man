@@ -80,6 +80,7 @@ set(SOURCES
     src/MazeRenderer.cpp
     src/PixelPersonRenderer.cpp
     src/DoomScene.cpp
+    src/VoxelScene.cpp
     src/EmojiText.cpp
     src/TitleScreen.cpp
     src/LevelStore.cpp

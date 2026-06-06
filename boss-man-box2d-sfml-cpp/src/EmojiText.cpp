@@ -64,7 +64,10 @@ void drawEmoji(sf::RenderTarget& target, const std::string& utf8, sf::Vector2f p
     sf::Sprite sprite(*tex);
     auto sz = tex->getSize();
     sprite.setOrigin(sz.x / 2.f, sz.y / 2.f);
-    float s = targetSize / (float)sz.y; // display the glyph box at targetSize tall
+    // PNGs are cropped to the glyph's content bounds (see extract_emoji.py), so
+    // scaling by the texture height shows the glyph targetSize tall — short sbix
+    // glyphs (📷, 🐟) no longer render small beside full-frame ones (📺).
+    float s = targetSize / (float)sz.y;
     sprite.setScale(flipX ? -s : s, s);
     sprite.setColor(color);
     sprite.setPosition(pos);

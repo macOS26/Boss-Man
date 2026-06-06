@@ -1,4 +1,3 @@
-import Foundation
 import AppKit
 
 // macOS half of the editor's level store I/O. levels.json is a real file under
