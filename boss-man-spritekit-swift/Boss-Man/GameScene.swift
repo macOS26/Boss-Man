@@ -816,30 +816,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func spawnWaterSplash(at center: CGPoint) {
-        let count = 10
-        for i in 0..<count {
-            let angle = CGFloat(i) / CGFloat(count) * .pi * 2
-            let radius = CGFloat.random(in: 22...48, using: &GameRandom.shared)
-            let drop = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6, using: &GameRandom.shared))
-            drop.fillColor = Bool.random(using: &GameRandom.shared) ? .systemCyan : .systemBlue
-            drop.strokeColor = .clear
-            drop.position = center
-            drop.zPosition = 15
-            drop.alpha = 0.85
-            addChild(drop)
-            let dx = cos(angle) * radius
-            let dy = sin(angle) * radius
-            drop.run(.sequence([
-                .group([
-                    .moveBy(x: dx, y: dy, duration: 0.35),
-                    .sequence([
-                        .scale(to: 1.4, duration: 0.1),
-                        .group([.scale(to: 0.1, duration: 0.25), .fadeOut(withDuration: 0.25)])
-                    ])
-                ]),
-                .removeFromParent()
-            ]))
-        }
+        let splash = SpriteFactory.waterSplash()
+        splash.position = center
+        splash.zPosition = 15
+        addChild(splash)
     }
 
     // MARK: - Fire button

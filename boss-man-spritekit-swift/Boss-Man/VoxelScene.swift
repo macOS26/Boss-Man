@@ -1025,9 +1025,12 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
             for e in bossController.entities {
                 let bg = e.mover?.grid ?? e.ai.grid
                 if Int(bg.x) == sgx, Int(bg.y) == sgy {
+                    let hitAt = e.node.position, hitZ = e.node.zPosition
+                    let splash = SpriteFactory.waterSplash(spread: min(2.2, max(0.5, e.node.calculateAccumulatedFrame().height / 60)))
                     bossController.splash(boss: e.node)   // real splash + loop-driven 5s respawn
                     shots[i].alive = false
                     sound.playWaterGunSplash(); state.bumpScore(by: 50); popPoints(50); refreshHUD()
+                    splash.position = hitAt; splash.zPosition = hitZ + 1; spriteLayer.addChild(splash)
                     break
                 }
             }
