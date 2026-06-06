@@ -1,11 +1,6 @@
 import SpriteKit
 import AppKit
 
-// 3D bonus round: the office maze (level 1) rendered first/third-person with flat
-// 2D graphics — a Wolfenstein-style DDA raycaster for the walls, a smooth blended
-// sunset sky, and billboarded game sprites (pellets, gold discs, bosses) standing
-// in the corridors. The camera trails behind Pete so you see him walking ahead of
-// you. A top-down radar sits at the bottom. Common to both ports.
 final class VoxelScene: Scene3D {
 
     // MARK: - Layout / projection
@@ -15,7 +10,13 @@ final class VoxelScene: Scene3D {
     // 0.5 / 1.0 is the flat eye-level look; raise eyeHeight and lower wallHeightScale to tilt down.
     private let eyeHeight: CGFloat = 0.7
     private let wallHeightScale: CGFloat = 0.5
-    private let maxVoxelDist = 30.0          // how far down the maze the voxel-span march draws
+    private let maxVoxelDist = 30.0          // brightness-fade reference; keeps mid-range walls bright
+    // Past the floor's solid-fill line the maze projects to sub-pixel slivers that hug the horizon,
+    // and the per-column DDA cell membership churns there frame to frame (walls "open and close").
+    // Stop the wall march at wallFar and dissolve walls into the far floor band over the last wallFade
+    // tiles, so the distant field is the stable solid band instead of flickering slivers.
+    private let wallFar = 14.0
+    private let wallFade = 3.0
     private var wallQuads: [SKShapeNode] = []   // painter's-sorted wall face + cap quads (grows lazily)
     // A run of adjacent columns hitting the same wall face, merged into one straight-edged quad.
     private struct WallRun {
@@ -27,6 +28,13 @@ final class VoxelScene: Scene3D {
 
     private var travelerMirror: SKNode?             // billboard mirror; the REAL node keeps its SKAction walk (smooth) uncllobbered in the scene root
     private var travelerMirrorEmoji = ""
+
+    // Blend a wall colour toward the far floor band as it nears the draw cutoff, so distant walls
+    // dissolve into the horizon instead of flickering as sub-pixel slivers.
+    private func farFade(_ d: Double, _ color: SKColor, _ band: SKColor) -> SKColor {
+        let t = max(0.0, min(1.0, (d - (wallFar - wallFade)) / wallFade))
+        return t > 0 ? (color.blended(withFraction: CGFloat(t), of: band) ?? color) : color
+    }
 
     // Floor-cast the maze floor as an alternating checker so the tile grid reads in 3D
     // (matches the C++ DoomScene::drawFloor). Each scene row below the horizon maps to a
@@ -112,6 +120,7 @@ final class VoxelScene: Scene3D {
         // all quads are sorted far->near and the nearer ones paint over the farther, so the whole maze
         // reads deep AND clean.
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let farBand = cube.blended(withFraction: 0.81, of: .black) ?? cube   // matches floorFar: walls melt into it at the cutoff
         let w = size.width / CGFloat(columns)
         let half = wallHeightScale - eyeHeight    // negative: tops sit below the horizon (looking down)
         let floorClamp = radarH - viewH           // keep near-wall quads from running absurdly far off-screen
@@ -132,7 +141,7 @@ final class VoxelScene: Scene3D {
             let dAvg = r.depthSum / Double(r.n)
             let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
                     * (r.side == 1 ? 0.62 : 1.0) * (r.par == 1 ? 1.0 : 0.82)   // alternate cubicle blocks
-            let color = cube.blended(withFraction: 1 - f, of: .black) ?? cube
+            let color = farFade(dAvg, cube.blended(withFraction: 1 - f, of: .black) ?? cube, farBand)
             quads.append(VQuad(p0: CGPoint(x: xL, y: yLoL), p1: CGPoint(x: xL, y: yHiL),
                                p2: CGPoint(x: xR, y: yHiR), p3: CGPoint(x: xR, y: yLoR), color: color, depth: dAvg))
         }
@@ -161,7 +170,7 @@ final class VoxelScene: Scene3D {
                 if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX; side = 0 }
                 else             { dEntry = sideY; sideY += ddy; mapY += stepY; side = 1 }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
-                if dEntry > maxVoxelDist { break }
+                if dEntry > wallFar { break }
                 if map[mapY][mapX] != Strings.Tile.wallChar { prevWall = false; continue }   // floor: floor cast fills it
                 let dN = max(0.05, dEntry)
                 if firstHit { zbuf[col] = dN; firstHit = false }
@@ -199,11 +208,11 @@ final class VoxelScene: Scene3D {
             }
             if !ok { continue }
             let dAvg = dsum / 4
-            if dAvg > maxVoxelDist { continue }
+            if dAvg > wallFar { continue }
             let par = (Int(cx) + Int(cy)) & 1
             let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist))) * (par == 1 ? 1.0 : 0.82)
             let base = cube.blended(withFraction: 1 - f, of: .black) ?? cube
-            let color = base.blended(withFraction: 0.3, of: .white) ?? base
+            let color = farFade(dAvg, base.blended(withFraction: 0.3, of: .white) ?? base, farBand)
             quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg))
         }
         quads.sort { $0.depth > $1.depth }                                  // far -> near (painter's)
