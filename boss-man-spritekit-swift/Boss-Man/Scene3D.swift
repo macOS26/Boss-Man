@@ -619,6 +619,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
             px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
         }
+        if wantDir == nil {
+            let lh = pressed.contains(KeyCode.arrowLeft) || pressed.contains(KeyCode.keyA)
+                  || dpadFinger.values.contains { $0.contains("left") }
+            let rh = pressed.contains(KeyCode.arrowRight) || pressed.contains(KeyCode.keyD)
+                  || dpadFinger.values.contains { $0.contains("right") }
+            if lh      { wantDir = (x: moveDir.y, y: -moveDir.x) }
+            else if rh { wantDir = (x: -moveDir.y, y: moveDir.x) }
+        }
         // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
         let tdir: (x: Int, y: Int)? = fwd ? moveDir : nil
@@ -918,8 +926,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
         case KeyCode.space:                     if !event.isARepeat { fire() }
-        case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)   // turn left
-        case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)   // turn right
+        case KeyCode.arrowLeft,  KeyCode.keyA:  pressed.insert(code); wantDir = (x: moveDir.y, y: -moveDir.x)
+        case KeyCode.arrowRight, KeyCode.keyD:  pressed.insert(code); wantDir = (x: -moveDir.y, y: moveDir.x)
         case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)  // about-face 180, not reverse
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
