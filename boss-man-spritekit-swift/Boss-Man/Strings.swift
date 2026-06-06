@@ -302,7 +302,7 @@ extension Strings.Speech {
 
 // MARK: - Maze zoom (title-screen camera mode)
 enum MazeZoom: Int, CaseIterable {
-    case wide2D, zoom2D, macro2D, ray3D, voxel3D, iso3D
+    case wide2D, zoom2D, macro2D, iso3D, ray3D, voxel3D
 
     static var current: MazeZoom {
         MazeZoom(rawValue: Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)) ?? .macro2D
@@ -329,9 +329,9 @@ enum MazeZoom: Int, CaseIterable {
         case .wide2D:  return "WIDE 2D"
         case .zoom2D:  return "ZOOM 2D"
         case .macro2D: return "MACRO 2D"
+        case .iso3D:   return "ISO 3D"
         case .ray3D:   return "RAY 3D"
         case .voxel3D: return "VOXEL 3D"
-        case .iso3D:   return "ISO 3D"
         }
     }
 }
