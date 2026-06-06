@@ -1328,6 +1328,17 @@ class Runtime {
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         this._pseudoFullscreen(false);
       },
+      win_download: (namePtr, nlen, dataPtr, dlen) => {
+        const name = this.cstr(namePtr, nlen) || 'download.json';
+        const data = this.cstr(dataPtr, dlen);
+        try {
+          const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+          const a = document.createElement('a');
+          a.href = url; a.download = name;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (_e) {}
+      },
 
       // ---- persistence (localStorage) ----
       store_get: (keyPtr, klen, bufPtr, cap) => {
