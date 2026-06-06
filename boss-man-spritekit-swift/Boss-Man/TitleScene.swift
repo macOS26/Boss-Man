@@ -54,7 +54,7 @@ final class TitleScene: SKScene {
         playButtonRect = makeTitleButton(
             text: Strings.Title.playGame, color: green,
             center: CGPoint(x: size.width / 2 - bw / 2 - gap / 2, y: promptY),
-            size: CGSize(width: bw, height: bh), textDY: -1, icon: "🕹️")
+            size: CGSize(width: bw, height: bh), textDY: -1, iconNode: playTriangle())
         editorButtonRect = makeTitleButton(
             text: Strings.Title.levelEditor, color: blue,
             center: CGPoint(x: size.width / 2 + bw / 2 + gap / 2, y: promptY),
@@ -95,7 +95,7 @@ final class TitleScene: SKScene {
         mazeLabel       = makeHint(icon: "📷", iconSize: 42, value: mazeText(), y: promptY + 74, color: .systemPurple)
         bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: promptY - 74, color: .systemIndigo, left: true,
                                    sprite: SpriteFactory.bossPersonForBlueprint(0))
-        waterGunLabel   = makeHint(icon: "🔫", iconSize: 42, value: waterGunText(), y: promptY, color: .systemOrange, left: true)   // GUN even with PLAY
+        waterGunLabel   = makeHint(icon: "🕹️", iconSize: 42, value: waterGunText(), y: promptY, color: .systemOrange, left: true)   // joystick side (the gun sits opposite); even with PLAY
     }
 
     // MARK: - Settings text
@@ -129,9 +129,25 @@ final class TitleScene: SKScene {
     // Every button fill is darkened 30% toward black (richer than the raw system hue).
     private func dimmed(_ c: SKColor) -> SKColor { c.blended(withFraction: 0.3, of: .black) ?? c }
 
+    // A yellow right-pointing triangle drawn as a play-button glyph (vector, not an emoji).
+    private func playTriangle() -> SKShapeNode {
+        let w: CGFloat = 22, h: CGFloat = 26
+        let p = CGMutablePath()
+        p.move(to: CGPoint(x: -w / 2, y: h / 2))
+        p.addLine(to: CGPoint(x: -w / 2, y: -h / 2))
+        p.addLine(to: CGPoint(x: w / 2, y: 0))
+        p.closeSubpath()
+        let n = SKShapeNode(path: p)
+        n.fillColor = .systemYellow
+        n.strokeColor = .clear
+        n.lineWidth = 0
+        n.lineJoin = .round
+        return n
+    }
+
     @discardableResult
     private func makeTitleButton(text: String, color: SKColor, center: CGPoint,
-                                 size s: CGSize, textDY: CGFloat = 0, icon: String? = nil) -> CGRect {
+                                 size s: CGSize, textDY: CGFloat = 0, icon: String? = nil, iconNode: SKNode? = nil) -> CGRect {
         let N = SpriteFactory.worldRenderScale
         let container = SKNode()
         container.position = center
@@ -152,15 +168,18 @@ final class TitleScene: SKScene {
         label.fontColor = .white
         label.verticalAlignmentMode = .center
         label.zPosition = 6
-        if let icon = icon {
-            let iconNode = SKLabelNode(text: icon)
-            iconNode.fontSize = 42 * N
-            iconNode.setScale(1 / N)
-            iconNode.verticalAlignmentMode = .center
-            iconNode.horizontalAlignmentMode = .center
-            iconNode.position = CGPoint(x: -s.width / 2 + 40, y: textDY)
-            iconNode.zPosition = 6
-            container.addChild(iconNode)
+        let resolvedIcon: SKNode? = iconNode ?? icon.map { txt in
+            let l = SKLabelNode(text: txt)
+            l.fontSize = 42 * N
+            l.setScale(1 / N)
+            l.verticalAlignmentMode = .center
+            l.horizontalAlignmentMode = .center
+            return l
+        }
+        if let resolvedIcon {
+            resolvedIcon.position = CGPoint(x: -s.width / 2 + 40, y: textDY)
+            resolvedIcon.zPosition = 6
+            container.addChild(resolvedIcon)
             label.horizontalAlignmentMode = .left
             label.position = CGPoint(x: -s.width / 2 + 84, y: textDY)
         } else {
