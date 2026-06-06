@@ -353,7 +353,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             handleMachine(name: machine.name, at: machine.position)
         }
         if mazeBuilder.touchedBrownBox(at: grid) != nil {
-            collectTPSReport()
+            collectTPSReport(at: grid)
         }
     }
 
@@ -385,13 +385,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    private func collectTPSReport() {
+    private func collectTPSReport(at grid: CGPoint) {
         guard state.reportItems.count == requiredItems.count else {
             let missing = requiredItems.filter { !state.reportItems.contains($0) }
             hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
             sound.playTpsMissingItems(missing)
             return
         }
+        mazeBuilder.collectBrownBox(at: grid)   // dim the box on turn-in, same fade + cooldown as a collected machine
         state.tpsReportsDelivered += 1
         state.reportItems.removeAll()
         let tpsPoints = state.level * 100 + 100

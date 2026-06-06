@@ -1055,7 +1055,7 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
         let ch = map[prow][pcol]
         // Brown box = the TPS drop-off (repeatable, never "collected"). Fire once per entry.
         if ch == Strings.Tile.brownBoxChar {
-            if !onBrownBox { onBrownBox = true; collectTPSReport() }
+            if !onBrownBox { onBrownBox = true; collectTPSReport(pcol, prow) }
             return
         }
         onBrownBox = false
@@ -1097,13 +1097,14 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
     }
 
     // Turn in a completed TPS report at the brown box (mirrors GameScene.collectTPSReport).
-    private func collectTPSReport() {
+    private func collectTPSReport(_ col: Int, _ row: Int) {
         guard state.reportItems.count == Strings.Machine.required.count else {
             let missing = Strings.Machine.required.filter { !state.reportItems.contains($0) }
             hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
             sound.playTpsMissingItems(missing)
             return
         }
+        grayBrownBox(col, row)   // dim the box on turn-in, same fade + cooldown as a collected machine
         state.tpsReportsDelivered += 1
         state.reportItems.removeAll()
         let tpsPoints = state.level * 100 + 100
@@ -1140,6 +1141,16 @@ final class VoxelScene: SKScene, BossControllerDelegate, SKTouchResponder {
             billboards[i].node.alpha = 0.55
         }
         mapPickups[mapKey(col, row)]?.alpha = 0.55
+    }
+    // Brown box on a TPS turn-in: same dim + cooldown as a collected machine, then restore.
+    private func grayBrownBox(_ col: Int, _ row: Int, cooldown: TimeInterval = 15) {
+        let mk = mapKey(col, row)
+        guard let i = billboards.firstIndex(where: { Int($0.x) == col && Int($0.y) == row }) else { return }
+        let n = billboards[i].node
+        guard n.action(forKey: Strings.ActionKey.machineCooldown) == nil else { return }
+        n.alpha = 0.55; mapPickups[mk]?.alpha = 0.55
+        n.run(.sequence([.wait(forDuration: cooldown), .run { [weak self] in
+            n.alpha = 1; self?.mapPickups[mk]?.alpha = 1 }]), withKey: Strings.ActionKey.machineCooldown)
     }
 
     private func exit() {

@@ -1287,7 +1287,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, c, r)
         case Strings.Tile.coverSheetChar: collectMachine(Strings.Machine.coverSheet, key, c, r)
         case Strings.Tile.bookBinderChar: collectMachine(Strings.Machine.bookBinder, key, c, r)
-        case Strings.Tile.brownBoxChar:   collectTPSReport()
+        case Strings.Tile.brownBoxChar:   collectTPSReport(c, r)
         default: break
         }
     }
@@ -1350,7 +1350,7 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let ch = map[prow][pcol]
         // Brown box = the TPS drop-off (repeatable, never "collected"). Fire once per entry.
         if ch == Strings.Tile.brownBoxChar {
-            if !onBrownBox { onBrownBox = true; collectTPSReport() }
+            if !onBrownBox { onBrownBox = true; collectTPSReport(pcol, prow) }
             return
         }
         onBrownBox = false
@@ -1408,13 +1408,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
     }
 
     // Turn in a completed TPS report at the brown box (mirrors GameScene.collectTPSReport).
-    private func collectTPSReport() {
+    private func collectTPSReport(_ col: Int, _ row: Int) {
         guard state.reportItems.count == Strings.Machine.required.count else {
             let missing = Strings.Machine.required.filter { !state.reportItems.contains($0) }
             hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
             sound.playTpsMissingItems(missing)
             return
         }
+        grayBrownBox(col, row)   // dim the box on turn-in, same fade + cooldown as a collected machine
         state.tpsReportsDelivered += 1
         state.reportItems.removeAll()
         let tpsPoints = state.level * 100 + 100
@@ -1449,6 +1450,14 @@ final class IsoScene: SKScene, BossControllerDelegate, WorkerControllerDelegate,
         let key = mapKey(col, row)
         isoPickups[key]?.alpha = 0.55
         mapPickups[key]?.alpha = 0.55
+    }
+    // Brown box on a TPS turn-in: same dim + cooldown as a collected machine, then restore.
+    private func grayBrownBox(_ col: Int, _ row: Int, cooldown: TimeInterval = 15) {
+        let key = mapKey(col, row)
+        guard let n = isoPickups[key], n.action(forKey: Strings.ActionKey.machineCooldown) == nil else { return }
+        n.alpha = 0.55; mapPickups[key]?.alpha = 0.55
+        n.run(.sequence([.wait(forDuration: cooldown), .run { [weak self] in
+            self?.isoPickups[key]?.alpha = 1; self?.mapPickups[key]?.alpha = 1 }]), withKey: Strings.ActionKey.machineCooldown)
     }
 
     private func exit() {

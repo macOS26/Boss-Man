@@ -388,6 +388,23 @@ final class MazeBuilder {
         return n.position
     }
 
+    // Dim the brown box on a TPS-report turn-in, same fade + cooldown as a collected
+    // machine: alpha 0.55 for `cooldown` seconds, then back to 1.
+    private var grayedBrownBoxes: Set<Int> = []
+    @discardableResult
+    func collectBrownBox(at grid: CGPoint, cooldown: TimeInterval = 15) -> CGPoint? {
+        let k = tileKey(grid)
+        guard let n = brownBoxNodes[k], !grayedBrownBoxes.contains(k) else { return nil }
+        grayedBrownBoxes.insert(k)
+        n.alpha = 0.55
+        n.removeAction(forKey: Strings.ActionKey.machineCooldown)
+        n.run(.sequence([
+            .wait(forDuration: cooldown),
+            .run { [weak self, weak nn = n] in nn?.alpha = 1; self?.grayedBrownBoxes.remove(k) }
+        ]), withKey: Strings.ActionKey.machineCooldown)
+        return n.position
+    }
+
     private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {
         let dot: SKNode
         if let tex = dotTexture {
