@@ -12,7 +12,7 @@ import SpriteKit
 //   - Return commits (or skips if empty) — calls onConfirm.
 //   - Escape calls onSkip.
 //
-// The dialog absorbs all input while open; GameScene checks the active
+// The dialog absorbs all input while open, GameScene checks the active
 // dialog before routing keys to the gameplay handler.
 @MainActor
 final class UsernameDialog: SKNode {
@@ -148,13 +148,17 @@ final class UsernameDialog: SKNode {
     @discardableResult
     func handleKey(_ key: Int, shift: Bool) -> Bool {
         switch key {
-        case 58: handleConfirm()
-        return true  // Return / Enter
-        case 36: handleSkip()
-        return true  // Escape
-        case 59:                                          // Backspace
-            if !typed.isEmpty { typed.removeLast()
-            refreshInput() }
+        case 58:
+            handleConfirm()
+            return true
+        case 36:
+            handleSkip()
+            return true
+        case 59:
+            if !typed.isEmpty {
+                typed.removeLast()
+                refreshInput()
+            }
             return true
         case 57:                                          // Space
             if !typed.isEmpty && typed.count < maxLength {
@@ -195,16 +199,16 @@ final class UsernameDialog: SKNode {
     private func refreshInput() {
         inputLabel.text = typed
         // frame.width is the measured glyph-run width on both ports (real
-        // SKLabelNode on macOS; the kit's measured frame on wasm), so the caret
+        // SKLabelNode on macOS, the kit's measured frame on wasm), so the caret
         // sits flush after the last character.
         let w = inputLabel.frame.width
         caretLabel.position = CGPoint(x: inputLabel.position.x + w + 2,
                                       y: inputLabel.position.y)
     }
 
-    // bossman-apple wires Save/Skip to NSButton click handlers; on wasm we
+    // bossman-apple wires Save/Skip to NSButton click handlers, on wasm we
     // hit-test the button rects ourselves on a scene mouseDown. Returns
-    // true when the click landed on a button (consumed); false otherwise.
+    // true when the click landed on a button (consumed), false otherwise.
     @discardableResult
     func handleMouseDown(at scenePoint: CGPoint) -> Bool {
         let local = convert(scenePoint, from: scene!)

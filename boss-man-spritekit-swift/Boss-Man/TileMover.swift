@@ -7,7 +7,7 @@ import SpriteKit
 // direction, and walk animation by conforming to the three protocols below, so
 // the stepping/tunnel-wrap/hold logic never has to be reimplemented per game.
 //
-//   - When not moving, ask decide(self) for the next direction; if walkable,
+//   - When not moving, ask decide(self) for the next direction, if walkable,
 //     latch a step from the current tile to the neighbour and start moving.
 //   - While moving, drain moveT by dt and lerp position from `from` to `to`.
 //     On arrival (moveT <= 0) snap to centre, mark not-moving, fire onArrive.
@@ -101,7 +101,7 @@ public final class TileMover<D: TileDirection> {
     }
 
     // Speed as a fraction of full for the active step. A tunnel-entry step ramps
-    // full -> slow over its second half; a tunnel-exit step ramps slow -> full
+    // full -> slow over its second half, a tunnel-exit step ramps slow -> full
     // over its first half. Everything else runs at full speed.
     private func tunnelSpeedFraction(_ p: CGFloat) -> CGFloat {
         let lo = 1 / CGFloat(tunnelSlowdown)

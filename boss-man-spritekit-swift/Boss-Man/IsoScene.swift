@@ -3,8 +3,8 @@ import AppKit
 
 // 3D bonus round: isometric overhead view of the office maze (level 1). Parallel
 // overhead projection (no vanishing point = true top-down/isometric look, not a
-// horizon). The board is tilted down with short raised blocks; depth = row. The
-// camera never moves, so the maze is projected ONCE at build time; only the moving
+// horizon). The board is tilted down with short raised blocks, depth = row. The
+// camera never moves, so the maze is projected ONCE at build time, only the moving
 // sprites are projected per frame. Inherits shared 3D scene logic from Scene3D.
 final class IsoScene: Scene3D, WorkerControllerDelegate {
 
@@ -30,7 +30,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     private var travActive = false
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
-    // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
+    // The board is tilted down (TH < TW vertical squash) with short raised blocks, depth = row. Because
     // it is parallel, the whole board projects ONCE and the view simply translates to follow Pete (ZOOM 2D
     // scroll) with no re-projection, and sprites keep a constant size (no depth shrink, no jitter).
     private var isoTW: CGFloat = 0, isoTH: CGFloat = 0, isoWH: CGFloat = 0
@@ -711,8 +711,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 continue
             }
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
-            guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true
-            continue }
+            guard screenX > -60, screenX < size.width + 60 else {
+                node.isHidden = true
+                continue
+            }
             vis.append((node, item.nativeH, item.worldH, item.maxH, item.name, item.bottom, tX, tY))
         }
         vis.sort { $0.tY > $1.tY }
@@ -788,7 +790,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         updateMap()
     }
 
-    // MARK: - WorkerControllerDelegate (real engine drives Pete; pickups fire here, not a per-frame scan)
+    // MARK: - WorkerControllerDelegate (real engine drives Pete, pickups fire here, not a per-frame scan)
     var isGameOver: Bool { gameOver }
     func workerDidEnterTile(_ grid: CGPoint) {
         let c = Int(grid.x), r = rowsCount - 1 - Int(grid.y)
@@ -917,8 +919,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         for i in shots.indices where shots[i].alive {
             shots[i].x += Double(shots[i].dir.x) * speed
             shots[i].y += Double(shots[i].dir.y) * speed
-            if isWall(shots[i].x, shots[i].y) { shots[i].alive = false
-            continue }
+            if isWall(shots[i].x, shots[i].y) {
+                shots[i].alive = false
+                continue
+            }
             let sgx = Int(shots[i].x.rounded(.down)), sgy = rowsCount - 1 - Int(shots[i].y.rounded(.down))
             for e in bossController.entities {
                 let bg = e.mover?.grid ?? e.ai.grid
@@ -938,8 +942,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 break
             }
         }
-        for s in shots where !s.alive { s.node.removeFromParent()
-        s.mapNode.removeFromParent() }
+        for s in shots where !s.alive {
+            s.node.removeFromParent()
+            s.mapNode.removeFromParent()
+        }
         shots.removeAll { !$0.alive }
     }
 
@@ -1018,8 +1024,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         base.lineWidth = 2
         base.zPosition = 300
         addChild(base)
-        if ControlMode.current.showsStick { addStickThumb()
-        return }
+        if ControlMode.current.showsStick {
+            addStickThumb()
+            return
+        }
         let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25C0}"),
                                                  ("down", -.pi / 2, "\u{25BC}"), ("right", 0, "\u{25B6}")]
         for (name, ang, glyph) in dirs {
@@ -1070,8 +1078,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
     @discardableResult private func joyBegin(_ p: CGPoint) -> Bool {
         guard !isUserPaused, !dying else { return false }
-        if !controlsShown { fire()
-        return false }
+        if !controlsShown {
+            fire()
+            return false
+        }
         if radius(p, joystickCenter) <= joystickRadius {
             joyActive = true
             moveStickThumb(to: p, release: false)
@@ -1093,8 +1103,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self))
-        return }
+        if let s = gameOverScreen {
+            s.handleTap(at: s.convert(event.location(in: self), from: self))
+            return
+        }
         if usingTouch { return }
         joyBegin(event.location(in: self))
     }
@@ -1116,8 +1128,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         if finger == joyFinger { joyMove(p) }
     }
     override func touchEnded(finger: Int, at p: CGPoint) {
-        if finger == joyFinger { joyFinger = nil
-        joyEnd() }
+        if finger == joyFinger {
+            joyFinger = nil
+            joyEnd()
+        }
     }
 
     // MARK: - Layout / projection (IsoScene-specific)

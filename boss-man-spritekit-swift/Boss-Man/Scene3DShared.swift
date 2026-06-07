@@ -21,7 +21,7 @@ func dpadWedgePath(centerAngle: CGFloat, inner: CGFloat, outer: CGFloat) -> CGPa
 
 // One D-pad for the whole game (2D + 3D bonus). The X-diagonals split the ring into four EQUAL cardinal
 // wedges that match the drawn dpadWedgePath, so the hit-area lines up with what is painted and a single
-// pointer (mouse / one finger) yields exactly ONE cardinal; two cardinals need two fingers. "" = inside
+// pointer (mouse / one finger) yields exactly ONE cardinal, two cardinals need two fingers. "" = inside
 // the dead centre or past the outer ring.
 func dpadCardinal(_ p: CGPoint, center: CGPoint, deadzone: CGFloat, radius: CGFloat) -> String {
     let dx = p.x - center.x, dy = p.y - center.y

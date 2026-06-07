@@ -6,7 +6,7 @@ import AVFoundation
 // coords, and the self-chaining stepper that walks the traveler tile-by-tile
 // toward the exit. After firstVisitDelay (or respawnDelay after one exits/is
 // caught) the next traveler from the level table walks across the floor.
-// Shared by both ports; the only platform branch is loading the traveler image.
+// Shared by both ports, the only platform branch is loading the traveler image.
 @MainActor
 final class TravelerSpawner {
     private weak var scene: SKScene?
@@ -128,8 +128,8 @@ final class TravelerSpawner {
     }
 
     // MARK: - Spawn + walk
-    // The doorway can sit on any row; resolve it from the current maze each
-    // spawn. Right mouth spawns, left mouth exits; fall back to the row-8 mouths.
+    // The doorway can sit on any row, resolve it from the current maze each
+    // spawn. Right mouth spawns, left mouth exits, fall back to the row-8 mouths.
     private func resolveDoorway() {
         let cols = gridMap.columnCount
         let doorway = gridMap.horizontalDoorway()
@@ -137,7 +137,7 @@ final class TravelerSpawner {
         exitGrid  = exitOverride  ?? doorway?.exit  ?? CGPoint(x: 0, y: 8)
     }
 
-    // gridMap.point(for:) already includes the maze offset; containerOriginX is
+    // gridMap.point(for:) already includes the maze offset, containerOriginX is
     // 0 on apple and the legacy origin on wasm.
     private func sceneCoord(forGrid g: CGPoint) -> CGPoint {
         let local = gridMap.point(for: g)
@@ -160,7 +160,7 @@ final class TravelerSpawner {
         // body is non-dynamic on wasm (and it is harmless on apple).
         let body = SKPhysicsBody(circleOfRadius: 10)
         body.isDynamic = true
-        body.affectedByGravity = false // the SKAction walk owns its position; default scene gravity would otherwise drift node.position off its aisle (the iso/3D mirrors read node.position)
+        body.affectedByGravity = false // the SKAction walk owns its position, default scene gravity would otherwise drift node.position off its aisle (the iso/3D mirrors read node.position)
         body.categoryBitMask = PhysicsCategory.fish
         body.contactTestBitMask = PhysicsCategory.worker
         body.collisionBitMask = 0

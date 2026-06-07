@@ -66,7 +66,7 @@ enum Strings {
     }
 
     // MARK: - Bundle resources (filename + extension passed to Bundle.url on
-    // macOS; the wasm asset preloader registers names directly).
+    // macOS, the wasm asset preloader registers names directly).
     enum Resource {
         static let levelsFile        = "levels"
         static let levelsExtension   = "json"
@@ -161,7 +161,7 @@ enum Strings {
     }
 
     // MARK: - Persistence keys (UserDefaults on macOS, localStorage on wasm).
-    // Shared key strings on both platforms; only the storage backend differs.
+    // Shared key strings on both platforms, only the storage backend differs.
     // Changing a key re-keys persisted data.
     enum DefaultsKey {
         static let highScore              = "BossMan.highScore"
@@ -266,7 +266,7 @@ enum Strings {
     }
 }
 
-// Voice-picker data. apple ranks these in-process (NSSpeechSynthesizer);
+// Voice-picker data. apple ranks these in-process (NSSpeechSynthesizer),
 // wasm forwards them to the runtime as CSVs (tts_set_*). The shared spoken-line
 // pools live in Strings+Shared.
 extension Strings.Speech {
@@ -279,12 +279,12 @@ extension Strings.Speech {
         "pipe organ", "trinoids", "whisper", "zarvox", "albert", "eddy"
     ]
     // Voice selection mirrors the wasm master (wasm is the source of truth for
-    // voice): Ralph leads since Rocko isn't exposed in Safari; Daniel is last.
+    // voice): Ralph leads since Rocko isn't exposed in Safari, Daniel is last.
     static let preferredVoiceNames = [
         "ralph", "rocko", "fred", "alex", "david", "mark",
         "reed", "grandpa", "junior", "google us english", "daniel"
     ]
-    // Ranked last on apple; sent to the wasm runtime so it can deprioritize them.
+    // Ranked last on apple, sent to the wasm runtime so it can deprioritize them.
     static let femaleVoiceNames = [
         "samantha", "karen", "tessa", "moira", "ava", "susan", "victoria",
         "allison", "veena", "fiona", "kate", "kathy", "sandy", "whisper",
@@ -314,7 +314,7 @@ enum MazeZoom: Int, CaseIterable {
     static var isIso: Bool   { current == .iso3D }
     static var is3D: Bool { isDoom || isVoxel || isIso }   // any full-screen scene mode (vs the 2D follow-camera eras)
 
-    // The 2D follow-camera zoom (100 = no camera): ZOOM 2D = 150%, MACRO 2D = 200%; the 3D modes use the scene path.
+    // The 2D follow-camera zoom (100 = no camera): ZOOM 2D = 150%, MACRO 2D = 200%, the 3D modes use the scene path.
     static var zoomPercent: Int {
         switch current {
         case .zoom2D:  return 150
@@ -349,7 +349,7 @@ enum ControlMode: Int, CaseIterable {
     var showsDpad:  Bool { self == .dpadLeft  || self == .dpadRight  }
     var isHidden:   Bool { self == .hidden }
     var showsControl: Bool { showsStick || showsDpad }
-    var onLeft: Bool { self == .stickLeft || self == .dpadLeft } // movement widget side; fire button is opposite
+    var onLeft: Bool { self == .stickLeft || self == .dpadLeft } // movement widget side, fire button is opposite
 
     var label: String {
         switch self {

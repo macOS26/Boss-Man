@@ -10,7 +10,7 @@ protocol BossControllerDelegate: AnyObject {
     func bossDidCatchWorker()
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint)
     // Travel axis of a water droplet bearing down on a boss at `grid` (nil if
-    // none); the boss steps perpendicular to dodge it.
+    // none), the boss steps perpendicular to dodge it.
     func dropletAxisThreatening(_ grid: CGPoint) -> MoveDirection?
 }
 
@@ -44,7 +44,7 @@ final class BossController {
     // built. (A hardcoded home here once let a tile-less level spawn Bill at a
     // fixed corner.)
     // name/personality/speed + the body/tie palette come from the shared
-    // BossBlueprint (common with the wasm port); apple layers the pants color +
+    // BossBlueprint (common with the wasm port), apple layers the pants color +
     // spawn slot on top.
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] =
         BossBlueprint.table.enumerated().map { i, bp in
@@ -377,7 +377,7 @@ final class BossController {
     // MARK: - Stepping
     // Each boss steps through its own TileMover, advanced once per frame from the
     // scene update. The AI plans the next target tile from Pete's position, heading,
-    // and the flee state; the mover owns glide, per-tile dwell, tunnel wrap, and
+    // and the flee state, the mover owns glide, per-tile dwell, tunnel wrap, and
     // slow-in-tunnels.
     func advance(_ dt: TimeInterval) {
         guard let delegate else { return }

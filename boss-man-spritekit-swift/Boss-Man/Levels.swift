@@ -3,7 +3,7 @@ import SpriteKit
 enum Levels {
     static let levelNames: [String] = (1...24).map { "Level \($0)" }
 
-    // Lazily loaded; first access reads + parses the level data, caches it.
+    // Lazily loaded, first access reads + parses the level data, caches it.
     static var officeMaps: [[String]] {
         if let cached = _cache { return cached }
         let loaded = loadFromAsset() ?? Array(repeating: emptyLevelRows(), count: levelNames.count)

@@ -15,8 +15,10 @@ public final class AnyCancellable: Cancellable {
     private var onCancel: (() -> Void)?
     public init(_ onCancel: @escaping () -> Void) { self.onCancel = onCancel }
     public init<C: Cancellable>(_ other: C) { self.onCancel = { other.cancel() } }
-    public func cancel() { onCancel?()
-    onCancel = nil }
+    public func cancel() {
+        onCancel?()
+        onCancel = nil
+    }
     deinit { cancel() }
     public func store(in set: inout Set<AnyCancellable>) { set.insert(self) }
     public func store(in array: inout [AnyCancellable]) { array.append(self) }

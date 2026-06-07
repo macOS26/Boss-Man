@@ -127,8 +127,10 @@ public final class GCControllerButtonInput: GCControllerElement {
     public var pressedChangedHandler: ((GCControllerButtonInput, Float, Bool) -> Void)?
     public var valueChangedHandler: ((GCControllerButtonInput, Float, Bool) -> Void)?
     private var lastPressed = false
-    init(pad: Int32, btn: Int32) { self.padIndex = pad
-    self.btn = btn }
+    init(pad: Int32, btn: Int32) {
+        self.padIndex = pad
+        self.btn = btn
+    }
     func refresh(handler outer: (GCControllerElement) -> Void) {
         let v = gp_button_value(padIndex, btn)
         let pressed = v > 0.5
@@ -147,8 +149,10 @@ public final class GCControllerAxisInput: GCControllerElement {
     let padIndex: Int32, axis: Int32
     public var value: Float = 0
     public var valueChangedHandler: ((GCControllerAxisInput, Float) -> Void)?
-    init(pad: Int32, axis: Int32) { self.padIndex = pad
-    self.axis = axis }
+    init(pad: Int32, axis: Int32) {
+        self.padIndex = pad
+        self.axis = axis
+    }
     func refresh(handler outer: (GCControllerElement) -> Void) {
         let v = gp_axis(padIndex, axis)
         if v != value {

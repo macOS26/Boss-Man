@@ -5,8 +5,10 @@ public final class CGMutablePath {
     var subpaths: [[CGPoint]] = []
     var current: [CGPoint] = []
     public init() {}
-    public func move(to p: CGPoint) { flush()
-    current = [p] }
+    public func move(to p: CGPoint) {
+        flush()
+        current = [p]
+    }
     public func addLine(to p: CGPoint) { if current.isEmpty { current = [p] } else { current.append(p) } }
     public func addRect(_ r: CGRect) {
         flush()
@@ -43,16 +45,22 @@ public final class CGMutablePath {
     // tangent1End to tangent2End. Half-angle terms come from dot/cross so no acos/tan
     // helper is needed. Collinear / degenerate corners fall back to a straight line.
     public func addArc(tangent1End p1: CGPoint, tangent2End p2: CGPoint, radius r: CGFloat) {
-        guard let p0 = current.last else { current = [p1]
-        return }
-        if r <= 0 { addLine(to: p1)
-        return }
+        guard let p0 = current.last else {
+            current = [p1]
+            return
+        }
+        if r <= 0 {
+            addLine(to: p1)
+            return
+        }
         let v1x = p0.x - p1.x, v1y = p0.y - p1.y
         let v2x = p2.x - p1.x, v2y = p2.y - p1.y
         let len1 = (v1x * v1x + v1y * v1y).squareRoot()
         let len2 = (v2x * v2x + v2y * v2y).squareRoot()
-        if len1 < 1e-6 || len2 < 1e-6 { addLine(to: p1)
-        return }
+        if len1 < 1e-6 || len2 < 1e-6 {
+            addLine(to: p1)
+            return
+        }
         let u1x = v1x / len1, u1y = v1y / len1
         let u2x = v2x / len2, u2y = v2y / len2
         let dot = u1x * u2x + u1y * u2y

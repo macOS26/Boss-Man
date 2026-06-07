@@ -42,7 +42,7 @@ struct EditorTile: Equatable {
 }
 
 // MARK: - Level store (JSON file on every platform)
-// Custom edited levels live in levels.json as one object { "<index>": [rows] };
+// Custom edited levels live in levels.json as one object { "<index>": [rows] },
 // built-in levels seed from the read-only Levels.officeMaps asset. The file is a
 // real file under Application Support on macOS (revealed in Finder by SHOW) and a
 // localStorage blob on wasm (downloaded by SHOW) — both via LevelStoreIO. The
@@ -99,7 +99,7 @@ enum LevelStore {
         LevelStoreIO.exportAndReveal(encode(overrides()))
     }
 
-    // MARK: - Hand-rolled JSON (no Codable; runs on apple + WASI)
+    // MARK: - Hand-rolled JSON (no Codable, runs on apple + WASI)
     private static func encode(_ map: [Int: [String]]) -> String {
         let keys = map.keys.sorted()
         if keys.isEmpty { return "{}" }
@@ -184,7 +184,7 @@ final class LevelEditorScene: SKScene {
     var gridContainer = SKNode()
     var uiContainer = SKNode()
     var tileNodes: [[SKNode]] = []
-    // One baked texture per (tile char, floor parity); every grid cell is a single
+    // One baked texture per (tile char, floor parity), every grid cell is a single
     // SKSpriteNode sharing these, so hundreds of cells batch instead of building a
     // fresh ~14-node tree each (6000+ live nodes crawled at ~1fps). Cleared on every
     // rebuildGrid (tile size / cubicle colour can change).
@@ -898,7 +898,7 @@ final class LevelEditorScene: SKScene {
     func playCurrentLevel() {
         autosaveIfDirty()
         // Test in whatever maze mode is selected: BOSS 3D launches the first-person
-        // view of the edited level; the other eras run the 2D follow-camera at zoom.
+        // view of the edited level, the other eras run the 2D follow-camera at zoom.
         if MazeZoom.is3D {
             let bonus: Bonus3DScene = MazeZoom.isIso ? IsoScene(size: size)
                                    : MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)

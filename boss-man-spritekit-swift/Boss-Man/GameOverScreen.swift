@@ -175,7 +175,7 @@ final class GameOverScreen: SKNode {
     private func buildButtons() {
         let W = screen.width, H = screen.height
         // Taller buttons, lifted off the panel edge. When there is no name entry
-        // they ride up into the open space below the leaderboard; with the
+        // they ride up into the open space below the leaderboard, with the
         // keyboard present they sit just inside the bottom border, below it.
         let bw = W * 0.30
         let bh = H * (qualified ? 0.095 : 0.13)
@@ -246,7 +246,11 @@ final class GameOverScreen: SKNode {
     // Backspace 59, Enter 58, Esc 36, P 15. macOS maps NSEvent codes to this first.
     func handleKey(_ key: Int, shift: Bool) {
         if !qualified {
-            if key == 15 || key == 58 { onPlay() } else if key == 36 { onEsc() }
+            if key == 15 || key == 58 {
+                onPlay()
+            } else if key == 36 {
+                onEsc()
+            }
             return
         }
         switch key {

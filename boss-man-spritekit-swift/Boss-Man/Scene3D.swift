@@ -4,14 +4,14 @@ import AppKit
 // MARK: - Shared base for the 3D bonus scenes (Doom raycaster, Voxel painter, Iso overhead)
 class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
-    // MARK: - Maze (loaded for the selected level; the editor's test plays the edited rows)
+    // MARK: - Maze (loaded for the selected level, the editor's test plays the edited rows)
     lazy var map: [[UInt8]] =
         LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1))).map { Array($0.utf8) }
     var rowsCount: Int { map.count }
     var colsCount: Int { map.first?.count ?? 0 }
 
     // Set by the caller before the scene is presented. The title launches level 1
-    // (BOSS 3D); the level editor's test launches the edited level in practice mode.
+    // (BOSS 3D), the level editor's test launches the edited level in practice mode.
     var startingLevel: Int {
         get { state.level }
         set { state.level = max(1, newValue) }
@@ -27,7 +27,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         return map[r][c] == Strings.Tile.wallChar
     }
 
-    // MARK: - Pete + chase camera (grid coords; y increases down the rows array)
+    // MARK: - Pete + chase camera (grid coords, y increases down the rows array)
     var px = 1.5, py = 1.5, angle = 0.0
     var moveDir = (x: 1, y: 0)       // current lane direction (cardinal)
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
@@ -76,7 +76,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     // MARK: - Bosses — the REAL BossController from the 100% game (speed, square +
-    // smooth modes, flee/splash/capture/respawn all inherited; nothing hand-rolled).
+    // smooth modes, flee/splash/capture/respawn all inherited, nothing hand-rolled).
     var gridMap: GridMap!
     var pathfinder: Pathfinder!
     var bossController: BossController!
@@ -109,12 +109,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     let joystickDeadzone: CGFloat = 20
     var joystickCenter = CGPoint.zero
     // X-pattern D-pad: four ring-sector wedges (up/down/left/right) split by an X.
-    // Each finger lights at most one wedge; two fingers light two (forward + a turn)
+    // Each finger lights at most one wedge, two fingers light two (forward + a turn)
     // ONLY when the phone actually has two fingers down. Keyed "up/down/left/right".
     var dpadWedges: [String: SKShapeNode] = [:]
     var dpadThumb: SKShapeNode?
     var dpadFinger: [Int: String] = [:]
-    var joyFingers = Set<Int>() // fingers captured by the joystick from press to release; drags re-engage even after leaving the ring
+    var joyFingers = Set<Int>() // fingers captured by the joystick from press to release, drags re-engage even after leaving the ring
     var usingTouch = false
     var fireButtonCenter = CGPoint.zero
     let fireButtonRadius: CGFloat = 129.375
@@ -817,7 +817,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         targetAngle = cardinal(moveDir)
         angle = targetAngle
-        bossController.teleportAllToSpawn() // 3s spawnGrace; peteShielded follows isAnyBossSpawning
+        bossController.teleportAllToSpawn() // 3s spawnGrace, peteShielded follows isAnyBossSpawning
         pete.alpha = 1
         pete.startWalking()
         pete.removeAction(forKey: "shield")
@@ -826,7 +826,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     // Grid-space catch (DoomScene has no physics worker body, so same-tile is the
-    // catch); honors spawnGrace immobilization + the shield, like GameScene.
+    // catch), honors spawnGrace immobilization + the shield, like GameScene.
     func bossesAllFar() -> Bool {
         let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
         return bossController.entities.allSatisfy { e in
@@ -894,7 +894,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         ScorePopup.show(points, at: convert(position, from: spriteLayer), in: self, fontSize: 54)
     }
     // Bosses dodge an incoming water pellet, same as the 2D modes: report the travel
-    // AXIS of any shot bearing down on this boss; BossController steps it perpendicular.
+    // AXIS of any shot bearing down on this boss, BossController steps it perpendicular.
     private let dropletDodgeRange = 8
     func dropletAxisThreatening(_ bossGrid: CGPoint) -> MoveDirection? {
         for s in shots where s.alive {
@@ -956,7 +956,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         addBaked(bakeTree, to: mapLayer, z: 0)
 
-        // Dots all share one baked texture so they batch into ~one draw call; gold
+        // Dots all share one baked texture so they batch into ~one draw call, gold
         // and water keep their own node so each can be hidden when collected.
         let dotTex = view?.texture(from: SpriteFactory.dotVisual(size: mapCell * 0.2))
         for r in 0..<rowsCount {
@@ -1048,7 +1048,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         bossController.spawn(forLevel: 1, spawnOverrides: overrides)
         syncBossNodes()
         // The traveler (fish/treat) walks the maze and is caught for points, exactly as in 2D —
-        // the spawner drives the tile walk; the 3D view projects it as a billboard (see projectSprites).
+        // the spawner drives the tile walk, the 3D view projects it as a billboard (see projectSprites).
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound, containerOriginX: 0)
         travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count]) { [weak self] in
             guard let self else { return false }
@@ -1074,10 +1074,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         for e in bossController.entities {
             let id = ObjectIdentifier(e.node)
             if e.node.parent !== spriteLayer {
-                e.tag.removeFromParent() // drop the in-world tag (still inflates the frame even when hidden); 3D uses overlay nameplates
+                e.tag.removeFromParent() // drop the in-world tag (still inflates the frame even when hidden), 3D uses overlay nameplates
                 let f = e.node.calculateAccumulatedFrame()                            // body-only frame now (tag gone)
                 bossNativeH[id] = max(1, f.height)
-                bossFeet[id] = f.minY - e.node.position.y // LOCAL bottom (frame is in parent coords incl. position; subtract it)
+                bossFeet[id] = f.minY - e.node.position.y // LOCAL bottom (frame is in parent coords incl. position, subtract it)
                 e.node.removeFromParent()
                 e.node.physicsBody = nil
                 e.node.isHidden = true
@@ -1106,7 +1106,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         render()
     }
 
-    // All-3-differ. Empty default; every scene overrides with its own renderer.
+    // All-3-differ. Empty default, every scene overrides with its own renderer.
     func render() { }
 
     func bossNameplate(for node: SKNode, text: String) -> SKLabelNode {
@@ -1188,7 +1188,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             else if t.y > 0 { dirName = "SOUTH" } else { dirName = "NORTH" }
             peteName.text = dirName
         }
-        // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
+        // Hold ↑ = forward along facing, release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
         let tdir: (x: Int, y: Int)? = fwd ? moveDir : nil
         if let d = tdir {
@@ -1267,11 +1267,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
         let moving = tdir != nil
-        if moving { pete.startWalking()
-        mapPete.startWalking()
-        bob += 0.22 }
-        else { pete.stopWalking()
-        mapPete.stopWalking() }
+        if moving {
+            pete.startWalking()
+            mapPete.startWalking()
+            bob += 0.22
+        } else {
+            pete.stopWalking()
+            mapPete.stopWalking()
+        }
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY + CGFloat(sin(bob) * 4))
     }
 
@@ -1280,8 +1283,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         for i in shots.indices where shots[i].alive {
             shots[i].x += Double(shots[i].dir.x) * speed
             shots[i].y += Double(shots[i].dir.y) * speed
-            if isWall(shots[i].x, shots[i].y) { shots[i].alive = false
-            continue }
+            if isWall(shots[i].x, shots[i].y) {
+                shots[i].alive = false
+                continue
+            }
             let sgx = Int(shots[i].x.rounded(.down)), sgy = rowsCount - 1 - Int(shots[i].y.rounded(.down))
             for e in bossController.entities {
                 let bg = e.mover?.grid ?? e.ai.grid
@@ -1301,8 +1306,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 }
             }
         }
-        for s in shots where !s.alive { s.node.removeFromParent()
-        s.mapNode.removeFromParent() }
+        for s in shots where !s.alive {
+            s.node.removeFromParent()
+            s.mapNode.removeFromParent()
+        }
         shots.removeAll { !$0.alive }
     }
 
@@ -1329,8 +1336,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let ch = map[prow][pcol]
         // Brown box = the TPS drop-off (repeatable, never "collected"). Fire once per entry.
         if ch == Strings.Tile.brownBoxChar {
-            if !onBrownBox { onBrownBox = true
-            collectTPSReport(pcol, prow) }
+            if !onBrownBox {
+                onBrownBox = true
+                collectTPSReport(pcol, prow)
+            }
             return
         }
         onBrownBox = false
@@ -1541,7 +1550,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if let s = gameOverScreen { // type the name (when qualified); PLAY/ESC otherwise
+        if let s = gameOverScreen { // type the name (when qualified), PLAY/ESC otherwise
             #if os(macOS)
             s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
             #else
@@ -1589,7 +1598,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         return }  // STICK: a round follow-thumb instead of the wedge cross
         dpadWedges = buildDpadFace(in: self, center: joystickCenter, inner: joystickDeadzone, outer: joystickRadius, z: 301)
     }
-    // STICK mode: a thumb knob that rides the finger; direction still comes from dpadWedgeAt (shared angle logic).
+    // STICK mode: a thumb knob that rides the finger, direction still comes from dpadWedgeAt (shared angle logic).
     func addStickThumb() {
         let thumb = SKShapeNode(circleOfRadius: joystickRadius * 0.42)
         thumb.position = joystickCenter
@@ -1602,8 +1611,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
     func moveStickThumb(to p: CGPoint, release: Bool) {
         guard let thumb = dpadThumb else { return }
-        if release { thumb.position = joystickCenter
-        return }
+        if release {
+            thumb.position = joystickCenter
+            return
+        }
         let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
         let mag = (dx * dx + dy * dy).squareRoot(), lim = joystickRadius * 0.58
         thumb.position = (mag > lim && mag > 0) ? CGPoint(x: joystickCenter.x + dx / mag * lim, y: joystickCenter.y + dy / mag * lim) : p
@@ -1619,8 +1630,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     // Once any true touch arrives, ignore this synthetic pointer so we don't
     // double-drive the D-pad on a phone (the host emits BOTH for finger 0).
     override func mouseDown(with event: NSEvent) {
-        if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self))
-        return }
+        if let s = gameOverScreen {
+            s.handleTap(at: s.convert(event.location(in: self), from: self))
+            return
+        }
         if usingTouch { return }
         pointerBegan(finger: 0, at: event.location(in: self))
     }
@@ -1630,8 +1643,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
     override func mouseUp(with event: NSEvent) {
         if usingTouch { return }
-        if joyFingers.contains(0) { dpadSet(finger: 0, phase: 2, at: event.location(in: self))
-        joyFingers.remove(0) }
+        if joyFingers.contains(0) {
+            dpadSet(finger: 0, phase: 2, at: event.location(in: self))
+            joyFingers.remove(0)
+        }
     }
 
     // MARK: - Multi-touch D-pad (phone). Each finger lights at most one wedge, so
@@ -1645,14 +1660,18 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         if joyFingers.contains(finger) { dpadSet(finger: finger, phase: 1, at: p) }
     }
     func touchEnded(finger: Int, at p: CGPoint) {
-        if joyFingers.contains(finger) { dpadSet(finger: finger, phase: 2, at: p)
-        joyFingers.remove(finger) }
+        if joyFingers.contains(finger) {
+            dpadSet(finger: finger, phase: 2, at: p)
+            joyFingers.remove(finger)
+        }
     }
 
     private func pointerBegan(finger: Int, at p: CGPoint) {
         guard !isUserPaused, !dying else { return }
-        if !controlsShown { fire()
-        return }  // water gun hidden: a tap anywhere fires
+        if !controlsShown {
+            fire()
+            return
+        }
         if radius(p, joystickCenter) <= joystickRadius {
             #if os(WASI)
             if !joyFingers.isEmpty {
@@ -1665,8 +1684,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             dpadSet(finger: finger, phase: 0, at: p)
             return
         }
-        if radius(p, fireButtonCenter) <= fireButtonRadius { fire()
-        return }
+        if radius(p, fireButtonCenter) <= fireButtonRadius {
+            fire()
+            return
+        }
     }
 
     func dpadWedgeAt(_ p: CGPoint) -> String {
@@ -1696,14 +1717,18 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             if w.contains("left")  { left = true }
             if w.contains("right") { right = true }
         }
-        if left && right { left = false
-        right = false }  // opposing laterals cancel
-        if down { up = false
-        left = false
-        right = false }  // down is always solo
+        if left && right {
+            left = false
+            right = false
+        }
+        if down {
+            up = false
+            left = false
+            right = false
+        }
         if (left || right) && !up { /* single lateral, fine */ }
         if up { pressed.insert(KeyCode.arrowUp) } else { pressed.remove(KeyCode.arrowUp) }
-        pressed.remove(KeyCode.arrowDown) // up = forward (held); down is a 180° turn, not reverse
+        pressed.remove(KeyCode.arrowDown) // up = forward (held), down is a 180° turn, not reverse
         highlightDPad(up: up, down: down, left: left, right: right)
     }
     func highlightDPad(up: Bool, down: Bool, left: Bool, right: Bool) {

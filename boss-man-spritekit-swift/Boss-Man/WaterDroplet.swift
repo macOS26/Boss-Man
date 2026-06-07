@@ -27,9 +27,9 @@ enum WaterDropletVisual {
 }
 
 // One in-flight water shot. It carries its own velocity and age so GameScene's
-// per-frame integrator can step a list of droplets; it despawns after
+// per-frame integrator can step a list of droplets, it despawns after
 // maxLifetime so a shot that flies off into nowhere can't leak. Wall hits are
-// GameScene's job (it owns the GridMap); a boss hit fires as a physics contact,
+// GameScene's job (it owns the GridMap), a boss hit fires as a physics contact,
 // with the droplet as the dynamic body in the pair.
 final class WaterDroplet: SKNode {
     let velocity: CGVector
@@ -52,7 +52,7 @@ final class WaterDroplet: SKNode {
 
     required init?(coder: NSCoder) { fatalError(Strings.System.initCoderUnsupported) }
 
-    // Advance one frame; returns true when the droplet should be despawned
+    // Advance one frame, returns true when the droplet should be despawned
     // (lifetime exceeded).
     func step(dt: TimeInterval) -> Bool {
         position.x += velocity.dx * CGFloat(dt)

@@ -54,7 +54,7 @@ final class HUD {
         root.zPosition = 80
         parent.addChild(root)
 
-        // The panel border/background is only drawn in the camera modes (150%/200%);
+        // The panel border/background is only drawn in the camera modes (150%/200%),
         // at 100% (extraRow) the HUD floats borderless over the full board.
         if !extraRow {
             let panel = SKShapeNode(rect: CGRect(x: pad - 5, y: top - panelHeight - 8 - 3,
@@ -68,7 +68,7 @@ final class HUD {
         }
 
         // 100% has no panel, so float the top row near the screen top and give it
-        // room above the lower row; the camera modes keep the panel-centred row.
+        // room above the lower row, the camera modes keep the panel-centred row.
         let rowY = extraRow ? top - 38 : top - 8 - panelHeight / 2
         panelRowY = rowY
 
@@ -221,7 +221,7 @@ final class HUD {
         }
     }
 
-    // ASCII-only uppercase over UTF-8 bytes; String.uppercased()/.unicodeScalars
+    // ASCII-only uppercase over UTF-8 bytes, String.uppercased()/.unicodeScalars
     // pull stdlib Unicode machinery, and multibyte UTF-8 is never in the a-z range.
     private static func allCaps(_ s: String) -> String {
         var b = Array(s.utf8)

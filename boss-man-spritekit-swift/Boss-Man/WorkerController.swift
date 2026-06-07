@@ -103,7 +103,7 @@ final class WorkerController {
     // Pete's shield is driven by GameScene from the boss-flashing state (a boss is
     // immobilized while it spawns in), not a standalone timer: invincibility ends
     // the instant the bosses stop flashing. Mirrors the loop-driven boss
-    // spawnGrace; avoids the wasm SKAction .run-after-wait that never fired and
+    // spawnGrace, avoids the wasm SKAction .run-after-wait that never fired and
     // left Pete permanently shielded.
     func setShielded(_ shielded: Bool) { isShielded = shielded }
 

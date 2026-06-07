@@ -1,7 +1,7 @@
 import AppKit
 
 // macOS half of the editor's level store I/O. levels.json is a real file under
-// Application Support; SHOW writes it and reveals it in Finder. The wasm port
+// Application Support, SHOW writes it and reveals it in Finder. The wasm port
 // has its own LevelStoreIO (localStorage blob + browser download). Common
 // LevelStore code calls these three entry points with no #if.
 enum LevelStoreIO {

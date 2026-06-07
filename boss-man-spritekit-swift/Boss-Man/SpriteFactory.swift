@@ -126,7 +126,7 @@ enum SpriteFactory {
     }
 
     // MARK: - Maze tiles
-    // Live-node maze pieces. The wasm port builds the maze from these; apple
+    // Live-node maze pieces. The wasm port builds the maze from these, apple
     // bakes the same shapes into one texture in MazeBuilder, so on apple these
     // helpers are available but unused (the color constants above are shared).
 
@@ -168,7 +168,7 @@ enum SpriteFactory {
         return n
     }
 
-    // A near-black floor tile with a one-pixel darker edge; the two shades
+    // A near-black floor tile with a one-pixel darker edge, the two shades
     // alternate by (col+row) parity for the checker pattern.
     static func floorTile(size: CGFloat, alternate: Bool) -> SKShapeNode {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
@@ -197,7 +197,7 @@ enum SpriteFactory {
         fill.isAntialiased = false
         n.addChild(fill)
 
-        // The grain is 11 extra nodes per tile; skip it where the tiles are tiny
+        // The grain is 11 extra nodes per tile, skip it where the tiles are tiny
         // (the minimap) so we keep the cubicle look without the draw-call blow-up.
         if textured {
             let grain = size - 5
@@ -241,8 +241,8 @@ enum SpriteFactory {
     // MARK: - Effects
     // A radial burst of cyan/blue droplets that grow, then shrink and fade, played
     // where a water-gun pellet hits a boss. Shared by the 2D maze and every 3D
-    // view so the splash reads the same everywhere; spread scales the burst to the
-    // boss's on-screen size. Self-removes; caller sets position and zPosition.
+    // view so the splash reads the same everywhere, spread scales the burst to the
+    // boss's on-screen size. Self-removes, caller sets position and zPosition.
     static func waterSplash(spread: CGFloat = 1) -> SKNode {
         let node = SKNode()
         let count = 10
@@ -272,7 +272,7 @@ enum SpriteFactory {
     }
 
     // Boss visual for a blueprint index, colors from the shared BossBlueprint.
-    // On MIB levels every boss is an all-black suit + tie with sunglasses;
+    // On MIB levels every boss is an all-black suit + tie with sunglasses,
     // sunglasses are never a per-boss trait otherwise.
     static func bossPersonForBlueprint(_ index: Int, mib: Bool = false) -> PixelPerson {
         if mib {

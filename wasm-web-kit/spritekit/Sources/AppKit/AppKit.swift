@@ -44,8 +44,10 @@ public final class NSImage {
 public final class NSFont {
     public let fontName: String
     public let pointSize: CGFloat
-    public init(name: String, size: CGFloat) { self.fontName = name
-    self.pointSize = size }
+    public init(name: String, size: CGFloat) {
+        self.fontName = name
+        self.pointSize = size
+    }
     public static func systemFont(ofSize size: CGFloat) -> NSFont { NSFont(name: "system", size: size) }
     public static func boldSystemFont(ofSize size: CGFloat) -> NSFont { NSFont(name: "system-bold", size: size) }
 }

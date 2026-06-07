@@ -3,7 +3,7 @@ import SpriteKit
 // Per-boss AI config (name / personality / speed) + body/tie palette for
 // blueprint indices 0..3 = Bill / Dom / Bob / Stan. Shared verbatim by both
 // ports: the wasm BossController reads table directly and SpriteFactory reads
-// colors; apple's BossController layers the pants color + spawn slot on top.
+// colors, apple's BossController layers the pants color + spawn slot on top.
 // Spawn positions come from the level map. SKColor's .system* constants resolve
 // identically on apple (= NSColor) and on the SuperBox64 kit, so this is the
 // single source of boss colors.

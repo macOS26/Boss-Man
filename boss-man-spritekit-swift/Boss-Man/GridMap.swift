@@ -1,7 +1,7 @@
 import SpriteKit
 
 // Tile-grid math shared by the maze, Pete, and the boss. Rows are stored top
-// to bottom; positions are returned bottom-up (SpriteKit y-up), matching the
+// to bottom, positions are returned bottom-up (SpriteKit y-up), matching the
 // SuperBox64 SpriteKit world.
 //
 // tunnelPartner builds the Pac-Man-style wrap pairs at parse time: a top-row

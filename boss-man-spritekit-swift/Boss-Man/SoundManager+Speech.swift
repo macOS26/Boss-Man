@@ -23,7 +23,7 @@ func applySpeechVoicePreferences(preferred: [String], robotic: [String], female:
 #endif
 
 extension SoundManager {
-    // Wires speech ducking. macOS rides the @objc AVSpeechSynthesizer delegate;
+    // Wires speech ducking. macOS rides the @objc AVSpeechSynthesizer delegate,
     // wasm ducks in the runtime (and its isSpeaking never resets, so we can't
     // poll), so there's nothing to install in-process there.
     func configureSpeechDucking() {

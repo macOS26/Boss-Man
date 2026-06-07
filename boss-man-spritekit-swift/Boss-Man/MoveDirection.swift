@@ -10,7 +10,7 @@ enum MoveDirection: CaseIterable {
         }
     }
 
-    // Arrow keys + WASD. The key-to-direction mapping is shared; only the raw
+    // Arrow keys + WASD. The key-to-direction mapping is shared, only the raw
     // code values differ per platform (Carbon virtual codes on macOS, the web
     // runtime's codes on wasm).
     init?(keyCode: Int) {
@@ -24,7 +24,7 @@ enum MoveDirection: CaseIterable {
     }
 }
 
-// Physical movement key codes. Values are platform-specific; the names are
+// Physical movement key codes. Values are platform-specific, the names are
 // common so the key-to-direction logic lives in one place.
 enum KeyCode {
 #if os(macOS)

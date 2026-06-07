@@ -40,10 +40,14 @@ public final class GKARC4RandomSource: GKRandomSource {}
 public class GKRandomDistribution: GKRandom {
     public let lowestValue: Int
     public let highestValue: Int
-    public init(lowestValue l: Int, highestValue h: Int) { lowestValue = l
-    highestValue = h }
-    public init(randomSource s: GKRandom, lowestValue l: Int, highestValue h: Int) { lowestValue = l
-    highestValue = h }
+    public init(lowestValue l: Int, highestValue h: Int) {
+        lowestValue = l
+        highestValue = h
+    }
+    public init(randomSource s: GKRandom, lowestValue l: Int, highestValue h: Int) {
+        lowestValue = l
+        highestValue = h
+    }
     public func nextInt() -> Int { lowestValue + abs(Int(sb64_rand())) % max(highestValue - lowestValue + 1, 1) }
     public func nextInt(upperBound u: Int) -> Int { abs(Int(sb64_rand())) % max(u, 1) }
     public func nextUniform() -> Float { Float(sb64_rand() & 0xFFFF) / 65535 }
@@ -81,9 +85,11 @@ open class GKComponent {
 public final class GKEntity {
     public private(set) var components: [GKComponent] = []
     public init() {}
-    public func addComponent(_ c: GKComponent) { c.entity = self
-    components.append(c)
-    c.didAddToEntity() }
+    public func addComponent(_ c: GKComponent) {
+        c.entity = self
+        components.append(c)
+        c.didAddToEntity()
+    }
     public func removeComponent(ofType t: GKComponent.Type) {
         for (i, c) in components.enumerated() where type(of: c) == t {
             c.willRemoveFromEntity()

@@ -196,7 +196,7 @@ extension Strings {
         static let waterPellet    = "waterPellet"
     }
 
-    // MARK: - SKAction keys (union of both ports; unused keys are harmless)
+    // MARK: - SKAction keys (union of both ports, unused keys are harmless)
     enum ActionKey {
         static let walk             = "walk"
         static let spawnShield      = "spawnShield"

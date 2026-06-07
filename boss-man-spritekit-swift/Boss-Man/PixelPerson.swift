@@ -191,7 +191,7 @@ final class PixelPerson: SKNode {
         head = hd
 
         // Flat strip across the top — squares the top corners (rounded bottom stays). Hair on
-        // the front; hair-coloured on the back so it just flattens the top, same shape.
+        // the front, hair-coloured on the back so it just flattens the top, same shape.
         let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
         hair.fillColor = hairColor
         hair.strokeColor = hairColor
@@ -291,7 +291,7 @@ final class PixelPerson: SKNode {
     // Like setFacing, but ignores a single direction reversal so the eyes/tie/
     // body keep the general heading instead of flipping forward-opposite-forward
     // on per-tile AI jitter (most visible in square mode's dwell). A reversal
-    // that persists 2+ tiles still turns. Bosses use this; Pete uses setFacing
+    // that persists 2+ tiles still turns. Bosses use this, Pete uses setFacing
     // directly so the player gets an instant turn.
     private var smoothedFaceDir: MoveDirection?
     private var faceReverseSkips = 0
@@ -309,7 +309,7 @@ final class PixelPerson: SKNode {
     }
 
     // MARK: - Eye tracking
-    // The 3D billboards opt out (frozen eyes/tie); the radar copies keep tracking.
+    // The 3D billboards opt out (frozen eyes/tie), the radar copies keep tracking.
     var tracksLook = true
     func freezeLook() {
         setLookDirection(nil)   // centre eyes/tie once, then stop tracking

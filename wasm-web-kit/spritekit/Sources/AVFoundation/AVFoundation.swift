@@ -249,10 +249,14 @@ public final class AVAudioEngine {
     public func disconnectNodeInput(_ node: AnyObject) {}
     public func disconnectNodeOutput(_ node: AnyObject) {}
     public func prepare() {}
-    public func start() throws { eng_start()
-    isRunning = true }
-    public func stop() { eng_stop()
-    isRunning = false }
+    public func start() throws {
+        eng_start()
+        isRunning = true
+    }
+    public func stop() {
+        eng_stop()
+        isRunning = false
+    }
     public func reset() {}
 }
 
@@ -266,8 +270,10 @@ public class AVAudioNode {
 }
 
 public final class AVAudioMixerNode: AVAudioNode {
-    public override init() { super.init()
-    self.nodeId = eng_mixer_create() }
+    public override init() {
+        super.init()
+        self.nodeId = eng_mixer_create()
+    }
     public var outputVolume: Float = 1.0 { didSet { _avMasterVolume = outputVolume } }
 }
 
@@ -277,8 +283,10 @@ public final class AUAudioUnit {
 }
 public final class AVAudioOutputNode: AVAudioNode {
     public let auAudioUnit = AUAudioUnit()
-    public override init() { super.init()
-    self.nodeId = -1 }  // -1 => audioCtx.destination
+    public override init() {
+        super.init()
+        self.nodeId = -1
+    }  // -1 => audioCtx.destination
 }
 
 public struct AVAudioPlayerNodeBufferOptions: OptionSet, Sendable {
@@ -293,8 +301,10 @@ public final class AVAudioTime { public init() {} }
 public final class AVAudioPlayerNode: AVAudioNode {
     private var currentVoice: Int32 = -1
 
-    public override init() { super.init()
-    self.nodeId = eng_player_create() }
+    public override init() {
+        super.init()
+        self.nodeId = eng_player_create()
+    }
 
     public var isPlaying: Bool { currentVoice >= 0 && snd_status(currentVoice) == 1 }
 
@@ -305,8 +315,10 @@ public final class AVAudioPlayerNode: AVAudioNode {
                                options: AVAudioPlayerNodeBufferOptions = [],
                                completionHandler h: (() -> Void)? = nil) {
         let handle = buffer.uploadedHandle()
-        guard handle > 0 else { h?()
-        return }
+        guard handle > 0 else {
+            h?()
+            return
+        }
         let v = snd_play(handle, effectiveVolume(), options.contains(.loops) ? 1 : 0)
         currentVoice = v
         if let h = h {
@@ -322,8 +334,12 @@ public final class AVAudioPlayerNode: AVAudioNode {
 
     public func play() { snd_resume_all() }
     public func play(at when: AVAudioTime?) { play() }
-    public func stop() { if currentVoice >= 0 { snd_stop(currentVoice)
-    currentVoice = -1 } }
+    public func stop() {
+        if currentVoice >= 0 {
+            snd_stop(currentVoice)
+            currentVoice = -1
+        }
+    }
     public func pause() { snd_pause_all() }
 
     override func applyVolume() { if currentVoice >= 0 { snd_set_volume(currentVoice, effectiveVolume()) } }
@@ -386,8 +402,10 @@ public final class AVAudioPCMBuffer {
     // reused on every replay (floatChannelData is only written pre-upload).
     func uploadedHandle() -> Int32 {
         if uploaded > 0 { return uploaded }
-        if soundHandle > 0 { uploaded = soundHandle
-        return uploaded }
+        if soundHandle > 0 {
+            uploaded = soundHandle
+            return uploaded
+        }
         guard let s = samples, frameLength > 0 else { return 0 }
         uploaded = snd_create_pcm(s, Int32(frameLength), Int32(sampleRate))
         if uploaded > 0 {

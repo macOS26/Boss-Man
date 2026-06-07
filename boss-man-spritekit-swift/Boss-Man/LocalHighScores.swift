@@ -1,11 +1,11 @@
 // Local high-score leaderboard, shared verbatim by the apple and wasm builds.
-// Storage goes through Persistence (UserDefaults on apple, localStorage on web);
+// Storage goes through Persistence (UserDefaults on apple, localStorage on web),
 // the payload is hand-rolled JSON ([{"n":NAME,"s":SCORE}, ...]) because
 // Foundation's JSONEncoder/Codable isn't available on the WASI toolchain.
 //
-// Game-Center-style local rules: ONE entry per unique name; a submission only
+// Game-Center-style local rules: ONE entry per unique name, a submission only
 // overwrites that name's entry when it beats their own best (otherwise it is not
-// recorded, so the same name is never logged twice); sorted, top-10.
+// recorded, so the same name is never logged twice), sorted, top-10.
 struct LocalHighScores {
     struct Entry: Equatable {
         let name: String
@@ -79,7 +79,7 @@ struct LocalHighScores {
         Persistence.setString("", forKey: storeKey)
     }
 
-    // MARK: - Hand-rolled JSON (no Codable; runs on apple + WASI)
+    // MARK: - Hand-rolled JSON (no Codable, runs on apple + WASI)
     private static func encode(_ entries: [Entry]) -> String {
         var out = "["
         for (i, e) in entries.enumerated() {

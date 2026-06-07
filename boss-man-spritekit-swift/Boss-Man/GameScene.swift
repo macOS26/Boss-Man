@@ -3,7 +3,7 @@ import GameKit
 import SpriteKit
 
 // Gameplay scene, common to the macOS master and the wasm port. The game logic
-// is shared; only platform input, movement timing, and Game Center fork behind
+// is shared, only platform input, movement timing, and Game Center fork behind
 // #if.
 final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate {
     private let tileSize: CGFloat = 32
@@ -59,13 +59,13 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     // Maze 200% mode (title toggle): an SKCameraNode zoomed 2x that follows Pete,
-    // clamped to the scene so the view never scrolls past the maze. Render-only;
+    // clamped to the scene so the view never scrolls past the maze. Render-only,
     // physics and the grid catch stay in world coordinates, unaffected.
     private var cameraNode: SKCameraNode?
     private var camPos: CGPoint?
     private var camVel: CGPoint = .zero
     // Screen-fixed overlay layer (HUD, fire button, joystick, PAUSED, game-over).
-    // A scene child at 100%; a camera child at 200% so it stays unscaled while
+    // A scene child at 100%, a camera child at 200% so it stays unscaled while
     // the board zooms. Re-created fresh each buildLevel (removeAllChildren wipes
     // the previous one).
     private var uiLayer = SKNode()
@@ -100,7 +100,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         gridMap.yOffset = 0
         // Centre the maze horizontally. On a scene sized to the maze (apple) the
-        // offset is 0; on a full-viewport scene (web) it pads the slack so the maze
+        // offset is 0, on a full-viewport scene (web) it pads the slack so the maze
         // sits centred. containerOriginX feeds the movers their world origin.
         let mazeWidth = CGFloat(gridMap.columnCount) * tileSize
         gridMap.xOffset = max(0, (size.width - mazeWidth) / 2)
@@ -262,7 +262,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             swipeStart = nil
             return
         }
-        swipeStart = ControlMode.current.isHidden ? p : nil // swipe-to-move only in HIDDEN mode; stick/dpad uses the widget
+        swipeStart = ControlMode.current.isHidden ? p : nil // swipe-to-move only in HIDDEN mode, stick/dpad uses the widget
         swipeFired = false
         #endif
     }
@@ -528,7 +528,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // Proximity catch: same tile, or centres within bossCatchDistance (their
     // bodies overlap). Pure overlap, so it never fires a full tile away — Pete is
     // only safe from a boss while that boss is flashing in (immobilized during its
-    // spawnGrace), which resolveBossContact guards on; the run-through was the
+    // spawnGrace), which resolveBossContact guards on, the run-through was the
     // never-clearing shield, not the detection.
     private func checkBossCatch() {
         let petePos = workerController.node.position
@@ -562,7 +562,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // Host for all screen-fixed UI. Under the camera (200%) it is offset by
     // -half the scene so its scene-style child coords land at the same on-screen
-    // spot as at 100%; with no camera it sits at the scene origin. A brand-new
+    // spot as at 100%, with no camera it sits at the scene origin. A brand-new
     // node each call, since removeAllChildren cleared the previous one.
     private func setupUILayer() {
         uiLayer = SKNode()
@@ -876,7 +876,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         base.zPosition = 50
         uiLayer.addChild(base)
 
-        if ControlMode.current.showsDpad { // DPAD: the shared 4-wedge cross (same look + hit-area as the 3D bonus); STICK: the follow-thumb below
+        if ControlMode.current.showsDpad { // DPAD: the shared 4-wedge cross (same look + hit-area as the 3D bonus), STICK: the follow-thumb below
             dpadWedges = buildDpadFace(in: uiLayer, center: joystickCenter, inner: joystickDeadzone, outer: joystickRadius, z: 51)
             return
         }
@@ -892,7 +892,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     // Drive the shared D-pad from a pointer in uiLayer space: move the thumb (stick mode), light the
-    // pressed wedge, and steer. One cardinal per pointer; in stick mode the wedge dict is empty so the
+    // pressed wedge, and steer. One cardinal per pointer, in stick mode the wedge dict is empty so the
     // highlight is a no-op.
     private func applyJoystick(at p: CGPoint) {
         moveJoystickThumb(to: p)
