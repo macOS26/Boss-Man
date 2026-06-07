@@ -1402,6 +1402,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         sound.playMachine(named: name)
         grayPickupInWorld(col: col, row: row)
         refreshHUD()
+        if state.reportItems.count == Strings.Machine.required.count {
+            hud.showMessage(Strings.Message.tpsReportReady, duration: 6)
+        }
     }
     // +point popup, same as the 100% game's ScorePopup, in BOTH views: on Pete in
     // the 3D corridor, and on Pete in the mini-map (a matching rise+fade label).
@@ -1441,11 +1444,15 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         checkLevelComplete3D()
     }
     func checkLevelComplete3D() {
-        guard state.collectedDots >= state.dotCount,
-              state.collectedGoldDiscs >= state.goldDiscCount,
-              state.tpsReportsDelivered >= 1 else { return }
-        state.advanceLevel()
-        startNextLevel3D()
+        let dotsDone = state.collectedDots >= state.dotCount
+        let discsDone = state.collectedGoldDiscs >= state.goldDiscCount
+        guard dotsDone && discsDone else { return }
+        if state.tpsReportsDelivered >= 1 {
+            state.advanceLevel()
+            startNextLevel3D()
+        } else {
+            hud.showMessage(Strings.Message.needTPSReport, duration: 3)
+        }
     }
     func makeNextLevelScene() -> Scene3D { Scene3D(size: size) }
     func startNextLevel3D() {
