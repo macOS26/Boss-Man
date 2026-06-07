@@ -845,13 +845,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // Grid-space catch (DoomScene has no physics worker body, so same-tile is the
     // catch), honors spawnGrace immobilization + the shield, like GameScene.
-    func bossesAllFar() -> Bool {
-        let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
-        return bossController.entities.allSatisfy { e in
-            let bg = e.mover?.grid ?? e.ai.grid
-            return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) > 3
-        }
-    }
 
     func checkBossCatch() {
         let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
@@ -909,7 +902,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         state.bumpScore(by: points)
         sound.playCaptureBoss(streak: max(1, points / 100))
         refreshHUD()
-        ScorePopup.show(points, at: convert(position, from: spriteLayer), in: self, fontSize: 54)
+        popPoints(points)
     }
     // Bosses dodge an incoming water pellet, same as the 2D modes: report the travel
     // AXIS of any shot bearing down on this boss, BossController steps it perpendicular.
@@ -1030,7 +1023,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         arrow.fillColor = .white
         arrow.strokeColor = SKColor(white: 0, alpha: 0.7)
         arrow.lineWidth = 1.5
-        arrow.zPosition = 204
+        arrow.zPosition = 220
+        arrow.run(.repeatForever(.sequence([
+            .scale(to: 1.25, duration: 0.35),
+            .scale(to: 1.0,  duration: 0.35)
+        ])))
         addChild(arrow)
         mapPeteArrow = arrow
         mapLayer.zPosition = 201
@@ -1131,7 +1128,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     func bossNameplate(for node: SKNode, text: String) -> SKLabelNode {
         let id = ObjectIdentifier(node)
-        if let l = bossNames[id] { return l }
+        if let l = bossNames[id] {
+            l.text = text
+            return l
+        }
         let l = makeNameplate(text)
         bossNames[id] = l
         nameLayer.addChild(l)
@@ -1265,10 +1265,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         collectStationary()
         moveShots()
-        if bossesAllFar() {
-            bossController.advance(1.0 / 60.0)
-        } else {
-            bossController.stopAll()
+        let pgx = Int(px.rounded(.down))
+        let pgy = rowsCount - 1 - Int(py.rounded(.down))
+        bossController.advance(1.0 / 60.0) { e in
+            let bg = e.mover?.grid ?? e.ai.grid
+            return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) <= 3
         }
         syncBossNodes()
         // Capture each boss's SMOOTH world position from the mover itself, not node.position:
@@ -1378,8 +1379,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             collected.insert(key)
             waterGun.activate()
             waterGunPickedUp = true
+            state.bumpScore(by: 50)
             sound.playWaterGunPickup()
             hidePickup(pcol, prow)
+            popPoints(50)
             refreshHUD()
         case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, pcol, prow)
         case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, pcol, prow)

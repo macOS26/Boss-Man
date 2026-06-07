@@ -366,7 +366,7 @@ final class BossController {
     // scene update. The AI plans the next target tile from Pete's position, heading,
     // and the flee state, the mover owns glide, per-tile dwell, tunnel wrap, and
     // slow-in-tunnels.
-    func advance(_ dt: TimeInterval) {
+    func advance(_ dt: TimeInterval, shouldMove: ((Entity) -> Bool)? = nil) {
         guard let delegate else { return }
         if !pendingSpawns.isEmpty {
             for i in pendingSpawns.indices { pendingSpawns[i].timer -= dt }
@@ -392,6 +392,7 @@ final class BossController {
                 continue
             }
             if entities[i].isImmobilized { continue }
+            if let shouldMove, !shouldMove(entities[i]) { continue }
             guard let mover = entities[i].mover else { continue }
             let ai = entities[i].ai
             let node = entities[i].node
