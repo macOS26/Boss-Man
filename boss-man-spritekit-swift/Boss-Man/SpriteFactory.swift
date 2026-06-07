@@ -111,6 +111,12 @@ enum SpriteFactory {
         .systemBlue,   .systemTeal, .systemIndigo, .systemGreen,  .systemPink, .systemBrown,
         .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray,
     ]
+    static func cubicleColor(forLevel level: Int) -> SKColor {
+        cubicleColors[(level - 1) % cubicleColors.count]
+    }
+    static func cubicleColor(index: Int) -> SKColor {
+        cubicleColors[index % cubicleColors.count]
+    }
     static let wallTrimColor   = SKColor.systemGray
     static let mazeBackground  = SKColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
     static let floorTileA      = SKColor(calibratedRed: 0.11, green: 0.12, blue: 0.13, alpha: 1)
@@ -280,6 +286,31 @@ enum SpriteFactory {
         }
         let c = BossBlueprint.colors[min(max(index, 0), BossBlueprint.colors.count - 1)]
         return bossPerson(bodyColor: c.body, tieColor: c.tie)
+    }
+
+    static func controlRing(radius: CGFloat, center: CGPoint, fillColor: SKColor = SKColor(white: 1, alpha: 0.14),
+                             strokeColor: SKColor = SKColor(white: 1, alpha: 0.5), lineWidth: CGFloat = 2,
+                             zPosition: CGFloat = 300) -> SKShapeNode {
+        let ring = SKShapeNode(circleOfRadius: radius)
+        ring.position = center
+        ring.fillColor = fillColor
+        ring.strokeColor = strokeColor
+        ring.lineWidth = lineWidth
+        ring.zPosition = zPosition
+        return ring
+    }
+
+    static let machineTiles: [(char: UInt8, emoji: String)] = [
+        (Strings.Tile.waterGunChar,   Strings.Emoji.waterGun),
+        (Strings.Tile.printerChar,    Strings.Emoji.printer),
+        (Strings.Tile.faxChar,       Strings.Emoji.fax),
+        (Strings.Tile.coverSheetChar, Strings.Emoji.coverSheet),
+        (Strings.Tile.bookBinderChar, Strings.Emoji.bookBinder),
+        (Strings.Tile.brownBoxChar,   Strings.Emoji.brownBox),
+    ]
+
+    static func machineEmoji(for char: UInt8) -> String? {
+        machineTiles.first(where: { $0.char == char })?.emoji
     }
 }
 

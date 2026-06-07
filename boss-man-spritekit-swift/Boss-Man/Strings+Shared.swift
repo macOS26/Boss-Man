@@ -64,8 +64,8 @@ extension Strings {
     // MARK: - Boss display names
     enum Boss {
         static let bill = "BILL"
-        static let dom  = "BOSS"
-        static let bob  = "MILT"
+        static let milt  = "MILT"
+        static let bobs  = "BOBS"
         static let stan = "STAN"
         static let boss = "BOSS"
     }
@@ -233,4 +233,23 @@ func jsonEscape(_ s: String) -> String {
         }
     }
     return out
+}
+
+func jsonReadString(_ a: [Character], _ n: Int, _ start: Int) -> (String, Int) {
+    var i = start + 1, s = ""
+    while i < n, a[i] != "\"" {
+        if a[i] == "\\", i + 1 < n {
+            switch a[i + 1] {
+            case "n": s.append("\n")
+            case "t": s.append("\t")
+            case "r": s.append("\r")
+            default:  s.append(a[i + 1])
+            }
+            i += 2
+        } else {
+            s.append(a[i])
+            i += 1
+        }
+    }
+    return (s, min(i + 1, n))
 }

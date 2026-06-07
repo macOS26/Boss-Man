@@ -45,7 +45,7 @@ final class VoxelScene: Scene3D {
         camY = py - dirY * back
         castFloor()
 
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let cube = SpriteFactory.cubicleColor(forLevel: state.level)
         let tops = buildWallCells(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
         let wallH = Double(wallHeightScale)

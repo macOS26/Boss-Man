@@ -132,7 +132,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     private func buildLevel() {
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
-        mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        mazeBuilder.cubicleColor = SpriteFactory.cubicleColor(forLevel: state.level)
         gridMap.setRows(currentLevelRows())
         state.dotCount = mazeBuilder.build(in: self, view: view)
         state.goldDiscCount = mazeBuilder.goldDiscPositions.count
@@ -161,8 +161,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
+    private var clampedLevelIndex: Int { max(0, min(state.level - 1, Levels.levelNames.count - 1)) }
     private func currentLevelRows() -> [String] {
-        LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
+        LevelStore.loadLevel(index: clampedLevelIndex)
     }
 
     private func musicTheme(for level: Int) -> MusicTheme {
@@ -853,13 +854,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if fireButtonHidden { return }
         let onLeft = !ControlMode.current.onLeft   // fire button opposite the movement widget
         fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
-        let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
-        ring.position = fireButtonCenter
-        ring.fillColor = SKColor(white: 1, alpha: 0.14)
-        ring.strokeColor = SKColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2
-        ring.zPosition = 50
-        uiLayer.addChild(ring)
+        uiLayer.addChild(SpriteFactory.controlRing(radius: fireButtonRadius, center: fireButtonCenter, zPosition: 50))
     }
 
     // MARK: - Joystick

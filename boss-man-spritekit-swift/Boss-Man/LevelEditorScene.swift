@@ -28,8 +28,8 @@ struct EditorTile: Equatable {
     static let goldDisc    = EditorTile(character: Strings.Tile.goldDiscChar,     displayName: Strings.Editor.Tile.goldDisc)
     static let worker      = EditorTile(character: Strings.Tile.workerChar,       displayName: "Hero Pete")
     static let boss1       = EditorTile(character: Strings.Tile.boss1Char,        displayName: "Boss Bill")
-    static let boss2       = EditorTile(character: Strings.Tile.boss2Char,        displayName: "Boss Dom")
-    static let boss3       = EditorTile(character: Strings.Tile.boss3Char,        displayName: "Boss Bob")
+    static let boss2       = EditorTile(character: Strings.Tile.boss2Char,        displayName: "Boss Milt")
+    static let boss3       = EditorTile(character: Strings.Tile.boss3Char,        displayName: "Boss Bobs")
     static let boss4       = EditorTile(character: Strings.Tile.boss4Char,        displayName: "Boss Stan")
     static let waterGun    = EditorTile(character: Strings.Tile.waterGunChar,     displayName: Strings.Editor.Tile.waterGun)
     static let waterPellet = EditorTile(character: Strings.Tile.waterPelletChar,  displayName: Strings.Editor.Tile.waterPellet)
@@ -124,7 +124,7 @@ enum LevelStore {
                 i += 1
                 continue
             }
-            let (keyStr, afterKey) = readString(a, n, i)
+            let (keyStr, afterKey) = jsonReadString(a, n, i)
             i = afterKey
             while i < n, a[i] == " " || a[i] == "\n" || a[i] == "\t" || a[i] == "\r" || a[i] == ":" { i += 1 }
             guard i < n, a[i] == "[" else { continue }   // a row string, not a "<index>": [ key
@@ -132,7 +132,7 @@ enum LevelStore {
             var rows: [String] = []
             while i < n, a[i] != "]" {
                 if a[i] == "\"" {
-                    let (s, after) = readString(a, n, i)
+                    let (s, after) = jsonReadString(a, n, i)
                     rows.append(s)
                     i = after
                 } else {
@@ -143,25 +143,6 @@ enum LevelStore {
             if let idx = Int(keyStr) { result[idx] = rows }
         }
         return result
-    }
-
-    private static func readString(_ a: [Character], _ n: Int, _ start: Int) -> (String, Int) {
-        var i = start + 1, s = ""
-        while i < n, a[i] != "\"" {
-            if a[i] == "\\", i + 1 < n {
-                switch a[i + 1] {
-                case "n": s.append("\n")
-                case "t": s.append("\t")
-                case "r": s.append("\r")
-                default:  s.append(a[i + 1])
-                }
-                i += 2
-            } else {
-                s.append(a[i])
-                i += 1
-            }
-        }
-        return (s, min(i + 1, n))
     }
 
 }
@@ -220,7 +201,7 @@ final class LevelEditorScene: SKScene {
     }
 
     private var currentCubicleColor: SKColor {
-        SpriteFactory.cubicleColors[currentLevelIndex % SpriteFactory.cubicleColors.count]
+        SpriteFactory.cubicleColor(index: currentLevelIndex)
     }
 
     // MARK: - Lifecycle
