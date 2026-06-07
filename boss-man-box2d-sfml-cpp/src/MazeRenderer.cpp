@@ -359,7 +359,7 @@ bool MazeRenderer::collectDot(int col, int row) {
 
 bool MazeRenderer::collectGold(int col, int row) {
     for (auto& p : pickups) {
-        if (p.type == 'O' && p.grid.col == col && p.grid.row == row && p.active) {
+        if (p.type == 'O' && p.grid.x == col && p.grid.y == row && p.active) {
             p.active = false;
             return true;
         }
@@ -369,7 +369,7 @@ bool MazeRenderer::collectGold(int col, int row) {
 
 bool MazeRenderer::collectWaterGun(int col, int row) {
     for (auto& p : pickups) {
-        if (p.type == 'G' && p.grid.col == col && p.grid.row == row && p.active) {
+        if (p.type == 'G' && p.grid.x == col && p.grid.y == row && p.active) {
             p.active = false;
             return true;
         }
@@ -379,7 +379,7 @@ bool MazeRenderer::collectWaterGun(int col, int row) {
 
 bool MazeRenderer::collectWaterPellet(int col, int row) {
     for (auto& p : pickups) {
-        if (p.type == 'A' && p.grid.col == col && p.grid.row == row && p.active) {
+        if (p.type == 'A' && p.grid.x == col && p.grid.y == row && p.active) {
             p.active = false;
             return true;
         }
@@ -389,7 +389,7 @@ bool MazeRenderer::collectWaterPellet(int col, int row) {
 
 sf::Vector2f* MazeRenderer::touchedBrownBox(int col, int row) {
     for (auto& p : pickups) {
-        if (p.type == Tile::brownBox && p.grid.col == col && p.grid.row == row && p.active) {
+        if (p.type == Tile::brownBox && p.grid.x == col && p.grid.y == row && p.active) {
             return &p.pixelPos;
         }
     }
