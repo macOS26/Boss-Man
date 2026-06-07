@@ -141,15 +141,11 @@ final class DoomScene: Scene3D {
         camX = px - dirX * back; camY = py - dirY * back
         castFloor()
 
-        // One ray per column CENTRE. A column whose ray exits the map through an
-        // opening (tunnel / no wall) is "open" -> drawn as nothing (black), not a wall.
-        var cTop = [CGFloat](repeating: 0, count: columns)
-        var cBot = [CGFloat](repeating: 0, count: columns)
-        var cDist = [Double](repeating: 0, count: columns)
-        var cSide = [Int](repeating: 0, count: columns)
-        var cOpen = [Bool](repeating: false, count: columns)
-        var cFace = [Int](repeating: -1, count: columns)
-        var cPar = [Int](repeating: 0, count: columns)
+        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let w = size.width / CGFloat(columns)
+
+        // Phase 1: DDA — zbuf (first hit) + wallCells (all hits, for per-cell face pass).
+        var wallCells = Set<Int>()
         for i in 0..<columns {
             let cameraX = 2.0 * (Double(i) + 0.5) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
@@ -158,41 +154,91 @@ final class DoomScene: Scene3D {
             var stepX = 0, stepY = 0, sideX = 0.0, sideY = 0.0
             if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
             if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
-            var side = 0, guardN = 0, hitWall = false
-            while guardN < 256 {
+            var firstHit = true, guardN = 0
+            while guardN < 300 {
                 guardN += 1
-                if sideX < sideY { sideX += ddx; mapX += stepX; side = 0 } else { sideY += ddy; mapY += stepY; side = 1 }
+                let dEntry: Double
+                if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX }
+                else             { dEntry = sideY; sideY += ddy; mapY += stepY }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
-                if map[mapY][mapX] == Strings.Tile.wallChar { hitWall = true; break }
+                if map[mapY][mapX] != Strings.Tile.wallChar { continue }
+                let perp = max(0.05, dEntry)
+                if firstHit { zbuf[i] = perp; firstHit = false }
+                wallCells.insert(mapY * colsCount + mapX)
             }
-            let perp = side == 0 ? (sideX - ddx) : (sideY - ddy)
-            let d = hitWall ? max(0.05, perp) : 1e9   // exited an opening -> no wall (black), not a blue dead end
-            let lineH = min(viewH * 4, viewH / CGFloat(d))
-            cTop[i] = viewMidY + lineH / 2
-            cBot[i] = viewMidY - lineH / 2
-            cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall
-            // Identity of the exact wall FACE hit (grid line + axis). Two columns share a
-            // face only if they land on the same line; depth deltas vary with distance, so
-            // keying on depth falsely splits far columns (jagged) and merges near corners.
-            cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1
-            cPar[i] = side == 0 ? ((stepX > 0 ? mapX : mapX + 1) + mapY) & 1 : (mapX + (stepY > 0 ? mapY : mapY + 1)) & 1
-            zbuf[i] = d
+            if firstHit { zbuf[i] = 1e9 }
         }
-        let w = size.width / CGFloat(columns)
-        // One straight-edged quad per contiguous wall FACE. Screen-space top/bottom of a
-        // flat wall are exact straight lines (inverse depth is linear in screen-x), so a
-        // single quad spanning the face is exact: square walls, no stairstep, no wobble,
-        // and a sharp vertical break wherever the face changes (corner / opening).
-        // Cubicle/wall colour for this level, matching the 2D game; shaded per-quad by
-        // depth + side below so it reads as the same wall in first person.
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let pTileX = Int(px.rounded(.down)), pTileY = Int(py.rounded(.down))
+        for dy in -1...1 { for dx in -1...1 {
+            let tx = pTileX + dx, ty = pTileY + dy
+            if tx >= 0 && tx < colsCount && ty >= 0 && ty < rowsCount && map[ty][tx] == Strings.Tile.wallChar {
+                wallCells.insert(ty * colsCount + tx)
+            }
+        }}
+
+        // Phase 2: per-cell face → per-column arrays.
+        // Each exposed wall face is projected directly onto screen columns using the same
+        // 4-corner invDet math as VoxelScene, then the perp distance at each column is
+        // computed analytically. Only columns where this face is the closest win.
+        let invDet = 1.0 / (planeX * dirY - dirX * planeY)
+        var cTop  = [CGFloat](repeating: 0,   count: columns)
+        var cBot  = [CGFloat](repeating: 0,   count: columns)
+        var cDist = [Double] (repeating: 1e9, count: columns)
+        var cSide = [Int]    (repeating: 0,   count: columns)
+        var cFace = [Int]    (repeating: -1,  count: columns)
+        var cPar  = [Int]    (repeating: 0,   count: columns)
+        let lCamX = camX, lCamY = camY, lCols = columns
+        let screenCol = { (wx: Double, wy: Double) -> Int in
+            let rX = wx - lCamX, rY = wy - lCamY
+            let d = invDet * (-planeY * rX + planeX * rY)
+            if d < 0.05 { return d < 0 ? -1 : lCols }
+            let sX = invDet * (dirY * rX - dirX * rY)
+            return Int(Double(lCols) * 0.5 * (1.0 + sX / d))
+        }
+        for key in wallCells {
+            let tx = key % colsCount, ty = key / colsCount
+            for (side, faceV, adx, ady) in [(0, tx, -1, 0), (0, tx + 1, 1, 0), (1, ty, 0, -1), (1, ty + 1, 0, 1)] {
+                let adjX = tx + adx, adjY = ty + ady
+                let exposed = adjX < 0 || adjX >= colsCount || adjY < 0 || adjY >= rowsCount
+                           || map[adjY][adjX] != Strings.Tile.wallChar
+                if !exposed { continue }
+                let onOpen = side == 0 ? (adx < 0 ? camX <= Double(faceV) : camX >= Double(faceV))
+                                       : (ady < 0 ? camY <= Double(faceV) : camY >= Double(faceV))
+                if !onOpen { continue }
+                let wx0 = side == 0 ? Double(faceV) : Double(tx),     wy0 = side == 0 ? Double(ty)     : Double(faceV)
+                let wx1 = side == 0 ? Double(faceV) : Double(tx + 1), wy1 = side == 0 ? Double(ty + 1) : Double(faceV)
+                let colL = max(0, min(screenCol(wx0, wy0), screenCol(wx1, wy1)))
+                let colR = min(columns - 1, max(screenCol(wx0, wy0), screenCol(wx1, wy1)))
+                if colL > colR { continue }
+                let fid = side == 0 ? faceV * 2 : faceV * 2 + 1
+                let par = side == 0 ? (faceV + ty) & 1 : (tx + faceV) & 1
+                for c in colL...colR {
+                    let cX = 2.0 * (Double(c) + 0.5) / Double(columns) - 1.0
+                    let perp: Double
+                    if side == 0 {
+                        let rdx = dirX + planeX * cX; guard abs(rdx) > 1e-10 else { continue }
+                        let p = (Double(faceV) - camX) / rdx; if p < 0.05 { continue }; perp = p
+                    } else {
+                        let rdy = dirY + planeY * cX; guard abs(rdy) > 1e-10 else { continue }
+                        let p = (Double(faceV) - camY) / rdy; if p < 0.05 { continue }; perp = p
+                    }
+                    if perp >= cDist[c] { continue }
+                    let lineH = min(viewH * 4, viewH / CGFloat(perp))
+                    cTop[c] = viewMidY + lineH / 2; cBot[c] = viewMidY - lineH / 2
+                    cDist[c] = perp; cSide[c] = side; cFace[c] = fid; cPar[c] = par
+                }
+            }
+        }
+        for i in 0..<columns { if cDist[i] < zbuf[i] { zbuf[i] = cDist[i] } }
+
+        // Phase 3: merge adjacent same-face columns into one straight-edged quad.
         var bar = 0
         var i = 0
         while i < columns {
-            if cOpen[i] { i += 1; continue }
+            if cFace[i] < 0 { i += 1; continue }
             var j = i
             while j + 1 < columns && cFace[j + 1] == cFace[i] && cPar[j + 1] == cPar[i] { j += 1 }
-            let xL = CGFloat(i) * w, xR = CGFloat(j + 1) * w + 1   // 1px overlap hides AA seams at corners
+            let xL = CGFloat(i) * w, xR = CGFloat(j + 1) * w + 1
             var topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j]
             if j > i {
                 let cxL = (CGFloat(i) + 0.5) * w, cxR = (CGFloat(j) + 0.5) * w
@@ -201,14 +247,11 @@ final class DoomScene: Scene3D {
                 botL = cBot[i] + mB * (xL - cxL); botR = cBot[i] + mB * (xR - cxL)
             }
             let p = CGMutablePath()
-            p.move(to: CGPoint(x: xL, y: botL))
-            p.addLine(to: CGPoint(x: xL, y: topL))
-            p.addLine(to: CGPoint(x: xR, y: topR))
-            p.addLine(to: CGPoint(x: xR, y: botR))
+            p.move(to: CGPoint(x: xL, y: botL)); p.addLine(to: CGPoint(x: xL, y: topL))
+            p.addLine(to: CGPoint(x: xR, y: topR)); p.addLine(to: CGPoint(x: xR, y: botR))
             p.closeSubpath()
             let n = bars[bar]; bar += 1
             n.path = p; n.isHidden = false
-            let mid = (i + j) / 2
             let f = CGFloat(cSide[i] == 1 ? 0.62 : 1.0) * (cPar[i] == 1 ? 1.0 : 0.82)
             n.fillColor = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             i = j + 1

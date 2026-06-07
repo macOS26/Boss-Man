@@ -11,20 +11,8 @@ final class VoxelScene: Scene3D {
     private let eyeHeight: CGFloat = 0.7
     private let wallHeightScale: CGFloat = 0.5
     private let maxVoxelDist = 30.0          // brightness-fade reference; keeps mid-range walls bright
-    // Past the floor's solid-fill line the maze projects to sub-pixel slivers that hug the horizon,
-    // and the per-column DDA cell membership churns there frame to frame (walls "open and close").
-    // Stop the wall march at wallFar and dissolve walls into the far floor band over the last wallFade
-    // tiles, so the distant field is the stable solid band instead of flickering slivers.
     private let wallFar = 40.0
-    private let wallFade = 5.0
     private var wallQuads: [SKShapeNode] = []   // painter's-sorted wall face + cap quads (grows lazily)
-    // A run of adjacent columns hitting the same wall face, merged into one straight-edged quad.
-    private struct WallRun {
-        var firstCol: Int, lastCol: Int
-        var yLoA: CGFloat, yHiA: CGFloat   // span at the first column's centre
-        var yLoB: CGFloat, yHiB: CGFloat   // span at the last column's centre
-        var depthSum: Double, n: Int, side: Int, par: Int
-    }
 
     private var travelerMirror: SKNode?             // billboard mirror; the REAL node keeps its SKAction walk (smooth) uncllobbered in the scene root
     private var travelerMirrorEmoji = ""
@@ -33,13 +21,6 @@ final class VoxelScene: Scene3D {
     private var mapTravelerEmoji = ""
     private var travPrevCol = 0.0                   // last continuous column, to derive the smooth facing each frame
     private var travFlip: CGFloat = 1               // shared by the billboard + minimap so both face the way it last moved
-
-    // Blend a wall colour toward the far floor band as it nears the draw cutoff, so distant walls
-    // dissolve into the horizon instead of flickering as sub-pixel slivers.
-    private func farFade(_ d: Double, _ color: SKColor, _ band: SKColor) -> SKColor {
-        let t = max(0.0, min(1.0, (d - (wallFar - wallFade)) / wallFade))
-        return t > 0 ? (color.blended(withFraction: CGFloat(t), of: band) ?? color) : color
-    }
 
     // Floor-cast the maze floor as an alternating checker so the tile grid reads in 3D
     // (matches the C++ DoomScene::drawFloor). Each scene row below the horizon maps to a
@@ -125,38 +106,9 @@ final class VoxelScene: Scene3D {
         // all quads are sorted far->near and the nearer ones paint over the farther, so the whole maze
         // reads deep AND clean.
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        let farBand = cube.blended(withFraction: 0.81, of: .black) ?? cube   // matches floorFar: walls melt into it at the cutoff
-        let w = size.width / CGFloat(columns)
-        let half = wallHeightScale - eyeHeight    // negative: tops sit below the horizon (looking down)
-        let floorClamp = radarH - viewH           // keep near-wall quads from running absurdly far off-screen
-        struct VQuad { var p0, p1, p2, p3: CGPoint; var color: SKColor; var depth: Double }
+        struct VQuad { var p0, p1, p2, p3: CGPoint; var color: SKColor; var depth: Double; var isCap: Bool }
         var quads: [VQuad] = []
-        var openF: [Int: WallRun] = [:]           // FRONT faces (coalesced per face -> smooth straight quads)
-        var tops = Set<Int>()                     // wall cells whose flat TOP is in view (projected per-cell)
-        func emitFront(_ r: WallRun) {
-            let xL = CGFloat(r.firstCol) * w, xR = CGFloat(r.lastCol + 1) * w + 0.6
-            let cxA = (CGFloat(r.firstCol) + 0.5) * w, cxB = (CGFloat(r.lastCol) + 0.5) * w
-            var yLoL = r.yLoA, yLoR = r.yLoB, yHiL = r.yHiA, yHiR = r.yHiB
-            if r.lastCol > r.firstCol {
-                let dx = cxB - cxA
-                let sLo = (r.yLoB - r.yLoA) / dx, sHi = (r.yHiB - r.yHiA) / dx
-                yLoL = r.yLoA + sLo * (xL - cxA); yLoR = r.yLoA + sLo * (xR - cxA)
-                yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA)
-            }
-            let dAvg = r.depthSum / Double(r.n)
-            let f = CGFloat(r.side == 1 ? 0.62 : 1.0) * (r.par == 1 ? 1.0 : 0.82)
-            let color = cube.blended(withFraction: 1 - f, of: .black) ?? cube
-            quads.append(VQuad(p0: CGPoint(x: xL, y: yLoL), p1: CGPoint(x: xL, y: yHiL),
-                               p2: CGPoint(x: xR, y: yHiR), p3: CGPoint(x: xR, y: yLoR), color: color, depth: dAvg))
-        }
-        func addFront(_ key: Int, _ col: Int, _ yLo: CGFloat, _ yHi: CGFloat, _ d: Double, _ side: Int, _ par: Int) {
-            if var r = openF[key], r.lastCol == col - 1 {
-                r.lastCol = col; r.yLoB = yLo; r.yHiB = yHi; r.depthSum += d; r.n += 1; openF[key] = r
-            } else {
-                if let r = openF[key] { emitFront(r) }
-                openF[key] = WallRun(firstCol: col, lastCol: col, yLoA: yLo, yHiA: yHi, yLoB: yLo, yHiB: yHi, depthSum: d, n: 1, side: side, par: par)
-            }
-        }
+        var tops = Set<Int>()                     // wall cells in view; faces + caps both projected per-cell
         for col in 0..<columns {
             let cameraX = 2.0 * (Double(col) + 0.5) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
@@ -169,59 +121,95 @@ final class VoxelScene: Scene3D {
             var guardN = 0
             while guardN < 300 {
                 guardN += 1
-                let dEntry: Double, side: Int
-                if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX; side = 0 }
-                else             { dEntry = sideY; sideY += ddy; mapY += stepY; side = 1 }
+                let dEntry: Double
+                if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX }
+                else             { dEntry = sideY; sideY += ddy; mapY += stepY }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
                 if dEntry > wallFar { break }
                 if map[mapY][mapX] != Strings.Tile.wallChar { continue }
                 let dN = max(0.05, dEntry)
                 if firstHit { zbuf[col] = dN; firstHit = false }
                 tops.insert(mapY * colsCount + mapX)
-                let adjX = side == 0 ? mapX - stepX : mapX
-                let adjY = side == 1 ? mapY - stepY : mapY
-                let exposed = adjX < 0 || adjX >= colsCount || adjY < 0 || adjY >= rowsCount
-                           || map[adjY][adjX] != Strings.Tile.wallChar
-                if exposed {
-                    let fid = side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1
-                    let par = side == 0 ? ((stepX > 0 ? mapX : mapX + 1) + mapY) & 1 : (mapX + (stepY > 0 ? mapY : mapY + 1)) & 1
-                    let baseY = max(floorClamp, viewMidY - viewH * eyeHeight / CGFloat(dN))
-                    let frontTopY = viewMidY + viewH * half / CGFloat(dN)
-                    addFront(fid * 2 + par, col, baseY, frontTopY, dN, side, par)
-                }
             }
             if firstHit { zbuf[col] = 1e9 }
-            for fid in Array(openF.keys) where openF[fid]!.lastCol < col { emitFront(openF[fid]!); openF.removeValue(forKey: fid) }
         }
-        for (_, r) in openF { emitFront(r) }
+        let pTileX = Int(px.rounded(.down)), pTileY = Int(py.rounded(.down))
+        for dy in -1...1 { for dx in -1...1 {
+            let tx = pTileX + dx, ty = pTileY + dy
+            if tx >= 0 && tx < colsCount && ty >= 0 && ty < rowsCount && map[ty][tx] == Strings.Tile.wallChar {
+                tops.insert(ty * colsCount + tx)
+            }
+        }}
+        let invDet = 1.0 / (planeX * dirY - dirX * planeY)
+        let wallH = Double(wallHeightScale)
+        // Per-cell face rendering: project each exposed wall face from tops directly, same math as caps.
+        // Covers faces that column-sweep DDA misses (nearly-parallel rays skip the face entirely).
+        for key in tops {
+            let tx = key % colsCount, ty = key / colsCount
+            for (side, faceV, adx, ady) in [(0, tx, -1, 0), (0, tx + 1, 1, 0), (1, ty, 0, -1), (1, ty + 1, 0, 1)] {
+                let adjX = tx + adx, adjY = ty + ady
+                let exposed = adjX < 0 || adjX >= colsCount || adjY < 0 || adjY >= rowsCount
+                           || map[adjY][adjX] != Strings.Tile.wallChar
+                if !exposed { continue }
+                let onOpen = side == 0 ? (adx < 0 ? camX <= Double(faceV) : camX >= Double(faceV))
+                                       : (ady < 0 ? camY <= Double(faceV) : camY >= Double(faceV))
+                if !onOpen { continue }
+                let wx0 = side == 0 ? Double(faceV) : Double(tx),     wy0 = side == 0 ? Double(ty)     : Double(faceV)
+                let wx1 = side == 0 ? Double(faceV) : Double(tx + 1), wy1 = side == 0 ? Double(ty + 1) : Double(faceV)
+                var pts = [CGPoint](), rawDs = [Double]()
+                for (wx, wy, wz) in [(wx0, wy0, 0.0), (wx0, wy0, wallH), (wx1, wy1, wallH), (wx1, wy1, 0.0)] {
+                    let relX = wx - camX, relY = wy - camY
+                    let raw = invDet * (-planeY * relX + planeX * relY)
+                    rawDs.append(raw)
+                    let depth = max(0.05, raw)
+                    let transX = invDet * (dirY * relX - dirX * relY)
+                    pts.append(CGPoint(x: size.width / 2 * (1 + CGFloat(transX / depth)),
+                                       y: viewMidY + viewH * CGFloat(wz - Double(eyeHeight)) / CGFloat(depth)))
+                }
+                let rawAvg = (rawDs[0] + rawDs[1] + rawDs[2] + rawDs[3]) / 4
+                if rawAvg < -0.5 { continue }
+                let dAvg = max(0.05, rawAvg)
+                if dAvg > wallFar { continue }
+                let par = side == 0 ? (faceV + ty) & 1 : (tx + faceV) & 1
+                let faceF = CGFloat(side == 1 ? 0.62 : 1.0) * (par == 1 ? 1.0 : 0.82)
+                let baseColor = cube.blended(withFraction: 1 - faceF, of: .black) ?? cube
+                let fogT = CGFloat(min(1.0, dAvg / wallFar)) * 0.85
+                let color = baseColor.blended(withFraction: fogT, of: .black) ?? baseColor
+                quads.append(VQuad(p0: pts[0], p1: pts[1], p2: pts[2], p3: pts[3], color: color, depth: dAvg, isCap: false))
+            }
+        }
         // Wall TOPS: each cell's flat top is a real box face in 3D, so project its 4 corners with TRUE
         // 1-point perspective (corners projected independently, like the dots) — never distorts to a triangle.
-        let invDet = 1.0 / (planeX * dirY - dirX * planeY)
         let capZ = wallHeightScale - eyeHeight
         let corners = [(0, 0), (1, 0), (1, 1), (0, 1)]
         for key in tops {
             let cx = Double(key % colsCount), cy = Double(key / colsCount)
             var pp = [CGPoint](); pp.reserveCapacity(4)
-            var dsum = 0.0, ok = true
+            var dsum = 0.0
             for (ox, oy) in corners {
                 let relX = (cx + Double(ox)) - camX, relY = (cy + Double(oy)) - camY
-                let depth = invDet * (-planeY * relX + planeX * relY)
-                if depth < 0.12 { ok = false; break }
+                let raw = invDet * (-planeY * relX + planeX * relY)
+                let depth = max(0.05, raw)
+                dsum += raw
                 let transX = invDet * (dirY * relX - dirX * relY)
                 pp.append(CGPoint(x: size.width / 2 * (1 + CGFloat(transX / depth)),
                                   y: viewMidY + viewH * CGFloat(capZ) / CGFloat(depth)))
-                dsum += depth
             }
-            if !ok { continue }
-            let dAvg = dsum / 4
+            if dsum / 4 < -0.5 { continue }
+            let dAvg = max(0.05, dsum / 4)
             if dAvg > wallFar { continue }
             let par = (Int(cx) + Int(cy)) & 1
             let f = CGFloat(par == 1 ? 1.0 : 0.82)
             let base = cube.blended(withFraction: 1 - f, of: .black) ?? cube
-            let color = base.blended(withFraction: 0.3, of: .white) ?? base
-            quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg))
+            let capBase = base.blended(withFraction: 0.3, of: .white) ?? base
+            let capFogT = CGFloat(min(1.0, dAvg / wallFar)) * 0.85
+            let color = capBase.blended(withFraction: capFogT, of: .black) ?? capBase
+            quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg, isCap: true))
         }
-        quads.sort { $0.depth > $1.depth }                                  // far -> near (painter's)
+        quads.sort { a, b in
+            if a.isCap != b.isCap { return !a.isCap }
+            return a.depth > b.depth
+        }
         var qi = 0
         for q in quads {
             let n: SKShapeNode
@@ -243,7 +231,7 @@ final class VoxelScene: Scene3D {
         if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
             if mapTravelerEmoji != info.emoji {
                 mapTraveler?.removeFromParent()
-                let n = emojiBillboard(info.emoji, mapCell * 1.2)
+                let n = emojiBillboard(info.emoji, mapCell) //* 1.2)
                 n.zPosition = 6; mapLayer.addChild(n)
                 mapTraveler = n; mapTravelerEmoji = info.emoji
             }
