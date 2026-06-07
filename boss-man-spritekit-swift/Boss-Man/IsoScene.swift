@@ -107,7 +107,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
 
     private func buildIso() {
         setupProjection()
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let cube = SpriteFactory.cubicleColor(forLevel: state.level)
         let cubeP = [cube.blended(withFraction: 0.18, of: .black) ?? cube, cube]
         var topP = [SKColor](), frontP = [SKColor](), sideP = [SKColor](), edgeP = [SKColor]()
         for base in cubeP {
@@ -139,14 +139,21 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 if ch == Strings.Tile.wallChar {
                     let tNW = proj(dc, Double(r), 1), tNE = proj(dc + 1, Double(r), 1)
                     let tSE = proj(dc + 1, Double(r + 1), 1), tSW = proj(dc, Double(r + 1), 1)
-                    addSub(pFront[par], fSW, fSE, tSE, tSW)
-                    hasFront[par] = true
+                    let southOpen = r + 1 >= rowsCount || map[r + 1][c] != Strings.Tile.wallChar
+                    if southOpen {
+                        addSub(pFront[par], fSW, fSE, tSE, tSW)
+                        hasFront[par] = true
+                    }
                     if dc + 0.5 < mid {
-                        addSub(pSide[par], fNE, fSE, tSE, tNE)
-                        hasSide[par] = true
+                        if c + 1 >= row.count || row[c + 1] != Strings.Tile.wallChar {
+                            addSub(pSide[par], fNE, fSE, tSE, tNE)
+                            hasSide[par] = true
+                        }
                     } else if dc + 0.5 > mid {
-                        addSub(pSide[par], fNW, fSW, tSW, tNW)
-                        hasSide[par] = true
+                        if c == 0 || row[c - 1] != Strings.Tile.wallChar {
+                            addSub(pSide[par], fNW, fSW, tSW, tNW)
+                            hasSide[par] = true
+                        }
                     }
                     addSub(pTop[par], tNW, tNE, tSE, tSW)
                     hasTop[par] = true
@@ -203,11 +210,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 let node: SKNode
                 switch row[c] {
                 case Strings.Tile.waterGunChar:    node = throbbing(emojiBillboard(Strings.Emoji.waterGun, s), 1.18, 0.5)
-                case Strings.Tile.printerChar:     node = emojiBillboard(Strings.Emoji.printer, s)
-                case Strings.Tile.faxChar:         node = emojiBillboard(Strings.Emoji.fax, s)
-                case Strings.Tile.coverSheetChar:  node = emojiBillboard(Strings.Emoji.coverSheet, s)
-                case Strings.Tile.bookBinderChar:  node = emojiBillboard(Strings.Emoji.bookBinder, s)
-                case Strings.Tile.brownBoxChar:    node = emojiBillboard(Strings.Emoji.brownBox, s)
+                case Strings.Tile.printerChar, Strings.Tile.faxChar, Strings.Tile.coverSheetChar,
+                     Strings.Tile.bookBinderChar, Strings.Tile.brownBoxChar:
+                    node = emojiBillboard(SpriteFactory.machineEmoji(for: row[c])!, s)
                 case Strings.Tile.waterPelletChar: node = throbbing(SpriteFactory.waterPelletVisual(radius: isoTW * 0.3), 1.25, 0.5)
                 case Strings.Tile.goldDiscChar:    node = throbbing(SpriteFactory.goldDiscVisual(radius: isoTW * 0.34), 1.18, 0.5)
                 default: continue
@@ -364,7 +369,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     override func setupBossController() {
-        let rows = LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
+        let rows = LevelStore.loadLevel(index: clampedLevelIndex)
         gridMap = GridMap(tileSize: 32, rows: rows)
         gridMap.xOffset = 0
         gridMap.yOffset = 0
@@ -376,18 +381,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         workerController.applySpawnShield()
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound, containerOriginX: 0)
         bossController.delegate = self
-        var overrides: [(blueprintIndex: Int, position: CGPoint)] = []
-        for (ri, row) in rows.reversed().enumerated() {
-            for (ci, ch) in row.utf8.enumerated() {
-                switch ch {
-                case Strings.Tile.boss1Char: overrides.append((0, CGPoint(x: ci, y: ri)))
-                case Strings.Tile.boss2Char: overrides.append((1, CGPoint(x: ci, y: ri)))
-                case Strings.Tile.boss3Char: overrides.append((2, CGPoint(x: ci, y: ri)))
-                case Strings.Tile.boss4Char: overrides.append((3, CGPoint(x: ci, y: ri)))
-                default: break
-                }
-            }
-        }
+        let overrides = Scene3D.parseBossSpawns(from: rows)
         bossController.spawn(forLevel: 1, spawnOverrides: overrides)
         syncBossNodes()
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound, containerOriginX: 0)
@@ -520,7 +514,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         camY = py - dirY * back
         castFloor()
 
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let cube = SpriteFactory.cubicleColor(forLevel: state.level)
         let w = size.width / CGFloat(columns)
         let half = wallHeightScale - eyeHeight
         let floorClamp = radarH - viewH
@@ -897,7 +891,11 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     override func hidePickupInWorld(col: Int, row: Int) {
         let key = mapKey(col, row)
         isoPickups[key]?.isHidden = true
-        mapPickups[key]?.isHidden = true
+        if mapDotKeys.remove(key) != nil {
+            rebuildDotShape(dotSz: mapCell * 0.2)
+        } else {
+            mapPickups[key]?.isHidden = true
+        }
     }
     override func grayPickupInWorld(col: Int, row: Int) {
         let key = mapKey(col, row)
@@ -981,14 +979,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if let s = gameOverScreen {
-            #if os(macOS)
-            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
-            #else
-            s.handleKey(code, shift: false)
-            #endif
-            return
-        }
+        if handleGameOverKey(event, code: code) { return }
         switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
@@ -1008,22 +999,11 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         controlsShown = true
         let fireOnLeft = !ControlMode.current.onLeft
         fireButtonCenter = CGPoint(x: fireOnLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
-        let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
-        ring.position = fireButtonCenter
-        ring.fillColor = SKColor(white: 1, alpha: 0.14)
-        ring.strokeColor = SKColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2
-        ring.zPosition = 300
-        addChild(ring)
+        addChild(SpriteFactory.controlRing(radius: fireButtonRadius, center: fireButtonCenter))
 
         joystickCenter = CGPoint(x: fireOnLeft ? size.width - joystickRadius : joystickRadius, y: joystickRadius + 15)
-        let base = SKShapeNode(circleOfRadius: joystickRadius)
-        base.position = joystickCenter
-        base.fillColor = SKColor(white: 1, alpha: 0.06)
-        base.strokeColor = SKColor(white: 1, alpha: 0.5)
-        base.lineWidth = 2
-        base.zPosition = 300
-        addChild(base)
+        addChild(SpriteFactory.controlRing(radius: joystickRadius, center: joystickCenter,
+                                           fillColor: SKColor(white: 1, alpha: 0.06)))
         if ControlMode.current.showsStick {
             addStickThumb()
             return
