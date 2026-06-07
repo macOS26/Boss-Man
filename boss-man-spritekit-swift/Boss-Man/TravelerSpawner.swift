@@ -71,6 +71,15 @@ final class TravelerSpawner {
         scheduleNextSpawn(after: firstVisitDelay)
     }
 
+    func pauseSpawnTimer() {
+        scene?.removeAction(forKey: Strings.ActionKey.travelerVisit1)
+    }
+
+    func resumeSpawnTimer() {
+        guard node == nil else { return }
+        scheduleNextSpawn(after: firstVisitDelay)
+    }
+
     private func scheduleNextSpawn(after delay: TimeInterval) {
         guard let scene else { return }
         scene.removeAction(forKey: Strings.ActionKey.travelerVisit1)
