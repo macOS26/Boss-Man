@@ -137,6 +137,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     // MARK: - Minimap (the real 2D level, centered at the bottom)
     let mapLayer = SKNode()
     var mapPete: PixelPerson!
+    var mapPeteArrow: SKShapeNode?
     var mapPickups: [Int: SKNode] = [:]
     let mapCell: CGFloat = 32
     var mapScale: CGFloat = 1
@@ -834,6 +835,17 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         mapLayer.addChild(mapPete)
         mapPete.startWalking()
 
+        let r = mapCell * 0.38
+        let arrowPath = CGMutablePath()
+        arrowPath.move(to: CGPoint(x: 0, y: r))
+        arrowPath.addLine(to: CGPoint(x: -r * 0.55, y: -r * 0.55))
+        arrowPath.addLine(to: CGPoint(x: 0, y: -r * 0.2))
+        arrowPath.addLine(to: CGPoint(x:  r * 0.55, y: -r * 0.55))
+        arrowPath.closeSubpath()
+        let arrow = SKShapeNode(path: arrowPath)
+        arrow.fillColor = .white; arrow.strokeColor = .clear; arrow.zPosition = 7
+        mapLayer.addChild(arrow); mapPeteArrow = arrow
+
         mapScale = (radarH - 8) / mapH
         mapLayer.setScale(mapScale)
         mapLayer.position = CGPoint(x: (size.width - mapW * mapScale) / 2, y: 4)
@@ -925,8 +937,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     func updateMap() {
-        mapPete.position = mapLocal(px, py)
+        let pPos = mapLocal(px, py)
+        mapPete.position = pPos
         mapPete.setFacing(facing(moveDir))
+        if let arrow = mapPeteArrow {
+            arrow.position = pPos
+            if moveDir.x > 0      { arrow.zRotation = -.pi / 2 }
+            else if moveDir.x < 0 { arrow.zRotation =  .pi / 2 }
+            else if moveDir.y > 0 { arrow.zRotation =  .pi }
+            else                  { arrow.zRotation = 0 }
+        }
         for e in bossController.entities {
             guard let mn = bossMapNodes[ObjectIdentifier(e.node)], let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
             mn.position = mapLocal(g.0 + 0.5, Double(rowsCount) - 0.5 - g.1)
