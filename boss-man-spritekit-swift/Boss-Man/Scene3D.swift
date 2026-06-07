@@ -110,8 +110,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var throbClock = 0.0
     let planeScale = 1.2
     let wallFar = 40.0
-    var wallCtx: CGContext?
-    var wallCanvas: SKSpriteNode?
+    var wallQuads: [SKShapeNode] = []
     var travelerMirror: SKNode?
     var travelerMirrorEmoji = ""
     var travelerNativeH: CGFloat = 40
@@ -230,16 +229,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         ceilStrip.fillColor = SKColor(red: 0.94, green: 0.97, blue: 0.88, alpha: 1)
         ceilStrip.strokeColor = .clear; ceilStrip.zPosition = -2; ceilStrip.isAntialiased = false
         addChild(ceilStrip)
-
-        let W = Int(size.width), H = Int(size.height)
-        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
-        if let ctx = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8, bytesPerRow: W * 4,
-                               space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bitmapInfo.rawValue) {
-            wallCtx = ctx
-            let canvas = SKSpriteNode()
-            canvas.anchorPoint = .zero; canvas.position = .zero; canvas.zPosition = 0
-            addChild(canvas); wallCanvas = canvas
-        }
     }
 
     // Bake a static node tree to one texture and add it as a single sprite (one
@@ -423,18 +412,18 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     func paintQuads(_ quads: [VQuad]) {
-        guard let ctx = wallCtx, let canvas = wallCanvas else { return }
-        ctx.clear(CGRect(x: 0, y: 0, width: CGFloat(ctx.width), height: CGFloat(ctx.height)))
+        var qi = 0
         for q in quads {
-            ctx.setFillColor(q.color.cgColor)
-            ctx.beginPath()
-            ctx.move(to: q.p0); ctx.addLine(to: q.p1); ctx.addLine(to: q.p2); ctx.addLine(to: q.p3)
-            ctx.closePath(); ctx.fillPath()
+            let n: SKShapeNode
+            if qi < wallQuads.count { n = wallQuads[qi] }
+            else { n = SKShapeNode(); n.strokeColor = .clear; n.isAntialiased = false; addChild(n); wallQuads.append(n) }
+            n.zPosition = CGFloat(qi) * 0.0002
+            let p = CGMutablePath()
+            p.move(to: q.p0); p.addLine(to: q.p1); p.addLine(to: q.p2); p.addLine(to: q.p3); p.closeSubpath()
+            n.path = p; n.fillColor = q.color; n.isHidden = false
+            qi += 1
         }
-        if let img = ctx.makeImage() {
-            canvas.texture = SKTexture(cgImage: img)
-            canvas.size = CGSize(width: CGFloat(ctx.width), height: CGFloat(ctx.height))
-        }
+        for k in qi..<wallQuads.count { wallQuads[k].isHidden = true }
     }
 
     func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
