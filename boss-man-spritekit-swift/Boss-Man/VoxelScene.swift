@@ -15,8 +15,8 @@ final class VoxelScene: Scene3D {
     // and the per-column DDA cell membership churns there frame to frame (walls "open and close").
     // Stop the wall march at wallFar and dissolve walls into the far floor band over the last wallFade
     // tiles, so the distant field is the stable solid band instead of flickering slivers.
-    private let wallFar = 14.0
-    private let wallFade = 3.0
+    private let wallFar = 40.0
+    private let wallFade = 5.0
     private var wallQuads: [SKShapeNode] = []   // painter's-sorted wall face + cap quads (grows lazily)
     // A run of adjacent columns hitting the same wall face, merged into one straight-edged quad.
     private struct WallRun {
@@ -28,6 +28,11 @@ final class VoxelScene: Scene3D {
 
     private var travelerMirror: SKNode?             // billboard mirror; the REAL node keeps its SKAction walk (smooth) uncllobbered in the scene root
     private var travelerMirrorEmoji = ""
+    private var travelerNativeH: CGFloat = 40
+    private var mapTraveler: SKNode?
+    private var mapTravelerEmoji = ""
+    private var travPrevCol = 0.0                   // last continuous column, to derive the smooth facing each frame
+    private var travFlip: CGFloat = 1               // shared by the billboard + minimap so both face the way it last moved
 
     // Blend a wall colour toward the far floor band as it nears the draw cutoff, so distant walls
     // dissolve into the horizon instead of flickering as sub-pixel slivers.
@@ -45,7 +50,7 @@ final class VoxelScene: Scene3D {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
-        let W = size.width, rowH: CGFloat = 1
+        let W = size.width, rowH: CGFloat = 0.25
         let pathA = CGMutablePath(), pathB = CGMutablePath(), pathFar = CGMutablePath()
         var yu = radarH
         while yu < viewMidY - 0.5 {
@@ -139,9 +144,8 @@ final class VoxelScene: Scene3D {
                 yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA)
             }
             let dAvg = r.depthSum / Double(r.n)
-            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
-                    * (r.side == 1 ? 0.62 : 1.0) * (r.par == 1 ? 1.0 : 0.82)   // alternate cubicle blocks
-            let color = farFade(dAvg, cube.blended(withFraction: 1 - f, of: .black) ?? cube, farBand)
+            let f = CGFloat(r.side == 1 ? 0.62 : 1.0) * (r.par == 1 ? 1.0 : 0.82)
+            let color = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             quads.append(VQuad(p0: CGPoint(x: xL, y: yLoL), p1: CGPoint(x: xL, y: yHiL),
                                p2: CGPoint(x: xR, y: yHiR), p3: CGPoint(x: xR, y: yLoR), color: color, depth: dAvg))
         }
@@ -163,7 +167,7 @@ final class VoxelScene: Scene3D {
             if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
             var firstHit = true
             var guardN = 0
-            while guardN < 160 {
+            while guardN < 300 {
                 guardN += 1
                 let dEntry: Double, side: Int
                 if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX; side = 0 }
@@ -180,7 +184,7 @@ final class VoxelScene: Scene3D {
                            || map[adjY][adjX] != Strings.Tile.wallChar
                 if exposed {
                     let fid = side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1
-                    let par = (mapX + mapY) & 1
+                    let par = side == 0 ? ((stepX > 0 ? mapX : mapX + 1) + mapY) & 1 : (mapX + (stepY > 0 ? mapY : mapY + 1)) & 1
                     let baseY = max(floorClamp, viewMidY - viewH * eyeHeight / CGFloat(dN))
                     let frontTopY = viewMidY + viewH * half / CGFloat(dN)
                     addFront(fid * 2 + par, col, baseY, frontTopY, dN, side, par)
@@ -212,9 +216,9 @@ final class VoxelScene: Scene3D {
             let dAvg = dsum / 4
             if dAvg > wallFar { continue }
             let par = (Int(cx) + Int(cy)) & 1
-            let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist))) * (par == 1 ? 1.0 : 0.82)
+            let f = CGFloat(par == 1 ? 1.0 : 0.82)
             let base = cube.blended(withFraction: 1 - f, of: .black) ?? cube
-            let color = farFade(dAvg, base.blended(withFraction: 0.3, of: .white) ?? base, farBand)
+            let color = base.blended(withFraction: 0.3, of: .white) ?? base
             quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg))
         }
         quads.sort { $0.depth > $1.depth }                                  // far -> near (painter's)
@@ -232,6 +236,23 @@ final class VoxelScene: Scene3D {
         for k in qi..<wallQuads.count { wallQuads[k].isHidden = true }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         updateMap()
+    }
+
+    override func updateMap() {
+        super.updateMap()
+        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
+            if mapTravelerEmoji != info.emoji {
+                mapTraveler?.removeFromParent()
+                let n = emojiBillboard(info.emoji, mapCell * 1.2)
+                n.zPosition = 6; mapLayer.addChild(n)
+                mapTraveler = n; mapTravelerEmoji = info.emoji
+            }
+            mapTraveler?.isHidden = false
+            mapTraveler?.position = mapLocal(Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0)
+            if let mt = mapTraveler { mt.xScale = abs(mt.xScale) * travFlip }   // face travel direction (projectSprites set travFlip this frame)
+        } else {
+            mapTraveler?.isHidden = true
+        }
     }
 
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
@@ -258,19 +279,22 @@ final class VoxelScene: Scene3D {
         // hopping the discrete grid. projectSprites overwrites node.position, so the real node never enters `all`.
         if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
             tnode.isHidden = true
+            let nc = Double(tnode.position.x) / 32.0           // smooth facing from the CONTINUOUS column (matches ISO); realE.xScale only flips on a discrete grid step and read stale here
+            let dCol = nc - travPrevCol
+            if abs(dCol) > 0.001, abs(dCol) < 2 { travFlip = info.facesRight ? (dCol < 0 ? -1 : 1) : (dCol < 0 ? 1 : -1) }
+            travPrevCol = nc
             if travelerMirror == nil || travelerMirrorEmoji != info.emoji {
                 travelerMirror?.removeFromParent()
                 let wrap = SKNode(); let e = emojiBillboard(info.emoji, 40); e.name = Strings.NodeName.travelerEmoji
                 wrap.addChild(e); spriteLayer.addChild(wrap)
                 travelerMirror = wrap; travelerMirrorEmoji = info.emoji
+                travelerNativeH = 40
             }
             if let m = travelerMirror {
-                if let realE = tnode.childNode(withName: Strings.NodeName.travelerEmoji),
-                   let mE = m.childNode(withName: Strings.NodeName.travelerEmoji) {
-                    mE.xScale = abs(mE.xScale) * (realE.xScale < 0 ? -1 : 1)   // copy the real emoji's facing; the child flip survives the wrapper's setScale
+                if let mE = m.childNode(withName: Strings.NodeName.travelerEmoji) {
+                    mE.xScale = abs(mE.xScale) * travFlip   // flip the CHILD so it survives the wrapper's projection setScale
                 }
-                let nh = max(1, m.calculateAccumulatedFrame().height)
-                all.append((m, nh, 0.42, Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0, .greatestFiniteMagnitude, nil, -nh / 2))
+                all.append((m, travelerNativeH, 0.42, Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0, .greatestFiniteMagnitude, nil, -travelerNativeH / 2))
             }
         } else {
             travelerMirror?.isHidden = true

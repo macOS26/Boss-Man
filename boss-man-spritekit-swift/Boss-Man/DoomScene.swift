@@ -15,6 +15,11 @@ final class DoomScene: Scene3D {
 
     private var travelerMirror: SKNode?             // billboard mirror; the REAL node keeps its SKAction walk (smooth) uncllobbered in the scene root
     private var travelerMirrorEmoji = ""
+    private var travelerNativeH: CGFloat = 40
+    private var mapTraveler: SKNode?
+    private var mapTravelerEmoji = ""
+    private var travPrevCol = 0.0                   // last continuous column, to derive the smooth facing each frame
+    private var travFlip: CGFloat = 1               // shared by the billboard + minimap so both face the way it last moved
 
     override func buildSky() {
         // 2D office palette: a dark ceiling (maze background) blending toward the
@@ -60,7 +65,7 @@ final class DoomScene: Scene3D {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
-        let W = size.width, rowH: CGFloat = 2
+        let W = size.width, rowH: CGFloat = 0.25
         let pathA = CGMutablePath(), pathB = CGMutablePath()
         var yu = radarH
         while yu < viewMidY - 0.5 {
@@ -92,7 +97,7 @@ final class DoomScene: Scene3D {
     override func buildColumns() {
         for _ in 0..<columns {
             let bar = SKShapeNode()
-            bar.strokeColor = .clear; bar.isAntialiased = true; bar.zPosition = 0
+            bar.strokeColor = .clear; bar.isAntialiased = false; bar.zPosition = 0
             addChild(bar); bars.append(bar)
         }
     }
@@ -170,7 +175,7 @@ final class DoomScene: Scene3D {
             // face only if they land on the same line; depth deltas vary with distance, so
             // keying on depth falsely splits far columns (jagged) and merges near corners.
             cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1
-            cPar[i] = (mapX + mapY) & 1   // wall-cell parity -> per-cell checker shade (aligns with the floor)
+            cPar[i] = side == 0 ? ((stepX > 0 ? mapX : mapX + 1) + mapY) & 1 : (mapX + (stepY > 0 ? mapY : mapY + 1)) & 1
             zbuf[i] = d
         }
         let w = size.width / CGFloat(columns)
@@ -204,14 +209,30 @@ final class DoomScene: Scene3D {
             let n = bars[bar]; bar += 1
             n.path = p; n.isHidden = false
             let mid = (i + j) / 2
-            let f = CGFloat(max(0.12, min(1.0, 1.0 - cDist[mid] / 16))) * (cSide[i] == 1 ? 0.62 : 1.0)
-                    * (cPar[i] == 1 ? 1.0 : 0.82)   // adjacent cells alternate shade for grid readability
+            let f = CGFloat(cSide[i] == 1 ? 0.62 : 1.0) * (cPar[i] == 1 ? 1.0 : 0.82)
             n.fillColor = cube.blended(withFraction: 1 - f, of: .black) ?? cube
             i = j + 1
         }
         for k in bar..<bars.count { bars[k].isHidden = true }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         updateMap()
+    }
+
+    override func updateMap() {
+        super.updateMap()
+        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
+            if mapTravelerEmoji != info.emoji {
+                mapTraveler?.removeFromParent()
+                let n = emojiBillboard(info.emoji, mapCell * 1.2)
+                n.zPosition = 6; mapLayer.addChild(n)
+                mapTraveler = n; mapTravelerEmoji = info.emoji
+            }
+            mapTraveler?.isHidden = false
+            mapTraveler?.position = mapLocal(Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0)
+            if let mt = mapTraveler { mt.xScale = abs(mt.xScale) * travFlip }   // face travel direction (projectSprites set travFlip this frame)
+        } else {
+            mapTraveler?.isHidden = true
+        }
     }
 
     private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
@@ -238,19 +259,22 @@ final class DoomScene: Scene3D {
         // hopping the discrete grid. projectSprites overwrites node.position, so the real node never enters `all`.
         if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
             tnode.isHidden = true
+            let nc = Double(tnode.position.x) / 32.0           // smooth facing from the CONTINUOUS column (matches ISO); realE.xScale only flips on a discrete grid step and read stale here
+            let dCol = nc - travPrevCol
+            if abs(dCol) > 0.001, abs(dCol) < 2 { travFlip = info.facesRight ? (dCol < 0 ? -1 : 1) : (dCol < 0 ? 1 : -1) }
+            travPrevCol = nc
             if travelerMirror == nil || travelerMirrorEmoji != info.emoji {
                 travelerMirror?.removeFromParent()
                 let wrap = SKNode(); let e = emojiBillboard(info.emoji, 40); e.name = Strings.NodeName.travelerEmoji
                 wrap.addChild(e); spriteLayer.addChild(wrap)
                 travelerMirror = wrap; travelerMirrorEmoji = info.emoji
+                travelerNativeH = 40
             }
             if let m = travelerMirror {
-                if let realE = tnode.childNode(withName: Strings.NodeName.travelerEmoji),
-                   let mE = m.childNode(withName: Strings.NodeName.travelerEmoji) {
-                    mE.xScale = abs(mE.xScale) * (realE.xScale < 0 ? -1 : 1)   // copy the real emoji's facing; the child flip survives the wrapper's setScale
+                if let mE = m.childNode(withName: Strings.NodeName.travelerEmoji) {
+                    mE.xScale = abs(mE.xScale) * travFlip   // flip the CHILD so it survives the wrapper's projection setScale
                 }
-                let nh = max(1, m.calculateAccumulatedFrame().height)
-                all.append((m, nh, 0.42, Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0, .greatestFiniteMagnitude, nil, -nh / 2))
+                all.append((m, travelerNativeH, 0.42, Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0, .greatestFiniteMagnitude, nil, -travelerNativeH / 2))
             }
         } else {
             travelerMirror?.isHidden = true
