@@ -720,7 +720,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let dir = (x: faceDir == .left ? -1 : faceDir == .right ? 1 : 0,
                    y: faceDir == .up ? -1 : faceDir == .down ? 1 : 0)
         let pellet = SpriteFactory.waterPelletVisual(radius: 12)
-        pellet.isHidden = true; spriteLayer.addChild(pellet)
+        pellet.run(.repeatForever(.rotate(byAngle: .pi * 2, duration: 0.5)))
+        pellet.isHidden = true
+        spriteLayer.addChild(pellet)
         let mapNode = SpriteFactory.waterPelletVisual(radius: mapCell * 0.22)
         mapNode.position = mapLocal(px, py); mapNode.zPosition = 3; mapLayer.addChild(mapNode)
         shots.append(Shot(x: px, y: py, dir: dir, node: pellet,
