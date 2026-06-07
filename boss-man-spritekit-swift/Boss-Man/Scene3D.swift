@@ -48,6 +48,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var px = 1.5, py = 1.5, angle = 0.0
     var moveDir = (x: 1, y: 0)       // current lane direction (cardinal)
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
+    var pendingSecondTurn = false
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
     let camBack = 0.65               // how far the camera trails behind Pete
 
@@ -834,6 +835,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         px = spawnPx
         py = spawnPy
         wantDir = nil
+        pendingSecondTurn = false
         pressed.removeAll()
         let sc = Int(spawnPx.rounded(.down)), sr = Int(spawnPy.rounded(.down))
         for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) {
@@ -1208,7 +1210,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 px = ccx
                 py = ccy
                 moveDir = t
-                wantDir = nil
+                wantDir = pendingSecondTurn ? (x: -moveDir.y, y: moveDir.x) : nil
+                pendingSecondTurn = false
                 targetAngle = cardinal(moveDir)
                 let dirName: String
                 if t.x > 0 { dirName = "EAST" } else if t.x < 0 { dirName = "WEST" }
@@ -1604,7 +1607,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
         case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
-        case KeyCode.arrowDown,  KeyCode.keyS:  wantDir = (x: -moveDir.x, y: -moveDir.y)  // about-face 180, not reverse
+        case KeyCode.arrowDown,  KeyCode.keyS:
+            wantDir = (x: -moveDir.y, y: moveDir.x)
+            pendingSecondTurn = true
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
         }
@@ -1732,7 +1737,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         if w != prev {
             if w.contains("left"),  !prev.contains("left")  { wantDir = (x: moveDir.y, y: -moveDir.x) }
             if w.contains("right"), !prev.contains("right") { wantDir = (x: -moveDir.y, y: moveDir.x) }
-            if w == "down", prev != "down"                  { wantDir = (x: -moveDir.x, y: -moveDir.y) }
+            if w == "down", prev != "down" {
+                wantDir = (x: -moveDir.y, y: moveDir.x)
+                pendingSecondTurn = true
+            }
         }
         applyDpad()
     }
