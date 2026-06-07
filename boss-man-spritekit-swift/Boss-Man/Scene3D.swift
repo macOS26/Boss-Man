@@ -515,6 +515,20 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 let fogT = CGFloat(min(1.0, dAvg / wallFar)) * 0.85
                 let color = baseColor.blended(withFraction: fogT, of: .black) ?? baseColor
                 quads.append(VQuad(p0: p0, p1: p1, p2: p2, p3: p3, color: color, depth: dAvg, isCap: false))
+                if faceGrayRects {
+                    let topT: CGFloat = 0.18, botT: CGFloat = 0.32, hMarg: CGFloat = 0.18
+                    let lT = CGPoint(x: p1.x, y: p1.y + (p0.y - p1.y) * topT)
+                    let lB = CGPoint(x: p1.x, y: p1.y + (p0.y - p1.y) * botT)
+                    let rT = CGPoint(x: p2.x, y: p2.y + (p3.y - p2.y) * topT)
+                    let rB = CGPoint(x: p2.x, y: p2.y + (p3.y - p2.y) * botT)
+                    let gp0 = CGPoint(x: lB.x + (rB.x - lB.x) * hMarg, y: lB.y + (rB.y - lB.y) * hMarg)
+                    let gp1 = CGPoint(x: lT.x + (rT.x - lT.x) * hMarg, y: lT.y + (rT.y - lT.y) * hMarg)
+                    let gp2 = CGPoint(x: lT.x + (rT.x - lT.x) * (1 - hMarg), y: lT.y + (rT.y - lT.y) * (1 - hMarg))
+                    let gp3 = CGPoint(x: lB.x + (rB.x - lB.x) * (1 - hMarg), y: lB.y + (rB.y - lB.y) * (1 - hMarg))
+                    let grayBase = SKColor(white: 0.62, alpha: 1)
+                    let grayC = grayBase.blended(withFraction: fogT, of: .black) ?? grayBase
+                    quads.append(VQuad(p0: gp0, p1: gp1, p2: gp2, p3: gp3, color: grayC, depth: dAvg - 0.001, isCap: false))
+                }
             }
         }
         return quads

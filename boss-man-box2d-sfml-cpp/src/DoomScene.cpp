@@ -1162,11 +1162,30 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
                   * (cPar[i] ? 1.0f : 0.82f);   // adjacent cells alternate shade for grid readability
         sf::Color col((uint8_t)(cube.r * f * 255), (uint8_t)(cube.g * f * 255),
                       (uint8_t)(cube.b * f * 255));
-        // y-up quad -> SFML y-down via screenY.
         walls.append(sf::Vertex({xL, screenY(botL)}, col));
         walls.append(sf::Vertex({xL, screenY(topL)}, col));
         walls.append(sf::Vertex({xR, screenY(topR)}, col));
         walls.append(sf::Vertex({xR, screenY(botR)}, col));
+        {
+            const float topT = 0.18f, botT = 0.32f, hMarg = 0.18f;
+            float topAtL = topL + (topR - topL) * hMarg;
+            float botAtL = botL + (botR - botL) * hMarg;
+            float topAtR = topL + (topR - topL) * (1.0f - hMarg);
+            float botAtR = botL + (botR - botL) * (1.0f - hMarg);
+            float gxL2 = xL + (xR - xL) * hMarg;
+            float gxR2 = xL + (xR - xL) * (1.0f - hMarg);
+            float grTL = topAtL + (botAtL - topAtL) * topT;
+            float grBL = topAtL + (botAtL - topAtL) * botT;
+            float grTR = topAtR + (botAtR - topAtR) * topT;
+            float grBR = topAtR + (botAtR - topAtR) * botT;
+            float gf = std::max(0.12f, std::min(1.0f, 1.0f - (float)cDist[mid] / 16.f)) * 0.62f;
+            uint8_t gv = (uint8_t)(gf * 255);
+            sf::Color grayC(gv, gv, gv);
+            walls.append(sf::Vertex({gxL2, screenY(grBL)}, grayC));
+            walls.append(sf::Vertex({gxL2, screenY(grTL)}, grayC));
+            walls.append(sf::Vertex({gxR2, screenY(grTR)}, grayC));
+            walls.append(sf::Vertex({gxR2, screenY(grBR)}, grayC));
+        }
         i = j + 1;
     }
     target.draw(walls);

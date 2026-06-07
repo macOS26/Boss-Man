@@ -1273,6 +1273,20 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         br *= (1.0f - capFogT); bg *= (1.0f - capFogT); bb *= (1.0f - capFogT);
         sf::Color col((uint8_t)(br * 255), (uint8_t)(bg * 255), (uint8_t)(bb * 255));
         quads.push_back({qx[0],qy[0], qx[1],qy[1], qx[2],qy[2], qx[3],qy[3], col, dAvg, true});
+        {
+            auto blerp = [&](float u, float v) -> std::pair<float,float> {
+                float a=(1.0f-u)*(1.0f-v), b=u*(1.0f-v), c=u*v, d=(1.0f-u)*v;
+                return {qx[0]*a+qx[1]*b+qx[2]*c+qx[3]*d, qy[0]*a+qy[1]*b+qy[2]*c+qy[3]*d};
+            };
+            float m = 0.20f;
+            auto [gx0,gy0] = blerp(m,m);
+            auto [gx1,gy1] = blerp(1.0f-m,m);
+            auto [gx2,gy2] = blerp(1.0f-m,1.0f-m);
+            auto [gx3,gy3] = blerp(m,1.0f-m);
+            float gv = 0.62f * (1.0f - capFogT);
+            sf::Color grayCapC((uint8_t)(gv*255), (uint8_t)(gv*255), (uint8_t)(gv*255));
+            quads.push_back({gx0,gy0, gx1,gy1, gx2,gy2, gx3,gy3, grayCapC, dAvg - 0.001, true});
+        }
     }
 
     std::sort(quads.begin(), quads.end(), [](const VQuad& a, const VQuad& b) {

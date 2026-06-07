@@ -22,7 +22,8 @@ final class DoomScene: Scene3D {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
         let wallH = Double(wallHeightScale)
         var quads = buildFaceQuads(tops: tops, cube: cube, invDet: invDet, wallH: wallH,
-                                   dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
+                                   dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY,
+                                   faceGrayRects: true)
         quads.sort { $0.depth > $1.depth }
         paintQuads(quads)
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
