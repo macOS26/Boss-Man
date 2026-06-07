@@ -361,7 +361,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 let fx = cx0 - cx0.rounded(.down)
                 let fy = cy0 - cy0.rounded(.down)
                 return fx > 0.25 && fx < 0.75 && fy > 0.25 && fy < 0.75
-            }()()
+            }()
             var cx: CGFloat = 1
             while cx <= W {
                 var lit = false
@@ -432,12 +432,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             if firstHit { zbuf[col] = 1e9 }
         }
         let pTileX = Int(px.rounded(.down)), pTileY = Int(py.rounded(.down))
-        for dy in -1...1 { for dx in -1...1 {
-            let tx = pTileX + dx, ty = pTileY + dy
-            if tx >= 0 && tx < colsCount && ty >= 0 && ty < rowsCount && map[ty][tx] == Strings.Tile.wallChar {
-                tops.insert(ty * colsCount + tx)
+        for dy in -1...1 {
+            for dx in -1...1 {
+                let tx = pTileX + dx, ty = pTileY + dy
+                if tx >= 0 && tx < colsCount && ty >= 0 && ty < rowsCount && map[ty][tx] == Strings.Tile.wallChar {
+                    tops.insert(ty * colsCount + tx)
+                }
             }
-        }}
+        }
         return tops
     }
 

@@ -61,7 +61,7 @@ final class SoundManager {
             let m = pool.filter { $0.identifier.lowercased().contains(name) || $0.name.lowercased().contains(name) }
             if let v = m.first(where: { $0.quality == .premium })
                     ?? m.first(where: { $0.quality == .enhanced })
-                    ?? m.first(where: { $0.quality == .standard }) {
+                    ?? m.first {
                 return v
             }
         }

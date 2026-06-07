@@ -27,8 +27,10 @@ public final class SKAction {
     // When set, overrides timingMode. Takes elapsed proportion 0..1 and
     // returns the eased proportion. Apple uses (Float) -> Float here.
     public var timingFunction: ((Float) -> Float)? = nil
-    init(_ k: Kind, _ d: TimeInterval) { kind = k
-    duration = d }
+    init(_ k: Kind, _ d: TimeInterval) {
+        kind = k
+        duration = d
+    }
 
     public static func moveBy(x: CGFloat, y: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.moveBy(x, y), d) }
     public static func move(by v: CGVector, duration d: TimeInterval) -> SKAction { SKAction(.moveBy(v.dx, v.dy), d) }
@@ -109,8 +111,10 @@ public final class SKAction {
     public static func scale(to size: CGSize, duration d: TimeInterval) -> SKAction { SKAction(.scaleToSize(size), d) }
     public static func scaleX(to x: CGFloat, y: CGFloat, duration d: TimeInterval) -> SKAction { SKAction(.scaleXY(x, y), d) }
     public static func scaleX(by x: CGFloat, y: CGFloat, duration d: TimeInterval) -> SKAction {
-        SKAction.customAction(withDuration: d) { node, _ in node.xScale *= x
-        node.yScale *= y }
+        SKAction.customAction(withDuration: d) { node, _ in
+            node.xScale *= x
+            node.yScale *= y
+        }
     }
     public static func scaleX(to x: CGFloat, duration d: TimeInterval) -> SKAction {
         SKAction.customAction(withDuration: d) { node, _ in node.xScale = x }
@@ -336,23 +340,31 @@ final class RunningAction {
         case .sequence(let acts):
             if seqIndex >= acts.count { return true }
             if child == nil { child = RunningAction(acts[seqIndex]) }
-            if child!.step(dt, node: node) { seqIndex += 1
-            child = nil
-            if seqIndex >= acts.count { return true } }
+            if child!.step(dt, node: node) {
+                seqIndex += 1
+                child = nil
+                if seqIndex >= acts.count { return true }
+            }
             return false
         case .group(let acts):
-            if !started { started = true
-            groupChildren = acts.map { RunningAction($0) } }
+            if !started {
+                started = true
+                groupChildren = acts.map { RunningAction($0) }
+            }
             groupChildren.removeAll { $0.step(dt, node: node) }
             return groupChildren.isEmpty
         case .repeatN(let a, let count):
-            if !started { started = true
-            repeatRemaining = count
-            child = RunningAction(a) }
+            if !started {
+                started = true
+                repeatRemaining = count
+                child = RunningAction(a)
+            }
             if repeatRemaining <= 0 { return true }
-            if child!.step(dt, node: node) { repeatRemaining -= 1
-            if repeatRemaining <= 0 { return true }
-            child = RunningAction(a) }
+            if child!.step(dt, node: node) {
+                repeatRemaining -= 1
+                if repeatRemaining <= 0 { return true }
+                child = RunningAction(a)
+            }
             return false
         case .repeatForever(let a):
             if child == nil { child = RunningAction(a) }
@@ -387,9 +399,11 @@ final class RunningAction {
                 startScale = node.xScale
                 startAlpha = node.alpha
                 startRot = node.zRotation
-                if let s = node as? SKSpriteNode { startColor = s.color
-                startBlend = s.colorBlendFactor
-                startSize = s.size }
+                if let s = node as? SKSpriteNode {
+                    startColor = s.color
+                    startBlend = s.colorBlendFactor
+                    startSize = s.size
+                }
                 if let a = node as? SKAudioNode { startVolume = CGFloat(a.volume) }
                 if case .moveBy(let dx, let dy) = action.kind { targetPos = CGPoint(x: startPos.x + dx, y: startPos.y + dy) }
                 if case .moveTo(let p) = action.kind { targetPos = p }
