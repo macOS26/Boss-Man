@@ -104,6 +104,11 @@ VoxelScene::VoxelScene(SoundManager& sound, RoundState& state,
         for (char c : row)
             if (c == Tile::dot || c == Tile::hideout) dots++;
     state_.dotCount = dots;
+    int discs = 0;
+    for (auto& row : map_)
+        for (char c : row)
+            if (c == Tile::goldDisc) discs++;
+    state_.goldDiscCount = discs;
 
     placeStart();
     buildBillboards();
@@ -289,9 +294,11 @@ void VoxelScene::togglePause() {
     if (isUserPaused_) {
         hud_.showMessage(Message::PAUSED, 9999.f);
         sound_.pauseAudio();
+        travelerSpawner_.pause();
     } else {
         hud_.showMessage("", 0.1f);
         sound_.resumeAudio();
+        travelerSpawner_.resume();
     }
 }
 
@@ -352,6 +359,12 @@ void VoxelScene::update(float dt) {
 
     animTime_ += dt; // pickup throb clock (independent of motion)
     hud_.update(dt);
+    for (auto& b : billboards_) {
+        if (b.cooldownTimer > 0.f) {
+            b.cooldownTimer -= dt;
+            if (b.cooldownTimer <= 0.f) { b.cooldownTimer = 0.f; b.alpha = 1.f; }
+        }
+    }
     // Radar popups rise 42px over 0.7s (60px/s); 3D popups rise fontSize*1.55 over
     // 0.7s. Both fade out across the 0.7s lifetime (alpha = timer/0.7 at draw).
     for (auto& m : miniPops_) { m.timer -= dt; m.pos.y -= 60.f * dt; }
@@ -374,23 +387,32 @@ void VoxelScene::step() {
     int col = (int)std::floor(px_), row = (int)std::floor(py_);
     double ccx = col + 0.5, ccy = row + 0.5;
 
+    bool angleDone = std::abs(da) < 0.15;
+
     // Turn near a tile centre: take a ←/→ turn ONLY into an open lane (Pete never turns to
     // face a wall — a blocked turn stays queued for the next junction where that lane opens).
     // The down button queues the opposite heading, an about-face that ALWAYS corners here
     // since the lane behind Pete is open. Snap onto the square from up to ~0.4 tile away.
-    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4 &&
-        open(col + wantDirX_, row + wantDirY_)) {
-        px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
-        wantDirSet_ = false;
-        targetAngle_ = cardinal(moveDirX_, moveDirY_);
-        if (moveDirX_ > 0) peteDirName_ = "EAST";
-        else if (moveDirX_ < 0) peteDirName_ = "WEST";
-        else if (moveDirY_ > 0) peteDirName_ = "SOUTH";
-        else peteDirName_ = "NORTH";
+    bool hasDir = pressUp_;
+    if (wantDirSet_) {
+        bool atCenter = std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4;
+        if ((!hasDir && angleDone) || (hasDir && atCenter && open(col + wantDirX_, row + wantDirY_))) {
+            px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
+            if (pendingSecondTurn_) {
+                wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; wantDirSet_ = true;
+            } else {
+                wantDirSet_ = false;
+            }
+            pendingSecondTurn_ = false;
+            targetAngle_ = cardinal(moveDirX_, moveDirY_);
+            if (moveDirX_ > 0) peteDirName_ = "EAST";
+            else if (moveDirX_ < 0) peteDirName_ = "WEST";
+            else if (moveDirY_ > 0) peteDirName_ = "SOUTH";
+            else peteDirName_ = "NORTH";
+        }
     }
 
     // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
-    bool hasDir = pressUp_;
     int tdx = moveDirX_;
     int tdy = moveDirY_;
     if (hasDir) {
@@ -430,12 +452,14 @@ void VoxelScene::step() {
                 break;
             case Tile::waterPellet:
                 sound_.playWaterGunPickup(); state_.bumpScore(50); popPoints(50);
+                if (waterGunPickedUp_) waterGun_.reloadPellets(8);
                 break;
             default:
-                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1);
+                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1); popPoints(1);
                 break;
             }
             refreshHUD();
+            checkLevelComplete3D();
         }
     }
     billboards_.erase(std::remove_if(billboards_.begin(), billboards_.end(),
@@ -473,8 +497,10 @@ void VoxelScene::step() {
     checkBossCatch();
     for (auto& tr : travelerSpawner_.travelers) {   // walked onto the traveler's tile -> catch it
         if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
+            std::string caughtEmoji = tr.emoji;
             travelerSpawner_.catchTraveler(tr);
             state_.bumpScore(tr.points); sound_.playFishOrTreat(); popPoints(tr.points); refreshHUD();
+            hud_.showMessage("Caught " + caughtEmoji + "!", 2.f);
         }
     }
 
@@ -555,7 +581,7 @@ void VoxelScene::finishDeath() {
         sound_.playGameOver();
         return;
     }
-    px_ = spawnPx_; py_ = spawnPy_; wantDirSet_ = false; pressUp_ = pressDown_ = false;
+    px_ = spawnPx_; py_ = spawnPy_; wantDirSet_ = false; pendingSecondTurn_ = false; pressUp_ = pressDown_ = false;
     int sc = (int)std::floor(spawnPx_), sr = (int)std::floor(spawnPy_);
     int dx[] = {1, 0, -1, 0}, dy[] = {0, 1, 0, -1};
     for (int i = 0; i < 4; ++i)
@@ -615,6 +641,7 @@ void VoxelScene::collectStationary() {
     switch (ch) {
     case Tile::waterGun:
         collected_.insert(key); waterGun_.activate(); waterGunPickedUp_ = true;
+        state_.bumpScore(50); popPoints(50);
         sound_.playWaterGunPickup();
         billboards_.erase(std::remove_if(billboards_.begin(), billboards_.end(),
             [&](Billboard& b) { return (int)b.x == pcol && (int)b.y == prow; }), billboards_.end());
@@ -644,6 +671,7 @@ void VoxelScene::collectMachine(const std::string& name, int key, int col, int r
     // Gray (dim) the billboard + minimap pickup, don't remove it.
     for (auto& b : billboards_)
         if ((int)b.x == col && (int)b.y == row) b.alpha = 0.55f;
+    if (state_.reportItems.size() == Machine::REQUIRED.size()) hud_.showMessage(Message::TPS_READY, 6.f);
     refreshHUD();
 }
 
@@ -652,7 +680,7 @@ void VoxelScene::collectTPSReport() {
         std::string missing;
         for (auto& n : Machine::REQUIRED)
             if (!state_.reportItems.count(n)) missing += (missing.empty() ? "" : ", ") + n;
-        hud_.showMessage(Message::NEED_TPS, 5.f);
+        hud_.showMessage("Missing: " + missing, 5.f);
         return;
     }
     state_.tpsReportsDelivered += 1;
@@ -660,12 +688,15 @@ void VoxelScene::collectTPSReport() {
     int tpsPoints = state_.level * 100 + 100;
     state_.bumpScore(tpsPoints); state_.currentReportScore = 0;
     popPoints(tpsPoints);
+    for (auto& b : billboards_)
+        if (b.kind == Tile::brownBox) { b.alpha = 0.55f; b.cooldownTimer = MACHINE_COOLDOWN; }
     sound_.playTpsDeliver();
     bool gainedLife = state_.lives < MAX_LIVES;
     if (gainedLife) state_.lives += 1;
     resetCollectedMachines();
     refreshHUD();
-    hud_.showMessage(Message::TPS_READY, 3.f);
+    hud_.showMessage(gainedLife ? Message::TPS_TURNED_IN_LIFE : Message::TPS_TURNED_IN, 3.f);
+    checkLevelComplete3D();
 }
 
 void VoxelScene::resetCollectedMachines() {
@@ -679,6 +710,23 @@ void VoxelScene::resetCollectedMachines() {
                     if ((int)b.x == c && (int)b.y == r) b.alpha = 1.f;
             }
         }
+    }
+}
+
+// MARK: - Level complete
+
+void VoxelScene::checkLevelComplete3D() {
+    if (wantsNextLevel_) return;
+    bool dotsDone = state_.collectedDots >= state_.dotCount;
+    bool discsDone = state_.collectedGoldDiscs >= state_.goldDiscCount;
+    if (!dotsDone || !discsDone) return;
+    if (state_.tpsReportsDelivered >= 1) {
+        state_.advanceLevel();
+        nextLevel_ = state_.level;
+        hud_.showMessage(Message::levelLoaded(state_.level), 3.f);
+        wantsNextLevel_ = true;
+    } else {
+        hud_.showMessage(Message::NEED_TPS, 3.f);
     }
 }
 
@@ -714,7 +762,7 @@ void VoxelScene::keyDown(int code, bool isRepeat) {
     }
     if (code == K_UP || code == K_W) { pressUp_ = true; return; }
     if (code == K_DOWN || code == K_S) {
-        wantDirSet_ = true; wantDirX_ = -moveDirX_; wantDirY_ = -moveDirY_; // about-face 180, not reverse
+        wantDirSet_ = true; wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; pendingSecondTurn_ = true;
         return;
     }
 }
@@ -752,7 +800,7 @@ void VoxelScene::dpadSet(unsigned finger, float x, float y, int phase) {
     if (!w.empty() && w != prev) {
         if (w == "left")       { wantDirSet_ = true; wantDirX_ = moveDirY_;  wantDirY_ = -moveDirX_; }
         else if (w == "right") { wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; }
-        else if (w == "down")  { wantDirSet_ = true; wantDirX_ = -moveDirX_; wantDirY_ = -moveDirY_; }
+        else if (w == "down")  { wantDirSet_ = true; wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; pendingSecondTurn_ = true; }
     }
     applyDpad();
 }
@@ -962,8 +1010,8 @@ void VoxelScene::drawSky(sf::RenderTarget& target) {
         sf::Color shaftCol(255, (uint8_t)(0.92f * 255), (uint8_t)(0.60f * 255), (uint8_t)(0.18f * 255));
         for (int s = 0; s < 5; ++s) {
             float cx = viewW_ * 0.1f + s * (viewW_ * 0.8f / 4.f);
-            float shaftTop = screenY(glowBottom + shaftH);
-            float shaftBot = screenY(glowBottom);
+            float shaftTop = screenY(glowBottom + 4.f + shaftH);
+            float shaftBot = screenY(glowBottom + 4.f);
             sf::RectangleShape shaft({shaftW, shaftBot - shaftTop});
             shaft.setPosition(cx - shaftW / 2.f, shaftTop);
             shaft.setFillColor(shaftCol);
@@ -1161,7 +1209,7 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         if (rdx < 0) { stepX = -1; sideX = (camX_ - mapX) * ddx; } else { stepX = 1; sideX = (mapX + 1 - camX_) * ddx; }
         if (rdy < 0) { stepY = -1; sideY = (camY_ - mapY) * ddy; } else { stepY = 1; sideY = (mapY + 1 - camY_) * ddy; }
         bool firstHit = true, prevWall = false; int guardN = 0;
-        while (guardN < 160) {
+        while (guardN < 300) {
             guardN++;
             double dEntry; int side;
             if (sideX < sideY) { dEntry = sideX; sideX += ddx; mapX += stepX; side = 0; }
@@ -1189,24 +1237,32 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
     }
     for (auto& kv : openF) emitFront(kv.second);
 
+    int ptx = (int)std::floor(px_), pty = (int)std::floor(py_);
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            int tx = ptx + dx, ty = pty + dy;
+            if (tx >= 0 && tx < colsCount_ && ty >= 0 && ty < rowsCount_ && map_[ty][tx] == Tile::wall)
+                tops.insert(ty * colsCount_ + tx);
+        }
+
     // Wall TOPS: project each in-view cell's flat top (4 corners, 1-pt perspective).
     double invDet = 1.0 / (planeX * dirY - dirX * planeY);
     float capZ = (float)(wallHeightScale_ - eyeHeight_);
     const int corners[4][2] = {{0,0},{1,0},{1,1},{0,1}};
     for (int key : tops) {
         double cx = key % colsCount_, cy = key / colsCount_;
-        float qx[4], qy[4]; double dsum = 0; bool ok = true;
+        float qx[4], qy[4]; double dsum = 0;
         for (int k = 0; k < 4; ++k) {
             double relX = (cx + corners[k][0]) - camX_, relY = (cy + corners[k][1]) - camY_;
-            double depth = invDet * (-planeY * relX + planeX * relY);
-            if (depth < 0.12) { ok = false; break; }
+            double raw = invDet * (-planeY * relX + planeX * relY);
+            double depth = std::max(0.05, raw);
+            dsum += raw;
             double transX = invDet * (dirY * relX - dirX * relY);
             qx[k] = (float)(viewW_ / 2.0 * (1 + transX / depth));
             qy[k] = (float)(vMid + vH * capZ / depth);
-            dsum += depth;
         }
-        if (!ok) continue;
-        double dAvg = dsum / 4;
+        if (dsum / 4 < -0.5) continue;
+        double dAvg = std::max(0.05, dsum / 4);
         const double wallFar = 40.0;
         if (dAvg > wallFar) continue;
         int par = ((int)cx + (int)cy) & 1;

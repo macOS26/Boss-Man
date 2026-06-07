@@ -53,9 +53,11 @@ public:
     // True once Pete has run out of lives: Game tears the scene down and shows the
     // shared game-over combo screen (no name entry, like the 2D modes).
     bool isGameOver() const { return gameOver_; }
-    // True when the user pressed ESC to leave the bonus and return to the title.
     bool wantsExit() const { return wantsExit_; }
     void clearExit() { wantsExit_ = false; }
+    bool wantsNextLevel() const override { return wantsNextLevel_; }
+    int nextLevelIndex() const override { return nextLevel_; }
+    void clearNextLevel() override { wantsNextLevel_ = false; }
 
     // BossControllerDelegate: per-step boss water-pellet evasion (same as 2D modes).
     MoveDirection dropletAxisThreatening(GridPos bossGrid) override;
@@ -76,6 +78,7 @@ private:
     double px_ = 1.5, py_ = 1.5, angle_ = 0.0;
     int moveDirX_ = 1, moveDirY_ = 0;       // current lane direction (cardinal)
     bool wantDirSet_ = false; int wantDirX_ = 0, wantDirY_ = 0; // queued junction turn
+    bool pendingSecondTurn_ = false;
     std::string peteDirName_ = "PETE";
     double targetAngle_ = 0.0;
     double spawnPx_ = 1.5, spawnPy_ = 1.5;
@@ -100,7 +103,8 @@ private:
         double worldH;   // world height for the perspective projection
         double x, y;     // grid centre (raster top-down)
         bool alive;
-        float alpha;     // 1.0 normally, 0.55 when a machine is grayed
+        float alpha;            // 1.0 normally, 0.55 when a machine is grayed
+        float cooldownTimer = 0.f; // > 0 while dimmed; restores to 1.0 when it reaches 0
         // Per-frame projection output (filled by projectSprites).
         bool visible = false;
         float screenX = 0.f, scale = 1.f, floorY = 0.f, depthZ = 0.f;
@@ -134,6 +138,8 @@ private:
     static constexpr int deathFrames_ = 90; // 1.5s at 60fps
     bool gameOver_ = false;
     bool wantsExit_ = false;
+    bool wantsNextLevel_ = false;
+    int nextLevel_ = 0;
 
     // MARK: - Gold disc / report / pickup bookkeeping
     WaterGunState waterGun_;
@@ -217,6 +223,7 @@ private:
     void startGoldDiscMode();
     void endGoldDiscMode();
     void togglePause();
+    void checkLevelComplete3D();
     bool dropletThreatens(GridPos d, MoveDirection dir, GridPos b) const;
 
     // MARK: - Rendering helpers

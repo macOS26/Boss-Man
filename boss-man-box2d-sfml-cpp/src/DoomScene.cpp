@@ -104,6 +104,11 @@ DoomScene::DoomScene(SoundManager& sound, RoundState& state,
         for (char c : row)
             if (c == Tile::dot || c == Tile::hideout) dots++;
     state_.dotCount = dots;
+    int discs = 0;
+    for (auto& row : map_)
+        for (char c : row)
+            if (c == Tile::goldDisc) discs++;
+    state_.goldDiscCount = discs;
 
     placeStart();
     buildBillboards();
@@ -289,9 +294,11 @@ void DoomScene::togglePause() {
     if (isUserPaused_) {
         hud_.showMessage(Message::PAUSED, 9999.f);
         sound_.pauseAudio();
+        travelerSpawner_.pause();
     } else {
         hud_.showMessage("", 0.1f);
         sound_.resumeAudio();
+        travelerSpawner_.resume();
     }
 }
 
@@ -352,6 +359,12 @@ void DoomScene::update(float dt) {
 
     animTime_ += dt; // pickup throb clock (independent of motion)
     hud_.update(dt);
+    for (auto& b : billboards_) {
+        if (b.cooldownTimer > 0.f) {
+            b.cooldownTimer -= dt;
+            if (b.cooldownTimer <= 0.f) { b.cooldownTimer = 0.f; b.alpha = 1.f; }
+        }
+    }
     // Radar popups rise 42px over 0.7s (60px/s); 3D popups rise fontSize*1.55 over
     // 0.7s. Both fade out across the 0.7s lifetime (alpha = timer/0.7 at draw).
     for (auto& m : miniPops_) { m.timer -= dt; m.pos.y -= 60.f * dt; }
@@ -374,23 +387,32 @@ void DoomScene::step() {
     int col = (int)std::floor(px_), row = (int)std::floor(py_);
     double ccx = col + 0.5, ccy = row + 0.5;
 
+    bool angleDone = std::abs(da) < 0.15;
+
     // Turn near a tile centre: take a ←/→ turn ONLY into an open lane (Pete never turns to
     // face a wall — a blocked turn stays queued for the next junction where that lane opens).
     // The down button queues the opposite heading, an about-face that ALWAYS corners here
     // since the lane behind Pete is open. Snap onto the square from up to ~0.4 tile away.
-    if (wantDirSet_ && std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4 &&
-        open(col + wantDirX_, row + wantDirY_)) {
-        px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
-        wantDirSet_ = false;
-        targetAngle_ = cardinal(moveDirX_, moveDirY_);
-        if (moveDirX_ > 0) peteDirName_ = "EAST";
-        else if (moveDirX_ < 0) peteDirName_ = "WEST";
-        else if (moveDirY_ > 0) peteDirName_ = "SOUTH";
-        else peteDirName_ = "NORTH";
+    bool hasDir = pressUp_;
+    if (wantDirSet_) {
+        bool atCenter = std::abs(px_ - ccx) < 0.4 && std::abs(py_ - ccy) < 0.4;
+        if ((!hasDir && angleDone) || (hasDir && atCenter && open(col + wantDirX_, row + wantDirY_))) {
+            px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
+            if (pendingSecondTurn_) {
+                wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; wantDirSet_ = true;
+            } else {
+                wantDirSet_ = false;
+            }
+            pendingSecondTurn_ = false;
+            targetAngle_ = cardinal(moveDirX_, moveDirY_);
+            if (moveDirX_ > 0) peteDirName_ = "EAST";
+            else if (moveDirX_ < 0) peteDirName_ = "WEST";
+            else if (moveDirY_ > 0) peteDirName_ = "SOUTH";
+            else peteDirName_ = "NORTH";
+        }
     }
 
     // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
-    bool hasDir = pressUp_;
     int tdx = moveDirX_;
     int tdy = moveDirY_;
     if (hasDir) {
@@ -430,12 +452,14 @@ void DoomScene::step() {
                 break;
             case Tile::waterPellet:
                 sound_.playWaterGunPickup(); state_.bumpScore(50); popPoints(50);
+                if (waterGunPickedUp_) waterGun_.reloadPellets(8);
                 break;
             default:
-                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1);
+                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1); popPoints(1);
                 break;
             }
             refreshHUD();
+            checkLevelComplete3D();
         }
     }
     billboards_.erase(std::remove_if(billboards_.begin(), billboards_.end(),
@@ -471,10 +495,18 @@ void DoomScene::step() {
         }
 
     checkBossCatch();
-    for (auto& tr : travelerSpawner_.travelers) {   // walked onto the traveler's tile -> catch it
-        if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
+    {
+        float petePx = (float)(px_ * 32.0);
+        float petePy = (float)((rowsCount_ - py_) * 32.0);
+        for (auto& tr : travelerSpawner_.travelers) {
+            if (!tr.active || tr.catching) continue;
+            float dx = petePx - tr.pixelPos.x, dy = petePy - tr.pixelPos.y;
+            if (dx * dx + dy * dy > 20.f * 20.f) continue;
+            std::string caughtEmoji = tr.emoji;
+            int pts = tr.points;
             travelerSpawner_.catchTraveler(tr);
-            state_.bumpScore(tr.points); sound_.playFishOrTreat(); popPoints(tr.points); refreshHUD();
+            state_.bumpScore(pts); sound_.playFishOrTreat(); popPoints(pts); refreshHUD();
+            hud_.showMessage(caughtEmoji + " caught! +" + std::to_string(pts), 2.f);
         }
     }
 
@@ -520,6 +552,7 @@ void DoomScene::checkBossCatch() {
             sound_.playCaptureBoss(bossController_.captureStreak);
             popPoints(pts);
             refreshHUD();
+            hud_.showMessage(name + " captured! +" + std::to_string(pts), 2.f);
         } else if (!peteShielded_) {
             startDeath((int)i);
             return;
@@ -555,7 +588,7 @@ void DoomScene::finishDeath() {
         sound_.playGameOver();
         return;
     }
-    px_ = spawnPx_; py_ = spawnPy_; wantDirSet_ = false; pressUp_ = pressDown_ = false;
+    px_ = spawnPx_; py_ = spawnPy_; wantDirSet_ = false; pendingSecondTurn_ = false; pressUp_ = pressDown_ = false;
     int sc = (int)std::floor(spawnPx_), sr = (int)std::floor(spawnPy_);
     int dx[] = {1, 0, -1, 0}, dy[] = {0, 1, 0, -1};
     for (int i = 0; i < 4; ++i)
@@ -615,6 +648,7 @@ void DoomScene::collectStationary() {
     switch (ch) {
     case Tile::waterGun:
         collected_.insert(key); waterGun_.activate(); waterGunPickedUp_ = true;
+        state_.bumpScore(50); popPoints(50);
         sound_.playWaterGunPickup();
         billboards_.erase(std::remove_if(billboards_.begin(), billboards_.end(),
             [&](Billboard& b) { return (int)b.x == pcol && (int)b.y == prow; }), billboards_.end());
@@ -644,6 +678,7 @@ void DoomScene::collectMachine(const std::string& name, int key, int col, int ro
     // Gray (dim) the billboard + minimap pickup, don't remove it.
     for (auto& b : billboards_)
         if ((int)b.x == col && (int)b.y == row) b.alpha = 0.55f;
+    if (state_.reportItems.size() == Machine::REQUIRED.size()) hud_.showMessage(Message::TPS_READY, 6.f);
     refreshHUD();
 }
 
@@ -652,7 +687,7 @@ void DoomScene::collectTPSReport() {
         std::string missing;
         for (auto& n : Machine::REQUIRED)
             if (!state_.reportItems.count(n)) missing += (missing.empty() ? "" : ", ") + n;
-        hud_.showMessage(Message::NEED_TPS, 5.f);
+        hud_.showMessage("Missing: " + missing, 5.f);
         return;
     }
     state_.tpsReportsDelivered += 1;
@@ -660,12 +695,15 @@ void DoomScene::collectTPSReport() {
     int tpsPoints = state_.level * 100 + 100;
     state_.bumpScore(tpsPoints); state_.currentReportScore = 0;
     popPoints(tpsPoints);
+    for (auto& b : billboards_)
+        if (b.kind == Tile::brownBox) { b.alpha = 0.55f; b.cooldownTimer = MACHINE_COOLDOWN; }
     sound_.playTpsDeliver();
     bool gainedLife = state_.lives < MAX_LIVES;
     if (gainedLife) state_.lives += 1;
     resetCollectedMachines();
     refreshHUD();
-    hud_.showMessage(Message::TPS_READY, 3.f);
+    hud_.showMessage(gainedLife ? Message::TPS_TURNED_IN_LIFE : Message::TPS_TURNED_IN, 3.f);
+    checkLevelComplete3D();
 }
 
 void DoomScene::resetCollectedMachines() {
@@ -679,6 +717,23 @@ void DoomScene::resetCollectedMachines() {
                     if ((int)b.x == c && (int)b.y == r) b.alpha = 1.f;
             }
         }
+    }
+}
+
+// MARK: - Level complete
+
+void DoomScene::checkLevelComplete3D() {
+    if (wantsNextLevel_) return;
+    bool dotsDone = state_.collectedDots >= state_.dotCount;
+    bool discsDone = state_.collectedGoldDiscs >= state_.goldDiscCount;
+    if (!dotsDone || !discsDone) return;
+    if (state_.tpsReportsDelivered >= 1) {
+        state_.advanceLevel();
+        nextLevel_ = state_.level;
+        hud_.showMessage(Message::levelLoaded(state_.level), 3.f);
+        wantsNextLevel_ = true;
+    } else {
+        hud_.showMessage(Message::NEED_TPS, 3.f);
     }
 }
 
@@ -714,7 +769,7 @@ void DoomScene::keyDown(int code, bool isRepeat) {
     }
     if (code == K_UP || code == K_W) { pressUp_ = true; return; }
     if (code == K_DOWN || code == K_S) {
-        wantDirSet_ = true; wantDirX_ = -moveDirX_; wantDirY_ = -moveDirY_; // about-face 180, not reverse
+        wantDirSet_ = true; wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; pendingSecondTurn_ = true;
         return;
     }
 }
@@ -752,7 +807,7 @@ void DoomScene::dpadSet(unsigned finger, float x, float y, int phase) {
     if (!w.empty() && w != prev) {
         if (w == "left")       { wantDirSet_ = true; wantDirX_ = moveDirY_;  wantDirY_ = -moveDirX_; }
         else if (w == "right") { wantDirSet_ = true; wantDirX_ = -moveDirY_; wantDirY_ = moveDirX_; }
-        else if (w == "down")  { wantDirSet_ = true; wantDirX_ = -moveDirX_; wantDirY_ = -moveDirY_; }
+        else if (w == "down")  { wantDirSet_ = true; wantDirX_ = moveDirY_; wantDirY_ = -moveDirX_; pendingSecondTurn_ = true; }
     }
     applyDpad();
 }
@@ -848,8 +903,10 @@ void DoomScene::render(sf::RenderTarget& target) {
             if (tY <= 0.15 || tY > 18) continue;
             int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
             if (col >= 0 && col < columns_) {
+                double colWidth = viewW_ / (double)columns_;
+                int footHalf = std::max(1, std::min(5, (int)((viewH() / tY * 0.42) / colWidth * 0.5)));
                 double wallZ = zbuf_[col];
-                for (int c = std::max(0, col - 1); c <= std::min(columns_ - 1, col + 1); ++c) wallZ = std::min(wallZ, zbuf_[c]);
+                for (int c = std::max(0, col - footHalf); c <= std::min(columns_ - 1, col + footHalf); ++c) wallZ = std::min(wallZ, zbuf_[c]);
                 if (tY > wallZ + 0.3) continue; // wall occludes the traveler
             }
             float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);
@@ -1128,9 +1185,11 @@ void DoomScene::projectSprites(double dirX, double dirY, double planeX, double p
         if (tY <= 0.15) return;
         int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
         if (col >= 0 && col < columns_) {
+            double colWidth = viewW_ / (double)columns_;
+            int footHalf = std::max(1, std::min(5, (int)((viewH() / tY * worldH) / colWidth * 0.5)));
             double wallZ = zbuf_[col];
-            for (int c = std::max(0, col - 4); c <= std::min(columns_ - 1, col + 4); ++c)
-                wallZ = std::max(wallZ, zbuf_[c]);
+            for (int c = std::max(0, col - footHalf); c <= std::min(columns_ - 1, col + footHalf); ++c)
+                wallZ = std::min(wallZ, zbuf_[c]);
             if (tY > wallZ + 0.3) return; // wall occludes
         }
         if (tY > 18) return; // far cull
@@ -1354,7 +1413,7 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
         }
     }
 
-    // Pickups (dots + machines/gold/water), hidden when collected.
+    // Pickups: dots/discs first (z=2), then machine emojis on top (z=8).
     float t = animTime_;
     float goldScale = 1.0f + 0.25f * (0.5f - 0.5f * std::cos(t * 8.976f));
     for (int r = 0; r < rowsCount_; ++r) {
@@ -1382,10 +1441,22 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
                 core.setPosition(p);
                 core.setFillColor(gold ? sf::Color(255, 231, 0, a) : sf::Color(0, 200, 240, a));
                 target.draw(core);
-            } else if (pickupEmoji(ch).size() > 0) {
-                drawEmoji(target, pickupEmoji(ch), p, mapCell_ * 0.7f * mapScale_,
-                          sf::Color(255, 255, 255, a));
             }
+        }
+    }
+    for (int r = 0; r < rowsCount_; ++r) {
+        for (int c = 0; c < (int)map_[r].size(); ++c) {
+            char ch = map_[r][c];
+            int key = mapKey(c, r);
+            if (hiddenPickups_.count(key)) continue;
+            if (pickupEmoji(ch).empty()) continue;
+            sf::Vector2f p = mapLocal(c + 0.5, r + 0.5);
+            float alpha = 1.f;
+            for (auto& b : billboards_)
+                if ((int)b.x == c && (int)b.y == r) alpha = b.alpha;
+            uint8_t a = (uint8_t)(alpha * 255);
+            drawEmoji(target, pickupEmoji(ch), p, mapCell_ * 1.0f * mapScale_,
+                      sf::Color(255, 255, 255, a));
         }
     }
 

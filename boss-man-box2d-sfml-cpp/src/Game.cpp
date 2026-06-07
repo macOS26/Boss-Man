@@ -262,7 +262,7 @@ void Game::tick() {
 }
 
 std::vector<std::string> Game::currentLevelRows() {
-    int idx = (state.level - 1) % (int)levelNames().size();
+    int idx = std::min(state.level - 1, (int)levelNames().size() - 1);
     std::string name = levelNames()[idx];
     // LevelStore returns custom edited rows (from the level editor) when present,
     // otherwise the bundled level — so edits show up immediately in play/practice.
@@ -631,11 +631,12 @@ void Game::processInput() {
                 if (goName.empty()) { const char* user = std::getenv("USER"); goName = user ? user : ""; }
             }
             doomScene.reset();
-            // The shared game-over screen draws over the 2D world render path; clear
-            // the level so no stray maze/bosses/Pete from a prior 2D game show behind it.
             mazeRenderer.reset();
             worker.reset();
             bossController.clear();
+        } else if (doomScene->wantsNextLevel()) {
+            int nextLevel = doomScene->nextLevelIndex();
+            startDoom3D(nextLevel, state.practiceMode);
         }
     }
 
@@ -710,7 +711,7 @@ void Game::update(float dt) {
                         auto pos = gridMap.pointFor(bossController.entities[i].grid);
                         scorePopups.add(pts, pos);
                         refreshHUD();
-                        hud.showMessage(bossName + " captured! +" + std::to_string(pts), 2.0f);
+                        hud.showMessage(bossName + " captured!", 2.0f);
                     } else if (!shielded) {
                         bossCaught = true;
                     }
@@ -739,7 +740,8 @@ void Game::update(float dt) {
         }
         if (c.catA == PhysicsCat::TPS_BOX && c.catB == PhysicsCat::WORKER) {
             for (int i = 0; i < (int)mazeRenderer->pickups.size() && i < (int)physicsWorld.pickupBodies.size(); ++i) {
-                if (physicsWorld.pickupBodies[i] == c.bodyA && mazeRenderer->pickups[i].active)
+                if (physicsWorld.pickupBodies[i] == c.bodyA && mazeRenderer->pickups[i].active
+                    && mazeRenderer->pickups[i].cooldownTimer <= 0)
                     collectTPSReport(i);
             }
         }
@@ -752,6 +754,7 @@ void Game::update(float dt) {
                     sound.playWaterGunPickup();
                     waterGunPickedUp = true;
                     waterGun.activate();
+                    hud.showMessage(Message::WATER_GUN_ACTIVE, 3.0f);
                     refreshHUD();
                 }
             }
@@ -797,7 +800,7 @@ void Game::update(float dt) {
                 waterSplash.spawn(boss.pixelPos);
                 bossController.splash(i, gridMap, *pathfinder);
                 state.bumpScore(50);
-                scorePopups.add(50, boss.pixelPos);
+                scorePopups.add(50, boss.pixelPos, false, true);
                 sound.playWaterGunSplash();
                 hud.showMessage(Message::BOSS_SPLASHED, 1.5f);
                 refreshHUD();
@@ -815,7 +818,7 @@ void Game::update(float dt) {
                 sound.playFishOrTreat();
                 scorePopups.add(tr.points, tr.pixelPos);
                 refreshHUD();
-                hud.showMessage("Caught " + tr.emoji + "! +" + std::to_string(tr.points), 2.0f);
+                hud.showMessage("Caught " + tr.emoji + "!", 2.0f);
             }
         }
     }
@@ -829,7 +832,7 @@ void Game::render() {
     // Hide the cursor only during active play (shown on title / pause / game-over
     // / editor), matching the Xcode build. Synced on state change; no-op on WASM
     // (the browser owns the cursor) and on touch devices.
-    bool hideCursor = (gameState == GameState::Playing);
+    bool hideCursor = (gameState == GameState::Playing || gameState == GameState::Doom3D);
     if (hideCursor != cursorHidden) {
         window.setMouseCursorVisible(!hideCursor);
         cursorHidden = hideCursor;
@@ -1031,6 +1034,8 @@ void Game::bossCaughtWorker() {
     sound.playCaughtByBoss();
     state.lives--;
     if (goldDiscActive) endGoldDiscMode();
+    if (state.currentReportScore > 0 && worker)
+        scorePopups.add(-state.currentReportScore, worker->pixelPos, true);
     state.reportItems.clear();
     state.currentReportScore = 0;
 
@@ -1071,7 +1076,7 @@ void Game::bossCaughtWorker() {
         sound.stopGoldDiscBass();
         sound.playGameOver();
     } else {
-        hud.showMessage("A boss caught you! " + std::to_string(state.lives) + " workers left.", 3.0f);
+        hud.showMessage("Boss got you! " + std::to_string(state.lives) + " left", 3.0f);
     }
 }
 
@@ -1112,24 +1117,19 @@ void Game::drawGameOver() {
     sf::RectangleShape dim(sf::Vector2f(W, H));
     dim.setFillColor(sf::Color(0, 0, 0, 205));
     window.draw(dim);
-    const float m = 18.f;
-    sf::RectangleShape panel(sf::Vector2f(W - 2 * m, H - 2 * m));
-    panel.setPosition(m, m);
-    panel.setFillColor(sf::Color(26, 26, 33, 250));
+    sf::RectangleShape panel(sf::Vector2f(520.f, 220.f));
+    panel.setPosition(W / 2.f - 260.f, H / 2.f - 110.f);
+    panel.setFillColor(sf::Color(13, 13, 18, 255));
     panel.setOutlineColor(sf::Color(255, 140, 0));
     panel.setOutlineThickness(3.f);
     window.draw(panel);
 
     const bool q = goQualified;
-    goText(window, "GAME OVER", q ? 44.f : 56.f, sf::Color(242, 51, 46), W / 2, q ? 44.f : 70.f, 1);
-    goText(window, "FINAL " + std::to_string(state.score) + "    HIGH " + std::to_string(state.highScore),
-           q ? 22.f : 24.f, sf::Color::White, W / 2, q ? 82.f : 118.f, 1);
+    goText(window, "GAME OVER", 56.f, sf::Color(242, 51, 46), W / 2, H / 2 - 20.f, 1);
 
-    // The leaderboard is the least important element: shown only when there is no
-    // name entry, otherwise yielded to the keyboard.
     if (q) {
-        goText(window, "NEW HIGH SCORE!   Enter name:", 20.f, sf::Color(77, 217, 255), W / 2, 120.f, 1);
-        const float fw = 600.f, fh = 44.f, fx = (W - fw) / 2.f, fy = 165.f;
+        goText(window, "NEW HIGH SCORE!   Enter name:", 20.f, sf::Color(77, 217, 255), W / 2, H / 2 + 28.f, 1);
+        const float fw = 480.f, fh = 44.f, fx = (W - fw) / 2.f, fy = H / 2 + 72.f;
         sf::RectangleShape field(sf::Vector2f(fw, fh));
         field.setPosition(fx, fy - fh / 2.f);
         field.setFillColor(sf::Color(245, 245, 245));
@@ -1138,49 +1138,39 @@ void Game::drawGameOver() {
         window.draw(field);
         float tw = goText(window, goName, 24.f, sf::Color(13, 13, 26), fx + 14.f, fy, 0, false);
         if (std::fmod(animClock.getElapsedTime().asSeconds(), 0.9f) < 0.45f) {
-            // Thin rectangle caret (matches SpriteKit; tucks against the last
-            // letter with no glyph side-bearing, unlike a "|").
             sf::RectangleShape caret(sf::Vector2f(3.f, fh * 0.6f));
             caret.setFillColor(sf::Color(13, 13, 26));
             caret.setPosition(fx + 16.f + tw, fy - fh * 0.3f);
             window.draw(caret);
         }
     } else {
-        goText(window, "LEADERBOARD", 22.f, sf::Color(255, 235, 107), W / 2, 158.f, 1);
-        const auto& entries = leaderboard.entries();
-        const float rowH = 27.f, topY = 192.f;
-        if (entries.empty()) {
-            goText(window, "No local scores yet.", 18.f, sf::Color(180, 180, 180), W / 2, topY, 1);
-        } else {
-            for (int i = 0; i < (int)entries.size() && i < 10; ++i) {
-                float y = topY + (float)i * rowH;
-                goText(window, std::to_string(i + 1) + ". " + entries[i].name, 20.f, sf::Color::White, W * 0.30f, y, 0, false);
-                goText(window, std::to_string(entries[i].score), 20.f, sf::Color::White, W * 0.70f, y, 2, false);
-            }
-        }
+        float blinkA = (std::fmod(animClock.getElapsedTime().asSeconds(), 1.2f) < 0.6f) ? 1.f : 0.2f;
+        sf::Color promptColor(255, 235, 59, (uint8_t)(blinkA * 255));
+        goText(window, Message::PROMPT_NEW_GAME, 18.f, promptColor, W / 2, H / 2 + 40.f, 1);
+        goText(window, Message::PROMPT_TITLE, 14.f, sf::Color(191, 191, 191), W / 2, H / 2 + 72.f, 1);
     }
 
-    for (const auto& k : gameOverKeys()) {
-        sf::RectangleShape r(sf::Vector2f(k.rect.width, k.rect.height));
-        r.setPosition(k.rect.left, k.rect.top);
-        sf::Color fill(56, 56, 56), stroke(110, 110, 110);
-        std::string lbl;
-        float fs = 18.f;
-        switch (k.kind) {
-        case 0: lbl = std::string(1, k.ch); break;
-        case 1: lbl = "DEL"; fill = sf::Color(80, 80, 80); fs = 15.f; break;
-        case 2: lbl = "SPACE"; fs = 15.f; break;
-        case 3: lbl = "PLAY"; fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); fs = 28.f; break;
-        case 4: lbl = "ESC"; fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); fs = 28.f; break;
+    if (q) {
+        for (const auto& k : gameOverKeys()) {
+            sf::RectangleShape r(sf::Vector2f(k.rect.width, k.rect.height));
+            r.setPosition(k.rect.left, k.rect.top);
+            sf::Color fill(56, 56, 56), stroke(110, 110, 110);
+            std::string lbl;
+            float fs = 18.f;
+            switch (k.kind) {
+            case 0: lbl = std::string(1, k.ch); break;
+            case 1: lbl = "DEL"; fill = sf::Color(80, 80, 80); fs = 15.f; break;
+            case 2: lbl = "SPACE"; fs = 15.f; break;
+            case 3: lbl = "PLAY"; fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); fs = 28.f; break;
+            case 4: lbl = "ESC"; fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); fs = 28.f; break;
+            }
+            r.setFillColor(fill);
+            r.setOutlineColor(stroke);
+            r.setOutlineThickness(1.f);
+            window.draw(r);
+            bool keyBold = (k.kind == 3 || k.kind == 4);
+            goText(window, lbl, fs, sf::Color::White, k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1, keyBold);
         }
-        r.setFillColor(fill);
-        r.setOutlineColor(stroke);
-        r.setOutlineThickness(1.f);
-        window.draw(r);
-        // SpriteKit: letter/number keys + DEL/SPACE are Menlo (body); only the
-        // ESC/PLAY action buttons are Marker Felt.
-        bool keyBold = (k.kind == 3 || k.kind == 4);
-        goText(window, lbl, fs, sf::Color::White, k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1, keyBold);
     }
 }
 
@@ -1297,9 +1287,6 @@ void Game::handleMachine(const std::string& name, int pickupIndex) {
 
     if ((int)state.reportItems.size() == (int)Machine::REQUIRED.size())
         hud.showMessage(Message::TPS_READY, 6.0f);
-    else
-        hud.showMessage("Collected " + name +
-                        " page for TPS report +" + std::to_string(pts), 2.0f);
 }
 
 void Game::collectTPSReport(int pickupIndex) {
@@ -1321,10 +1308,11 @@ void Game::collectTPSReport(int pickupIndex) {
         addMissing(Machine::COVER_SHEET, 'C');
         addMissing(Machine::BOOK_BINDER, 'M');
         sound.playVoice(key);
-        hud.showMessage("The TPS report is missing " + names + ".", 5.0f);
+        hud.showMessage("Missing: " + names, 5.0f);
         return;
     }
     state.tpsReportsDelivered++;
+    mazeRenderer->pickups[pickupIndex].cooldownTimer = MACHINE_COOLDOWN;
     state.reportItems.clear();
     state.currentReportScore = 0;
 
@@ -1336,8 +1324,7 @@ void Game::collectTPSReport(int pickupIndex) {
     bool gainedLife = state.lives < MAX_LIVES;
     if (gainedLife) state.lives++;
     refreshHUD();
-    hud.showMessage("TPS report turned in! +" + std::to_string(tpsPoints) +
-                    (gainedLife ? ", extra worker hired." : ", workers at max."), 3.0f);
+    hud.showMessage(gainedLife ? Message::TPS_TURNED_IN_LIFE : Message::TPS_TURNED_IN, 3.0f);
     checkLevelComplete();
 }
 
@@ -1360,7 +1347,7 @@ void Game::startNextLevel() {
     state.advanceLevel();
     resetSceneAndBuild();
     sound.playLevelStart();
-    hud.showMessage("Level " + std::to_string(state.level) + "! New office floor loaded.", 3.0f);
+    hud.showMessage(Message::levelLoaded(state.level), 3.0f);
 }
 
 void Game::resetSceneAndBuild() {

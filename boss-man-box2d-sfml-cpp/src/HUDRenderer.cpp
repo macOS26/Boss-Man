@@ -124,7 +124,8 @@ void HUDRenderer::showPaused(bool paused) {
         paused_ = false;
         message_.clear();
         messageHold_ = 0.f;
-        messageOut_ = true;
+        messageFade_ = 0.f;
+        messageOut_ = false;
     }
 }
 

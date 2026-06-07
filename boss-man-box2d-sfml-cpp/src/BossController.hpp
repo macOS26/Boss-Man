@@ -52,8 +52,11 @@ struct BossEntity {
     float respawnTimer = -1.0f;
     MoveDirection lookDir = MoveDirection::None;
     bool facingLeft = false;  // preserved across up/down moves, like SpriteKit
+    float spawnGrace = 0.0f;
+    float frightenedStep = 0.0f;
+    float lastMove = 0.0f;
     float walkPhase = 0.0f;
-    float throbTimer = 0.0f;  // post-spawn pulse (scale 1.0->1.18, 3x)
+    float throbTimer = 0.0f;
     bool isMoving = false;
     sf::Vector2f startPos, targetPos;
 
@@ -76,6 +79,11 @@ public:
     BossControllerDelegate* delegate = nullptr;
 
     BossController() = default;
+
+    inline int nextCapturePoints() const { return 100 * (captureStreak + 1); }
+    bool hasFirstBoss() const { return !entities.empty(); }
+    bool isAnyBossSpawning() const;
+    void relocateAfterCatch(BossEntity* node, const GridMap& map);
 
     void setSound(SoundManager* s) { sound = s; }
     void setDelegate(BossControllerDelegate* d) { delegate = d; }
@@ -106,6 +114,7 @@ private:
                  GridPos workerGrid, MoveDirection workerDir, bool isGoldDiscMode, bool isPeteShielded);
     void relocateToSpawn(int index, const GridMap& map);
     void applySpawnFreeze(int index);
+    void applyFleeThawTransition();
 
     // Boss tiles parsed from the current level, remembered so a mid-level reset
     // (e.g. after a boss catches the worker) re-spawns from the same level

@@ -21,6 +21,9 @@ public:
     virtual bool isGameOver() const = 0;
     virtual bool wantsExit() const = 0;
     virtual void clearExit() = 0;
+    virtual bool wantsNextLevel() const { return false; }
+    virtual int nextLevelIndex() const { return 1; }
+    virtual void clearNextLevel() {}
     virtual double pelletWorldH() const { return 0.14; }
 };
 

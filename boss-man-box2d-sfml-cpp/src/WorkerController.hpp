@@ -66,6 +66,17 @@ public:
     void applySpawnShield() {
         isShielded = true;
         shieldTimer = SPAWN_SHIELD_DUR;
+        useShieldColors_ = true;
+        renderer.config.bodyColor = {0.0f, 0.478f, 1.0f, 1.0f};
+        renderer.config.tieColor  = {1.0f, 0.584f, 0.0f, 1.0f};
+    }
+
+    void setShielded(bool shielded) {
+        isShielded = shielded;
+        if (!shielded) {
+            useShieldColors_ = false;
+            shieldTimer = 0.0f;
+        }
     }
 
     void update(float dt, const GridMap& map) {
@@ -128,6 +139,10 @@ public:
                 alpha = 1.0f - 0.65f * (elapsed / 0.6f);
             else if (elapsed < 1.2f)
                 alpha = 0.35f + 0.65f * ((elapsed - 0.6f) / 0.6f);
+        } else if (useShieldColors_) {
+            useShieldColors_ = false;
+            renderer.config.bodyColor = PETE_BODY;
+            renderer.config.tieColor  = PETE_TIE;
         }
         renderer.draw(target, pixelPos, facingLeft, isMoving, direction, walkPhase, alpha);
 
@@ -150,6 +165,7 @@ public:
 private:
     const GridMap* mapPtr = nullptr;
     float shieldTimer = 0.0f;
+    bool useShieldColors_ = false;
 
     void attemptStep(const GridMap* map) {
         if (queuedDirection != MoveDirection::None && map) {

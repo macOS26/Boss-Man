@@ -14,6 +14,7 @@ struct ScorePopup {
     float timer = 0.7f;
     int points;
     bool isRed = false;
+    bool isBlue = false;
 };
 
 // Matches the SpriteKit ScorePopup: systemYellow (red for penalties), fontSize 18,
@@ -22,13 +23,14 @@ class ScorePopupManager {
 public:
     std::vector<ScorePopup> popups;
 
-    void add(int points, sf::Vector2f pos, bool isRed = false) {
+    void add(int points, sf::Vector2f pos, bool isRed = false, bool isBlue = false) {
         ScorePopup p;
         p.text = (points >= 0 ? "+" : "") + std::to_string(points);
         p.position = {pos.x, pos.y - 20.f}; // SpriteKit spawns the label 20px up
         p.timer = 0.7f;
         p.points = points;
         p.isRed = isRed;
+        p.isBlue = isBlue;
         popups.push_back(p);
     }
 
@@ -55,8 +57,9 @@ public:
             text.setFont(font);
             text.setString(p.text);
             text.setCharacterSize((unsigned)(18 * dpi)); // rasterize hi-res, counter-scale below
-            text.setFillColor(p.isRed ? sf::Color(255, 69, 58, alpha)   // systemRed
-                                      : sf::Color(255, 231, 0, alpha)); // systemYellow
+            text.setFillColor(p.isRed  ? sf::Color(255, 69, 58, alpha)        // systemRed
+                            : p.isBlue ? sf::Color(89, 199, 250, alpha)       // SKColor(0.35,0.78,0.98,1)
+                                       : sf::Color(255, 231, 0, alpha));      // systemYellow
             auto lb = text.getLocalBounds();
             text.setOrigin(lb.left + lb.width / 2.f, lb.top + lb.height / 2.f);
             text.setScale(1.f / dpi, 1.f / dpi);

@@ -51,6 +51,10 @@ public:
     void drawDots(sf::RenderTarget& target, float dt);
     void drawPickups(sf::RenderTarget& target, float dt);
     bool collectDot(int col, int row);
+    bool collectGold(int col, int row);
+    bool collectWaterGun(int col, int row);
+    bool collectWaterPellet(int col, int row);
+    sf::Vector2f* touchedBrownBox(int col, int row);
 
 private:
     void buildBackground();

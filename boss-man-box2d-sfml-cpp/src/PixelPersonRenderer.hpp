@@ -12,15 +12,14 @@ struct PersonConfig {
     Color hairColor = PETE_HAIR;
     Color shoeOutlineColor = WHITE;
     Color pantsColor = PETE_PANTS;
-    // Skin tone (head + hands). Defaults to SKIN_COLOR; frightened bosses
-    // override this to FLEE_SKIN so face/hands read blue.
     Color skinColor = SKIN_COLOR;
+    Color eyeColor = BLACK;
+    Color shirtOutlineColor = WHITE;
+    Color tieOutlineColor = {0.f, 0.f, 0.f, 0.f};
+    float tieLineWidth = 0.f;
     float walkExaggeration = 0.0f;
     bool wearsSunglasses = false;
-    float headYOffset = 0.0f; // positive = lower on screen (SFML Y-down)
-    // Rear silhouette for the 3D mode's Pete avatar and bosses: no eyes/tie/collar,
-    // hair-coloured head, shoes behind legs, hands behind sleeves, shirt back in
-    // front of the arms (mirrors PixelPerson.init backView in the SpriteKit master).
+    float headYOffset = 0.0f;
     bool backView = false;
 };
 

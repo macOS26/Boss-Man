@@ -45,6 +45,9 @@ public:
     bool isGameOver() const override { return gameOver_; }
     bool wantsExit() const override { return wantsExit_; }
     void clearExit() override { wantsExit_ = false; }
+    bool wantsNextLevel() const override { return wantsNextLevel_; }
+    int nextLevelIndex() const override { return nextLevel_; }
+    void clearNextLevel() override { wantsNextLevel_ = false; }
 
     // BossControllerDelegate: per-step boss water-pellet evasion (same as 2D modes).
     MoveDirection dropletAxisThreatening(GridPos bossGrid) override;
@@ -96,7 +99,7 @@ private:
     void appendDotFaces(sf::VertexArray& va, int c, int r, bool gold) const;
 
     // MARK: - Stationary pickups (emoji / gold / water), projected each frame.
-    struct Pickup { char kind; int col, row; bool alive; float alpha; };
+    struct Pickup { char kind; int col, row; bool alive; float alpha; float cooldownTimer = 0.f; };
     std::vector<Pickup> pickups_;
     void buildPickups();
 
@@ -126,6 +129,8 @@ private:
     static constexpr int deathFrames_ = 90;
     bool gameOver_ = false;
     bool wantsExit_ = false;
+    bool wantsNextLevel_ = false;
+    int nextLevel_ = 0;
 
     // MARK: - Gold disc / report / pickup bookkeeping
     WaterGunState waterGun_;
@@ -194,6 +199,7 @@ private:
     void startDeath(int bossIndex);
     void updateDeath();
     void finishDeath();
+    void checkLevelComplete();
     void startGoldDiscMode();
     void endGoldDiscMode();
     void togglePause();

@@ -120,6 +120,12 @@ IsoScene::IsoScene(SoundManager& sound, RoundState& state,
         for (char c : row)
             if (c == Tile::dot || c == Tile::hideout) dots++;
     state_.dotCount = dots;
+    int discs = 0;
+    for (auto& row : map_)
+        for (char c : row)
+            if (c == Tile::goldDisc) discs++;
+    state_.goldDiscCount = discs;
+    state_.collectedGoldDiscs = 0;
 
     placeStart();
     setupProjection();
@@ -262,9 +268,15 @@ void IsoScene::buildIso() {
                                sf::Vector2f cc, sf::Vector2f d, sf::Color col) {
                     v.push_back({a, col}); v.push_back({b, col}); v.push_back({cc, col}); v.push_back({d, col});
                 };
-                push(frontV, fSW, fSE, tSE, tSW, frontP[par]);
-                if (c + 0.5 < mid)      push(sideV, fNE, fSE, tSE, tNE, sideP[par]);
-                else if (c + 0.5 > mid) push(sideV, fNW, fSW, tSW, tNW, sideP[par]);
+                bool southOpen = (r + 1 >= rowsCount_) || (map_[r + 1].size() <= (size_t)c) || (map_[r + 1][c] != Tile::wall);
+                if (southOpen) push(frontV, fSW, fSE, tSE, tSW, frontP[par]);
+                if (c + 0.5 < mid) {
+                    bool eastOpen = (c + 1 >= (int)map_[r].size()) || (map_[r][c + 1] != Tile::wall);
+                    if (eastOpen) push(sideV, fNE, fSE, tSE, tNE, sideP[par]);
+                } else if (c + 0.5 > mid) {
+                    bool westOpen = (c == 0) || (map_[r][c - 1] != Tile::wall);
+                    if (westOpen) push(sideV, fNW, fSW, tSW, tNW, sideP[par]);
+                }
                 push(topV, tNW, tNE, tSE, tSW, topP[par]);
                 // Cubicle trim band across the top face.
                 push(trimV, L(tSW, tSE, tNE, tNW, 0.18f, 0.64f), L(tSW, tSE, tNE, tNW, 0.82f, 0.64f),
@@ -291,7 +303,7 @@ void IsoScene::buildIso() {
 }
 
 void IsoScene::appendDotFaces(sf::VertexArray& va, int c, int r, bool gold) const {
-    const sf::Color dotTop(255, 231, 0), dotFront(178, 162, 0), dotSide(127, 115, 0);
+    const sf::Color dotTop(255, 231, 0), dotFront(178, 162, 0), dotSide(128, 116, 0);
     double h = (gold ? 0.28 : 0.20) * 0.7225;
     double cx0 = c + 0.5, ry0 = r + 0.5, mid = colsCount_ / 2.0;
     double yT = ((gold ? 1.2 : 0.95) * 0.7225 * isoWH_ - 9) / std::max(1.0, isoWH_);
@@ -352,8 +364,15 @@ void IsoScene::endGoldDiscMode() {
 }
 void IsoScene::togglePause() {
     isUserPaused_ = !isUserPaused_;
-    if (isUserPaused_) { hud_.showMessage(Message::PAUSED, 9999.f); sound_.pauseAudio(); }
-    else { hud_.showMessage("", 0.1f); sound_.resumeAudio(); }
+    if (isUserPaused_) {
+        hud_.showMessage(Message::PAUSED, 9999.f);
+        sound_.pauseAudio();
+        travelerSpawner_.pause();
+    } else {
+        hud_.showMessage("", 0.1f);
+        sound_.resumeAudio();
+        travelerSpawner_.resume();
+    }
 }
 
 // MARK: - Boss droplet evasion
@@ -406,10 +425,16 @@ void IsoScene::update(float dt) {
     }
     animTime_ += dt;
     hud_.update(dt);
+    for (auto& p : pickups_) {
+        if (p.cooldownTimer > 0.f) {
+            p.cooldownTimer -= dt;
+            if (p.cooldownTimer <= 0.f) { p.cooldownTimer = 0.f; p.alpha = 1.f; }
+        }
+    }
     for (auto& m : miniPops_) { m.timer -= dt; m.pos.y -= 60.f * dt; }
     miniPops_.erase(std::remove_if(miniPops_.begin(), miniPops_.end(),
         [](const MiniPop& m) { return m.timer <= 0; }), miniPops_.end());
-    for (auto& m : bigPops_) { m.timer -= dt; m.pos.y -= (55.f / 0.7f) * dt; }
+    for (auto& m : bigPops_) { m.timer -= dt; m.pos.y -= (m.fontSize * 1.55f / 0.7f) * dt; }
     bigPops_.erase(std::remove_if(bigPops_.begin(), bigPops_.end(),
         [](const MiniPop& m) { return m.timer <= 0; }), bigPops_.end());
 }
@@ -458,9 +483,10 @@ void IsoScene::step() {
     for (auto& tr : travelerSpawner_.travelers) {
         if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
             std::string caughtEmoji = tr.emoji;
+            int pts = tr.points;
             travelerSpawner_.catchTraveler(tr);
-            state_.bumpScore(tr.points); sound_.playFishOrTreat(); popPoints(tr.points); refreshHUD();
-            hud_.showMessage("Caught " + caughtEmoji + "!", 2.f);
+            state_.bumpScore(pts); sound_.playFishOrTreat(); popPoints(pts); refreshHUD();
+            hud_.showMessage(caughtEmoji + " caught! +" + std::to_string(pts), 2.f);
         }
     }
 
@@ -485,10 +511,12 @@ void IsoScene::checkBossCatch() {
         if ((int)e.grid.x != pgx || (int)e.grid.y != pgy) continue;
         if (bossController_.isImmobilized((int)i)) continue;
         if (bossController_.isInFleeMode((int)i)) {
+            std::string name = e.name;
             bossController_.capture((int)i, gridMap_);
             int pts = 100 * bossController_.captureStreak;
             state_.bumpScore(pts); sound_.playCaptureBoss(bossController_.captureStreak);
             popPoints(pts); refreshHUD();
+            hud_.showMessage(name + " captured! +" + std::to_string(pts), 2.f);
         } else if (!peteShielded_) {
             startDeath((int)i); return;
         }
@@ -572,6 +600,7 @@ void IsoScene::workerDidEnterTile(GridPos grid) {
         isoDotCollected_.insert(key); isoDotsLeft_--;
         rebuildDotRow(r); hiddenPickups_.insert(key);
         sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1); refreshHUD();
+        checkLevelComplete();
         return;
     }
     switch (ch) {
@@ -579,17 +608,20 @@ void IsoScene::workerDidEnterTile(GridPos grid) {
         if (collected_.count(key)) return;
         collected_.insert(key); sound_.playGoldDisc(); state_.collectedGoldDiscs++;
         state_.bumpScore(5); popPoints(5); hidePickup(c, r); startGoldDiscMode(); refreshHUD();
+        checkLevelComplete();
         break;
     case Tile::waterGun:
         if (collected_.count(key)) return;
         collected_.insert(key); waterGun_.activate(); waterGunPickedUp_ = true;
         sound_.playWaterGunPickup(); state_.bumpScore(75); popPoints(75); hidePickup(c, r); refreshHUD();
+        checkLevelComplete();
         break;
     case Tile::waterPellet:
         if (collected_.count(key)) return;
         collected_.insert(key); state_.bumpScore(50); sound_.playWaterGunPickup(); popPoints(50);
         if (waterGunPickedUp_) waterGun_.reloadPellets(8);
         hidePickup(c, r); refreshHUD();
+        checkLevelComplete();
         break;
     case Tile::printer:    collectMachine(Machine::PRINTER, key, c, r); break;
     case Tile::fax:        collectMachine(Machine::FAX, key, c, r); break;
@@ -612,22 +644,29 @@ void IsoScene::collectMachine(const std::string& name, int key, int col, int row
     }
     sound_.playMachine(name);
     for (auto& p : pickups_) if (p.col == col && p.row == row) p.alpha = 0.55f;
+    if (state_.reportItems.size() == Machine::REQUIRED.size()) hud_.showMessage(Message::TPS_READY, 6.f);
     refreshHUD();
 }
 
 void IsoScene::collectTPSReport(int col, int row) {
     if (state_.reportItems.size() != Machine::REQUIRED.size()) {
-        hud_.showMessage(Message::NEED_TPS, 5.f);
+        std::string missing;
+        for (auto& n : Machine::REQUIRED)
+            if (!state_.reportItems.count(n)) missing += (missing.empty() ? "" : ", ") + n;
+        hud_.showMessage("Missing: " + missing, 5.f);
         return;
     }
     state_.tpsReportsDelivered += 1; state_.reportItems.clear();
     int tpsPoints = state_.level * 100 + 100;
     state_.bumpScore(tpsPoints); state_.currentReportScore = 0; popPoints(tpsPoints);
+    for (auto& p : pickups_)
+        if (p.kind == Tile::brownBox) { p.alpha = 0.55f; p.cooldownTimer = MACHINE_COOLDOWN; }
     sound_.playTpsDeliver();
     bool gainedLife = state_.lives < MAX_LIVES;
     if (gainedLife) state_.lives += 1;
     resetCollectedMachines(); refreshHUD();
-    hud_.showMessage(Message::TPS_READY, 3.f);
+    hud_.showMessage(gainedLife ? Message::TPS_TURNED_IN_LIFE : Message::TPS_TURNED_IN, 3.f);
+    checkLevelComplete();
 }
 void IsoScene::resetCollectedMachines() {
     for (int r = 0; r < rowsCount_; ++r)
@@ -640,10 +679,24 @@ void IsoScene::resetCollectedMachines() {
         }
 }
 
+void IsoScene::checkLevelComplete() {
+    if (wantsNextLevel_) return;
+    if (state_.collectedDots >= state_.dotCount && state_.collectedGoldDiscs >= state_.goldDiscCount) {
+        if (state_.tpsReportsDelivered >= 1) {
+            state_.advanceLevel();
+            nextLevel_ = state_.level;
+            hud_.showMessage(Message::levelLoaded(state_.level), 3.f);
+            wantsNextLevel_ = true;
+        } else {
+            hud_.showMessage(Message::NEED_TPS, 3.f);
+        }
+    }
+}
+
 void IsoScene::popPoints(int n) {
     sf::Vector2f foot = toScreen(proj(px_, py_, 0));
     bigPops_.push_back(MiniPop{"+" + std::to_string(n),
-                               {foot.x, foot.y - (float)isoTW_ + 25.f}, 0.7f, std::max(30.f, (float)(isoTW_ * 0.45))});
+                               {foot.x, foot.y - (float)isoTW_ + 37.f}, 0.7f, std::max(30.f, (float)(isoTW_ * 0.45))});
     sf::Vector2f petePos = mapLocal(px_, py_);
     miniPops_.push_back(MiniPop{"+" + std::to_string(n), petePos, 0.7f, 40.f});
 }
@@ -825,14 +878,6 @@ void IsoScene::drawSpritesForRow(sf::RenderTarget& target, int row) {
         }
     }
 
-    // Shots (cyan water pellets): same layered disc, height isoTW*0.34, lifted 0.55, feet planted.
-    for (auto& s : shots_) {
-        if (!s.alive || (int)std::floor(s.y) != row) continue;
-        float baseHalo = (float)(isoTW_ * 0.17 * perspScale(s.y));
-        sf::Vector2f foot = toScreen(proj(s.x, s.y, 0.55));
-        drawPowerDisc(target, sf::Vector2f(foot.x, foot.y - baseHalo), baseHalo / 1.35f, false, 255);
-    }
-
     // Traveler (fish/treat).
     if (travActive_ && !travEmoji_.empty() && (int)std::floor(travRow_) == row) {
         double sz = isoTW_ * 0.9 * perspScale(travRow_);
@@ -841,7 +886,7 @@ void IsoScene::drawSpritesForRow(sf::RenderTarget& target, int row) {
         drawEmoji(target, travEmoji_, sf::Vector2f(footScreen.x, footScreen.y - (float)(sz * 0.5)),
                   (float)sz, sf::Color::White, travFlip_ < 0);
         drawCenteredText(target, std::to_string(travPoints_), std::max(9.f, (float)(isoTW_ * 0.34)),
-                         sf::Color(255, 231, 0), footScreen.x, footScreen.y - (float)sz - 8.f);
+                         sf::Color::White, footScreen.x, footScreen.y - (float)(isoTW_ * 0.9) + 32.f);
     }
 
     // Bosses.
@@ -867,16 +912,25 @@ void IsoScene::drawSpritesForRow(sf::RenderTarget& target, int row) {
             std::string tag = flee ? std::to_string(100 * (bossController_.captureStreak + 1)) : e.name;
             sf::Color tagColor = flee ? PixelPersonRenderer::toSfColor(YELLOW) : sf::Color::White;
             drawCenteredText(target, tag, fs, tagColor, foot.x,
-                             foot.y - (float)(spriteH * perspScale(brow)) - fs * 0.7f);
+                             foot.y - (float)(spriteH * perspScale(brow)) * 0.5f - 10.f);
         }
+    }
+
+    // Shots (cyan water pellets): drawn after bosses so they render on top within the same row.
+    for (auto& s : shots_) {
+        if (!s.alive || (int)std::floor(s.y) != row) continue;
+        float baseHalo = (float)(isoTW_ * 0.17 * perspScale(s.y));
+        sf::Vector2f foot = toScreen(proj(s.x, s.y, 0.55));
+        drawPowerDisc(target, sf::Vector2f(foot.x, foot.y - baseHalo), baseHalo / 1.35f, false, 255);
     }
 
     // Pete (always on his own row).
     if ((int)std::floor(py_) == row) {
         static PixelPersonRenderer pete(peteFrontConfig());
         bool walking = worker_->isMoving;
+        float peteAlpha = dying_ ? std::max(0.f, 1.f - (float)(deathFrames_ - deathFramesLeft_) / (float)deathFrames_) : 1.f;
         drawIsoPerson(pete, px_, py_, spriteH, target, worker_->facingLeft, walking,
-                      worker_->direction, worker_->walkPhase, dying_ ? 0.2f : 1.0f, 1.f);
+                      worker_->direction, worker_->walkPhase, peteAlpha, 1.f);
         sf::Vector2f foot = toScreen(proj(px_, py_, 0));
         if (!dying_)
             drawCenteredText(target, Worker::PETE, std::max(13.f, (float)(spriteH * perspScale(py_) * 0.18)),

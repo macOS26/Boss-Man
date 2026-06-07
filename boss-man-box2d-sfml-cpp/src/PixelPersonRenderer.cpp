@@ -158,15 +158,17 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
         drawR(11 * sx, 2 + rightArmSwing, 5, 14, sf::Color::White, sf::Color::Transparent, 0.f, 1.0f);
     };
     auto drawArms = [&] {
-        drawR(-11 * sx, 2 + leftArmSwing, 5, 14, bodyFill, sf::Color::White, 1.0f, 1.0f);
-        drawR(11 * sx, 2 + rightArmSwing, 5, 14, bodyFill, sf::Color::White, 1.0f, 1.0f);
+        auto shirtOut = toSfColor(config.shirtOutlineColor);
+        drawR(-11 * sx, 2 + leftArmSwing, 5, 14, bodyFill, shirtOut, 1.0f, 1.0f);
+        drawR(11 * sx, 2 + rightArmSwing, 5, 14, bodyFill, shirtOut, 1.0f, 1.0f);
     };
     auto drawHands = [&] {
         drawC(-11 * sx, 10 + leftArmSwing, 2.5f, skinFill);
         drawC(11 * sx, 10 + rightArmSwing, 2.5f, skinFill);
     };
     auto drawTorso = [&] {
-        drawR(0, 2, 18, 16, bodyFill, sf::Color::White, 1.5f, 2.0f);
+        auto shirtOut = toSfColor(config.shirtOutlineColor);
+        drawR(0, 2, 18, 16, bodyFill, shirtOut, 1.5f, 2.0f);
     };
     auto drawHead = [&] {
         sf::Color faceFill = back ? hairFill : skinFill;
@@ -202,10 +204,16 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
     drawHands();
 
     // Tie (on top of arms, shifts with look direction like original)
-    if (config.wearsSunglasses) {
-        drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill, sf::Color::White, 1.0f);
-    } else {
-        drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill);
+    {
+        auto tieOut = toSfColor(config.tieOutlineColor);
+        float tlw = config.tieLineWidth;
+        if (config.wearsSunglasses && tlw <= 0.f) {
+            drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill, sf::Color::White, 1.0f);
+        } else if (tlw > 0.f) {
+            drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill, tieOut, tlw);
+        } else {
+            drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill);
+        }
     }
 
     drawHead();
@@ -214,9 +222,9 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
     if (config.wearsSunglasses) {
         drawR(0, headY, 12, 4, sf::Color(30, 30, 30));
     } else {
-        // Eyes shift 1px in look direction, mirrored by sx for facing
-        drawR((-3 + lookOffX) * sx, headY + lookOffY, 2, 2, sf::Color::Black);
-        drawR((3 + lookOffX) * sx, headY + lookOffY, 2, 2, sf::Color::Black);
+        auto eyeFill = toSfColor(config.eyeColor);
+        drawR((-3 + lookOffX) * sx, headY + lookOffY, 2, 2, eyeFill);
+        drawR((3 + lookOffX) * sx, headY + lookOffY, 2, 2, eyeFill);
     }
 }
 
