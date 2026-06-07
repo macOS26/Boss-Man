@@ -268,7 +268,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         if goldDisc.isActive { endGoldDiscMode() }
         pete.stopWalking()
         node.stopWalking()
-        pete.run(.fadeOut(withDuration: TimeInterval(deathFrames) / 60.0))
+        let fadeDuration = TimeInterval(deathFrames) / 60.0
+        pete.run(.fadeOut(withDuration: fadeDuration))
+        peteName.run(.fadeOut(withDuration: fadeDuration))
         deathFramesLeft = deathFrames
     }
 
@@ -286,6 +288,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         px = spawnPx; py = spawnPy
         bossController.teleportAllToSpawn()
         pete.alpha = 1
+        peteName.alpha = 1
         pete.startWalking()
         pete.removeAction(forKey: "shield")
         pete.run(.sequence([.repeat(.sequence([.fadeAlpha(to: 0.35, duration: 0.6), .fadeAlpha(to: 1.0, duration: 0.6)]), count: 3),
