@@ -1376,8 +1376,7 @@ void Game::resetSceneAndBuild() {
 
 void Game::restartGame() {
     hud.isGameOver = false;
-    // PLAY from a DOOM game-over replays DOOM (matches SpriteKit DoomScene.restartDoom);
-    // otherwise the era's zoomPercent (1993 -> 100) would drop you into a 2D 100% game.
+    if (MazeZoom::isDoom()) Settings::setMazeEra(MazeZoom::voxel);
     if (MazeZoom::is3D()) { startDoom3D(state.level, state.practiceMode); return; }
     gameState = GameState::Playing;
     state.resetForNewGame();

@@ -40,12 +40,12 @@ struct MazeZoom {
     }
     static std::string label() {
         switch (current()) {
-            case 1980: return "WIDE 2D";
-            case 1982: return "ZOOM 2D";
-            case 1983: return "MACRO 2D";
-            case 1985: return "ISO 3D";
-            case 1993: return "RAY 3D";
-            case 1994: return "VOXEL 3D";
+            case 1980: return "LUMBERGH";
+            case 1982: return "TWO BOBS";
+            case 1983: return "MILTON";
+            case 1985: return "WONDERLAND";
+            case 1993: return "SEVERANCE";
+            case 1994: return "LABYRINTH";
             default:   return std::to_string(current());
         }
     }
