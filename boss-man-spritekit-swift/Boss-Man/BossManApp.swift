@@ -125,9 +125,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         gameCenterViewController.view.window?.close()
     }
 
+    private var gameModeActive = false
+    private var cursorHiddenForGame = false
+
+    func setGameModeActive(_ active: Bool) {
+        gameModeActive = active
+        syncCursorVisibility()
+    }
+
+    private func syncCursorVisibility() {
+        let isFullscreen = window?.styleMask.contains(.fullScreen) ?? false
+        let shouldHide = gameModeActive && isFullscreen && !ControlMode.current.showsControl
+        if shouldHide && !cursorHiddenForGame {
+            NSCursor.hide()
+            cursorHiddenForGame = true
+        } else if !shouldHide && cursorHiddenForGame {
+            NSCursor.unhide()
+            cursorHiddenForGame = false
+        }
+    }
+
     @objc private func windowFullscreenStateChanged(_ notification: Notification) {
         let isFullscreen = window?.styleMask.contains(.fullScreen) ?? false
         fullscreenMenuItem?.title = isFullscreen ? Strings.App.exitFullscreen : Strings.App.enterFullscreen
+        syncCursorVisibility()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

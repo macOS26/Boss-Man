@@ -117,6 +117,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         inputController.delegate = self
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(true)
         #endif
     }
 
@@ -125,6 +126,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         mazeBuilder.releaseTextures()
         #if os(macOS)
         inputController.unhideCursor()
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(false)
         #endif
     }
 

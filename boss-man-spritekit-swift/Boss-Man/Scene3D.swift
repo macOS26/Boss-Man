@@ -156,7 +156,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         buildColumns()
         spriteLayer.zPosition = 1
         addChild(spriteLayer)
-        nameLayer.zPosition = 150            // nameplates ride above all billboards, below the HUD
+        nameLayer.zPosition = 150
         addChild(nameLayer)
         buildBillboards()
         buildPete()
@@ -166,6 +166,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         buildControls()
         render()
         sound.startBackgroundMusic()
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(true)
+    }
+
+    override func willMove(from view: SKView) {
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(false)
     }
 
     // MARK: - Setup

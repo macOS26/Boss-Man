@@ -212,6 +212,11 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         buildControls()
         render()
         sound.startBackgroundMusic()
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(true)
+    }
+
+    override func willMove(from view: SKView) {
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(false)
     }
 
     override func castFloor() {
