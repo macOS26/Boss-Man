@@ -470,7 +470,6 @@ void DoomScene::step() {
         }
 
     checkBossCatch();
-    if (!bossesAllFar()) retreatBossesFromPete();
     for (auto& tr : travelerSpawner_.travelers) {   // walked onto the traveler's tile -> catch it
         if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
             travelerSpawner_.catchTraveler(tr);
