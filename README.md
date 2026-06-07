@@ -1,6 +1,10 @@
 <img width="1247" height="587" alt="image" src="https://github.com/user-attachments/assets/1bfd708b-f376-405a-91c4-01611dd7519c" />
 
-<img width="2561" height="1440" alt="image" src="https://github.com/user-attachments/assets/622014ae-e4b9-431b-b63b-8ea3adc68228" />
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/f7e9b5c5-5a45-4076-9e07-b0eee7f9edbe" />
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/51c5220f-6ad9-4e0c-82ae-d6c610616f6e" />
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/1ac48f6c-fe0e-4749-ae48-a5ff05275c6d" />
+
+
 
 
 # Boss-Man
