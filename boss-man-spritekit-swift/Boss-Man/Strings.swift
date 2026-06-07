@@ -324,12 +324,12 @@ enum MazeZoom: Int, CaseIterable {
     }
     static var label: String {
         switch current {
-        case .wide2D:  return "WIDE 2D"
-        case .zoom2D:  return "ZOOM 2D"
-        case .macro2D: return "MACRO 2D"
-        case .iso3D:   return "ISO 3D"
-        case .ray3D:   return "RAY 3D"
-        case .voxel3D: return "VOXEL 3D"
+        case .wide2D:  return "LUMBERGH"
+        case .zoom2D:  return "TWO BOBS"
+        case .macro2D: return "MILTON"
+        case .iso3D:   return "WONDERLAND"
+        case .ray3D:   return "SEVERANCE"
+        case .voxel3D: return "LABYRINTH"
         }
     }
 }
