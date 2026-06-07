@@ -763,8 +763,17 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         isUserPaused.toggle()
         hud.showPaused(isUserPaused)
         pauseSceneLayers(isUserPaused)
-        if isUserPaused { pete.stopWalking(); mapPete.stopWalking(); sound.pauseAudio() }
-        else { pete.startWalking(); mapPete.startWalking(); sound.resumeAudio() }
+        if isUserPaused {
+            pete.stopWalking()
+            mapPete.stopWalking()
+            sound.pauseAudio()
+            travelerSpawner?.pauseSpawnTimer()
+        } else {
+            pete.startWalking()
+            mapPete.startWalking()
+            sound.resumeAudio()
+            travelerSpawner?.resumeSpawnTimer()
+        }
     }
 
     func mapKey(_ c: Int, _ r: Int) -> Int { r * colsCount + c }

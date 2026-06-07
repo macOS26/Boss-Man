@@ -268,8 +268,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         if goldDisc.isActive { endGoldDiscMode() }
         pete.stopWalking()
         node.stopWalking()
-        // No fake close-up in iso: the overhead view already shows the boss right where it caught Pete,
-        // so just freeze in place for a beat (update() skips step/render while dying) then respawn.
+        pete.run(.fadeOut(withDuration: TimeInterval(deathFrames) / 60.0))
         deathFramesLeft = deathFrames
     }
 
@@ -294,14 +293,19 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     override func togglePause() {
-        isUserPaused.toggle()
-        hud.showPaused(isUserPaused)
+        super.togglePause()
         isoWorld.isPaused = isUserPaused
-        if isUserPaused { pete.stopWalking(); sound.pauseAudio() }
-        else { pete.startWalking(); sound.resumeAudio() }
     }
 
     override func updateMap() {
+        if let d = workerController?.direction {
+            switch d {
+            case .right: moveDir = (x: 1,  y: 0)
+            case .left:  moveDir = (x: -1, y: 0)
+            case .up:    moveDir = (x: 0,  y: -1)
+            case .down:  moveDir = (x: 0,  y: 1)
+            }
+        }
         super.updateMap()
         if travActive, let _ = travelerSpawner?.activeTraveler {
             mapTraveler?.isHidden = false
@@ -388,9 +392,12 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             placeIsoSprite(e.node, CGFloat(bcol), CGFloat(brow), spriteH)
             e.node.position.y += 3
             e.node.zPosition = CGFloat(brow) * 4 + 0.6
-            if let d = e.mover?.dir { e.node.setFacing(d) }
+            if let d = e.mover?.dir { e.node.unfreezeLook(); e.node.setFacing(d) }
             if !e.name.isEmpty {
                 let label = bossNameplate(for: e.node, text: e.name); label.isHidden = false
+                let fleeing = goldDisc.isActive && bossController.isInFleeMode(boss: e.node)
+                label.text = fleeing ? "\(bossController.nextCapturePoints)" : e.name
+                label.fontColor = .white
                 label.position = CGPoint(x: e.node.position.x, y: e.node.position.y + spriteH * perspScale(brow) * 0.5 + 10)
                 label.zPosition = e.node.zPosition + 0.1
             }
@@ -404,7 +411,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 isoTraveler = m; isoTravelerEmoji = info.emoji
                 isoTravelerPoints?.removeFromParent()
                 let p = SKLabelNode(fontNamed: Strings.Font.menloBold)
-                p.text = "\(info.points)"; p.fontColor = .systemYellow
+                p.text = "\(info.points)"; p.fontColor = .white
                 p.verticalAlignmentMode = .baseline; p.horizontalAlignmentMode = .center
                 spriteLayer.addChild(p); isoTravelerPoints = p
             }
@@ -417,7 +424,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 if let p = isoTravelerPoints {
                     p.isHidden = false
                     p.fontSize = max(9, isoTW * 0.34)
-                    p.position = CGPoint(x: m.position.x, y: m.position.y + isoTW * 0.9 - 8)
+                    p.position = CGPoint(x: m.position.x, y: m.position.y + isoTW * 0.9 - 32)
                     p.zPosition = m.zPosition + 0.1
                 }
             }
@@ -540,6 +547,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         paintQuads(quads)
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         updateMap()
+        updateMapTravelerMirror()
     }
 
     override func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
@@ -662,22 +670,25 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             isoDotCollected.insert(key); isoDotsLeft -= 1
             rebuildDotRow(r); mapPickups[key]?.isHidden = true
             sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
-            refreshHUD(); return
+            refreshHUD(); checkLevelComplete3D(); return
         }
         switch ch {
         case Strings.Tile.goldDiscChar:
             guard !collected.contains(key) else { return }
             collected.insert(key); sound.playGoldDisc(); state.collectedGoldDiscs += 1
             state.bumpScore(by: 5); popPoints(5); hidePickup(c, r); startGoldDiscMode(); refreshHUD()
+            checkLevelComplete3D()
         case Strings.Tile.waterGunChar:
             guard !collected.contains(key) else { return }
             collected.insert(key); waterGun.activate(); waterGunPickedUp = true
             sound.playWaterGunPickup(); state.bumpScore(by: 75); popPoints(75); hidePickup(c, r); refreshHUD()
+            checkLevelComplete3D()
         case Strings.Tile.waterPelletChar:
             guard !collected.contains(key) else { return }
             collected.insert(key); state.bumpScore(by: 50); sound.playWaterGunPickup(); popPoints(50)
             if waterGunPickedUp { waterGun.reloadPellets(8) }
             hidePickup(c, r); refreshHUD()
+            checkLevelComplete3D()
         case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, c, r)
         case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, c, r)
         case Strings.Tile.coverSheetChar: collectMachine(Strings.Machine.coverSheet, key, c, r)
@@ -698,7 +709,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         case Strings.Tile.goldDiscChar: sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
         default:                        sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
         }
-        refreshHUD()
+        refreshHUD(); checkLevelComplete3D()
     }
 
     override func fire() {
@@ -737,13 +748,39 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         isoPickups[mapKey(col, row)]
     }
 
+    override func moveShots() {
+        let speed = 0.22
+        for i in shots.indices where shots[i].alive {
+            shots[i].x += Double(shots[i].dir.x) * speed
+            shots[i].y += Double(shots[i].dir.y) * speed
+            if isWall(shots[i].x, shots[i].y) { shots[i].alive = false; continue }
+            let sgx = Int(shots[i].x.rounded(.down)), sgy = rowsCount - 1 - Int(shots[i].y.rounded(.down))
+            for e in bossController.entities {
+                let bg = e.mover?.grid ?? e.ai.grid
+                guard Int(bg.x) == sgx, Int(bg.y) == sgy else { continue }
+                let hitCol = shots[i].x, hitRow = shots[i].y
+                let hitPt = proj(hitCol, hitRow, 0)
+                let splash = SpriteFactory.waterSplash(spread: 1.0)
+                bossController.splash(boss: e.node)
+                shots[i].alive = false
+                sound.playWaterGunSplash(); state.bumpScore(by: 50); popPoints(50); refreshHUD()
+                splash.position = CGPoint(x: hitPt.x, y: hitPt.y)
+                splash.zPosition = CGFloat(hitRow) * 4 + 2
+                spriteLayer.addChild(splash)
+                break
+            }
+        }
+        for s in shots where !s.alive { s.node.removeFromParent(); s.mapNode.removeFromParent() }
+        shots.removeAll { !$0.alive }
+    }
+
     // Point popup in iso world (overhead projection at Pete's iso position)
     override func popPointsInWorld(_ n: Int) {
         let world = proj(Double(px), Double(py), 0)
         let big = SKLabelNode(fontNamed: Strings.Font.menloBold)
         big.text = Strings.Score.popup(n)
         big.fontSize = max(30, isoTW * 0.45); big.fontColor = .systemYellow
-        big.position = CGPoint(x: world.x + isoWorld.position.x, y: world.y + isoWorld.position.y + isoTW - 25)
+        big.position = CGPoint(x: world.x + isoWorld.position.x, y: world.y + isoWorld.position.y + isoTW - 37)
         big.zPosition = 600
         addChild(big)
         big.run(.sequence([.group([.moveBy(x: 0, y: 55, duration: 0.7), .fadeOut(withDuration: 0.7)]), .removeFromParent()]))
@@ -758,6 +795,21 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         guard let node else { return }
         node.removeAllActions()
         node.run(.sequence([.group([.scale(by: 1.5, duration: 0.25), .fadeOut(withDuration: 0.25)]), .removeFromParent()]))
+    }
+
+    override func startNextLevel3D() {
+        let nextLevel = state.level
+        let score = state.score
+        let lives = state.lives
+        let bonus = IsoScene(size: size)
+        bonus.scaleMode = scaleMode
+        bonus.practiceMode = practiceMode
+        bonus.startingLevel = startingLevel
+        bonus.state.level = nextLevel
+        bonus.state.score = score
+        bonus.state.lives = lives
+        hud.showMessage(Strings.Message.levelLoaded(nextLevel), duration: 3)
+        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
     }
 
     override func restartDoom() {
