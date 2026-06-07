@@ -94,7 +94,8 @@ void BossController::spawn(int level, const GridMap& map, const Pathfinder& pf,
 
 void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
                             GridPos workerGrid, MoveDirection workerDir,
-                            bool isGoldDiscMode, bool isPeteShielded) {
+                            bool isGoldDiscMode, bool isPeteShielded,
+                            std::function<bool(const BossEntity&)> shouldMove) {
 
     for (int i = 0; i < (int)entities.size(); ++i) {
         auto& boss = entities[i];
