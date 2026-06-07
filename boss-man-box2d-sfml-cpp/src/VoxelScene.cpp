@@ -455,7 +455,7 @@ void VoxelScene::step() {
                 if (waterGunPickedUp_) waterGun_.reloadPellets(8);
                 break;
             default:
-                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1); popPoints(1);
+                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1);
                 break;
             }
             refreshHUD();
@@ -1304,7 +1304,7 @@ void VoxelScene::projectSprites(double dirX, double dirY, double planeX, double 
         if (col >= 0 && col < columns_) {
             double wallZ = zbuf_[col];
             for (int c = std::max(0, col - 4); c <= std::min(columns_ - 1, col + 4); ++c)
-                wallZ = std::max(wallZ, zbuf_[c]);
+                wallZ = std::min(wallZ, zbuf_[c]);
             if (tY > wallZ + 0.3) return; // wall occludes
         }
         if (tY > 18) return; // far cull
@@ -1314,7 +1314,7 @@ void VoxelScene::projectSprites(double dirX, double dirY, double planeX, double 
         visible = true;
         screenXOut = screenX;
         scaleOut = targetH / nativeH;
-        floorYOut = viewMidY() - (float)(viewH() / tY) / 2.f; // y-up floor row
+        floorYOut = viewMidY() - (float)(viewH() / tY) * (float)eyeHeight_;
         depthOut = std::min(40.f, (float)(2 + 30 / tY));
     };
 
@@ -1621,6 +1621,13 @@ void VoxelScene::drawMap(sf::RenderTarget& target) {
         else if (face == MoveDirection::Down)  deg = 180.f;
         arrow.setRotation(deg);
         target.draw(arrow);
+    }
+
+    // Traveler on the radar.
+    for (auto& tr : travelerSpawner_.travelers) {
+        if (!tr.active && !tr.catching) continue;
+        sf::Vector2f p = mapLocal(tr.pixelPos.x / 32.0, tr.pixelPos.y / 32.0);
+        drawEmoji(target, tr.emoji, p, mapCell_ * 1.2f * mapScale_, sf::Color::White);
     }
 
     // Minimap mini score popups (fontSize 40, scaled into the radar like mapLayer).

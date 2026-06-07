@@ -455,7 +455,7 @@ void DoomScene::step() {
                 if (waterGunPickedUp_) waterGun_.reloadPellets(8);
                 break;
             default:
-                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1); popPoints(1);
+                sound_.playDotBlip(); state_.collectedDots++; state_.bumpScore(1);
                 break;
             }
             refreshHUD();
@@ -1184,11 +1184,12 @@ void DoomScene::projectSprites(double dirX, double dirY, double planeX, double p
         double tY = invDet * (-planeY * relX + planeX * relY); // depth
         if (tY <= 0.15) return;
         int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
-        if (col >= 0 && col < columns_) {
+        {
+            int colC = std::max(0, std::min(columns_ - 1, col));
             double colWidth = viewW_ / (double)columns_;
             int footHalf = std::max(1, std::min(5, (int)((viewH() / tY * worldH) / colWidth * 0.5)));
-            double wallZ = zbuf_[col];
-            for (int c = std::max(0, col - footHalf); c <= std::min(columns_ - 1, col + footHalf); ++c)
+            double wallZ = zbuf_[colC];
+            for (int c = std::max(0, colC - footHalf); c <= std::min(columns_ - 1, colC + footHalf); ++c)
                 wallZ = std::min(wallZ, zbuf_[c]);
             if (tY > wallZ + 0.3) return; // wall occludes
         }
@@ -1481,6 +1482,13 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
         dot.setPosition(p);
         dot.setFillColor(sf::Color(50, 200, 240, 217));
         target.draw(dot);
+    }
+
+    // Traveler on the radar.
+    for (auto& tr : travelerSpawner_.travelers) {
+        if (!tr.active && !tr.catching) continue;
+        sf::Vector2f p = mapLocal(tr.pixelPos.x / 32.0, tr.pixelPos.y / 32.0);
+        drawEmoji(target, tr.emoji, p, mapCell_ * 1.2f * mapScale_, sf::Color::White);
     }
 
     // Pete on the radar.
