@@ -473,7 +473,7 @@ void DoomScene::step() {
     bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(), workerDir_(),
                            goldDiscActive_, peteShielded_,
                            [pgx, pgy](const BossEntity& e) {
-                               return std::max(std::abs(e.grid.x - pgx), std::abs(e.grid.y - pgy)) <= 3;
+                               return std::max(std::abs(e.grid.x - pgx), std::abs(e.grid.y - pgy)) > 3;
                            });
     travelerSpawner_.update(1.0 / 60.0, gridMap_);
 
