@@ -766,7 +766,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 bossController.splash(boss: e.node)
                 shots[i].alive = false
                 sound.playWaterGunSplash(); state.bumpScore(by: 50); popPoints(50); refreshHUD()
-                splash.position = CGPoint(x: hitPt.x, y: hitPt.y)
+                splash.position = CGPoint(x: hitPt.x, y: hitPt.y + 15)
                 splash.zPosition = CGFloat(hitRow) * 4 + 2
                 spriteLayer.addChild(splash)
                 break
