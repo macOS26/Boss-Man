@@ -5,8 +5,9 @@ import AppKit
 class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // MARK: - Maze (loaded for the selected level, the editor's test plays the edited rows)
+    var clampedLevelIndex: Int { max(0, min(state.level - 1, Levels.levelNames.count - 1)) }
     lazy var map: [[UInt8]] =
-        LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1))).map { Array($0.utf8) }
+        LevelStore.loadLevel(index: clampedLevelIndex).map { Array($0.utf8) }
     var rowsCount: Int { map.count }
     var colsCount: Int { map.first?.count ?? 0 }
 
@@ -19,6 +20,22 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var practiceMode: Bool {
         get { state.practiceMode }
         set { state.practiceMode = newValue }
+    }
+
+    static func parseBossSpawns(from rows: [String]) -> [(blueprintIndex: Int, position: CGPoint)] {
+        var overrides: [(blueprintIndex: Int, position: CGPoint)] = []
+        for (ri, row) in rows.reversed().enumerated() {
+            for (ci, ch) in row.utf8.enumerated() {
+                switch ch {
+                case Strings.Tile.boss1Char: overrides.append((0, CGPoint(x: ci, y: ri)))
+                case Strings.Tile.boss2Char: overrides.append((1, CGPoint(x: ci, y: ri)))
+                case Strings.Tile.boss3Char: overrides.append((2, CGPoint(x: ci, y: ri)))
+                case Strings.Tile.boss4Char: overrides.append((3, CGPoint(x: ci, y: ri)))
+                default: break
+                }
+            }
+        }
+        return overrides
     }
 
     func isWall(_ x: Double, _ y: Double) -> Bool {
@@ -187,11 +204,15 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         buildControls()
         render()
         sound.startBackgroundMusic()
+        #if os(macOS)
         (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(true)
+        #endif
     }
 
     override func willMove(from view: SKView) {
+        #if os(macOS)
         (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(false)
+        #endif
     }
 
     // MARK: - Setup
@@ -235,7 +256,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         // static, so this is ~240 fewer draw calls per frame on Apple).
         // Ceiling + floor derive from the level's cubicle colour (dark at the ceiling,
         // a touch brighter at the horizon) so the whole 3D environment matches the level.
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let cube = SpriteFactory.cubicleColor(forLevel: state.level)
         let tree = SKNode()
         let skyBottom = viewMidY, skyTop = size.height
         let n = max(1, Int(skyTop - skyBottom))
@@ -615,8 +636,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             let floorY = viewMidY - (viewH / CGFloat(tY)) * eyeHeight
             node.position = CGPoint(x: screenX, y: floorY - v.bottom * s)
             node.zPosition = 2 + CGFloat(Double(i) * zStep)
-            if let name = v.name {
-                let label = bossNameplate(for: node, text: name)
+            if let name = v.name, let boss = node as? PixelPerson {
+                let flee = goldDisc.isActive && bossController.isInFleeMode(boss: boss)
+                let label = bossNameplate(for: node, text: flee ? "\(bossController.nextCapturePoints)" : name)
+                label.fontColor = flee ? .systemYellow : .white
                 label.isHidden = false
                 label.fontSize = max(13, min(24, targetH * 0.16))
                 label.position = CGPoint(x: screenX, y: floorY + targetH + label.fontSize * 0.7)
@@ -670,16 +693,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                     worldH = 0.4
                 case Strings.Tile.waterGunChar:   node = throbbing(emojiBillboard(Strings.Emoji.waterGun, 128), 1.25, 0.35)
                 worldH = 0.5
-                case Strings.Tile.printerChar:    node = emojiBillboard(Strings.Emoji.printer, 128)
-                worldH = 0.6
-                case Strings.Tile.faxChar:        node = emojiBillboard(Strings.Emoji.fax, 128)
-                worldH = 0.6
-                case Strings.Tile.coverSheetChar: node = emojiBillboard(Strings.Emoji.coverSheet, 128)
-                worldH = 0.6
-                case Strings.Tile.bookBinderChar: node = emojiBillboard(Strings.Emoji.bookBinder, 128)
-                worldH = 0.6
-                case Strings.Tile.brownBoxChar:   node = emojiBillboard(Strings.Emoji.brownBox, 128)
-                worldH = 0.6
+                case Strings.Tile.printerChar, Strings.Tile.faxChar, Strings.Tile.coverSheetChar,
+                     Strings.Tile.bookBinderChar, Strings.Tile.brownBoxChar:
+                    node = emojiBillboard(SpriteFactory.machineEmoji(for: ch)!, 128)
+                    worldH = 0.6
                 default: continue
                 }
                 guard let n = node else { continue }
@@ -942,7 +959,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         addChild(panel)
 
         let mapW = CGFloat(colsCount) * mapCell, mapH = CGFloat(rowsCount) * mapCell
-        let cubicle = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        let cubicle = SpriteFactory.cubicleColor(forLevel: state.level)
 
         // The maze floor and cubicle walls never change, so we bake them to ONE
         // texture and draw a single sprite — the MazeBuilder trick the 100% game
@@ -979,23 +996,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 switch ch {
                 case Strings.Tile.goldDiscChar:    pickup = SpriteFactory.goldDiscVisual(radius: mapCell * 0.28)
                 case Strings.Tile.waterPelletChar: pickup = SpriteFactory.waterPelletVisual(radius: mapCell * 0.32)
-                case Strings.Tile.waterGunChar:    pickup = emojiBillboard(Strings.Emoji.waterGun, mapCell * 1.0)
-                case Strings.Tile.printerChar:     pickup = emojiBillboard(Strings.Emoji.printer, mapCell * 1.0)
-                case Strings.Tile.faxChar:         pickup = emojiBillboard(Strings.Emoji.fax, mapCell * 1.0)
-                case Strings.Tile.coverSheetChar:  pickup = emojiBillboard(Strings.Emoji.coverSheet, mapCell * 1.0)
-                case Strings.Tile.bookBinderChar:  pickup = emojiBillboard(Strings.Emoji.bookBinder, mapCell * 1.0)
-                case Strings.Tile.brownBoxChar:    pickup = emojiBillboard(Strings.Emoji.brownBox, mapCell * 1.0)
-                default: break
+                default:
+                    if let emoji = SpriteFactory.machineEmoji(for: ch) {
+                        pickup = emojiBillboard(emoji, mapCell * 1.0)
+                    }
                 }
                 if let pickup {
                     pickup.position = center
-                    switch ch {
-                    case Strings.Tile.waterGunChar, Strings.Tile.printerChar, Strings.Tile.faxChar,
-                         Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar, Strings.Tile.brownBoxChar:
-                        pickup.zPosition = 8
-                    default:
-                        pickup.zPosition = 2
-                    }
+                    pickup.zPosition = SpriteFactory.machineEmoji(for: ch) != nil ? 8 : 2
                     mapLayer.addChild(pickup)
                     mapPickups[mapKey(c, r)] = pickup
                     switch ch {
@@ -1056,26 +1064,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     func setupBossController() {
-        let rows = LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
+        let rows = LevelStore.loadLevel(index: clampedLevelIndex)
         gridMap = GridMap(tileSize: 32, rows: rows)
         gridMap.xOffset = 0
         gridMap.yOffset = 0
         pathfinder = Pathfinder(map: gridMap)
         bossController = BossController(scene: self, gridMap: gridMap, pathfinder: pathfinder, sound: sound, containerOriginX: 0)
         bossController.delegate = self
-        // Spawn positions from the level data, in the bottom-up grid GridMap uses.
-        var overrides: [(blueprintIndex: Int, position: CGPoint)] = []
-        for (ri, row) in rows.reversed().enumerated() {
-            for (ci, ch) in row.utf8.enumerated() {
-                switch ch {
-                case Strings.Tile.boss1Char: overrides.append((0, CGPoint(x: ci, y: ri)))
-                case Strings.Tile.boss2Char: overrides.append((1, CGPoint(x: ci, y: ri)))
-                case Strings.Tile.boss3Char: overrides.append((2, CGPoint(x: ci, y: ri)))
-                case Strings.Tile.boss4Char: overrides.append((3, CGPoint(x: ci, y: ri)))
-                default: break
-                }
-            }
-        }
+        let overrides = Scene3D.parseBossSpawns(from: rows)
         bossController.spawn(forLevel: 1, spawnOverrides: overrides)
         syncBossNodes()
         // The traveler (fish/treat) walks the maze and is caught for points, exactly as in 2D —
@@ -1588,17 +1584,20 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
     }
 
+    func handleGameOverKey(_ event: NSEvent, code: Int) -> Bool {
+        guard let s = gameOverScreen else { return false }
+        #if os(macOS)
+        s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
+        #else
+        s.handleKey(code, shift: false)
+        #endif
+        return true
+    }
+
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if let s = gameOverScreen { // type the name (when qualified), PLAY/ESC otherwise
-            #if os(macOS)
-            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
-            #else
-            s.handleKey(code, shift: false)
-            #endif
-            return
-        }
+        if handleGameOverKey(event, code: code) { return }
         switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
@@ -1619,22 +1618,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         controlsShown = true
         let fireOnLeft = !ControlMode.current.onLeft   // fire button opposite the dpad
         fireButtonCenter = CGPoint(x: fireOnLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
-        let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
-        ring.position = fireButtonCenter
-        ring.fillColor = SKColor(white: 1, alpha: 0.14)
-        ring.strokeColor = SKColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2
-        ring.zPosition = 300  // above the radar panel (200/201) so the controls are never cropped
-        addChild(ring)
+        addChild(SpriteFactory.controlRing(radius: fireButtonRadius, center: fireButtonCenter))
 
         joystickCenter = CGPoint(x: fireOnLeft ? size.width - joystickRadius : joystickRadius, y: joystickRadius + 15)
-        let base = SKShapeNode(circleOfRadius: joystickRadius)
-        base.position = joystickCenter
-        base.fillColor = SKColor(white: 1, alpha: 0.06)
-        base.strokeColor = SKColor(white: 1, alpha: 0.5)
-        base.lineWidth = 2
-        base.zPosition = 300
-        addChild(base)
+        addChild(SpriteFactory.controlRing(radius: joystickRadius, center: joystickCenter,
+                                           fillColor: SKColor(white: 1, alpha: 0.06)))
         if ControlMode.current.showsStick { addStickThumb()
         return }  // STICK: a round follow-thumb instead of the wedge cross
         dpadWedges = buildDpadFace(in: self, center: joystickCenter, inner: joystickDeadzone, outer: joystickRadius, z: 301)
