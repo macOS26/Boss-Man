@@ -1204,9 +1204,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
         // Hold ↑ = forward along facing, release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
+        let angleDone = abs(da) < 0.15
         if let t = wantDir {
             let atCenter = abs(px - ccx) < 0.4 && abs(py - ccy) < 0.4
-            if !fwd || (atCenter && open(col + t.x, row + t.y)) {
+            if (!fwd && angleDone) || (fwd && atCenter && open(col + t.x, row + t.y)) {
                 px = ccx
                 py = ccy
                 moveDir = t
