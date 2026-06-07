@@ -132,14 +132,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var onBrownBox = false
     var spawnPx = 1.5, spawnPy = 1.5
     var isUserPaused = false
-    private var bossToggleTaps = 0
-    private var bossToggleWindow = 0
-#if os(WASI)
-    static var bossesEnabled = false
-#else
-    static var bossesEnabled = true
-#endif
-    var bossOffLabel: SKLabelNode?
+    private var bossRetreatCooldown: [ObjectIdentifier: Int] = [:]
 
     // MARK: - Minimap (the real 2D level, centered at the bottom)
     let mapLayer = SKNode()
@@ -596,12 +589,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         hud = HUD(requiredItems: Strings.Machine.required)
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
         state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
-        let lbl = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        lbl.fontSize = 20; lbl.horizontalAlignmentMode = .right
-        lbl.position = CGPoint(x: size.width - 12, y: size.height - 25)
-        lbl.zPosition = 1001
-        uiLayer.addChild(lbl); bossOffLabel = lbl
-        updateBossLabel()
         refreshHUD()
     }
 
@@ -714,7 +701,33 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             let bg = e.mover?.grid ?? e.ai.grid
             guard Int(bg.x) == pgx, Int(bg.y) == pgy, !bossController.isImmobilized(boss: e.node) else { continue }
             if bossController.isInFleeMode(boss: e.node) { bossController.capture(boss: e.node) }
-            else if !peteShielded && Scene3D.bossesEnabled { startDeath(node: e.node); return }
+            else if !peteShielded { startDeath(node: e.node); return }
+        }
+    }
+
+    func retreatBossesFromPete() {
+        let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
+        for e in bossController.entities {
+            let bg = e.mover?.grid ?? e.ai.grid
+            let bgx = Int(bg.x), bgy = Int(bg.y)
+            guard max(abs(bgx - pgx), abs(bgy - pgy)) < 3 else { continue }
+            let id = ObjectIdentifier(e.node)
+            if let cd = bossRetreatCooldown[id], cd > 0 { bossRetreatCooldown[id] = cd - 1; continue }
+            let dx = bgx - pgx, dy = bgy - pgy
+            let primary: [(Int, Int)] = abs(dx) >= abs(dy)
+                ? [(dx >= 0 ? 1 : -1, 0), (0, dy >= 0 ? 1 : -1), (0, dy >= 0 ? -1 : 1), (dx >= 0 ? -1 : 1, 0)]
+                : [(0, dy >= 0 ? 1 : -1), (dx >= 0 ? 1 : -1, 0), (dx >= 0 ? -1 : 1, 0), (0, dy >= 0 ? -1 : 1)]
+            for (rx, ry) in primary {
+                let nx = bgx + rx, ny = bgy + ry
+                let mr = rowsCount - 1 - ny
+                guard mr >= 0, mr < rowsCount, nx >= 0, nx < colsCount,
+                      map[mr][nx] != Strings.Tile.wallChar else { continue }
+                e.mover?.grid = CGPoint(x: nx, y: ny)
+                e.mover?.moving = false
+                e.ai.teleport(to: CGPoint(x: nx, y: ny))
+                bossRetreatCooldown[id] = 10
+                break
+            }
         }
     }
 
@@ -742,17 +755,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             if dropletThreatens(dropletGrid: dGrid, dir: dir, boss: bossGrid, range: dropletDodgeRange, isWalkable: { gridMap.isWalkable($0) }) { return dir }
         }
         return nil
-    }
-
-    func updateBossLabel() {
-        bossOffLabel?.text = Scene3D.bossesEnabled ? "BOSS ON" : "BOSS OFF"
-        bossOffLabel?.fontColor = Scene3D.bossesEnabled ? SKColor(white: 1, alpha: 0.3) : .systemRed
-    }
-
-    func toggleBossMode() {
-        Scene3D.bossesEnabled.toggle()
-        updateBossLabel()
-        hud.showMessage(Scene3D.bossesEnabled ? "BOSS ON" : "BOSS OFF", duration: 2)
     }
 
     func togglePause() {
@@ -903,7 +905,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // MARK: - Per-frame
     override func update(_ currentTime: TimeInterval) {
-        if bossToggleWindow > 0 { bossToggleWindow -= 1 } else { bossToggleTaps = 0 }
         if isUserPaused || gameOver { return }
         if dying { updateDeath(); return }
         step()
@@ -969,6 +970,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         // since the lane behind Pete is open. Snap onto the square from up to ~0.4 tile away.
         if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
             px = ccx; py = ccy; moveDir = t; wantDir = nil; targetAngle = cardinal(moveDir)
+            let dirName: String
+            if t.x > 0 { dirName = "EAST" } else if t.x < 0 { dirName = "WEST" }
+            else if t.y > 0 { dirName = "SOUTH" } else { dirName = "NORTH" }
+            peteName.text = dirName
         }
         // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
@@ -1007,10 +1012,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         collectStationary()
         moveShots()
-        if Scene3D.bossesEnabled || bossesAllFar() {
+        if bossesAllFar() {
             bossController.advance(1.0 / 60.0)
         } else {
             bossController.stopAll()
+            retreatBossesFromPete()
         }
         syncBossNodes()
         // Capture each boss's SMOOTH world position from the mover itself, not node.position:
@@ -1238,7 +1244,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let screen = GameOverScreen(
             size: size, font: Strings.Font.menloBold,
             score: state.score, highScore: state.highScore,
-            defaultName: LocalHighScores.savedUsername ?? "", allowEntry: !state.practiceMode && Scene3D.bossesEnabled,
+            defaultName: LocalHighScores.savedUsername ?? "", allowEntry: !state.practiceMode,
             onPlay: { [weak self] in self?.restartDoom() },
             onEsc:  { [weak self] in self?.exit() })
         screen.zPosition = 2000
@@ -1263,7 +1269,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
-        case KeyCode.keyB:                      toggleBossMode()
+
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
         case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
@@ -1361,8 +1367,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             joyFingers.insert(finger); dpadSet(finger: finger, phase: 0, at: p); return
         }
         if radius(p, fireButtonCenter) <= fireButtonRadius { fire(); return }
-        bossToggleTaps += 1; bossToggleWindow = 36
-        if bossToggleTaps >= 3 { bossToggleTaps = 0; bossToggleWindow = 0; toggleBossMode() }
     }
 
     func dpadWedgeAt(_ p: CGPoint) -> String {
