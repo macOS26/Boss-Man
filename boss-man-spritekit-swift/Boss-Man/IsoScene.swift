@@ -448,8 +448,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let w = size.width / CGFloat(columns)
         let half = wallHeightScale - eyeHeight
         let floorClamp = radarH - viewH
-        struct VQuad { var p0, p1, p2, p3: CGPoint; var color: SKColor; var depth: Double }
-        var quads: [VQuad] = []
+        var quads: [Scene3D.VQuad] = []
         var openF: [Int: WallRun] = [:]
         var tops = Set<Int>()
         func emitFront(_ r: WallRun) {
@@ -538,18 +537,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg))
         }
         quads.sort { $0.depth > $1.depth }
-        var qi = 0
-        for q in quads {
-            let n: SKShapeNode
-            if qi < wallQuads.count { n = wallQuads[qi] }
-            else { n = SKShapeNode(); n.strokeColor = .clear; n.isAntialiased = false; addChild(n); wallQuads.append(n) }
-            n.zPosition = CGFloat(qi) * 0.0002
-            let p = CGMutablePath()
-            p.move(to: q.p0); p.addLine(to: q.p1); p.addLine(to: q.p2); p.addLine(to: q.p3); p.closeSubpath()
-            n.path = p; n.fillColor = q.color; n.isHidden = false
-            qi += 1
-        }
-        for k in qi..<wallQuads.count { wallQuads[k].isHidden = true }
+        paintQuads(quads)
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         updateMap()
     }

@@ -31,7 +31,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var px = 1.5, py = 1.5, angle = 0.0
     var moveDir = (x: 1, y: 0)       // current lane direction (cardinal)
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
-    var glideStartX = 0.0, glideStartY = 0.0, glideTargetX = 0.0, glideTargetY = 0.0, glideT = 1.0
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
     let camBack = 0.65               // how far the camera trails behind Pete
 
@@ -111,7 +110,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var throbClock = 0.0
     let planeScale = 1.2
     let wallFar = 40.0
-    var wallQuads: [SKShapeNode] = []
+    var wallCtx: CGContext?
+    var wallCanvas: SKSpriteNode?
     var travelerMirror: SKNode?
     var travelerMirrorEmoji = ""
     var travelerNativeH: CGFloat = 40
@@ -230,6 +230,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         ceilStrip.fillColor = SKColor(red: 0.94, green: 0.97, blue: 0.88, alpha: 1)
         ceilStrip.strokeColor = .clear; ceilStrip.zPosition = -2; ceilStrip.isAntialiased = false
         addChild(ceilStrip)
+
+        let W = Int(size.width), H = Int(size.height)
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
+        if let ctx = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8, bytesPerRow: W * 4,
+                               space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bitmapInfo.rawValue) {
+            wallCtx = ctx
+            let canvas = SKSpriteNode()
+            canvas.anchorPoint = .zero; canvas.position = .zero; canvas.zPosition = 0
+            addChild(canvas); wallCanvas = canvas
+        }
     }
 
     // Bake a static node tree to one texture and add it as a single sprite (one
@@ -413,18 +423,18 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     func paintQuads(_ quads: [VQuad]) {
-        var qi = 0
+        guard let ctx = wallCtx, let canvas = wallCanvas else { return }
+        ctx.clear(CGRect(x: 0, y: 0, width: CGFloat(ctx.width), height: CGFloat(ctx.height)))
         for q in quads {
-            let n: SKShapeNode
-            if qi < wallQuads.count { n = wallQuads[qi] }
-            else { n = SKShapeNode(); n.strokeColor = .clear; n.isAntialiased = false; addChild(n); wallQuads.append(n) }
-            n.zPosition = CGFloat(qi) * 0.0002
-            let p = CGMutablePath()
-            p.move(to: q.p0); p.addLine(to: q.p1); p.addLine(to: q.p2); p.addLine(to: q.p3); p.closeSubpath()
-            n.path = p; n.fillColor = q.color; n.isHidden = false
-            qi += 1
+            ctx.setFillColor(q.color.cgColor)
+            ctx.beginPath()
+            ctx.move(to: q.p0); ctx.addLine(to: q.p1); ctx.addLine(to: q.p2); ctx.addLine(to: q.p3)
+            ctx.closePath(); ctx.fillPath()
         }
-        for k in qi..<wallQuads.count { wallQuads[k].isHidden = true }
+        if let img = ctx.makeImage() {
+            canvas.texture = SKTexture(cgImage: img)
+            canvas.size = CGSize(width: CGFloat(ctx.width), height: CGFloat(ctx.height))
+        }
     }
 
     func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
@@ -971,7 +981,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
         let tdir: (x: Int, y: Int)? = fwd ? moveDir : nil
         if let d = tdir {
-            glideT = 1.0
             let atCenter = abs(px - ccx) < 0.06 && abs(py - ccy) < 0.06
             if atCenter, !open(col + d.x, row + d.y),
                let partner = gridMap.tunnelPartner(of: CGPoint(x: col, y: rowsCount - 1 - row)) {
@@ -987,21 +996,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                     if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
                 }
             }
-        } else if abs(px - ccx) >= 0.4 || abs(py - ccy) >= 0.4 {
-            let d = hypot(ccx - glideTargetX, ccy - glideTargetY)
-            if glideT >= 1.0 || d > 0.01 {
-                glideStartX = px; glideStartY = py
-                glideTargetX = ccx; glideTargetY = ccy
-                let dist = hypot(ccx - px, ccy - py)
-                glideT = dist < 0.001 ? 1.0 : 0.0
-            }
-            if glideT < 1.0 {
-                let dist = max(0.001, hypot(glideTargetX - glideStartX, glideTargetY - glideStartY))
-                glideT = min(1.0, glideT + speed / dist)
-                let t = glideT * glideT * (3 - 2 * glideT)
-                px = glideStartX + (glideTargetX - glideStartX) * t
-                py = glideStartY + (glideTargetY - glideStartY) * t
-            }
+        } else {
+            px = ccx; py = ccy
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
