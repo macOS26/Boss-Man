@@ -5,9 +5,9 @@
 
 # Boss-Man
 
-The office maze arcade game, runs on Mac, Windows, Linux, Web (mobile friendly), Android (coming soon). An *Office Space* inspired maze game built using Swift and ported to C++. One interesting aspect is we are actively creating 2 WebAssembly game engines for Swift and C++. Swift focuses on porting SpriteKit to the web branded "SuperBox64 SpriteKit," and our C++ port focusing on using existing C/C++ code with minimal to no code changes. Both WASM game engines use WASI Preview 1.
+The office maze arcade game, runs on Mac, Windows, Linux, Web (mobile friendly), and Android. An *Office Space* inspired maze game built in Swift and ported to C++. One interesting aspect is we are actively creating two WebAssembly game engines for Swift and C++. Swift focuses on porting SpriteKit to the web, branded **SuperBox64 SpriteKit**, and our C++ port focuses on using existing C/C++ code with minimal to no code changes. Both WASM game engines use WASI Preview 1.
 
-It now runs far beyond the Mac: one shared codebase ships to the browser as WebAssembly (via SuperBox64 SpriteKit) and to Windows, Linux, Android, and the web through a C++ port. See [The Tech](#the-tech-one-game-three-ports-one-framework) below.
+It runs far beyond the Mac: one shared codebase ships to the browser as WebAssembly (via SuperBox64 SpriteKit) and to Windows, Linux, Android, and the web through a C++ port. See [The Tech](#the-tech-one-game-three-ports-one-framework) below.
 
 ## Download the DMG
 
@@ -17,37 +17,68 @@ Grab the latest macOS build, signed, notarized, and ready to play:
 
 ## Official Website
 
-Screenshots, trailers, leaderboards, web and deskop version and more:
+Screenshots, trailers, leaderboards, web and desktop version and more:
 
 [boss-man.us](https://boss-man.us)
 
 ## Object of the Game
 
-You are **PETE**, an office worker (blue shirt, orange tie) trapped in a 37×17 grid of cubicles. Each level, you must:
+You are **PETE**, an office worker (blue shirt, orange tie) trapped in a 37x17 grid of cubicles. Each level, you must:
 
 1. **Eat every glowing yellow dot** in the cubicle aisles.
 2. **Visit the four office machines** (printer, fax machine, cover sheet stack, book binder) to assemble a TPS report.
 3. **Drop the completed TPS report into a TPS Delivery Box** (the brown box) to bank the points.
 4. **Avoid the four bosses** patrolling the office.
 5. **Grab a Gold Disc** to flip the bosses into Blue Mode for a short window, then chase *them* down for bonus points.
+6. **Pick up the Water Gun** power-up to shoot water pellets and knock back bosses.
 
 Clear the dots, deliver at least one TPS report, and you advance to the next level.
 
 ## Controls
 
+### Keyboard / Mouse
 - **Arrow keys** or **WASD** to move PETE
 - **Mouse / trackpad** to point-to-move (PETE walks toward the cursor)
-- **Space** to start a new round, or continue from the title screen
+- **Space** to start a new round or continue from the title screen
 - **ESC** to return to the title screen
-- Joystick and DPAD support coming soon
+- **Tap / click** to fire the water gun when active
 
-## Game Modes (in development)
+### On-Screen Controls
+Tap the joystick icon on the title screen to cycle through five control modes:
 
-We're building several ways to play the same office maze. The title screen's **Maze: 100% / 150% / 200%** toggle cycles the camera; a first-person 3D mode is in the works. Every mode runs the **same** game systems (the README's goal: 100% common game logic) — boss AI and speeds, Blue Mode, TPS reports, gold discs, tunnels, and lives are shared; only the camera/renderer changes.
+| Mode | Description |
+|------|-------------|
+| **HIDDEN** | Swipe anywhere to move, tap to fire |
+| **STICK LEFT** | Virtual joystick on the left side |
+| **STICK RIGHT** | Virtual joystick on the right side |
+| **DPAD LEFT** | D-pad on the left side |
+| **DPAD RIGHT** | D-pad on the right side |
 
-- **100% — Classic (Ms. Pac-Man style).** The whole 37×17 office floor on screen at once, top-down at 1:1. The arcade-faithful view.
-- **150% / 200% — Camera (Jr. Pac-Man style).** An `SKCameraNode` zooms 1.5× or 2× and scrolls to follow PETE through the aisles, with a compact panel HUD — the bigger, closer, side-scrolling feel of Jr. Pac-Man.
-- **First-Person 3D.** The same maze rendered as a Wolfenstein-style first/third-person raycaster: you walk the corridors behind PETE with pellets, gold discs, the water gun, TPS machines, and the bosses billboarded in 3D, plus a live top-down mini-map of the floor. It drives the real `BossController`, `MazeBuilder`, `GoldDiscTimer`, `WaterGunState`, and `RoundState` — only the renderer is bonus-specific.
+Physical gamepads and Apple Game Controller framework are also supported.
+
+## Game Modes
+
+The title screen cycles through six rendering modes, each named after an *Office Space* character or cult classic film. Every mode runs the same game logic: boss AI, Blue Mode, TPS reports, gold discs, the water gun, tunnels, and lives are all shared. Only the camera and renderer change.
+
+### 2D Modes
+
+| Mode | Label | Era | Description |
+|------|-------|-----|-------------|
+| **WIDE** | LUMBERGH | 1980 | The whole 37x17 office floor on screen at once, top-down at 1:1. The arcade-faithful view. |
+| **ZOOM** | TWO BOBS | 1982 | An `SKCameraNode` zooms 1.5x and scrolls to follow PETE through the aisles. Jr. Pac-Man style. |
+| **MACRO** | MILTON | 1983 | 2x zoom with a compact HUD panel. The biggest, closest, side-scrolling feel. |
+
+### 3D Bonus Modes
+
+| Mode | Label | Era | Description |
+|------|-------|-----|-------------|
+| **ISO** | WONDERLAND | 1985 | Isometric 2.5D view. The maze is drawn in a classic isometric grid with billboarded bosses, pellets, pickups, and a live minimap. |
+| **RAY** | SEVERANCE | 1993 | Wolfenstein/DOOM-style raycaster. You walk the corridors behind PETE with wall-cast columns, a ceiling strip, and all game objects billboarded in 3D. |
+| **VOXEL** | LABYRINTH | 1994 | Comanche-style voxel painter's renderer. The maze is rendered column-by-column with a voxel sky dome, sun-glow light shafts, and a full-coverage depth buffer. |
+
+All three 3D modes drive the real `BossController`, `MazeBuilder`, `GoldDiscTimer`, `WaterGunState`, and `RoundState`. Only the renderer is mode-specific.
+
+Each 3D mode includes a **live top-down minimap** with a Pete arrow that throbs and points in his direction of travel.
 
 ## Lives
 
@@ -60,63 +91,75 @@ We're building several ways to play the same office maze. The title screen's **M
 
 To assemble a report you must visit every required machine on the floor:
 
-| Machine          | Emoji |
-|------------------|:-----:|
-| TPS Printer      | 🖨️    |
-| TPS Fax Machine  | 📠    |
-| TPS Cover Sheet  | 📄    |
-| TPS Book Binder  | 📚    |
+| Machine | Emoji |
+|---------|:-----:|
+| TPS Printer | 🖨️ |
+| TPS Fax Machine | 📠 |
+| TPS Cover Sheet | 📄 |
+| TPS Book Binder | 📚 |
 
-Once all four are checked off, walk over the **TPS Delivery Box** (📦) to deliver the report. The HUD shows ✅ for completed items and ❌ for missing ones.
+Once all four are checked off, walk over the **TPS Delivery Box** (📦) to deliver the report. The HUD shows checkmarks for completed items and X marks for missing ones.
 
-- Report value scales with the level: `level × 100 + 100` points.
+- Report value scales with the level: `level x 100 + 100` points.
 - Delivery awards **+1 life** (up to the 5-life cap).
 - Getting caught by a boss before delivering wipes the in-progress report.
 
 ## Bosses
 
-Each boss has its own color, AI personality, and speed, modeled after Ms. Pac-Man's ghosts (Blinky / Pinky / Inky / Sue).
+Each boss has its own color, AI personality, and speed, modeled after Ms. Pac-Man's ghosts (Blinky / Pinky / Inky / Sue). Bosses only hunt when within 3 tiles of PETE (Chebyshev distance), so the maze always has safe zones.
 
-| Boss   | Shirt        | Tie                  | Behavior                                              | Speed |
-|--------|--------------|----------------------|-------------------------------------------------------|-------|
-| **BILL**  | 🟥 Red        | Black                | Direct chase (Blinky)                                 | 1.00× |
-| **DOM**   | 🟪 Pink (75% α over white) | Purple + 40% black | Ambush 4 tiles ahead (Pinky)                          | 0.85× |
-| **BOB**   | 🟦 Teal       | Blue + 20% black     | Flanker, pivots 2 tiles off PETE's path (Inky)       | 0.78× |
-| **STAN**  | 🟧 Orange     | Red + 10% black      | Timid scatter, backs to corner when too close (Sue)  | 0.70× |
+| Boss | Shirt | Tie | Behavior | Speed |
+|------|-------|-----|----------|-------|
+| **BILL** | Red | Black | Direct chase (Blinky) | 1.00x |
+| **DOM** | Pink (75% alpha over white) | Purple + 40% black | Ambush 4 tiles ahead (Pinky) | 0.85x |
+| **BOB** | Teal | Blue + 20% black | Flanker, pivots 2 tiles off PETE's path (Inky) | 0.78x |
+| **STAN** | Orange | Red + 10% black | Timid scatter, backs to corner when too close (Sue) | 0.70x |
 
-On every 12th level (12, 24, …) the entire roster turns **all-black** (MIB theme) and wears sunglasses.
+On every 12th level (12, 24, ...) the entire roster turns **all-black** (MIB theme) and wears sunglasses.
 
 ### Blue Mode
 
-Grab a **Gold Disc** 🟡 (4 per floor) and all active bosses flip into Blue Mode for ~20 seconds:
+Grab a **Gold Disc** (4 per floor) and all active bosses flip into Blue Mode for ~20 seconds:
 
-- Shirt → systemBlue + 20% black
-- Tie fill → systemYellow, outline → RGB yellow
-- Eyes → systemBlue + 50% black
+- Shirt turns systemBlue + 20% black
+- Tie fill turns systemYellow, outline turns RGB yellow
+- Eyes turn systemBlue + 50% black
 - Bosses flee from PETE
 - Catch them for **100 → 200 → 400 → 800** points (streaked per Gold Disc)
+- In 3D modes, bosses show their point value when in flee mode instead of their name
 
 A boss caught three times in a single Blue Mode is permanently rebuilt at its spawn corner.
+
+## Water Gun
+
+A **Water Gun** power-up tile appears on some floors. Pick it up to enter water gun mode:
+
+- Gain **8 pellets** on first pickup; revisiting the tile reloads to 8.
+- **Tap / click / fire button** to shoot a pellet in PETE's direction of travel.
+- Pellets knock back bosses on contact (a splash effect plays).
+- The HUD shows the remaining pellet count while the gun is active.
+- In the 3D modes, a water droplet billboard flies through the corridor toward any boss in its path.
+- The water gun carries over between floors; pellet count persists until depleted.
 
 ## Travelers
 
 A traveler enters the maze every ~30 seconds from the right tunnel and wanders to the left tunnel. Catch one for bonus points. The traveler rotates by level (cycles every 12 levels):
 
-| Level | Traveler                              | Points |
-|------:|---------------------------------------|------:|
-| 1     | 🐟 Fish                                | 100    |
-| 2     | 🍩 Donut                               | 200    |
-| 3     | ☕️ Coffee                              | 400    |
-| 4     | 🥤 Soda Cup                            | 800    |
-| 5     | 🍎 Apple                               | 1,000  |
-| 6     | <img src="https://boss-man.us/play/assets/images/shinyredstapler-emoji.png" width="32" alt="Shiny Red Stapler"/> **Shiny Red Stapler** (PNG sprite) | 2,000  |
-| 7     | 🍉 Watermelon                          | 3,000  |
-| 8     | 🧇 Waffle                              | 4,000  |
-| 9     | 🍦 Ice Cream                           | 5,000  |
-| 10    | 🍰 Cake                                | 6,000  |
-| 11    | 👀 Eyes                                | 7,000  |
-| 12    | 👁️ Big Eye                             | 8,000  |
-| 13+   | Cycle repeats (with harder mazes)      | …      |
+| Level | Traveler | Points |
+|------:|----------|-------:|
+| 1 | Fish | 100 |
+| 2 | Donut | 200 |
+| 3 | Coffee | 400 |
+| 4 | Soda Cup | 800 |
+| 5 | Apple | 1,000 |
+| 6 | **Shiny Red Stapler** (PNG sprite) | 2,000 |
+| 7 | Watermelon | 3,000 |
+| 8 | Waffle | 4,000 |
+| 9 | Ice Cream | 5,000 |
+| 10 | Cake | 6,000 |
+| 11 | Eyes | 7,000 |
+| 12 | Big Eye | 8,000 |
+| 13+ | Cycle repeats (with harder mazes) | ... |
 
 The HUD's top-right "trail" shows which travelers have appeared so far this cycle; the leftmost is the current level's traveler.
 
@@ -125,14 +168,15 @@ The HUD's top-right "trail" shows which travelers have appeared so far this cycl
 Press the **LEVEL EDITOR** button from the title screen to design your own floors:
 
 - 15-tile palette: floor, dot, wall, hideout, the four machines, brown box, gold disc, PETE spawn, and BILL/DOM/BOB/STAN spawns.
-- Left-click paints the selected tile; right-click toggles dot↔wall (any other tile → dot).
-- Tunnels are auto-detected, paint a floor gap in the perimeter wall to create a tunnel pair.
+- Left-click paints the selected tile; right-click toggles dot/wall (any other tile → dot).
+- Tunnels are auto-detected; paint a floor gap in the perimeter wall to create a tunnel pair.
 - 24 bundled levels. Custom edits save to `~/Library/Application Support/Boss-Man/levels.json`.
-- Shortcuts: `⌘S` save · `⌘Z` undo · `⇧⌘Z` redo · `⌘⌫` clear · `⌘C/⌘V` copy/paste level · `⌘P` playtest · `⌘R` reveal file · `← →` previous/next · `ESC` back.
+- Shortcuts: `Cmd+S` save · `Cmd+Z` undo · `Shift+Cmd+Z` redo · `Cmd+Delete` clear · `Cmd+C/Cmd+V` copy/paste level · `Cmd+P` playtest · `Cmd+R` reveal file · `Left/Right` previous/next · `ESC` back.
 - Autosaves every 60 s, on PREV/NEXT/ESC/PLAY, and on app quit (dirty-check via map hash).
-- Duplicate boss types are allowed (e.g. two BOBs) and you can place more than 4 bosses per level.
+- Duplicate boss types are allowed (two BOBs) and you can place more than 4 bosses per level.
+- Hideout tiles must be interior single-pellet alcoves (3 walls + 1 pellet + wall behind), minimum 5 per floor.
 
-PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelPerson.swift`, no sprite sheets, no boss PNGs. The app icon lives in `Boss-Man/Resources/AppIcon.icon`.
+PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelPerson.swift`. No sprite sheets, no boss PNGs. The app icon lives in `Boss-Man/Resources/AppIcon.icon`.
 
 ## The Tech: One Game, Three Ports, One Framework
 
@@ -144,7 +188,7 @@ Boss-Man ships from three codebases that stay in lockstep, plus the framework th
 | **Swift / WebAssembly** | `boss-man-spritekit-web/` | the *same* Swift, compiled to wasm | any modern browser |
 | **C++ / Box2D + SFML** | `boss-man-box2d-sfml-cpp/` | C++17, Box2D 2.4.1, SFML 2.6 | macOS, Windows, Linux, Android, browser |
 
-The Swift macOS project is the single source of truth. The Swift WASM port does not fork the game: 32 of its 33 source files are symlinks straight back to the macOS master, so both builds compile the identical Swift. The only port-specific file is `main.swift` (the wasm `boot`/`frame` entry points in place of the macOS `NSApplicationDelegate`). The goal is 100% common game source, with every platform difference pushed down into the framework instead of forked into the game.
+The Swift macOS project is the single source of truth. The Swift WASM port does not fork the game: 32 of its 33 source files are symlinks straight back to the macOS master, so both builds compile identical Swift. The only port-specific file is `main.swift` (the wasm `boot`/`frame` entry points in place of the macOS `NSApplicationDelegate`). The goal is 100% common game source, with every platform difference pushed down into the framework instead of forked into the game.
 
 ### wasm-web-kit
 
@@ -161,11 +205,11 @@ The wasm module is a WASI reactor that exports three functions the runtime calls
 
 ## What We're Building Now
 
-- **A full-screen GAME OVER combo screen**, just landed across all three ports: the local top-10 leaderboard, an on-screen A-Z / 0-9 keyboard for name entry when your score qualifies (tap on mobile, type on desktop), and big PLAY and ESC buttons. Mobile-first, and on the Swift side it is a single shared file (`GameOverScreen.swift`) driving both macOS and the web.
-- **Driving the Swift game to 100% common source.** Already 32 of 33 files shared; the remaining work is pushing the last platform seams into the framework.
-- **Cross-platform parity.** A steady stream of sync passes keeps the C++ and wasm ports faithful to the Apple master, down to boss speeds, animation timing, and pixel-level visuals.
+- **100% common Swift source.** 32 of 33 game files are already symlinked between macOS and wasm. The remaining work is pushing the last platform seam into the framework.
+- **Cross-platform parity.** A steady stream of sync passes keeps the C++ and wasm ports faithful to the Apple master, down to boss speeds, animation timing, and pixel-level visuals. Recent ports: per-entity boss freeze fix with Chebyshev 3-tile gate, minimap Pete arrow with throb and directional offset, IsoScene arrow (was missing), all applied across Doom/Voxel/Iso in C++.
 - **Native Android** via the NDK (SFML `NativeActivity`, drag to steer and tap to fire), built in CI into a downloadable APK.
 - **Framework-first fixes.** When a port is missing something, the fix lands in wasm-web-kit (the SpriteKit reimplementation or the SFML shim), not in a per-game workaround, so the next game inherits it.
+- **Voxel far-field fidelity.** The VOXEL mode has a known far-field flaw (jittery blocks and see-through gaps at distance) in both Swift and C++. Live iteration needed.
 
 ## Run Everywhere on Anything
 
