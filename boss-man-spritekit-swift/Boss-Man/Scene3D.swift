@@ -468,7 +468,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     func buildFaceQuads(tops: Set<Int>, cube: SKColor, invDet: Double, wallH: Double,
-                        dirX: Double, dirY: Double, planeX: Double, planeY: Double) -> [VQuad] {
+                        dirX: Double, dirY: Double, planeX: Double, planeY: Double,
+                        faceGrayRects: Bool = false) -> [VQuad] {
         var quads: [VQuad] = []
         for key in tops {
             let tx = key % colsCount, ty = key / colsCount
@@ -1269,7 +1270,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let pgy = rowsCount - 1 - Int(py.rounded(.down))
         bossController.advance(1.0 / 60.0) { e in
             let bg = e.mover?.grid ?? e.ai.grid
-            return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) <= 3
+            return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) > 3
         }
         syncBossNodes()
         // Capture each boss's SMOOTH world position from the mover itself, not node.position:
