@@ -1200,23 +1200,22 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
-        // Turn near a tile centre: take a ←/→ turn ONLY into an open lane (Pete never turns to
-        // face a wall — a blocked turn stays queued for the next junction where that lane opens).
-        // The down button queues the opposite heading, an about-face that ALWAYS corners here
-        // since the lane behind Pete is open. Snap onto the square from up to ~0.4 tile away.
-        if let t = wantDir, abs(px - ccx) < 0.4, abs(py - ccy) < 0.4, open(col + t.x, row + t.y) {
-            px = ccx
-            py = ccy
-            moveDir = t
-            wantDir = nil
-            targetAngle = cardinal(moveDir)
-            let dirName: String
-            if t.x > 0 { dirName = "EAST" } else if t.x < 0 { dirName = "WEST" }
-            else if t.y > 0 { dirName = "SOUTH" } else { dirName = "NORTH" }
-            peteName.text = dirName
-        }
         // Hold ↑ = forward along facing, release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
+        if let t = wantDir {
+            let atCenter = abs(px - ccx) < 0.4 && abs(py - ccy) < 0.4
+            if !fwd || (atCenter && open(col + t.x, row + t.y)) {
+                px = ccx
+                py = ccy
+                moveDir = t
+                wantDir = nil
+                targetAngle = cardinal(moveDir)
+                let dirName: String
+                if t.x > 0 { dirName = "EAST" } else if t.x < 0 { dirName = "WEST" }
+                else if t.y > 0 { dirName = "SOUTH" } else { dirName = "NORTH" }
+                peteName.text = dirName
+            }
+        }
         let tdir: (x: Int, y: Int)? = fwd ? moveDir : nil
         if let d = tdir {
             let atCenter = abs(px - ccx) < 0.06 && abs(py - ccy) < 0.06
