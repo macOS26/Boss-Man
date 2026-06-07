@@ -1205,7 +1205,21 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         state.advanceLevel()
         startNextLevel3D()
     }
-    func startNextLevel3D() {}
+    func makeNextLevelScene() -> Scene3D { Scene3D(size: size) }
+    func startNextLevel3D() {
+        let nextLevel = state.level
+        let score = state.score
+        let lives = state.lives
+        let bonus = makeNextLevelScene()
+        bonus.scaleMode = scaleMode
+        bonus.practiceMode = practiceMode
+        bonus.startingLevel = startingLevel
+        bonus.state.level = nextLevel
+        bonus.state.score = score
+        bonus.state.lives = lives
+        hud.showMessage(Strings.Message.levelLoaded(nextLevel), duration: 3)
+        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
+    }
     func resetCollectedMachines() {
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
@@ -1305,8 +1319,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         gameOverScreen = screen
     }
 
-    // All-3-differ (each instantiates its own scene type). Empty default; every scene overrides.
-    func restartDoom() { }
+    func makeRestartScene() -> Scene3D { Scene3D(size: size) }
+    func restartDoom() {
+        gameOverScreen?.removeFromParent()
+        gameOverScreen = nil
+        let bonus = makeRestartScene()
+        bonus.scaleMode = scaleMode
+        bonus.practiceMode = practiceMode
+        bonus.startingLevel = startingLevel
+        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
+    }
 
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {

@@ -87,28 +87,6 @@ final class VoxelScene: Scene3D {
         updateMapTravelerMirror()
     }
 
-    override func startNextLevel3D() {
-        let nextLevel = state.level
-        let score = state.score
-        let lives = state.lives
-        let bonus = VoxelScene(size: size)
-        bonus.scaleMode = scaleMode
-        bonus.practiceMode = practiceMode
-        bonus.startingLevel = startingLevel
-        bonus.state.level = nextLevel
-        bonus.state.score = score
-        bonus.state.lives = lives
-        hud.showMessage(Strings.Message.levelLoaded(nextLevel), duration: 3)
-        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
-    }
-
-    override func restartDoom() {
-        gameOverScreen?.removeFromParent()
-        gameOverScreen = nil
-        let bonus = VoxelScene(size: size)
-        bonus.scaleMode = scaleMode
-        bonus.practiceMode = practiceMode
-        bonus.startingLevel = startingLevel
-        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
-    }
+    override func makeNextLevelScene() -> Scene3D { VoxelScene(size: size) }
+    override func makeRestartScene()   -> Scene3D { VoxelScene(size: size) }
 }

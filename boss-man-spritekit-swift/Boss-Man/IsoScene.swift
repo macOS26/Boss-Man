@@ -797,29 +797,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         node.run(.sequence([.group([.scale(by: 1.5, duration: 0.25), .fadeOut(withDuration: 0.25)]), .removeFromParent()]))
     }
 
-    override func startNextLevel3D() {
-        let nextLevel = state.level
-        let score = state.score
-        let lives = state.lives
-        let bonus = IsoScene(size: size)
-        bonus.scaleMode = scaleMode
-        bonus.practiceMode = practiceMode
-        bonus.startingLevel = startingLevel
-        bonus.state.level = nextLevel
-        bonus.state.score = score
-        bonus.state.lives = lives
-        hud.showMessage(Strings.Message.levelLoaded(nextLevel), duration: 3)
-        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
-    }
-
-    override func restartDoom() {
-        gameOverScreen?.removeFromParent(); gameOverScreen = nil
-        let bonus = IsoScene(size: size)
-        bonus.scaleMode = scaleMode
-        bonus.practiceMode = practiceMode
-        bonus.startingLevel = startingLevel
-        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
-    }
+    override func makeNextLevelScene() -> Scene3D { IsoScene(size: size) }
+    override func makeRestartScene()   -> Scene3D { IsoScene(size: size) }
 
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
