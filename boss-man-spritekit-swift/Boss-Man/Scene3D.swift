@@ -117,7 +117,13 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var onBrownBox = false
     var spawnPx = 1.5, spawnPy = 1.5
     var isUserPaused = false
+    private var bossToggleTaps = 0
+    private var bossToggleWindow = 0
+#if os(WASI)
+    static var bossesEnabled = false
+#else
     static var bossesEnabled = true
+#endif
     var bossOffLabel: SKLabelNode?
 
     // MARK: - Minimap (the real 2D level, centered at the bottom)
@@ -307,11 +313,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
         state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
         let lbl = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        lbl.text = "BOSS OFF"; lbl.fontSize = 20; lbl.fontColor = .systemRed
-        lbl.horizontalAlignmentMode = .right
-        lbl.position = CGPoint(x: size.width - 12, y: size.height - 44)
-        lbl.zPosition = 1001; lbl.isHidden = Scene3D.bossesEnabled
+        lbl.fontSize = 20; lbl.horizontalAlignmentMode = .right
+        lbl.position = CGPoint(x: size.width - 12, y: size.height - 25)
+        lbl.zPosition = 1001
         uiLayer.addChild(lbl); bossOffLabel = lbl
+        updateBossLabel()
         refreshHUD()
     }
 
@@ -437,9 +443,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         return nil
     }
 
+    func updateBossLabel() {
+        bossOffLabel?.text = Scene3D.bossesEnabled ? "BOSS ON" : "BOSS OFF"
+        bossOffLabel?.fontColor = Scene3D.bossesEnabled ? SKColor(white: 1, alpha: 0.3) : .systemRed
+    }
+
     func toggleBossMode() {
         Scene3D.bossesEnabled.toggle()
-        bossOffLabel?.isHidden = Scene3D.bossesEnabled
+        updateBossLabel()
         hud.showMessage(Scene3D.bossesEnabled ? "BOSS ON" : "BOSS OFF", duration: 2)
     }
 
@@ -591,6 +602,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // MARK: - Per-frame
     override func update(_ currentTime: TimeInterval) {
+        if bossToggleWindow > 0 { bossToggleWindow -= 1 } else { bossToggleTaps = 0 }
         if isUserPaused || gameOver { return }
         if dying { updateDeath(); return }
         step()
@@ -973,37 +985,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         base.lineWidth = 2; base.zPosition = 300
         addChild(base)
         if ControlMode.current.showsStick { addStickThumb(); return }   // STICK: a round follow-thumb instead of the wedge cross
-        // Four ring-sector wedges split by an X = the D-pad buttons. A diagonal press
-        // lights two and steers forward + a turn together. Arrow glyph in each wedge.
-        let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25B6}"),
-                                                 ("down", -.pi / 2, "\u{25BC}"), ("right", 0, "\u{25B6}")]
-        for (name, ang, glyph) in dirs {
-            let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang, inner: joystickDeadzone, outer: joystickRadius))
-            w.position = joystickCenter
-            w.fillColor = SKColor(white: 1, alpha: 0.12); w.strokeColor = .clear
-            w.lineWidth = 0; w.zPosition = 301
-            addChild(w); dpadWedges[name] = w
-            let arrow = SKLabelNode(text: glyph)
-            arrow.fontSize = 24; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
-            arrow.verticalAlignmentMode = .center; arrow.horizontalAlignmentMode = .center
-            if name == "left" { arrow.xScale = -1 }
-            let r = (joystickDeadzone + joystickRadius) / 2
-            arrow.position = CGPoint(x: joystickCenter.x + cos(ang) * r, y: joystickCenter.y + sin(ang) * r)
-            arrow.zPosition = 302
-            addChild(arrow)
-        }
-        // X boundary lines (the four diagonals) only — no centre ring.
-        let xPath = CGMutablePath()
-        for k in 0..<4 {
-            let t = CGFloat.pi / 4 + CGFloat(k) * CGFloat.pi / 2
-            xPath.move(to: CGPoint(x: cos(t) * joystickDeadzone, y: sin(t) * joystickDeadzone))
-            xPath.addLine(to: CGPoint(x: cos(t) * joystickRadius, y: sin(t) * joystickRadius))
-        }
-        let xlines = SKShapeNode(path: xPath)
-        xlines.position = joystickCenter
-        xlines.strokeColor = SKColor(white: 1, alpha: 0.5); xlines.lineWidth = 2
-        xlines.zPosition = 301
-        addChild(xlines)
+        dpadWedges = buildDpadFace(in: self, center: joystickCenter, inner: joystickDeadzone, outer: joystickRadius, z: 301)
     }
     // STICK mode: a thumb knob that rides the finger; direction still comes from dpadWedgeAt (shared angle logic).
     func addStickThumb() {
@@ -1060,25 +1042,23 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     private func pointerBegan(finger: Int, at p: CGPoint) {
         guard !isUserPaused, !dying else { return }
         if !controlsShown { fire(); return }   // water gun hidden: a tap anywhere fires
-        if radius(p, joystickCenter) <= joystickRadius { joyFingers.insert(finger); dpadSet(finger: finger, phase: 0, at: p); return }
-        if radius(p, fireButtonCenter) <= fireButtonRadius { fire() }
+        if radius(p, joystickCenter) <= joystickRadius {
+            #if os(WASI)
+            if !joyFingers.isEmpty {
+                let newDir = dpadWedgeAt(p)
+                let hasUp = dpadFinger.values.contains { $0.contains("up") }
+                guard hasUp && (newDir == "left" || newDir == "right") else { return }
+            }
+            #endif
+            joyFingers.insert(finger); dpadSet(finger: finger, phase: 0, at: p); return
+        }
+        if radius(p, fireButtonCenter) <= fireButtonRadius { fire(); return }
+        bossToggleTaps += 1; bossToggleWindow = 36
+        if bossToggleTaps >= 3 { bossToggleTaps = 0; bossToggleWindow = 0; toggleBossMode() }
     }
 
-    // Octant the point falls in ("" = centre hole / outside the ring). Up combines with a
-    // turn (upleft/upright = drive forward AND veer) so one finger can steer while moving;
-    // down is the about-face and never combines (straight-down only).
     func dpadWedgeAt(_ p: CGPoint) -> String {
-        let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
-        let mag = (dx * dx + dy * dy).squareRoot()
-        if mag < joystickDeadzone || mag > joystickRadius { return "" }
-        switch Int((atan2(dy, dx) / (.pi / 4)).rounded()) & 7 {   // scene y-up: 0=E,1=NE,2=N,3=NW,4=W,5=SW,6=S,7=SE
-        case 1:  return "upright"
-        case 2:  return "up"
-        case 3:  return "upleft"
-        case 6:  return "down"            // about-face only when pointed straight down
-        case 0, 7: return "right"         // E / SE: turn in place, no forward
-        default: return "left"            // W / SW
-        }
+        dpadCardinal(p, center: joystickCenter, deadzone: joystickDeadzone, radius: joystickRadius)
     }
 
     func dpadSet(finger: Int, phase: Int, at p: CGPoint) {
@@ -1104,12 +1084,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             if w.contains("left")  { left = true }
             if w.contains("right") { right = true }
         }
+        if left && right { left = false; right = false }       // opposing laterals cancel
+        if down { up = false; left = false; right = false }    // down is always solo
+        if (left || right) && !up { /* single lateral, fine */ }
         if up { pressed.insert(KeyCode.arrowUp) } else { pressed.remove(KeyCode.arrowUp) }
         pressed.remove(KeyCode.arrowDown)   // up = forward (held); down is a 180° turn, not reverse
         highlightDPad(up: up, down: down, left: left, right: right)
     }
     func highlightDPad(up: Bool, down: Bool, left: Bool, right: Bool) {
-        let on: [String: Bool] = ["up": up, "down": down, "left": left, "right": right]
-        for (k, v) in on { dpadWedges[k]?.fillColor = SKColor(white: 1, alpha: v ? 0.34 : 0.12) }
+        lightDpadFace(dpadWedges, up: up, down: down, left: left, right: right)
     }
 }

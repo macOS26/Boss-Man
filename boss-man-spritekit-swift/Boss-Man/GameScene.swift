@@ -87,6 +87,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var joystickHidden = false
     private var joystickActive = false
     private var joystickThumb: SKShapeNode?
+    private var dpadWedges: [String: SKShapeNode] = [:]
 
     // MARK: - Lifecycle
     override func didMove(to view: SKView) {
@@ -116,7 +117,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         inputController.delegate = self
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
-        inputController.hideCursor()
         #endif
     }
 
@@ -237,8 +237,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         let p = event.location(in: uiLayer)
         if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
             joystickActive = true
-            moveJoystickThumb(to: p)
-            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
+            applyJoystick(at: p)
             swipeStart = nil
             moveAnchor = nil
             return
@@ -261,6 +260,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if joystickActive {
             joystickActive = false
             recenterJoystickThumb()
+            lightDpadFace(dpadWedges, up: false, down: false, left: false, right: false)
             return
         }
         // Swipe release. Dormant on apple (mouseDown fires there and never arms
@@ -280,8 +280,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     override func mouseDragged(with event: NSEvent) {
         let p = event.location(in: uiLayer)
         if joystickActive {
-            moveJoystickThumb(to: p)
-            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
+            applyJoystick(at: p)
             return
         }
         #if os(macOS)
@@ -675,9 +674,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         state.resetForNewGame()
         resetSceneAndBuild()
         hud.showMessage(Strings.Message.newGame, duration: 3)
-        #if os(macOS)
-        inputController.hideCursor()
-        #endif
     }
 
     private func returnToTitleScene() {
@@ -845,13 +841,16 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
         let base = SKShapeNode(circleOfRadius: joystickRadius)
         base.position = joystickCenter
-        base.fillColor = SKColor(white: 1, alpha: 0.10)
+        base.fillColor = SKColor(white: 1, alpha: 0.06)
         base.strokeColor = SKColor(white: 1, alpha: 0.5)
         base.lineWidth = 2
         base.zPosition = 50
         uiLayer.addChild(base)
 
-        if ControlMode.current.showsDpad { installDpadFace(); return }   // DPAD: a 4-wedge cross; STICK: the follow-thumb below
+        if ControlMode.current.showsDpad {   // DPAD: the shared 4-wedge cross (same look + hit-area as the 3D bonus); STICK: the follow-thumb below
+            dpadWedges = buildDpadFace(in: uiLayer, center: joystickCenter, inner: joystickDeadzone, outer: joystickRadius, z: 51)
+            return
+        }
 
         let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
         thumb.position = joystickCenter
@@ -863,38 +862,20 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         joystickThumb = thumb
     }
 
-    // DPAD mode: a 4-wedge directional cross (same hit-area as the stick; direction comes from joystickDirection).
-    private func installDpadFace() {
-        let dirs: [(CGFloat, String)] = [(.pi / 2, "\u{25B2}"), (.pi, "\u{25C0}"), (-.pi / 2, "\u{25BC}"), (0, "\u{25B6}")]
-        for (ang, glyph) in dirs {
-            let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang, inner: joystickDeadzone, outer: joystickRadius))
-            w.position = joystickCenter
-            w.fillColor = SKColor(white: 1, alpha: 0.14); w.strokeColor = .clear; w.zPosition = 51
-            uiLayer.addChild(w)
-            let arrow = SKLabelNode(text: glyph)
-            arrow.fontSize = 30; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
-            arrow.verticalAlignmentMode = .center; arrow.horizontalAlignmentMode = .center
-            let r = (joystickDeadzone + joystickRadius) / 2
-            arrow.position = CGPoint(x: joystickCenter.x + cos(ang) * r, y: joystickCenter.y + sin(ang) * r)
-            arrow.zPosition = 52
-            uiLayer.addChild(arrow)
+    // Drive the shared D-pad from a pointer in uiLayer space: move the thumb (stick mode), light the
+    // pressed wedge, and steer. One cardinal per pointer; in stick mode the wedge dict is empty so the
+    // highlight is a no-op.
+    private func applyJoystick(at p: CGPoint) {
+        moveJoystickThumb(to: p)
+        let c = dpadCardinal(p, center: joystickCenter, deadzone: joystickDeadzone, radius: joystickRadius)
+        lightDpadFace(dpadWedges, up: c == "up", down: c == "down", left: c == "left", right: c == "right")
+        switch c {
+        case "up":    steer(.up)
+        case "down":  steer(.down)
+        case "left":  steer(.left)
+        case "right": steer(.right)
+        default:      break
         }
-        let xPath = CGMutablePath()
-        for k in 0..<4 {
-            let t = CGFloat.pi / 4 + CGFloat(k) * CGFloat.pi / 2
-            xPath.move(to: CGPoint(x: cos(t) * joystickDeadzone, y: sin(t) * joystickDeadzone))
-            xPath.addLine(to: CGPoint(x: cos(t) * joystickRadius, y: sin(t) * joystickRadius))
-        }
-        let xlines = SKShapeNode(path: xPath)
-        xlines.position = joystickCenter
-        xlines.strokeColor = SKColor(white: 1, alpha: 0.5); xlines.lineWidth = 2; xlines.zPosition = 51
-        uiLayer.addChild(xlines)
-    }
-
-    private func joystickDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
-        guard (dx * dx + dy * dy).squareRoot() >= joystickDeadzone else { return nil }
-        if abs(dx) >= abs(dy) { return dx > 0 ? .right : .left }
-        return dy > 0 ? .up : .down
     }
 
     private func moveJoystickThumb(to p: CGPoint) {
