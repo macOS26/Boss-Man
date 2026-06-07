@@ -165,7 +165,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     let goldDisc = GoldDiscTimer()
     private let goldDiscDuration: TimeInterval = 20
     var frightenSecondsLeft: TimeInterval = 0
-    let reportItemPoints = [10, 25, 50, 100]
+    let reportItemPoints = Strings.Machine.reportPoints
     var onBrownBox = false
     var spawnPx = 1.5, spawnPy = 1.5
     var isUserPaused = false
@@ -774,7 +774,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // The radar bosses are mirror nodes (a node can't have two parents), so they
     // need the same flee palette BossController paints on the real nodes.
-    private static let bossSkin = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
+    private static let bossSkin = SpriteFactory.bossSkinColor
     func recolorMinimapBosses(flee: Bool) {
         for e in bossController.entities {
             guard let mn = bossMapNodes[ObjectIdentifier(e.node)] else { continue }
@@ -783,18 +783,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
     func applyFleePalette(_ p: PixelPerson, flee: Bool, blueprint: Int) {
         if flee {
-            p.setBodyColor(SpriteFactory.fleeBodyColor)
-            p.setTieColor(SpriteFactory.fleeTieColor)
-            p.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
-            p.setEyeColor(SpriteFactory.fleeEyeColor)
-            p.setSkinColor(SpriteFactory.fleeSkinColor)
+            p.setFleePalette(true)
         } else {
             let c = BossBlueprint.colors[min(max(blueprint, 0), BossBlueprint.colors.count - 1)]
-            p.setBodyColor(c.body)
-            p.setTieColor(c.tie)
-            p.setShirtOutlineColor(.white)
-            p.setEyeColor(.black)
-            p.setSkinColor(Self.bossSkin)
+            p.setFleePalette(false, bodyRestore: c.body, tieRestore: c.tie, skinRestore: SpriteFactory.bossSkinColor)
         }
     }
 
@@ -848,8 +840,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         pete.alpha = 1
         pete.startWalking()
         pete.removeAction(forKey: "shield")
-        pete.run(.sequence([.repeat(.sequence([.fadeAlpha(to: 0.35, duration: 0.6), .fadeAlpha(to: 1.0, duration: 0.6)]), count: 3),
-                            .run { [weak self] in self?.pete.alpha = 1 }]), withKey: "shield")
+        pete.run(SpriteFactory.shieldBlinkAction(count: 3), withKey: "shield")
     }
 
     // Grid-space catch (DoomScene has no physics worker body, so same-tile is the
@@ -1291,7 +1282,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         peteShielded = bossController.isAnyBossSpawning   // shielded exactly while bosses flash in (spawnGrace)
         checkBossCatch()
-        if let caught = travelerSpawner?.tryCatch(at: workerGrid) {   // walked onto the traveler's tile
+        let peteScenePos = CGPoint(x: CGFloat(px) * 32, y: CGFloat(Double(rowsCount) - py) * 32)
+        if let caught = travelerSpawner?.tryCatchByOverlap(petePosition: peteScenePos, radius: 20) {
             state.bumpScore(by: caught.traveler.points)
             sound.playFishOrTreat()
             popPoints(caught.traveler.points)

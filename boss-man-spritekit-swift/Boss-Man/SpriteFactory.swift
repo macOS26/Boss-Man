@@ -11,6 +11,7 @@ import SpriteKit
 enum SpriteFactory {
 
     static let bossShoeGoldColor = SKColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
+    static let bossSkinColor = SKColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
 
     // Supersample factor for camera-magnified pickups/glyphs (see RenderScale).
     static let worldRenderScale = RenderScale.factor
@@ -311,6 +312,14 @@ enum SpriteFactory {
 
     static func machineEmoji(for char: UInt8) -> String? {
         machineTiles.first(where: { $0.char == char })?.emoji
+    }
+
+    static func shieldBlinkAction(count: Int = 3) -> SKAction {
+        let cycle = SKAction.sequence([
+            .fadeAlpha(to: 0.35, duration: 0.6),
+            .fadeAlpha(to: 1.0, duration: 0.6)
+        ])
+        return .sequence([.repeat(cycle, count: count), .fadeAlpha(to: 1.0, duration: 0.01)])
     }
 }
 

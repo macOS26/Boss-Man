@@ -112,15 +112,7 @@ final class WorkerController {
         node.setBodyColor(.systemBlue)
         node.setTieColor(.systemOrange)
         node.alpha = 1
-
-        let blinkCycle = SKAction.sequence([
-            .fadeAlpha(to: 0.35, duration: 0.6),
-            .fadeAlpha(to: 1.0, duration: 0.6)
-        ])
-        node.run(.sequence([
-            .repeat(blinkCycle, count: 1),
-            .run { [weak self] in self?.node.alpha = 1 }
-        ]), withKey: Strings.ActionKey.spawnShieldBlink)
+        node.run(SpriteFactory.shieldBlinkAction(count: 1), withKey: Strings.ActionKey.spawnShieldBlink)
     }
 
     private static func lerpColor(from a: NSColor, to b: NSColor, progress t: CGFloat) -> NSColor {

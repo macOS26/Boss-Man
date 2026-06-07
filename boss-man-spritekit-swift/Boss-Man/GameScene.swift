@@ -19,7 +19,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var bossSpawnMax: TimeInterval = 0
     private var nextBossSpawnSeconds: TimeInterval = 0
     private let requiredItems = Strings.Machine.required
-    private let reportItemPoints = [10, 25, 50, 100]
+    private let reportItemPoints = Strings.Machine.reportPoints
     private let dropletDodgeRange = 8
 
     private var gridMap: GridMap!

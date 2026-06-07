@@ -254,12 +254,6 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         #endif
     }
 
-    override func willMove(from view: SKView) {
-        #if os(macOS)
-        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(false)
-        #endif
-    }
-
     override func castFloor() {
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
@@ -345,8 +339,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         peteName.alpha = 1
         pete.startWalking()
         pete.removeAction(forKey: "shield")
-        pete.run(.sequence([.repeat(.sequence([.fadeAlpha(to: 0.35, duration: 0.6), .fadeAlpha(to: 1.0, duration: 0.6)]), count: 3),
-                            .run { [weak self] in self?.pete.alpha = 1 }]), withKey: "shield")
+        pete.run(SpriteFactory.shieldBlinkAction(count: 3), withKey: "shield")
     }
 
     override func togglePause() {

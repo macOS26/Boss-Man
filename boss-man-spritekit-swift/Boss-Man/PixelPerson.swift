@@ -340,6 +340,26 @@ final class PixelPerson: SKNode {
         rightEye?.fillColor = color
     }
 
+    func setFleePalette(_ flee: Bool, bodyRestore: NSColor? = nil, tieRestore: NSColor? = nil, skinRestore: NSColor? = nil) {
+        if flee {
+            setBodyColor(SpriteFactory.fleeBodyColor)
+            setTieColor(SpriteFactory.fleeTieColor)
+            setTieOutline(color: nil)
+            setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
+            setShoeOutlineColor(SpriteFactory.bossShoeGoldColor)
+            setEyeColor(SpriteFactory.fleeEyeColor)
+            setSkinColor(SpriteFactory.fleeSkinColor)
+        } else {
+            setBodyColor(bodyRestore ?? SpriteFactory.bossSkinColor)
+            setTieColor(tieRestore ?? .clear)
+            setTieOutline(color: nil)
+            setShirtOutlineColor(.white)
+            setShoeOutlineColor(SpriteFactory.bossShoeGoldColor)
+            setEyeColor(.black)
+            setSkinColor(skinRestore ?? SpriteFactory.bossSkinColor)
+        }
+    }
+
     func startWalking() {
         if walkingPaused {
             walkingPaused = false

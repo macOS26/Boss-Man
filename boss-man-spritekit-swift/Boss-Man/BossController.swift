@@ -56,7 +56,7 @@ final class BossController {
     private let moveDuration: TimeInterval = 0.22
     private let detectionRange: CGFloat = 10
 
-    static let baseSkinColor: NSColor = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
+    static let baseSkinColor: NSColor = SpriteFactory.bossSkinColor
     static var bossShoeGoldColor: NSColor { SpriteFactory.bossShoeGoldColor }
 
     weak var delegate: BossControllerDelegate?
@@ -133,14 +133,7 @@ final class BossController {
         let index = entities.count - 1
         if goldDiscActive {
             entities[index].isInFleeMode = true
-            let node = entities[index].node
-            node.setBodyColor(SpriteFactory.fleeBodyColor)
-            node.setTieColor(SpriteFactory.fleeTieColor)
-            node.setTieOutline(color: nil)
-            node.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
-            node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            node.setEyeColor(SpriteFactory.fleeEyeColor)
-            node.setSkinColor(SpriteFactory.fleeSkinColor)
+            entities[index].node.setFleePalette(true)
             entities[index].mover?.step = entities[index].frightenedStep
         }
         applySpawnFreeze(at: index)
@@ -311,13 +304,7 @@ final class BossController {
         for i in entities.indices {
             entities[i].captureCount = 0
             entities[i].isInFleeMode = active
-            entities[i].node.setBodyColor(active ? SpriteFactory.fleeBodyColor : entities[i].baseColor)
-            entities[i].node.setTieColor(active ? SpriteFactory.fleeTieColor : entities[i].tieColor)
-            entities[i].node.setTieOutline(color: nil)
-            entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
-            entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            entities[i].node.setEyeColor(active ? SpriteFactory.fleeEyeColor : .black)
-            entities[i].node.setSkinColor(active ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
+            entities[i].node.setFleePalette(active, bodyRestore: entities[i].baseColor, tieRestore: entities[i].tieColor, skinRestore: Self.baseSkinColor)
             entities[i].mover?.step = active ? entities[i].frightenedStep : entities[i].moveDuration
         }
         refreshTags(goldDiscActive: active)
@@ -469,13 +456,7 @@ final class BossController {
                 self.entities[i].isImmobilized = false
             })
             bossNode.run(.sequence(seq))
-            boss.node.setBodyColor(powerActive ? SpriteFactory.fleeBodyColor : boss.baseColor)
-            boss.node.setTieColor(powerActive ? SpriteFactory.fleeTieColor : boss.tieColor)
-            boss.node.setTieOutline(color: nil)
-            boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
-            boss.node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            boss.node.setEyeColor(powerActive ? SpriteFactory.fleeEyeColor : .black)
-            boss.node.setSkinColor(powerActive ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
+            boss.node.setFleePalette(powerActive, bodyRestore: boss.baseColor, tieRestore: boss.tieColor, skinRestore: Self.baseSkinColor)
         }
         refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)

@@ -79,6 +79,7 @@ extension Strings {
         static let brownBox   = "TPS Delivery Box"
 
         static let required: [String] = [printer, fax, coverSheet, bookBinder]
+        static let reportPoints = [10, 25, 50, 100]
 
         static let displayNames: [String: String] = [
             printer:    "Printer",
