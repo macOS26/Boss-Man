@@ -78,12 +78,16 @@ public final class SKWarpGeometryGrid: SKWarpGeometry {
         // Flatten both arrays into [Float] (xy pairs).
         var srcXY: [Float] = []
         srcXY.reserveCapacity(sourcePositions.count * 2)
-        for p in sourcePositions { srcXY.append(Float(p.x))
-        srcXY.append(Float(p.y)) }
+        for p in sourcePositions {
+            srcXY.append(Float(p.x))
+            srcXY.append(Float(p.y))
+        }
         var dstXY: [Float] = []
         dstXY.reserveCapacity(destPositions.count * 2)
-        for p in destPositions { dstXY.append(Float(p.x))
-        dstXY.append(Float(p.y)) }
+        for p in destPositions {
+            dstXY.append(Float(p.x))
+            dstXY.append(Float(p.y))
+        }
         srcXY.withUnsafeBufferPointer { srcPtr in
             dstXY.withUnsafeBufferPointer { dstPtr in
                 gfx_warp_draw(srcImg, Int32(numberOfColumns), Int32(numberOfRows),

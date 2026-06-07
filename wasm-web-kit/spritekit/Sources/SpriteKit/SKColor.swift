@@ -9,10 +9,12 @@ public struct SKColor: Equatable, Sendable {
         b = blue
         a = alpha
     }
-    public init(white: CGFloat, alpha: CGFloat) { r = white
-    g = white
-    b = white
-    a = alpha }
+    public init(white: CGFloat, alpha: CGFloat) {
+        r = white
+        g = white
+        b = white
+        a = alpha
+    }
     public init(calibratedRed: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
         self.init(red: calibratedRed, green: green, blue: blue, alpha: alpha)
     }

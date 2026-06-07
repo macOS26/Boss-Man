@@ -11,8 +11,10 @@ open class SKScene: SKNode {
     public weak var view: SKView?
     public weak var camera: SKCameraNode?      // active camera; nil = default top-down
 
-    public init(size: CGSize) { self.size = size
-    super.init() }
+    public init(size: CGSize) {
+        self.size = size
+        super.init()
+    }
     public convenience override init() { self.init(size: CGSize(width: 1184, height: 666)) }
 
     open func didMove(to view: SKView) {}

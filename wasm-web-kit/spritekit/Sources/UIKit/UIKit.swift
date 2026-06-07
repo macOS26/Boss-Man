@@ -70,14 +70,20 @@ open class UIView: UIResponder {
     public var transform: Any = ()  // CGAffineTransform stand-in
 
     public override init() { super.init() }
-    public init(frame: CGRect) { self.frame = frame
-    self.bounds = CGRect(x: 0, y: 0, width: frame.width, height: frame.height)
-    super.init() }
+    public init(frame: CGRect) {
+        self.frame = frame
+        self.bounds = CGRect(x: 0, y: 0, width: frame.width, height: frame.height)
+        super.init()
+    }
 
-    public func addSubview(_ v: UIView) { v.superview = self
-    subviews.append(v) }
-    public func removeFromSuperview() { superview?.subviews.removeAll { $0 === self }
-    superview = nil }
+    public func addSubview(_ v: UIView) {
+        v.superview = self
+        subviews.append(v)
+    }
+    public func removeFromSuperview() {
+        superview?.subviews.removeAll { $0 === self }
+        superview = nil
+    }
     public func bringSubviewToFront(_ v: UIView) {}
     public func sendSubviewToBack(_ v: UIView) {}
     public func addGestureRecognizer(_ g: UIGestureRecognizer) { g.view = self }
@@ -106,8 +112,10 @@ open class UIViewController: UIResponder {
     open func viewDidLayoutSubviews() {}
     public func present(_ vc: UIViewController, animated: Bool, completion: (() -> Void)? = nil) { completion?() }
     public func dismiss(animated: Bool, completion: (() -> Void)? = nil) { completion?() }
-    public func addChild(_ vc: UIViewController) { children.append(vc)
-    vc.parent = self }
+    public func addChild(_ vc: UIViewController) {
+        children.append(vc)
+        vc.parent = self
+    }
 }
 
 public final class UIWindow: UIView {
@@ -173,17 +181,23 @@ open class UIGestureRecognizer {
     public var isEnabled = true
     var target: AnyObject?
     var action: Selector?
-    public init(target: AnyObject? = nil, action: Selector? = nil) { self.target = target
-    self.action = action }
-    public func addTarget(_ target: AnyObject, action: Selector) { self.target = target
-    self.action = action }
+    public init(target: AnyObject? = nil, action: Selector? = nil) {
+        self.target = target
+        self.action = action
+    }
+    public func addTarget(_ target: AnyObject, action: Selector) {
+        self.target = target
+        self.action = action
+    }
     public func removeTarget(_ target: AnyObject?, action: Selector?) {}
     open func location(in v: UIView?) -> CGPoint { CGPoint(x: CGFloat(mouse_x()), y: CGFloat(mouse_y())) }
     open func locationOfTouch(_ i: Int, in v: UIView?) -> CGPoint { location(in: v) }
     public var numberOfTouches: Int { 0 }
 }
-public enum UIGestureRecognizerState: Int, Sendable { case possible, began, changed, ended, cancelled, failed
-public static let recognized = ended }
+public enum UIGestureRecognizerState: Int, Sendable {
+    case possible, began, changed, ended, cancelled, failed
+    public static let recognized = ended
+}
 
 public final class UISwipeGestureRecognizer: UIGestureRecognizer {
     public struct Direction: OptionSet, Sendable {
@@ -223,8 +237,10 @@ public final class UIPanGestureRecognizer: UIGestureRecognizer {
 
 // Selector stand-in — iOS games pass `#selector(handleSwipe)` to gesture inits.
 // We accept the value but never invoke it.
-public struct Selector { public let raw: String
-public init(_ raw: String) { self.raw = raw } }
+public struct Selector {
+    public let raw: String
+    public init(_ raw: String) { self.raw = raw }
+}
 
 // =============================================================================
 // UIDevice — basic identity surface.

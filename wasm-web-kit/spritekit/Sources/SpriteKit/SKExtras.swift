@@ -10,8 +10,10 @@ public extension SKNode {
     // good enough for the unscaled/unrotated cases games usually convert through).
     func absolutePosition() -> CGPoint {
         var p = position, n: SKNode? = parent
-        while let cur = n { p = CGPoint(x: p.x + cur.position.x, y: p.y + cur.position.y)
-        n = cur.parent }
+        while let cur = n {
+            p = CGPoint(x: p.x + cur.position.x, y: p.y + cur.position.y)
+            n = cur.parent
+        }
         return p
     }
     func convert(_ point: CGPoint, from node: SKNode) -> CGPoint {

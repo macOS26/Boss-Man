@@ -19,8 +19,10 @@ public final class SKPhysicsContact {
     public var contactPoint: CGPoint = .zero
     public var contactNormal: CGVector = .zero
     public var collisionImpulse: CGFloat = 0
-    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) { bodyA = a
-    bodyB = b }
+    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) {
+        bodyA = a
+        bodyB = b
+    }
 }
 
 public final class SKPhysicsBody {
@@ -65,8 +67,10 @@ public final class SKPhysicsBody {
     public init(rectangleOf size: CGSize, center: CGPoint) { shape = .rect(size.width, size.height) }
     public init(circleOfRadius r: CGFloat) { shape = .circle(r) }
     public init(circleOfRadius r: CGFloat, center: CGPoint) { shape = .circle(r) }
-    public init(edgeLoopFrom rect: CGRect) { shape = .edgeLoop(rect)
-    isDynamic = false }
+    public init(edgeLoopFrom rect: CGRect) {
+        shape = .edgeLoop(rect)
+        isDynamic = false
+    }
     public init(edgeLoopFrom path: CGPath) {
         let pts = path.flattenedPoints
         shape = .edgeChain(pts.isEmpty ? [.zero, .zero] : pts)
@@ -205,8 +209,10 @@ public final class SKPhysicsBody {
 private func withFlatXY<R>(_ pts: [CGPoint], _ body: (UnsafePointer<Float>, Int32) -> R) -> R {
     var flat = [Float]()
     flat.reserveCapacity(pts.count * 2)
-    for p in pts { flat.append(Float(p.x))
-    flat.append(Float(p.y)) }
+    for p in pts {
+        flat.append(Float(p.x))
+        flat.append(Float(p.y))
+    }
     return flat.withUnsafeBufferPointer { buf in
         body(buf.baseAddress!, Int32(pts.count))
     }
@@ -236,8 +242,10 @@ public class SKPhysicsJoint {
     public var reactionForce = CGVector.zero
     public var reactionTorque: CGFloat = 0
     var jointId: Int32 = -1
-    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) { bodyA = a
-    bodyB = b }
+    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) {
+        bodyA = a
+        bodyB = b
+    }
     // Subclasses override to create the joint in the Box2D world once both
     // bodies are registered. SKPhysicsWorld.add calls this.
     func createInWorld() {}
@@ -441,13 +449,17 @@ public final class SKPhysicsWorld {
         joint.createInWorld()
     }
     public func remove(_ joint: SKPhysicsJoint) {
-        if joint.jointId >= 0 { cb_remove_joint(joint.jointId)
-        joint.jointId = -1 }
+        if joint.jointId >= 0 {
+            cb_remove_joint(joint.jointId)
+            joint.jointId = -1
+        }
         joints.removeAll { $0 === joint }
     }
     public func removeAllJoints() {
-        for j in joints where j.jointId >= 0 { cb_remove_joint(j.jointId)
-        j.jointId = -1 }
+        for j in joints where j.jointId >= 0 {
+            cb_remove_joint(j.jointId)
+            j.jointId = -1
+        }
         joints.removeAll()
     }
     fileprivate func createPendingJoints() {
@@ -527,8 +539,10 @@ public final class SKPhysicsWorld {
     }
 
     private func createBodies(_ node: SKNode) {
-        if let b = node.physicsBody, b.bodyId < 0 { b.node = node
-        b.createInWorld() }
+        if let b = node.physicsBody, b.bodyId < 0 {
+            b.node = node
+            b.createInWorld()
+        }
         for c in node.children { createBodies(c) }
     }
 
@@ -593,8 +607,10 @@ public final class SKPhysicsWorld {
     }
 
     func step(_ dt: TimeInterval, scene: SKScene) {
-        if !started { begin(scene)
-        return }
+        if !started {
+            begin(scene)
+            return
+        }
         createBodies(scene)                                   // pick up nodes added since last step
         createPendingJoints()                                 // joints added before their bodies
         applyFields(scene, dt: dt)                            // SKFieldNode → cb_apply_force
@@ -616,8 +632,10 @@ public final class SKPhysicsWorld {
         // never goes anywhere as far as Box2D is concerned.
         var orphaned: [Int32] = []
         for (id, b) in SKPhysicsWorld.registry {
-            guard let n = b.node else { orphaned.append(id)
-            continue }
+            guard let n = b.node else {
+                orphaned.append(id)
+                continue
+            }
             cb_set_transform(id, Float(n.position.x), Float(n.position.y),
                              Float(n.zRotation))
         }

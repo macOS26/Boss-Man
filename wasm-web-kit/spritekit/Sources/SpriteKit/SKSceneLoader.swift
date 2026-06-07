@@ -128,15 +128,19 @@ public enum SKSceneLoader {
             if let f = json["fontName"] as? String { label.fontName = f }
             if let c = readColor(json["fontColor"]) { label.fontColor = c }
             if let h = json["horizontalAlignment"] as? String {
-                switch h { case "left": label.horizontalAlignmentMode = .left
-                           case "right": label.horizontalAlignmentMode = .right
-                           default: label.horizontalAlignmentMode = .center }
+                switch h {
+                    case "left": label.horizontalAlignmentMode = .left
+                    case "right": label.horizontalAlignmentMode = .right
+                    default: label.horizontalAlignmentMode = .center
+                }
             }
             if let v = json["verticalAlignment"] as? String {
-                switch v { case "top": label.verticalAlignmentMode = .top
-                           case "bottom": label.verticalAlignmentMode = .bottom
-                           case "baseline": label.verticalAlignmentMode = .baseline
-                           default: label.verticalAlignmentMode = .center }
+                switch v {
+                    case "top": label.verticalAlignmentMode = .top
+                    case "bottom": label.verticalAlignmentMode = .bottom
+                    case "baseline": label.verticalAlignmentMode = .baseline
+                    default: label.verticalAlignmentMode = .center
+                }
             }
             node = label
         case "SKShapeNode":

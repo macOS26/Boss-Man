@@ -52,10 +52,12 @@ public class SKTexture {
     // (e.g. a per-level maze sheet) — never on a preloaded/atlas texture other
     // nodes still share.
     public func releaseImage() {
-        if handle > 0 { gfx_free_image(handle)
-        handle = 0
-        pendingName = nil
-        size = .zero }
+        if handle > 0 {
+            gfx_free_image(handle)
+            handle = 0
+            pendingName = nil
+            size = .zero
+        }
     }
 
     // Called by anyone that needs a handle: SKSpriteNode.draw, SKView.texture.
@@ -67,9 +69,11 @@ public class SKTexture {
         if handle > 0 { return handle }
         guard let name = pendingName else { return 0 }
         let h = withUTF8Ptr(name) { img_by_name($0, $1) }
-        if h > 0 { handle = h
-        pendingName = nil
-        populateSize() }
+        if h > 0 {
+            handle = h
+            pendingName = nil
+            populateSize()
+        }
         return h
     }
 

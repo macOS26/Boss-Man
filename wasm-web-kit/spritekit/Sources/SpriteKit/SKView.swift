@@ -56,12 +56,16 @@ public final class SKView {
         // it). Without this a scene's teardown never runs — e.g. a per-scene
         // SoundManager's looping music voice lives in the runtime and outlives
         // the Swift object, so the next scene's music stacks on top of it.
-        if let old = self.scene, old !== scene { old.willMove(from: self)
-        old.view = nil }
+        if let old = self.scene, old !== scene {
+            old.willMove(from: self)
+            old.view = nil
+        }
         self.scene = scene
         renderAccum = 1e9   // draw the incoming scene on the very next tick
-        if let s = scene { s.view = self
-        s.didMove(to: self) }
+        if let s = scene {
+            s.view = self
+            s.didMove(to: self)
+        }
     }
 
     // Transitioning between scenes — the transition itself is a no-op; we just

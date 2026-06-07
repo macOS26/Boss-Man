@@ -18,8 +18,10 @@ public final class SKKeyframeSequence {
     var times: [Double] = []
 
     public init() {}
-    public init(capacity: Int) { values.reserveCapacity(capacity)
-    times.reserveCapacity(capacity) }
+    public init(capacity: Int) {
+        values.reserveCapacity(capacity)
+        times.reserveCapacity(capacity)
+    }
     public init(keyframeValues vs: [Any], times ts: [NSNumberLike]) {
         self.values = vs
         self.times = ts.map { $0.doubleValue }
@@ -35,8 +37,10 @@ public final class SKKeyframeSequence {
         values.remove(at: index)
         times.remove(at: index)
     }
-    public func removeLastKeyframe() { _ = values.popLast()
-    _ = times.popLast() }
+    public func removeLastKeyframe() {
+        _ = values.popLast()
+        _ = times.popLast()
+    }
     public func getKeyframeValue(at index: Int) -> Any? {
         (index >= 0 && index < values.count) ? values[index] : nil
     }

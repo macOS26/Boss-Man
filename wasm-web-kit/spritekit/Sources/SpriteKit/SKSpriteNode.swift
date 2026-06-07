@@ -22,12 +22,16 @@ public final class SKSpriteNode: SKNode {
     public var warpGeometry: SKWarpGeometry?
     public var subdivisionLevels: Int = 0
 
-    public init(color: SKColor, size: CGSize) { self.color = color
-    self.size = size
-    super.init() }
-    public init(texture: SKTexture?, size: CGSize) { self.texture = texture
-    self.size = size
-    super.init() }
+    public init(color: SKColor, size: CGSize) {
+        self.color = color
+        self.size = size
+        super.init()
+    }
+    public init(texture: SKTexture?, size: CGSize) {
+        self.texture = texture
+        self.size = size
+        super.init()
+    }
     public init(texture: SKTexture?, color: SKColor, size: CGSize) {
         self.texture = texture
         self.color = color
