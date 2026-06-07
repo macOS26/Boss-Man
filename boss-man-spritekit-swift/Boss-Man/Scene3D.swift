@@ -590,6 +590,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         hud = HUD(requiredItems: Strings.Machine.required)
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
         state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
+        state.goldDiscCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.goldDiscChar }.count }
         refreshHUD()
     }
 
@@ -839,7 +840,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         mapLayer.setScale(mapScale)
         mapLayer.position = CGPoint(x: (size.width - mapW * mapScale) / 2, y: 4)
 
-        let r: CGFloat = 7
+        let r: CGFloat = 11.7
         let arrowPath = CGMutablePath()
         arrowPath.move(to: CGPoint(x: 0, y: r))
         arrowPath.addLine(to: CGPoint(x: -r * 0.55, y: -r * 0.55))
@@ -847,8 +848,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         arrowPath.addLine(to: CGPoint(x:  r * 0.55, y: -r * 0.55))
         arrowPath.closeSubpath()
         let arrow = SKShapeNode(path: arrowPath)
-        arrow.fillColor = .white; arrow.strokeColor = SKColor(white: 0, alpha: 0.5)
-        arrow.lineWidth = 1; arrow.zPosition = 202
+        arrow.fillColor = .white
+        arrow.strokeColor = SKColor(white: 0, alpha: 0.7)
+        arrow.lineWidth = 1.5; arrow.zPosition = 204
         addChild(arrow); mapPeteArrow = arrow
         mapLayer.zPosition = 201
         addChild(mapLayer)
@@ -942,7 +944,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         mapPete.position = pPos
         mapPete.setFacing(facing(moveDir))
         if let arrow = mapPeteArrow {
-            arrow.position = convert(pPos, from: mapLayer)
+            let base = convert(pPos, from: mapLayer)
+            let pad: CGFloat = 14
+            let ox: CGFloat = moveDir.x > 0 ? pad : moveDir.x < 0 ? -pad : 0
+            let oy: CGFloat = moveDir.y > 0 ? -pad : moveDir.y < 0 ? pad : 0
+            arrow.position = CGPoint(x: base.x + ox, y: base.y + oy)
             if moveDir.x > 0      { arrow.zRotation = -.pi / 2 }
             else if moveDir.x < 0 { arrow.zRotation =  .pi / 2 }
             else if moveDir.y > 0 { arrow.zRotation =  .pi }
@@ -960,8 +966,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
             if mapTravelerEmoji != info.emoji {
                 mapTraveler?.removeFromParent()
-                let n = emojiBillboard(info.emoji, mapCell)
-                n.zPosition = 6; mapLayer.addChild(n)
+                let n = emojiBillboard(info.emoji, mapCell * 1.2)
+                n.zPosition = 6
+                mapLayer.addChild(n)
                 mapTraveler = n; mapTravelerEmoji = info.emoji
             }
             mapTraveler?.isHidden = false
@@ -1172,7 +1179,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         resetCollectedMachines()   // un-gray so a fresh report can be gathered (GameScene.resetGrayedMachines)
         refreshHUD()
         hud.showMessage(Strings.Message.tpsTurnedIn(points: tpsPoints, gainedLife: gainedLife), duration: 3)
+        checkLevelComplete3D()
     }
+    func checkLevelComplete3D() {
+        guard state.collectedDots >= state.dotCount,
+              state.collectedGoldDiscs >= state.goldDiscCount,
+              state.tpsReportsDelivered >= 1 else { return }
+        state.advanceLevel()
+        startNextLevel3D()
+    }
+    func startNextLevel3D() {}
     func resetCollectedMachines() {
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
