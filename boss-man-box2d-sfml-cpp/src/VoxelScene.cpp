@@ -188,7 +188,7 @@ void VoxelScene::buildBillboards() {
             double worldH = 0.6;
             bool keep = true;
             switch (ch) {
-            case Tile::dot: case Tile::hideout:   worldH = 0.14; break;
+            case Tile::dot: case Tile::hideout:   worldH = pelletWorldH(); break;
             case Tile::goldDisc:                  worldH = 0.4;  break;
             case Tile::waterPellet:               worldH = 0.4;  break;
             case Tile::waterGun:                  worldH = 0.5;  break;
@@ -383,6 +383,10 @@ void VoxelScene::step() {
         px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
         wantDirSet_ = false;
         targetAngle_ = cardinal(moveDirX_, moveDirY_);
+        if (moveDirX_ > 0) peteDirName_ = "EAST";
+        else if (moveDirX_ < 0) peteDirName_ = "WEST";
+        else if (moveDirY_ > 0) peteDirName_ = "SOUTH";
+        else peteDirName_ = "NORTH";
     }
 
     // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
@@ -409,16 +413,7 @@ void VoxelScene::step() {
             }
         }
     } else {
-        // Released: always finish the step FORWARD onto a tile centre. If Pete is past the
-        // current centre with an open lane ahead, glide onto the next centre; otherwise settle
-        // on the current tile's centre. Either way he lands rounded to a tile centre.
-        bool past = (moveDirX_ != 0 && moveDirX_ * (px_ - ccx) > 0) ||
-                    (moveDirY_ != 0 && moveDirY_ * (py_ - ccy) > 0);
-        bool ahead = past && open(col + moveDirX_, row + moveDirY_);
-        double tx = (ahead ? col + moveDirX_ : col) + 0.5;
-        double ty = (ahead ? row + moveDirY_ : row) + 0.5;
-        px_ += std::max(-speed, std::min(speed, tx - px_));
-        py_ += std::max(-speed, std::min(speed, ty - py_));
+        px_ = ccx; py_ = ccy;
     }
 
     // Dots + small pickups (proximity within half a tile).
@@ -443,13 +438,19 @@ void VoxelScene::step() {
             refreshHUD();
         }
     }
+    billboards_.erase(std::remove_if(billboards_.begin(), billboards_.end(),
+        [](const Billboard& b) { return !b.alive && b.worldH < 0.5; }),
+        billboards_.end());
 
     collectStationary();
     moveShots();
 
-    bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(),
-                           workerDir_(), goldDiscActive_, peteShielded_);
-    travelerSpawner_.update(1.0 / 60.0, gridMap_);   // fixed dt like the boss step (no wall-clock on wasm)
+    if (bossesAllFar())
+        bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(),
+                               workerDir_(), goldDiscActive_, peteShielded_);
+    else
+        bossController_.stopAll();
+    travelerSpawner_.update(1.0 / 60.0, gridMap_);
 
     // Capture each boss's SMOOTH world position from boss.pixelPos (the mover holds
     // the truth; the raycaster never overwrites it in this port). pixelPos is this
@@ -469,6 +470,7 @@ void VoxelScene::step() {
         }
 
     checkBossCatch();
+    if (!bossesAllFar()) retreatBossesFromPete();
     for (auto& tr : travelerSpawner_.travelers) {   // walked onto the traveler's tile -> catch it
         if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
             travelerSpawner_.catchTraveler(tr);
@@ -499,6 +501,17 @@ MoveDirection VoxelScene::workerDir_() const {
     return moveDirY_ > 0 ? MoveDirection::Down : MoveDirection::Up;
 }
 
+// MARK: - Boss helpers
+
+bool VoxelScene::bossesAllFar() {
+    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
+    for (auto& e : bossController_.entities) {
+        if (std::max(std::abs(e.grid.x - pgx), std::abs(e.grid.y - pgy)) <= 3)
+            return false;
+    }
+    return true;
+}
+
 // MARK: - Boss catch
 
 void VoxelScene::checkBossCatch() {
@@ -519,6 +532,39 @@ void VoxelScene::checkBossCatch() {
         } else if (!peteShielded_) {
             startDeath((int)i);
             return;
+        }
+    }
+}
+
+void VoxelScene::retreatBossesFromPete() {
+    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
+    for (size_t i = 0; i < bossController_.entities.size(); ++i) {
+        auto& e = bossController_.entities[i];
+        int bgx = (int)e.grid.x, bgy = (int)e.grid.y;
+        if (std::max(std::abs(bgx - pgx), std::abs(bgy - pgy)) >= 3) continue;
+        auto it = bossRetreatCooldown_.find((int)i);
+        if (it != bossRetreatCooldown_.end() && it->second > 0) { it->second--; continue; }
+        int dx = bgx - pgx, dy = bgy - pgy;
+        std::vector<std::pair<int,int>> primary;
+        if (std::abs(dx) >= std::abs(dy)) {
+            primary = {{dx >= 0 ? 1 : -1, 0}, {0, dy >= 0 ? 1 : -1}, {0, dy >= 0 ? -1 : 1}, {dx >= 0 ? -1 : 1, 0}};
+        } else {
+            primary = {{0, dy >= 0 ? 1 : -1}, {dx >= 0 ? 1 : -1, 0}, {dx >= 0 ? -1 : 1, 0}, {0, dy >= 0 ? -1 : 1}};
+        }
+        for (auto& d : primary) {
+            int nx = bgx + d.first, ny = bgy + d.second;
+            int mr = rowsCount_ - 1 - ny;
+            if (mr < 0 || mr >= rowsCount_ || nx < 0 || nx >= colsCount_) continue;
+            if (map_[mr][nx] == Tile::wall) continue;
+            GridPos dest{nx, ny};
+            e.grid = dest;
+            e.ai.teleport(dest);
+            e.isMoving = false;
+            e.pixelPos = gridMap_.pointFor(dest);
+            e.startPos = e.pixelPos;
+            e.targetPos = e.pixelPos;
+            bossRetreatCooldown_[(int)i] = 10;
+            break;
         }
     }
 }
@@ -874,7 +920,7 @@ void VoxelScene::render(sf::RenderTarget& target) {
         peteRenderer.draw(target, {cx, cy}, false, moving, MoveDirection::None,
                           (float)peteWalkPhase_, alpha, scale);
         if (!dying_)
-            drawCenteredText(target, Worker::PETE, 22.f, sf::Color::White,
+            drawCenteredText(target, peteDirName_, 22.f, sf::Color::White,
                              cx, screenY(peteBaseY + target_h / 2.f + 16.f));
     }
 
@@ -934,6 +980,38 @@ void VoxelScene::drawSky(sf::RenderTarget& target) {
         sky.append(sf::Vertex({0.f, yBot}, col));
     }
     target.draw(sky);
+
+    {
+        const int glowN = 60;
+        const float glowBottom = viewMidY();
+        sf::VertexArray glow(sf::Quads);
+        for (int i = 0; i < glowN; ++i) {
+            float t = 1.0f - (float)i / (float)std::max(1, glowN - 1);
+            uint8_t alpha = (uint8_t)(t * t * 0.55f * 255);
+            sf::Color gc(255, (uint8_t)(0.82f * 255), (uint8_t)(0.35f * 255), alpha);
+            float yTop = screenY(glowBottom + i + 1);
+            float yBot = screenY(glowBottom + i);
+            glow.append(sf::Vertex({0.f, yTop}, gc));
+            glow.append(sf::Vertex({viewW_, yTop}, gc));
+            glow.append(sf::Vertex({viewW_, yBot}, gc));
+            glow.append(sf::Vertex({0.f, yBot}, gc));
+        }
+        target.draw(glow);
+
+        const float glowH = (float)glowN;
+        const float shaftW = viewW_ * 0.045f;
+        const float shaftH = glowH * 0.85f;
+        sf::Color shaftCol(255, (uint8_t)(0.92f * 255), (uint8_t)(0.60f * 255), (uint8_t)(0.18f * 255));
+        for (int s = 0; s < 5; ++s) {
+            float cx = viewW_ * 0.1f + s * (viewW_ * 0.8f / 4.f);
+            float shaftTop = screenY(glowBottom + shaftH);
+            float shaftBot = screenY(glowBottom);
+            sf::RectangleShape shaft({shaftW, shaftBot - shaftTop});
+            shaft.setPosition(cx - shaftW / 2.f, shaftTop);
+            shaft.setFillColor(shaftCol);
+            target.draw(shaft);
+        }
+    }
 
     sf::RectangleShape ground({viewW_, viewMidY() - radarH_});
     ground.setPosition(0.f, screenY(viewMidY())); // top of floor band (y-down)
@@ -1083,7 +1161,7 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
     const double maxD = maxVoxelDist_;
     const float vMid = viewMidY(), vH = viewH();
 
-    struct VQuad { float x0,y0,x1,y1,x2,y2,x3,y3; sf::Color color; double depth; };
+    struct VQuad { float x0,y0,x1,y1,x2,y2,x3,y3; sf::Color color; double depth; bool isCap; };
     std::vector<VQuad> quads; quads.reserve(columns_);
     struct WallRun { int firstCol, lastCol; float yLoA, yHiA, yLoB, yHiB; double depthSum; int n, side, par; };
     std::unordered_map<int, WallRun> openF;
@@ -1103,7 +1181,7 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
             yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA);
         }
         double dAvg = r.depthSum / r.n;
-        quads.push_back({xL, yLoL, xL, yHiL, xR, yHiR, xR, yLoR, shade(dAvg, r.side, r.par), dAvg});
+        quads.push_back({xL, yLoL, xL, yHiL, xR, yHiR, xR, yLoR, shade(dAvg, r.side, r.par), dAvg, false});
     };
     auto addFront = [&](int key, int col, float yLo, float yHi, double d, int side, int par) {
         auto it = openF.find(key);
@@ -1171,16 +1249,22 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         }
         if (!ok) continue;
         double dAvg = dsum / 4;
-        if (dAvg > maxD) continue;
+        const double wallFar = 40.0;
+        if (dAvg > wallFar) continue;
         int par = ((int)cx + (int)cy) & 1;
-        float f = (float)std::max(0.10, std::min(1.0, 1.0 - dAvg / maxD)) * (par == 1 ? 1.0f : 0.82f);
-        float br = cube.r * f, bg = cube.g * f, bb = cube.b * f;               // depth-shaded base
-        br += (1.0f - br) * 0.3f; bg += (1.0f - bg) * 0.3f; bb += (1.0f - bb) * 0.3f;   // lit top: 0.3 toward white
+        float f = (par == 1 ? 1.0f : 0.82f);
+        float br = cube.r * f, bg = cube.g * f, bb = cube.b * f;
+        br += (1.0f - br) * 0.3f; bg += (1.0f - bg) * 0.3f; bb += (1.0f - bb) * 0.3f;
+        float capFogT = std::min(1.0f, (float)(dAvg / wallFar)) * 0.85f;
+        br *= (1.0f - capFogT); bg *= (1.0f - capFogT); bb *= (1.0f - capFogT);
         sf::Color col((uint8_t)(br * 255), (uint8_t)(bg * 255), (uint8_t)(bb * 255));
-        quads.push_back({qx[0],qy[0], qx[1],qy[1], qx[2],qy[2], qx[3],qy[3], col, dAvg});
+        quads.push_back({qx[0],qy[0], qx[1],qy[1], qx[2],qy[2], qx[3],qy[3], col, dAvg, true});
     }
 
-    std::sort(quads.begin(), quads.end(), [](const VQuad& a, const VQuad& b) { return a.depth > b.depth; });   // far -> near
+    std::sort(quads.begin(), quads.end(), [](const VQuad& a, const VQuad& b) {
+        if (a.isCap != b.isCap) return !a.isCap;
+        return a.depth > b.depth;
+    });
     sf::VertexArray va(sf::Quads);
     for (auto& q : quads) {
         va.append(sf::Vertex({q.x0, screenY(q.y0)}, q.color));
@@ -1497,6 +1581,24 @@ void VoxelScene::drawMap(sf::RenderTarget& target) {
         MoveDirection face = workerDir_();
         mapPete.draw(target, p, face == MoveDirection::Left, moving, face,
                      (float)peteWalkPhase_, 1.0f, mapScale_ * 0.9f);
+
+        const float r = 7.f;
+        sf::ConvexShape arrow(4);
+        arrow.setPoint(0, sf::Vector2f(0.f,        -r));
+        arrow.setPoint(1, sf::Vector2f(-r * 0.55f,  r * 0.55f));
+        arrow.setPoint(2, sf::Vector2f(0.f,          r * 0.2f));
+        arrow.setPoint(3, sf::Vector2f( r * 0.55f,  r * 0.55f));
+        arrow.setFillColor(sf::Color::White);
+        arrow.setOutlineThickness(1.f);
+        arrow.setOutlineColor(sf::Color(0, 0, 0, 128));
+        arrow.setOrigin(0.f, 0.f);
+        arrow.setPosition(p);
+        float deg = 0.f;
+        if      (face == MoveDirection::Right) deg =  90.f;
+        else if (face == MoveDirection::Left)  deg = 270.f;
+        else if (face == MoveDirection::Down)  deg = 180.f;
+        arrow.setRotation(deg);
+        target.draw(arrow);
     }
 
     // Minimap mini score popups (fontSize 40, scaled into the radar like mapLayer).

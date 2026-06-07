@@ -13,6 +13,8 @@ namespace bm {
 
 namespace {
 
+constexpr float eyeHeight_ = 0.333f;
+
 // SFML key codes used by the tank controls (mirrors the SpriteKit KeyCode set).
 constexpr int K_ESC   = sf::Keyboard::Escape;
 constexpr int K_P     = sf::Keyboard::P;
@@ -186,7 +188,7 @@ void DoomScene::buildBillboards() {
             double worldH = 0.6;
             bool keep = true;
             switch (ch) {
-            case Tile::dot: case Tile::hideout:   worldH = 0.14; break;
+            case Tile::dot: case Tile::hideout:   worldH = pelletWorldH(); break;
             case Tile::goldDisc:                  worldH = 0.4;  break;
             case Tile::waterPellet:               worldH = 0.4;  break;
             case Tile::waterGun:                  worldH = 0.5;  break;
@@ -381,6 +383,10 @@ void DoomScene::step() {
         px_ = ccx; py_ = ccy; moveDirX_ = wantDirX_; moveDirY_ = wantDirY_;
         wantDirSet_ = false;
         targetAngle_ = cardinal(moveDirX_, moveDirY_);
+        if (moveDirX_ > 0) peteDirName_ = "EAST";
+        else if (moveDirX_ < 0) peteDirName_ = "WEST";
+        else if (moveDirY_ > 0) peteDirName_ = "SOUTH";
+        else peteDirName_ = "NORTH";
     }
 
     // Hold ↑ = forward along facing; release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
@@ -407,16 +413,7 @@ void DoomScene::step() {
             }
         }
     } else {
-        // Released: always finish the step FORWARD onto a tile centre. If Pete is past the
-        // current centre with an open lane ahead, glide onto the next centre; otherwise settle
-        // on the current tile's centre. Either way he lands rounded to a tile centre.
-        bool past = (moveDirX_ != 0 && moveDirX_ * (px_ - ccx) > 0) ||
-                    (moveDirY_ != 0 && moveDirY_ * (py_ - ccy) > 0);
-        bool ahead = past && open(col + moveDirX_, row + moveDirY_);
-        double tx = (ahead ? col + moveDirX_ : col) + 0.5;
-        double ty = (ahead ? row + moveDirY_ : row) + 0.5;
-        px_ += std::max(-speed, std::min(speed, tx - px_));
-        py_ += std::max(-speed, std::min(speed, ty - py_));
+        px_ = ccx; py_ = ccy;
     }
 
     // Dots + small pickups (proximity within half a tile).
@@ -441,13 +438,19 @@ void DoomScene::step() {
             refreshHUD();
         }
     }
+    billboards_.erase(std::remove_if(billboards_.begin(), billboards_.end(),
+        [](const Billboard& b) { return !b.alive && b.worldH < 0.5; }),
+        billboards_.end());
 
     collectStationary();
     moveShots();
 
-    bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(),
-                           workerDir_(), goldDiscActive_, peteShielded_);
-    travelerSpawner_.update(1.0 / 60.0, gridMap_);   // fixed dt like the boss step (no wall-clock on wasm)
+    if (bossesAllFar())
+        bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(),
+                               workerDir_(), goldDiscActive_, peteShielded_);
+    else
+        bossController_.stopAll();
+    travelerSpawner_.update(1.0 / 60.0, gridMap_);
 
     // Capture each boss's SMOOTH world position from boss.pixelPos (the mover holds
     // the truth; the raycaster never overwrites it in this port). pixelPos is this
@@ -467,6 +470,7 @@ void DoomScene::step() {
         }
 
     checkBossCatch();
+    if (!bossesAllFar()) retreatBossesFromPete();
     for (auto& tr : travelerSpawner_.travelers) {   // walked onto the traveler's tile -> catch it
         if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
             travelerSpawner_.catchTraveler(tr);
@@ -497,6 +501,17 @@ MoveDirection DoomScene::workerDir_() const {
     return moveDirY_ > 0 ? MoveDirection::Down : MoveDirection::Up;
 }
 
+// MARK: - Boss helpers
+
+bool DoomScene::bossesAllFar() {
+    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
+    for (auto& e : bossController_.entities) {
+        if (std::max(std::abs(e.grid.x - pgx), std::abs(e.grid.y - pgy)) <= 3)
+            return false;
+    }
+    return true;
+}
+
 // MARK: - Boss catch
 
 void DoomScene::checkBossCatch() {
@@ -517,6 +532,39 @@ void DoomScene::checkBossCatch() {
         } else if (!peteShielded_) {
             startDeath((int)i);
             return;
+        }
+    }
+}
+
+void DoomScene::retreatBossesFromPete() {
+    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
+    for (size_t i = 0; i < bossController_.entities.size(); ++i) {
+        auto& e = bossController_.entities[i];
+        int bgx = (int)e.grid.x, bgy = (int)e.grid.y;
+        if (std::max(std::abs(bgx - pgx), std::abs(bgy - pgy)) >= 3) continue;
+        auto it = bossRetreatCooldown_.find((int)i);
+        if (it != bossRetreatCooldown_.end() && it->second > 0) { it->second--; continue; }
+        int dx = bgx - pgx, dy = bgy - pgy;
+        std::vector<std::pair<int,int>> primary;
+        if (std::abs(dx) >= std::abs(dy)) {
+            primary = {{dx >= 0 ? 1 : -1, 0}, {0, dy >= 0 ? 1 : -1}, {0, dy >= 0 ? -1 : 1}, {dx >= 0 ? -1 : 1, 0}};
+        } else {
+            primary = {{0, dy >= 0 ? 1 : -1}, {dx >= 0 ? 1 : -1, 0}, {dx >= 0 ? -1 : 1, 0}, {0, dy >= 0 ? -1 : 1}};
+        }
+        for (auto& d : primary) {
+            int nx = bgx + d.first, ny = bgy + d.second;
+            int mr = rowsCount_ - 1 - ny;
+            if (mr < 0 || mr >= rowsCount_ || nx < 0 || nx >= colsCount_) continue;
+            if (map_[mr][nx] == Tile::wall) continue;
+            GridPos dest{nx, ny};
+            e.grid = dest;
+            e.ai.teleport(dest);
+            e.isMoving = false;
+            e.pixelPos = gridMap_.pointFor(dest);
+            e.startPos = e.pixelPos;
+            e.targetPos = e.pixelPos;
+            bossRetreatCooldown_[(int)i] = 10;
+            break;
         }
     }
 }
@@ -805,6 +853,7 @@ void DoomScene::render(sf::RenderTarget& target) {
     camX_ = px_ - dirX * back; camY_ = py_ - dirY * back;
 
     drawFloor(target, dirX, dirY, planeX, planeY);
+    drawCeiling(target, dirX, dirY, planeX, planeY);
     renderWalls(target, dirX, dirY, planeX, planeY);
     projectSprites(dirX, dirY, planeX, planeY);
 
@@ -848,7 +897,7 @@ void DoomScene::render(sf::RenderTarget& target) {
             float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);
             if (screenX <= -60 || screenX >= viewW_ + 60) continue;
             float targetH = (float)(viewH() / tY * 0.42);
-            float floorYUp = viewMidY() - (float)(viewH() / tY) / 2.f;
+            float floorYUp = viewMidY() - (float)(viewH() / tY) * eyeHeight_;
             float scl = tr.catching ? tr.catchScale : 1.f;
             uint8_t a = (uint8_t)((tr.catching ? tr.catchAlpha : 1.f) * 255);
             drawEmoji(target, tr.emoji, sf::Vector2f(screenX, screenY(floorYUp + targetH * 0.5f)),
@@ -872,7 +921,7 @@ void DoomScene::render(sf::RenderTarget& target) {
         peteRenderer.draw(target, {cx, cy}, false, moving, MoveDirection::None,
                           (float)peteWalkPhase_, alpha, scale);
         if (!dying_)
-            drawCenteredText(target, Worker::PETE, 22.f, sf::Color::White,
+            drawCenteredText(target, peteDirName_, 22.f, sf::Color::White,
                              cx, screenY(peteBaseY + target_h / 2.f + 16.f));
     }
 
@@ -961,7 +1010,7 @@ void DoomScene::drawFloor(sf::RenderTarget& target, double dirX, double dirY,
     for (int dy = yStart; dy <= yEnd; ++dy) {
         float distFromHorizon = (float)dy - horizonDY;
         if (distFromHorizon <= 0.5f) continue;
-        double d = viewH() / (2.0 * distFromHorizon);     // perpendicular floor distance
+        double d = viewH() * eyeHeight_ / distFromHorizon;
         double fx = camX_ + d * rdx0, fy = camY_ + d * rdy0;
         double stepX = d * (rdx1 - rdx0) / W, stepY = d * (rdy1 - rdy0) / W;
         int runStart = 0;
@@ -980,6 +1029,55 @@ void DoomScene::drawFloor(sf::RenderTarget& target, double dirX, double dirY,
                 quads.append(sf::Vertex({x1, y1}, c));
                 quads.append(sf::Vertex({x0, y1}, c));
                 runStart = x; runParity = parity;
+            }
+        }
+    }
+    target.draw(quads);
+}
+
+void DoomScene::drawCeiling(sf::RenderTarget& target, double dirX, double dirY,
+                            double planeX, double planeY) {
+    const double ceilH = 1.0 - eyeHeight_;
+    double rdx0 = dirX - planeX, rdy0 = dirY - planeY;
+    double rdx1 = dirX + planeX, rdy1 = dirY + planeY;
+    const float horizonDY = screenY(viewMidY());
+    const float topDY = screenY(viewHeight_);
+    const int W = (int)viewW_;
+    const sf::Color brightCeil(240, 247, 225);
+    sf::VertexArray quads(sf::Quads);
+    int yStart = (int)std::ceil(topDY);
+    int yEnd = (int)std::floor(horizonDY) - 1;
+    for (int dy = yStart; dy <= yEnd; ++dy) {
+        float distFromHorizon = horizonDY - (float)dy;
+        if (distFromHorizon <= 0.5f) continue;
+        double dc = viewH() * ceilH / distFromHorizon;
+        if (dc > 13.0) continue;
+        double fx = camX_ + dc * rdx0, fy = camY_ + dc * rdy0;
+        double stepX = dc * (rdx1 - rdx0) / W, stepY = dc * (rdy1 - rdy0) / W;
+        int runStart = 0;
+        bool runLit = false;
+        {
+            double wx = fx, wy = fy;
+            double fracX = wx - std::floor(wx), fracY = wy - std::floor(wy);
+            runLit = fracX > 0.25 && fracX < 0.75 && fracY > 0.25 && fracY < 0.75;
+        }
+        for (int x = 1; x <= W; ++x) {
+            bool lit = false;
+            if (x < W) {
+                double wx = fx + stepX * x, wy = fy + stepY * x;
+                double fracX = wx - std::floor(wx), fracY = wy - std::floor(wy);
+                lit = fracX > 0.25 && fracX < 0.75 && fracY > 0.25 && fracY < 0.75;
+            }
+            if (lit != runLit) {
+                if (runLit) {
+                    float x0 = (float)runStart, x1 = (float)x;
+                    float y0 = (float)dy, y1 = (float)dy + 1.f;
+                    quads.append(sf::Vertex({x0, y0}, brightCeil));
+                    quads.append(sf::Vertex({x1, y0}, brightCeil));
+                    quads.append(sf::Vertex({x1, y1}, brightCeil));
+                    quads.append(sf::Vertex({x0, y1}, brightCeil));
+                }
+                runStart = x; runLit = lit;
             }
         }
     }
@@ -1015,8 +1113,8 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
         double perp = side == 0 ? (sideX - ddx) : (sideY - ddy);
         double d = hitWall ? std::max(0.05, perp) : 1e9;
         float lineH = std::min((float)viewH() * 4.f, (float)(viewH() / d));
-        cTop[i] = viewMidY() + lineH / 2.f; // y-up
-        cBot[i] = viewMidY() - lineH / 2.f;
+        cTop[i] = viewMidY() + lineH * (1.0f - eyeHeight_);
+        cBot[i] = viewMidY() - lineH * eyeHeight_;
         cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall;
         cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2
                                         : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1;
@@ -1084,7 +1182,7 @@ void DoomScene::projectSprites(double dirX, double dirY, double planeX, double p
         visible = true;
         screenXOut = screenX;
         scaleOut = targetH / nativeH;
-        floorYOut = viewMidY() - (float)(viewH() / tY) / 2.f; // y-up floor row
+        floorYOut = viewMidY() - (float)(viewH() / tY) * eyeHeight_;
         depthOut = std::min(40.f, (float)(2 + 30 / tY));
     };
 
@@ -1365,6 +1463,24 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
         MoveDirection face = workerDir_();
         mapPete.draw(target, p, face == MoveDirection::Left, moving, face,
                      (float)peteWalkPhase_, 1.0f, mapScale_ * 0.9f);
+
+        const float r = 7.f;
+        sf::ConvexShape arrow(4);
+        arrow.setPoint(0, sf::Vector2f(0.f,        -r));
+        arrow.setPoint(1, sf::Vector2f(-r * 0.55f,  r * 0.55f));
+        arrow.setPoint(2, sf::Vector2f(0.f,          r * 0.2f));
+        arrow.setPoint(3, sf::Vector2f( r * 0.55f,  r * 0.55f));
+        arrow.setFillColor(sf::Color::White);
+        arrow.setOutlineThickness(1.f);
+        arrow.setOutlineColor(sf::Color(0, 0, 0, 128));
+        arrow.setOrigin(0.f, 0.f);
+        arrow.setPosition(p);
+        float deg = 0.f;
+        if      (face == MoveDirection::Right) deg =  90.f;
+        else if (face == MoveDirection::Left)  deg = 270.f;
+        else if (face == MoveDirection::Down)  deg = 180.f;
+        arrow.setRotation(deg);
+        target.draw(arrow);
     }
 
     // Minimap mini score popups (fontSize 40, scaled into the radar like mapLayer).

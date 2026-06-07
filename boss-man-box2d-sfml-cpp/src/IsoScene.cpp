@@ -234,7 +234,7 @@ void IsoScene::buildIso() {
         sideP[p]  = mul(cubeP[p], 0.50f);
     }
     const sf::Color floorP[2] = {sf::Color(18, 18, 18), sf::Color(36, 36, 36)}; // white 0.07 / 0.14
-    const sf::Color trimCol(128, 128, 128);                                     // systemGray
+    const sf::Color trimCol(142, 142, 147);
     const double mid = colsCount_ / 2.0;
 
     mazeRows_.assign(rowsCount_, sf::VertexArray(sf::Quads));
@@ -292,9 +292,9 @@ void IsoScene::buildIso() {
 
 void IsoScene::appendDotFaces(sf::VertexArray& va, int c, int r, bool gold) const {
     const sf::Color dotTop(255, 231, 0), dotFront(178, 162, 0), dotSide(127, 115, 0);
-    double h = (gold ? 0.28 : 0.20) * 0.85;
+    double h = (gold ? 0.28 : 0.20) * 0.7225;
     double cx0 = c + 0.5, ry0 = r + 0.5, mid = colsCount_ / 2.0;
-    double yT = ((gold ? 1.2 : 0.95) * 0.85 * isoWH_ - 9) / std::max(1.0, isoWH_);
+    double yT = ((gold ? 1.2 : 0.95) * 0.7225 * isoWH_ - 9) / std::max(1.0, isoWH_);
     auto lift = [](sf::Vector2f p) { return sf::Vector2f(p.x, p.y + 10.f); }; // matches Swift position.y += 10
     sf::Vector2f bNW = lift(proj(cx0 - h, ry0 - h, 0)), bNE = lift(proj(cx0 + h, ry0 - h, 0)),
                  bSE = lift(proj(cx0 + h, ry0 + h, 0)), bSW = lift(proj(cx0 - h, ry0 + h, 0));
@@ -409,7 +409,7 @@ void IsoScene::update(float dt) {
     for (auto& m : miniPops_) { m.timer -= dt; m.pos.y -= 60.f * dt; }
     miniPops_.erase(std::remove_if(miniPops_.begin(), miniPops_.end(),
         [](const MiniPop& m) { return m.timer <= 0; }), miniPops_.end());
-    for (auto& m : bigPops_) { m.timer -= dt; m.pos.y -= (m.fontSize * 1.55f / 0.7f) * dt; }
+    for (auto& m : bigPops_) { m.timer -= dt; m.pos.y -= (55.f / 0.7f) * dt; }
     bigPops_.erase(std::remove_if(bigPops_.begin(), bigPops_.end(),
         [](const MiniPop& m) { return m.timer <= 0; }), bigPops_.end());
 }
@@ -453,8 +453,10 @@ void IsoScene::step() {
     checkBossCatch();
     for (auto& tr : travelerSpawner_.travelers) {
         if (tr.active && !tr.catching && tr.grid == workerGrid_()) {
+            std::string caughtEmoji = tr.emoji;
             travelerSpawner_.catchTraveler(tr);
             state_.bumpScore(tr.points); sound_.playFishOrTreat(); popPoints(tr.points); refreshHUD();
+            hud_.showMessage("Caught " + caughtEmoji + "!", 2.f);
         }
     }
 
@@ -637,7 +639,7 @@ void IsoScene::resetCollectedMachines() {
 void IsoScene::popPoints(int n) {
     sf::Vector2f foot = toScreen(proj(px_, py_, 0));
     bigPops_.push_back(MiniPop{"+" + std::to_string(n),
-                               {foot.x, foot.y - (float)isoTW_}, 0.7f, std::max(30.f, (float)(isoTW_ * 0.45))});
+                               {foot.x, foot.y - (float)isoTW_ + 25.f}, 0.7f, std::max(30.f, (float)(isoTW_ * 0.45))});
     sf::Vector2f petePos = mapLocal(px_, py_);
     miniPops_.push_back(MiniPop{"+" + std::to_string(n), petePos, 0.7f, 40.f});
 }

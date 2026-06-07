@@ -21,6 +21,7 @@ public:
     virtual bool isGameOver() const = 0;
     virtual bool wantsExit() const = 0;
     virtual void clearExit() = 0;
+    virtual double pelletWorldH() const { return 0.14; }
 };
 
 } // namespace bm

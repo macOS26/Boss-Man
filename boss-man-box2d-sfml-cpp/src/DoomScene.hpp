@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <unordered_set>
+#include <unordered_map>
 #include <map>
 #include "GridMap.hpp"
 #include "Pathfinder.hpp"
@@ -75,6 +76,7 @@ private:
     double px_ = 1.5, py_ = 1.5, angle_ = 0.0;
     int moveDirX_ = 1, moveDirY_ = 0;       // current lane direction (cardinal)
     bool wantDirSet_ = false; int wantDirX_ = 0, wantDirY_ = 0; // queued junction turn
+    std::string peteDirName_ = "PETE";
     double targetAngle_ = 0.0;
     double spawnPx_ = 1.5, spawnPy_ = 1.5;
     double camX_ = 0.0, camY_ = 0.0;
@@ -84,8 +86,8 @@ private:
     static constexpr double camBack_ = 0.65;
 
     // MARK: - Layout / projection
-    static constexpr int columns_ = 200;
-    static constexpr double planeScale_ = 0.5773; // tan(30°), fov 60°
+    static constexpr int columns_ = 220;
+    static constexpr double planeScale_ = 1.2;
     float radarH_ = 180.f;
     float viewW_ = 0.f, viewHeight_ = 0.f; // window logical width/height
     float viewH() const { return viewHeight_ - radarH_; }
@@ -110,6 +112,7 @@ private:
     std::unique_ptr<Pathfinder> pathfinder_;
     BossController bossController_;
     bool peteShielded_ = false;
+    std::unordered_map<int, int> bossRetreatCooldown_;
 
     // MARK: - Traveler (the fish/treat that walks the maze, same spawner as 2D)
     TravelerSpawner travelerSpawner_;
@@ -206,6 +209,8 @@ private:
     void collectTPSReport();
     void resetCollectedMachines();
     void popPoints(int n);
+    bool bossesAllFar();
+    void retreatBossesFromPete();
     void checkBossCatch();
     GridPos workerGrid_() const;       // Pete reported in GridMap bottom-up coords
     MoveDirection workerDir_() const;
@@ -227,6 +232,8 @@ private:
     void drawSky(sf::RenderTarget& target);
     void drawFloor(sf::RenderTarget& target, double dirX, double dirY,
                    double planeX, double planeY);
+    void drawCeiling(sf::RenderTarget& target, double dirX, double dirY,
+                     double planeX, double planeY);
     void drawMap(sf::RenderTarget& target);
     void drawControls(sf::RenderTarget& target);
 

@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <unordered_set>
+#include <unordered_map>
 #include <map>
 #include "GridMap.hpp"
 #include "Pathfinder.hpp"
@@ -75,6 +76,7 @@ private:
     double px_ = 1.5, py_ = 1.5, angle_ = 0.0;
     int moveDirX_ = 1, moveDirY_ = 0;       // current lane direction (cardinal)
     bool wantDirSet_ = false; int wantDirX_ = 0, wantDirY_ = 0; // queued junction turn
+    std::string peteDirName_ = "PETE";
     double targetAngle_ = 0.0;
     double spawnPx_ = 1.5, spawnPy_ = 1.5;
     double camX_ = 0.0, camY_ = 0.0;
@@ -82,6 +84,8 @@ private:
     double peteWalkPhase_ = 0.0; // Pete leg/arm walk clock, in seconds, advances only while moving
     float animTime_ = 0.0f;  // monotonic clock for pickup throbs (always advances)
     static constexpr double camBack_ = 0.65;
+
+    double pelletWorldH() const override { return 0.15; }
 
     // MARK: - Layout / projection (VOXEL: wide FOV + raised, tilted-down camera, mirroring VoxelScene.swift)
     static constexpr int columns_ = 220;           // Scene3D default (DoomScene narrows to 200)
@@ -113,6 +117,7 @@ private:
     std::unique_ptr<Pathfinder> pathfinder_;
     BossController bossController_;
     bool peteShielded_ = false;
+    std::unordered_map<int, int> bossRetreatCooldown_;
 
     // MARK: - Traveler (the fish/treat that walks the maze, same spawner as 2D)
     TravelerSpawner travelerSpawner_;
@@ -209,6 +214,8 @@ private:
     void collectTPSReport();
     void resetCollectedMachines();
     void popPoints(int n);
+    bool bossesAllFar();
+    void retreatBossesFromPete();
     void checkBossCatch();
     GridPos workerGrid_() const;       // Pete reported in GridMap bottom-up coords
     MoveDirection workerDir_() const;
