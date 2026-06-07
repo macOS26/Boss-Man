@@ -158,6 +158,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var mapPete: PixelPerson!
     var mapPeteArrow: SKShapeNode?
     var mapPickups: [Int: SKNode] = [:]
+    var mapDotKeys: Set<Int> = []
+    var mapDotShape: SKShapeNode?
     let mapCell: CGFloat = 32
     var mapScale: CGFloat = 1
 
@@ -448,14 +450,18 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         var quads: [VQuad] = []
         for key in tops {
             let tx = key % colsCount, ty = key / colsCount
-            for (side, faceV, adx, ady) in [(0, tx, -1, 0), (0, tx + 1, 1, 0), (1, ty, 0, -1), (1, ty + 1, 0, 1)] {
+            let dtx0 = Double(tx), dtx1 = Double(tx + 1), dty0 = Double(ty), dty1 = Double(ty + 1)
+            let faces: [(side: Int, faceV: Int, adx: Int, ady: Int)] = [
+                camX <= dtx0 ? (0, tx, -1, 0) : nil,
+                camX >= dtx1 ? (0, tx + 1, 1, 0) : nil,
+                camY <= dty0 ? (1, ty, 0, -1) : nil,
+                camY >= dty1 ? (1, ty + 1, 0, 1) : nil
+            ].compactMap { $0 }
+            for (side, faceV, adx, ady) in faces {
                 let adjX = tx + adx, adjY = ty + ady
                 let exposed = adjX < 0 || adjX >= colsCount || adjY < 0 || adjY >= rowsCount
                            || map[adjY][adjX] != Strings.Tile.wallChar
                 if !exposed { continue }
-                let onOpen = side == 0 ? (adx < 0 ? camX <= Double(faceV) : camX >= Double(faceV))
-                                       : (ady < 0 ? camY <= Double(faceV) : camY >= Double(faceV))
-                if !onOpen { continue }
                 let wx0 = side == 0 ? Double(faceV) : Double(tx),     wy0 = side == 0 ? Double(ty)     : Double(faceV)
                 let wx1 = side == 0 ? Double(faceV) : Double(tx + 1), wy1 = side == 0 ? Double(ty + 1) : Double(faceV)
                 let rawA = invDet * (-planeY * (wx0 - camX) + planeX * (wy0 - camY))
@@ -958,16 +964,19 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         addBaked(bakeTree, to: mapLayer, z: 0)
 
-        // Dots all share one baked texture so they batch into ~one draw call, gold
-        // and water keep their own node so each can be hidden when collected.
-        let dotTex = view?.texture(from: SpriteFactory.dotVisual(size: mapCell * 0.2))
+        // Dots are one SKShapeNode (all rects in a single path); gold/water/machines
+        // keep their own node so each can be hidden/throbbed individually.
+        let dotSz = mapCell * 0.2
         for r in 0..<rowsCount {
             for (c, ch) in map[r].enumerated() {
                 let center = mapLocal(Double(c) + 0.5, Double(r) + 0.5)
-                var pickup: SKNode?
                 switch ch {
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
-                    pickup = dotTex.map { SKSpriteNode(texture: $0) } ?? SpriteFactory.dotVisual(size: mapCell * 0.2)
+                    mapDotKeys.insert(mapKey(c, r))
+                default: break
+                }
+                var pickup: SKNode?
+                switch ch {
                 case Strings.Tile.goldDiscChar:    pickup = SpriteFactory.goldDiscVisual(radius: mapCell * 0.28)
                 case Strings.Tile.waterPelletChar: pickup = SpriteFactory.waterPelletVisual(radius: mapCell * 0.32)
                 case Strings.Tile.waterGunChar:    pickup = emojiBillboard(Strings.Emoji.waterGun, mapCell * 1.0)
@@ -999,6 +1008,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 }
             }
         }
+        rebuildDotShape(dotSz: dotSz)
         mapPete = SpriteFactory.petePerson(walkExaggeration: 1)
         mapPete.zPosition = 5
         mapLayer.addChild(mapPete)
@@ -1024,6 +1034,25 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         mapPeteArrow = arrow
         mapLayer.zPosition = 201
         addChild(mapLayer)
+    }
+
+    func rebuildDotShape(dotSz: CGFloat) {
+        mapDotShape?.removeFromParent()
+        guard !mapDotKeys.isEmpty else { mapDotShape = nil; return }
+        let path = CGMutablePath()
+        for key in mapDotKeys {
+            let c = key % colsCount, r = key / colsCount
+            let center = mapLocal(Double(c) + 0.5, Double(r) + 0.5)
+            let hw = dotSz / 2
+            path.addRect(CGRect(x: center.x - hw, y: center.y - hw, width: dotSz, height: dotSz))
+        }
+        let shape = SKShapeNode(path: path)
+        shape.fillColor = .systemYellow
+        shape.strokeColor = .clear
+        shape.isAntialiased = false
+        shape.zPosition = 2
+        mapLayer.addChild(shape)
+        mapDotShape = shape
     }
 
     func setupBossController() {
@@ -1220,8 +1249,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 billboards[i].node.removeFromParent()
                 let bc = Int(billboards[i].x), br = Int(billboards[i].y)
                 let mk = mapKey(bc, br)
-                mapPickups[mk]?.removeFromParent()
-                mapPickups[mk] = nil
+                if mapDotKeys.remove(mk) != nil {
+                    rebuildDotShape(dotSz: mapCell * 0.2)
+                } else {
+                    mapPickups[mk]?.removeFromParent()
+                    mapPickups[mk] = nil
+                }
                 switch map[br][bc] {
                 case Strings.Tile.goldDiscChar:    sound.playGoldDisc()
                 state.collectedGoldDiscs += 1
@@ -1231,6 +1264,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 case Strings.Tile.waterPelletChar: sound.playWaterGunPickup()
                 state.bumpScore(by: 50)
                 popPoints(50)
+                if waterGunPickedUp { waterGun.reloadPellets(8) }
                 default:                           sound.playDotBlip()
                 state.collectedDots += 1
                 state.bumpScore(by: 1)
@@ -1473,7 +1507,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             billboards[i].alive = false
             billboards[i].node.isHidden = true
         }
-        mapPickups[key]?.isHidden = true
+        if mapDotKeys.remove(key) != nil {
+            rebuildDotShape(dotSz: mapCell * 0.2)
+        } else {
+            mapPickups[key]?.isHidden = true
+        }
     }
     func grayPickupInWorld(col: Int, row: Int) {
         let key = mapKey(col, row)
