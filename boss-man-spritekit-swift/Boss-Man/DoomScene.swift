@@ -1,17 +1,18 @@
 import SpriteKit
 import AppKit
 
-// 3D bonus round: the office maze (level 1) rendered first/third-person with flat
-// 2D graphics — a Wolfenstein-style DDA raycaster for the walls, a smooth blended
-// sunset sky, and billboarded game sprites (pellets, gold discs, bosses) standing
-// in the corridors. The camera trails behind Pete so you see him walking ahead of
-// you. A top-down radar sits at the bottom. Common to both ports.
 final class DoomScene: Scene3D {
 
     // MARK: - Layout / projection
-    override var columns: Int { 200 }
-    private let planeScale = 0.5773          // tan(fov/2), fov 60° (no tan() on wasm)
-    private var bars: [SKShapeNode] = []
+    private let planeScale = 1.2              // tan(fov/2): wide ~100° FOV so a big swath of maze shows left/right
+    // Overhead-ish framing so the whole maze reads: a raised camera (eyeHeight > 0.5 drops the
+    // walls below the horizon = looking DOWN on the maze) plus shorter walls you can see over.
+    // 0.5 / 1.0 is the flat eye-level look; raise eyeHeight and lower wallHeightScale to tilt down.
+    private let eyeHeight: CGFloat = 0.333
+    private let wallHeightScale: CGFloat = 1.0
+    private let maxVoxelDist = 30.0          // brightness-fade reference; keeps mid-range walls bright
+    private let wallFar = 40.0
+    private var wallQuads: [SKShapeNode] = []   // painter's-sorted wall face + cap quads (grows lazily)
 
     private var travelerMirror: SKNode?             // billboard mirror; the REAL node keeps its SKAction walk (smooth) uncllobbered in the scene root
     private var travelerMirrorEmoji = ""
@@ -20,41 +21,6 @@ final class DoomScene: Scene3D {
     private var mapTravelerEmoji = ""
     private var travPrevCol = 0.0                   // last continuous column, to derive the smooth facing each frame
     private var travFlip: CGFloat = 1               // shared by the billboard + minimap so both face the way it last moved
-
-    override func buildSky() {
-        // 2D office palette: a dark ceiling (maze background) blending toward the
-        // horizon over the dark checker-floor colour. One thin band per device row
-        // so the gradient is smooth, then baked to a single sprite (the bands are
-        // static, so this is ~240 fewer draw calls per frame on Apple).
-        // Ceiling + floor derive from the level's cubicle colour (dark at the ceiling,
-        // a touch brighter at the horizon) so the whole 3D environment matches the level.
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        let tree = SKNode()
-        let skyBottom = viewMidY, skyTop = size.height
-        let n = max(1, Int(skyTop - skyBottom))
-        for i in 0..<n {
-            let t = CGFloat(i) / CGFloat(max(1, n - 1))      // 0 horizon .. 1 ceiling
-            let factor = 0.18 + (0.05 - 0.18) * t            // cube brightness: horizon -> ceiling
-            let col = cube.blended(withFraction: 1 - factor, of: .black) ?? cube
-            let band = SKShapeNode(rect: CGRect(x: 0, y: skyBottom + CGFloat(i), width: size.width, height: 2))
-            band.fillColor = col; band.strokeColor = .clear
-            tree.addChild(band)
-        }
-        let ground = SKShapeNode(rect: CGRect(x: 0, y: radarH, width: size.width, height: viewMidY - radarH))
-        ground.fillColor = cube.blended(withFraction: 0.88, of: .black) ?? cube   // dark level-tinted floor base
-        ground.strokeColor = .clear
-        tree.addChild(ground)
-        addBaked(tree, to: self, z: -3)
-
-        // Alternating floor-tile checker (cast per frame in castFloor), drawn above the
-        // baked ground (z -3) and below the walls (z 0). Two nodes, one per shade.
-        floorA.fillColor = cube.blended(withFraction: 0.87, of: .black) ?? cube   // ~cube * 0.13
-        floorB.fillColor = cube.blended(withFraction: 0.76, of: .black) ?? cube   // ~cube * 0.24
-        floorA.strokeColor = .clear; floorB.strokeColor = .clear
-        floorA.zPosition = -2; floorB.zPosition = -2
-        floorA.isAntialiased = false; floorB.isAntialiased = false
-        addChild(floorA); addChild(floorB)
-    }
 
     // Floor-cast the maze floor as an alternating checker so the tile grid reads in 3D
     // (matches the C++ DoomScene::drawFloor). Each scene row below the horizon maps to a
@@ -66,11 +32,16 @@ final class DoomScene: Scene3D {
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
         let W = size.width, rowH: CGFloat = 0.25
-        let pathA = CGMutablePath(), pathB = CGMutablePath()
+        let pathA = CGMutablePath(), pathB = CGMutablePath(), pathFar = CGMutablePath()
         var yu = radarH
         while yu < viewMidY - 0.5 {
             let distFromHorizon = Double(viewMidY - yu)
-            let d = Double(viewH) / (2.0 * distFromHorizon)
+            let d = Double(viewH) * Double(eyeHeight) / distFromHorizon
+            if d > 13 {   // checker cells shrink below ~1px here and alias to garbage; fill solid to the horizon
+                pathFar.addRect(CGRect(x: 0, y: yu, width: W, height: rowH))
+                yu += rowH
+                continue
+            }
             let fx0 = camX + d * rdx0, fy0 = camY + d * rdy0
             let stepX = d * (rdx1 - rdx0) / Double(W), stepY = d * (rdy1 - rdy0) / Double(W)
             var runStart: CGFloat = 0
@@ -91,15 +62,7 @@ final class DoomScene: Scene3D {
             }
             yu += rowH
         }
-        floorA.path = pathA; floorB.path = pathB
-    }
-
-    override func buildColumns() {
-        for _ in 0..<columns {
-            let bar = SKShapeNode()
-            bar.strokeColor = .clear; bar.isAntialiased = false; bar.zPosition = 0
-            addChild(bar); bars.append(bar)
-        }
+        floorA.path = pathA; floorB.path = pathB; floorFar.path = pathFar
     }
 
     // Caught: hold the REAL catching boss still in front of Pete for ~1.5s (no fake sprite),
@@ -116,7 +79,7 @@ final class DoomScene: Scene3D {
         let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
         node.isHidden = false
         node.setScale(viewH * 0.42 / nh)                     // Pete's size, never larger
-        node.position = CGPoint(x: size.width / 2, y: radarH + viewH * 0.5)
+        node.position = CGPoint(x: size.width / 2, y: peteBaseY)   // grounded right where Pete stands, so you see the catcher
         node.zPosition = 500
         for e in bossController.entities where e.node !== node { e.node.isHidden = true }   // only the catcher shows
         for (_, l) in bossNames { l.isHidden = true }
@@ -125,12 +88,6 @@ final class DoomScene: Scene3D {
     }
 
     // MARK: - Per-frame
-    override func update(_ currentTime: TimeInterval) {
-        if isUserPaused || gameOver { return }
-        if dying { updateDeath(); return }
-        step(); render()
-    }
-
     override func render() {
         throbClock += 1.0 / 60.0
         let dirX = cos(angle), dirY = sin(angle)
@@ -141,61 +98,53 @@ final class DoomScene: Scene3D {
         camX = px - dirX * back; camY = py - dirY * back
         castFloor()
 
+        // Painter's voxel walls. Per column, march the WHOLE ray and record every wall as a FULL,
+        // UNCLIPPED segment: an exposed FRONT face (open->wall) + the run's flat TOP cap. Adjacent
+        // columns hitting the same face merge into one straight-edged quad (inverse depth is linear in
+        // screen-x for a flat face, so the interpolation is exact — DOOM-quality, no seams/jaggies).
+        // Because nothing is clipped, the edges never bend; occlusion comes purely from DRAW ORDER:
+        // all quads are sorted far->near and the nearer ones paint over the farther, so the whole maze
+        // reads deep AND clean.
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        let w = size.width / CGFloat(columns)
-
-        // Phase 1: DDA — zbuf (first hit) + wallCells (all hits, for per-cell face pass).
-        var wallCells = Set<Int>()
-        for i in 0..<columns {
-            let cameraX = 2.0 * (Double(i) + 0.5) / Double(columns) - 1.0
+        struct VQuad { var p0, p1, p2, p3: CGPoint; var color: SKColor; var depth: Double }
+        var quads: [VQuad] = []
+        var tops = Set<Int>()                     // wall cells in view; faces + caps both projected per-cell
+        for col in 0..<columns {
+            let cameraX = 2.0 * (Double(col) + 0.5) / Double(columns) - 1.0
             let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
             var mapX = Int(camX.rounded(.down)), mapY = Int(camY.rounded(.down))
             let ddx = rdx == 0 ? 1e30 : abs(1 / rdx), ddy = rdy == 0 ? 1e30 : abs(1 / rdy)
             var stepX = 0, stepY = 0, sideX = 0.0, sideY = 0.0
             if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
             if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
-            var firstHit = true, guardN = 0
+            var firstHit = true
+            var guardN = 0
             while guardN < 300 {
                 guardN += 1
                 let dEntry: Double
                 if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX }
                 else             { dEntry = sideY; sideY += ddy; mapY += stepY }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
+                if dEntry > wallFar { break }
                 if map[mapY][mapX] != Strings.Tile.wallChar { continue }
-                let perp = max(0.05, dEntry)
-                if firstHit { zbuf[i] = perp; firstHit = false }
-                wallCells.insert(mapY * colsCount + mapX)
+                let dN = max(0.05, dEntry)
+                if firstHit { zbuf[col] = dN; firstHit = false }
+                tops.insert(mapY * colsCount + mapX)
             }
-            if firstHit { zbuf[i] = 1e9 }
+            if firstHit { zbuf[col] = 1e9 }
         }
         let pTileX = Int(px.rounded(.down)), pTileY = Int(py.rounded(.down))
         for dy in -1...1 { for dx in -1...1 {
             let tx = pTileX + dx, ty = pTileY + dy
             if tx >= 0 && tx < colsCount && ty >= 0 && ty < rowsCount && map[ty][tx] == Strings.Tile.wallChar {
-                wallCells.insert(ty * colsCount + tx)
+                tops.insert(ty * colsCount + tx)
             }
         }}
-
-        // Phase 2: per-cell face → per-column arrays.
-        // Each exposed wall face is projected directly onto screen columns using the same
-        // 4-corner invDet math as VoxelScene, then the perp distance at each column is
-        // computed analytically. Only columns where this face is the closest win.
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
-        var cTop  = [CGFloat](repeating: 0,   count: columns)
-        var cBot  = [CGFloat](repeating: 0,   count: columns)
-        var cDist = [Double] (repeating: 1e9, count: columns)
-        var cSide = [Int]    (repeating: 0,   count: columns)
-        var cFace = [Int]    (repeating: -1,  count: columns)
-        var cPar  = [Int]    (repeating: 0,   count: columns)
-        let lCamX = camX, lCamY = camY, lCols = columns
-        let screenCol = { (wx: Double, wy: Double) -> Int in
-            let rX = wx - lCamX, rY = wy - lCamY
-            let d = invDet * (-planeY * rX + planeX * rY)
-            if d < 0.05 { return d < 0 ? -1 : lCols }
-            let sX = invDet * (dirY * rX - dirX * rY)
-            return Int(Double(lCols) * 0.5 * (1.0 + sX / d))
-        }
-        for key in wallCells {
+        let wallH = Double(wallHeightScale)
+        // Per-cell face rendering: project each exposed wall face from tops directly, same math as caps.
+        // Covers faces that column-sweep DDA misses (nearly-parallel rays skip the face entirely).
+        for key in tops {
             let tx = key % colsCount, ty = key / colsCount
             for (side, faceV, adx, ady) in [(0, tx, -1, 0), (0, tx + 1, 1, 0), (1, ty, 0, -1), (1, ty + 1, 0, 1)] {
                 let adjX = tx + adx, adjY = ty + ady
@@ -207,56 +156,49 @@ final class DoomScene: Scene3D {
                 if !onOpen { continue }
                 let wx0 = side == 0 ? Double(faceV) : Double(tx),     wy0 = side == 0 ? Double(ty)     : Double(faceV)
                 let wx1 = side == 0 ? Double(faceV) : Double(tx + 1), wy1 = side == 0 ? Double(ty + 1) : Double(faceV)
-                let colL = max(0, min(screenCol(wx0, wy0), screenCol(wx1, wy1)))
-                let colR = min(columns - 1, max(screenCol(wx0, wy0), screenCol(wx1, wy1)))
-                if colL > colR { continue }
-                let fid = side == 0 ? faceV * 2 : faceV * 2 + 1
+                let rawA = invDet * (-planeY * (wx0 - camX) + planeX * (wy0 - camY))
+                let rawB = invDet * (-planeY * (wx1 - camX) + planeX * (wy1 - camY))
+                if rawA < 0.1 && rawB < 0.1 { continue }
+                let tA = rawA < 0.1 ? (0.1 - rawA) / (rawB - rawA) : 0.0
+                let tB = rawB < 0.1 ? (0.1 - rawB) / (rawA - rawB) : 0.0
+                let eX0 = rawA < 0.1 ? wx0 + tA * (wx1 - wx0) : wx0
+                let eY0 = rawA < 0.1 ? wy0 + tA * (wy1 - wy0) : wy0
+                let eX1 = rawB < 0.1 ? wx1 + tB * (wx0 - wx1) : wx1
+                let eY1 = rawB < 0.1 ? wy1 + tB * (wy0 - wy1) : wy1
+                let eRA = max(0.1, rawA), eRB = max(0.1, rawB)
+                let dAvg = (eRA + eRB) * 0.5
+                if dAvg > wallFar { continue }
+                let txA = invDet * (dirY * (eX0 - camX) - dirX * (eY0 - camY))
+                let txB = invDet * (dirY * (eX1 - camX) - dirX * (eY1 - camY))
+                let p0 = CGPoint(x: size.width / 2 * (1 + CGFloat(txA / eRA)),
+                                 y: viewMidY + viewH * CGFloat(-Double(eyeHeight)) / CGFloat(eRA))
+                let p1 = CGPoint(x: size.width / 2 * (1 + CGFloat(txA / eRA)),
+                                 y: viewMidY + viewH * CGFloat(wallH - Double(eyeHeight)) / CGFloat(eRA))
+                let p2 = CGPoint(x: size.width / 2 * (1 + CGFloat(txB / eRB)),
+                                 y: viewMidY + viewH * CGFloat(wallH - Double(eyeHeight)) / CGFloat(eRB))
+                let p3 = CGPoint(x: size.width / 2 * (1 + CGFloat(txB / eRB)),
+                                 y: viewMidY + viewH * CGFloat(-Double(eyeHeight)) / CGFloat(eRB))
                 let par = side == 0 ? (faceV + ty) & 1 : (tx + faceV) & 1
-                for c in colL...colR {
-                    let cX = 2.0 * (Double(c) + 0.5) / Double(columns) - 1.0
-                    let perp: Double
-                    if side == 0 {
-                        let rdx = dirX + planeX * cX; guard abs(rdx) > 1e-10 else { continue }
-                        let p = (Double(faceV) - camX) / rdx; if p < 0.05 { continue }; perp = p
-                    } else {
-                        let rdy = dirY + planeY * cX; guard abs(rdy) > 1e-10 else { continue }
-                        let p = (Double(faceV) - camY) / rdy; if p < 0.05 { continue }; perp = p
-                    }
-                    if perp >= cDist[c] { continue }
-                    let lineH = min(viewH * 4, viewH / CGFloat(perp))
-                    cTop[c] = viewMidY + lineH / 2; cBot[c] = viewMidY - lineH / 2
-                    cDist[c] = perp; cSide[c] = side; cFace[c] = fid; cPar[c] = par
-                }
+                let faceF = CGFloat(side == 1 ? 0.62 : 1.0) * (par == 1 ? 1.0 : 0.82)
+                let baseColor = cube.blended(withFraction: 1 - faceF, of: .black) ?? cube
+                let fogT = CGFloat(min(1.0, dAvg / wallFar)) * 0.85
+                let color = baseColor.blended(withFraction: fogT, of: .black) ?? baseColor
+                quads.append(VQuad(p0: p0, p1: p1, p2: p2, p3: p3, color: color, depth: dAvg))
             }
         }
-        for i in 0..<columns { if cDist[i] < zbuf[i] { zbuf[i] = cDist[i] } }
-
-        // Phase 3: merge adjacent same-face columns into one straight-edged quad.
-        var bar = 0
-        var i = 0
-        while i < columns {
-            if cFace[i] < 0 { i += 1; continue }
-            var j = i
-            while j + 1 < columns && cFace[j + 1] == cFace[i] && cPar[j + 1] == cPar[i] { j += 1 }
-            let xL = CGFloat(i) * w, xR = CGFloat(j + 1) * w + 1
-            var topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j]
-            if j > i {
-                let cxL = (CGFloat(i) + 0.5) * w, cxR = (CGFloat(j) + 0.5) * w
-                let mT = (cTop[j] - cTop[i]) / (cxR - cxL), mB = (cBot[j] - cBot[i]) / (cxR - cxL)
-                topL = cTop[i] + mT * (xL - cxL); topR = cTop[i] + mT * (xR - cxL)
-                botL = cBot[i] + mB * (xL - cxL); botR = cBot[i] + mB * (xR - cxL)
-            }
+        quads.sort { $0.depth > $1.depth }
+        var qi = 0
+        for q in quads {
+            let n: SKShapeNode
+            if qi < wallQuads.count { n = wallQuads[qi] }
+            else { n = SKShapeNode(); n.strokeColor = .clear; n.isAntialiased = false; addChild(n); wallQuads.append(n) }
+            n.zPosition = CGFloat(qi) * 0.0002
             let p = CGMutablePath()
-            p.move(to: CGPoint(x: xL, y: botL)); p.addLine(to: CGPoint(x: xL, y: topL))
-            p.addLine(to: CGPoint(x: xR, y: topR)); p.addLine(to: CGPoint(x: xR, y: botR))
-            p.closeSubpath()
-            let n = bars[bar]; bar += 1
-            n.path = p; n.isHidden = false
-            let f = CGFloat(cSide[i] == 1 ? 0.62 : 1.0) * (cPar[i] == 1 ? 1.0 : 0.82)
-            n.fillColor = cube.blended(withFraction: 1 - f, of: .black) ?? cube
-            i = j + 1
+            p.move(to: q.p0); p.addLine(to: q.p1); p.addLine(to: q.p2); p.addLine(to: q.p3); p.closeSubpath()
+            n.path = p; n.fillColor = q.color; n.isHidden = false
+            qi += 1
         }
-        for k in bar..<bars.count { bars[k].isHidden = true }
+        for k in qi..<wallQuads.count { wallQuads[k].isHidden = true }
         projectSprites(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
         updateMap()
     }
@@ -266,7 +208,7 @@ final class DoomScene: Scene3D {
         if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
             if mapTravelerEmoji != info.emoji {
                 mapTraveler?.removeFromParent()
-                let n = emojiBillboard(info.emoji, mapCell * 1.2)
+                let n = emojiBillboard(info.emoji, mapCell) //* 1.2)
                 n.zPosition = 6; mapLayer.addChild(n)
                 mapTraveler = n; mapTravelerEmoji = info.emoji
             }
@@ -322,44 +264,51 @@ final class DoomScene: Scene3D {
         } else {
             travelerMirror?.isHidden = true
         }
+        // Pass 1: project, far-cull and wall-occlude every sprite; keep the survivors with their depth.
+        var vis: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, maxH: CGFloat, name: String?, bottom: CGFloat, tX: Double, tY: Double)] = []
         for item in all {
             let node = item.node
-            let label = item.name.map { bossNameplate(for: node, text: $0) }
-            label?.isHidden = true
+            item.name.map { bossNameplate(for: node, text: $0) }?.isHidden = true
             let relX = item.x - camX, relY = item.y - camY
             let tX = invDet * (dirY * relX - dirX * relY)
             let tY = invDet * (-planeY * relX + planeX * relY)   // depth
             guard tY > 0.15 else { node.isHidden = true; continue }
             let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
-            // Occlude only when walls are nearer than the sprite across its whole footprint.
-            // Sampling a window (not one column) stops the per-step blink when the centre
-            // column straddles a side-opening edge as a boss walks. Clamp the column so a sprite
-            // whose centre sits just past the screen edge still occludes against the edge wall —
+            // Occlude against the NEAREST wall across the sprite's whole screen footprint, so a dot whose
+            // body overlaps a wall a few columns from its centre is still hidden behind it. Clamp the column
+            // so a sprite whose centre sits just past the screen edge still occludes against the edge wall —
             // skipping it leaked dots/pickups onto the left/right borders.
             let colC = max(0, min(columns - 1, col))
+            let footHalf = max(1, min(5, Int((viewH / CGFloat(tY) * item.worldH) / (size.width / CGFloat(columns)) * 0.5)))
             var wallZ = zbuf[colC]
-            for c in max(0, colC - 4)...min(columns - 1, colC + 4) { wallZ = max(wallZ, zbuf[c]) }
+            for c in max(0, colC - footHalf)...min(columns - 1, colC + footHalf) { wallZ = min(wallZ, zbuf[c]) }
             if tY > wallZ + 0.3 { node.isHidden = true; continue }
             if tY > 18 { node.isHidden = true; continue }       // far cull
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
             guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
-            // TRUE 1-point perspective, identical to the dots: size = viewH/depth, feet planted on
-            // the floor row at THIS depth. maxH only clamps the size at point-blank range so the
-            // catch close-up isn't a full-screen sprite; it never moves the floor.
-            let targetH = min(viewH / CGFloat(tY) * item.worldH, item.maxH)
-            var s = targetH / item.nativeH
-            // Post-spawn pulse: a respawned boss throbs while it can't yet catch Pete
-            // (spawn grace / immobilized), then settles to full size. Feet stay planted
-            // because position uses s below. Matches the C++ DoomScene throb.
-            if item.name != nil, let boss = item.node as? PixelPerson, bossController.isImmobilized(boss: boss) {
-                s *= 1 + 0.18 * abs(sin(throbClock * .pi * 3))
+            vis.append((node, item.nativeH, item.worldH, item.maxH, item.name, item.bottom, tX, tY))
+        }
+        // Pass 2: draw strictly far -> near (assign rising zPositions) so a nearer sprite always paints
+        // over a farther one — a dot and a machine at similar depth no longer tie and flip.
+        vis.sort { $0.tY > $1.tY }
+        let zStep = vis.count > 1 ? 80.0 / Double(vis.count - 1) : 0
+        for (i, v) in vis.enumerated() {
+            let node = v.node, tY = v.tY
+            // TRUE 1-point perspective, identical to the dots: size = viewH/depth, feet planted on the
+            // floor row at THIS depth. maxH only clamps the size at point-blank range; it never moves the floor.
+            let targetH = min(viewH / CGFloat(tY) * v.worldH, v.maxH)
+            var s = targetH / v.nativeH
+            if v.name != nil, let boss = node as? PixelPerson, bossController.isImmobilized(boss: boss) {
+                s *= 1 + 0.18 * abs(sin(throbClock * .pi * 3))   // post-spawn throb, feet planted (position uses s)
             }
             node.isHidden = false
             node.setScale(s)
-            let floorY = viewMidY - (viewH / CGFloat(tY)) / 2
-            node.position = CGPoint(x: screenX, y: floorY - item.bottom * s)
-            node.zPosition = min(40, CGFloat(2 + 30 / tY))      // nearer over farther, but always behind Pete
-            if let label = label {
+            let screenX = (size.width / 2) * CGFloat(1 + v.tX / tY)
+            let floorY = viewMidY - (viewH / CGFloat(tY)) * eyeHeight
+            node.position = CGPoint(x: screenX, y: floorY - v.bottom * s)
+            node.zPosition = 2 + CGFloat(Double(i) * zStep)     // 2..82, far->near; always below Pete (90)
+            if let name = v.name {
+                let label = bossNameplate(for: node, text: name)
                 label.isHidden = false
                 label.fontSize = max(13, min(24, targetH * 0.16))
                 label.position = CGPoint(x: screenX, y: floorY + targetH + label.fontSize * 0.7)
@@ -369,7 +318,7 @@ final class DoomScene: Scene3D {
 
     override func restartDoom() {
         gameOverScreen?.removeFromParent(); gameOverScreen = nil
-        let bonus = DoomScene(size: size)
+        let bonus = VoxelScene(size: size)
         bonus.scaleMode = scaleMode
         bonus.practiceMode = practiceMode
         bonus.startingLevel = startingLevel
