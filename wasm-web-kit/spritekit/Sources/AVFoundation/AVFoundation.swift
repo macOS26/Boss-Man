@@ -83,7 +83,10 @@ public final class AVAudioPlayer {
         voice = snd_play(buffer, volume, numberOfLoops < 0 ? 1 : 0)
         return voice >= 0
     }
-    public func pause() { if voice >= 0 { snd_stop(voice); voice = -1 } }
+    public func pause() {
+        if voice >= 0 { snd_stop(voice) }
+        voice = -1
+    }
     public func stop()  { pause() }
     public func setVolume(_ v: Float, fadeDuration: TimeInterval = 0) { self.volume = v }
 }
@@ -91,7 +94,9 @@ public final class AVAudioPlayer {
 // ---- AVAudioSession --------------------------------------------------------
 public final class AVAudioSession {
     public static let sharedInstance = AVAudioSession()
-    public struct Category: RawRepresentable, Sendable { public let rawValue: String; public init(rawValue: String) { self.rawValue = rawValue }
+    public struct Category: RawRepresentable, Sendable {
+        public let rawValue: String
+        public init(rawValue: String) { self.rawValue = rawValue }
         public static let ambient = Category(rawValue: "ambient")
         public static let soloAmbient = Category(rawValue: "soloAmbient")
         public static let playback = Category(rawValue: "playback")
@@ -99,12 +104,15 @@ public final class AVAudioSession {
         public static let playAndRecord = Category(rawValue: "playAndRecord")
     }
     public struct CategoryOptions: OptionSet, Sendable {
-        public let rawValue: UInt; public init(rawValue: UInt) { self.rawValue = rawValue }
+        public let rawValue: UInt
+        public init(rawValue: UInt) { self.rawValue = rawValue }
         public static let mixWithOthers = CategoryOptions(rawValue: 1 << 0)
         public static let duckOthers = CategoryOptions(rawValue: 1 << 1)
         public static let defaultToSpeaker = CategoryOptions(rawValue: 1 << 2)
     }
-    public struct Mode: RawRepresentable, Sendable { public let rawValue: String; public init(rawValue: String) { self.rawValue = rawValue }
+    public struct Mode: RawRepresentable, Sendable {
+        public let rawValue: String
+        public init(rawValue: String) { self.rawValue = rawValue }
         public static let `default` = Mode(rawValue: "default")
         public static let gameChat = Mode(rawValue: "gameChat")
     }
@@ -153,12 +161,20 @@ public final class AVSpeechSynthesizer {
         }
     }
     @discardableResult public func stopSpeaking(at boundary: AVSpeechBoundary = .immediate) -> Bool {
-        tts_cancel(); isSpeaking = false; isPaused = false; return true
+        tts_cancel()
+        isSpeaking = false
+        isPaused = false
+        return true
     }
     @discardableResult public func pauseSpeaking(at boundary: AVSpeechBoundary = .word) -> Bool {
-        tts_cancel(); isPaused = true; return true
+        tts_cancel()
+        isPaused = true
+        return true
     }
-    @discardableResult public func continueSpeaking() -> Bool { isPaused = false; return true }
+    @discardableResult public func continueSpeaking() -> Bool {
+        isPaused = false
+        return true
+    }
 }
 
 public final class AVSpeechUtterance {
@@ -182,8 +198,16 @@ public final class AVSpeechSynthesisVoice {
     public let name: String
     public var gender: AVSpeechSynthesisVoiceGender = .unspecified
     public var quality: AVSpeechSynthesisVoiceQuality = .default
-    public init?(language: String) { self.language = language; self.identifier = language; self.name = language }
-    public init(identifier: String) { self.identifier = identifier; self.language = identifier; self.name = identifier }
+    public init?(language: String) {
+        self.language = language
+        self.identifier = language
+        self.name = language
+    }
+    public init(identifier: String) {
+        self.identifier = identifier
+        self.language = identifier
+        self.name = identifier
+    }
     public static func currentLanguageCode() -> String { "en-US" }
     // The runtime enumerates and picks voices itself; Swift-side selection is a
     // no-op on web, so the pool is empty and callers fall back to a default.
@@ -210,7 +234,10 @@ public final class AVAudioEngine {
     }
     public func attach(_ node: AnyObject) {}
     public func detach(_ node: AnyObject) {
-        if let n = node as? AVAudioNode, n.nodeId >= 0 { eng_player_release(n.nodeId); n.nodeId = -1 }
+        if let n = node as? AVAudioNode, n.nodeId >= 0 {
+            eng_player_release(n.nodeId)
+            n.nodeId = -1
+        }
     }
     public func connect(_ src: AnyObject, to dst: AnyObject, format: Any?) {
         guard let s = src as? AVAudioNode, let d = dst as? AVAudioNode else { return }
@@ -222,8 +249,10 @@ public final class AVAudioEngine {
     public func disconnectNodeInput(_ node: AnyObject) {}
     public func disconnectNodeOutput(_ node: AnyObject) {}
     public func prepare() {}
-    public func start() throws { eng_start(); isRunning = true }
-    public func stop() { eng_stop(); isRunning = false }
+    public func start() throws { eng_start()
+    isRunning = true }
+    public func stop() { eng_stop()
+    isRunning = false }
     public func reset() {}
 }
 
@@ -237,7 +266,8 @@ public class AVAudioNode {
 }
 
 public final class AVAudioMixerNode: AVAudioNode {
-    public override init() { super.init(); self.nodeId = eng_mixer_create() }
+    public override init() { super.init()
+    self.nodeId = eng_mixer_create() }
     public var outputVolume: Float = 1.0 { didSet { _avMasterVolume = outputVolume } }
 }
 
@@ -247,11 +277,13 @@ public final class AUAudioUnit {
 }
 public final class AVAudioOutputNode: AVAudioNode {
     public let auAudioUnit = AUAudioUnit()
-    public override init() { super.init(); self.nodeId = -1 }   // -1 => audioCtx.destination
+    public override init() { super.init()
+    self.nodeId = -1 }  // -1 => audioCtx.destination
 }
 
 public struct AVAudioPlayerNodeBufferOptions: OptionSet, Sendable {
-    public let rawValue: UInt; public init(rawValue: UInt) { self.rawValue = rawValue }
+    public let rawValue: UInt
+    public init(rawValue: UInt) { self.rawValue = rawValue }
     public static let loops = AVAudioPlayerNodeBufferOptions(rawValue: 1 << 0)
     public static let interrupts = AVAudioPlayerNodeBufferOptions(rawValue: 1 << 1)
     public static let interruptsAtLoop = AVAudioPlayerNodeBufferOptions(rawValue: 1 << 2)
@@ -261,7 +293,8 @@ public final class AVAudioTime { public init() {} }
 public final class AVAudioPlayerNode: AVAudioNode {
     private var currentVoice: Int32 = -1
 
-    public override init() { super.init(); self.nodeId = eng_player_create() }
+    public override init() { super.init()
+    self.nodeId = eng_player_create() }
 
     public var isPlaying: Bool { currentVoice >= 0 && snd_status(currentVoice) == 1 }
 
@@ -272,7 +305,8 @@ public final class AVAudioPlayerNode: AVAudioNode {
                                options: AVAudioPlayerNodeBufferOptions = [],
                                completionHandler h: (() -> Void)? = nil) {
         let handle = buffer.uploadedHandle()
-        guard handle > 0 else { h?(); return }
+        guard handle > 0 else { h?()
+        return }
         let v = snd_play(handle, effectiveVolume(), options.contains(.loops) ? 1 : 0)
         currentVoice = v
         if let h = h {
@@ -288,7 +322,8 @@ public final class AVAudioPlayerNode: AVAudioNode {
 
     public func play() { snd_resume_all() }
     public func play(at when: AVAudioTime?) { play() }
-    public func stop() { if currentVoice >= 0 { snd_stop(currentVoice); currentVoice = -1 } }
+    public func stop() { if currentVoice >= 0 { snd_stop(currentVoice)
+    currentVoice = -1 } }
     public func pause() { snd_pause_all() }
 
     override func applyVolume() { if currentVoice >= 0 { snd_set_volume(currentVoice, effectiveVolume()) } }
@@ -311,7 +346,8 @@ public final class AVAudioFormat {
     public var channelCount: UInt32 = 1
     public init() {}
     public init?(standardFormatWithSampleRate r: Double, channels: UInt32) {
-        self.sampleRate = r; self.channelCount = channels
+        self.sampleRate = r
+        self.channelCount = channels
     }
 }
 
@@ -350,13 +386,18 @@ public final class AVAudioPCMBuffer {
     // reused on every replay (floatChannelData is only written pre-upload).
     func uploadedHandle() -> Int32 {
         if uploaded > 0 { return uploaded }
-        if soundHandle > 0 { uploaded = soundHandle; return uploaded }
+        if soundHandle > 0 { uploaded = soundHandle
+        return uploaded }
         guard let s = samples, frameLength > 0 else { return 0 }
         uploaded = snd_create_pcm(s, Int32(frameLength), Int32(sampleRate))
         if uploaded > 0 {
-            samples?.deallocate(); samples = nil
-            channelPtrs?.deallocate(); channelPtrs = nil
+            samples?.deallocate()
+            samples = nil
+            channelPtrs?.deallocate()
+            channelPtrs = nil
         }
         return uploaded
     }
 }
+
+

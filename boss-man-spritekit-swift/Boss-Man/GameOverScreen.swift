@@ -214,12 +214,32 @@ final class GameOverScreen: SKNode {
 
     // MARK: - Input (routed by GameScene while shown)
     func handleTap(at p: CGPoint) {
-        if playRect.contains(p) { commitName(); onPlay(); return }
-        if escRect.contains(p)  { commitName(); onEsc();  return }
+        if playRect.contains(p) {
+            commitName()
+            onPlay()
+            return
+        }
+        if escRect.contains(p) {
+            commitName()
+            onEsc()
+            return
+        }
         guard qualified else { return }
-        if backspaceRect.contains(p) { if !typed.isEmpty { typed.removeLast(); refreshName() }; return }
-        if spaceRect.contains(p)     { append(" "); return }
-        for k in keyRects where k.rect.contains(p) { append(k.ch); return }
+        if backspaceRect.contains(p) {
+            if !typed.isEmpty {
+                typed.removeLast()
+                refreshName()
+            }
+            return
+        }
+        if spaceRect.contains(p) {
+            append(" ")
+            return
+        }
+        for k in keyRects where k.rect.contains(p) {
+            append(k.ch)
+            return
+        }
     }
 
     // Unified key scheme (UsernameDialog's): A-Z 0..25, 0-9 26..35, Space 57,
@@ -230,9 +250,17 @@ final class GameOverScreen: SKNode {
             return
         }
         switch key {
-        case 58: commitName(); onPlay()
-        case 36: commitName(); onEsc()
-        case 59: if !typed.isEmpty { typed.removeLast(); refreshName() }
+        case 58:
+            commitName()
+            onPlay()
+        case 36:
+            commitName()
+            onEsc()
+        case 59:
+            if !typed.isEmpty {
+                typed.removeLast()
+                refreshName()
+            }
         case 57: append(" ")
         case 0...25: append(Character(UnicodeScalar(UInt8(65 + key))))
         case 26...35: append(Character(UnicodeScalar(UInt8(48 + (key - 26)))))
@@ -240,3 +268,5 @@ final class GameOverScreen: SKNode {
         }
     }
 }
+
+

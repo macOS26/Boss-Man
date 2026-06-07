@@ -83,11 +83,15 @@ enum LevelStore {
     }
 
     static func saveLevel(index: Int, rows: [String]) {
-        var map = overrides(); map[index] = rows; writeOverrides(map)
+        var map = overrides()
+        map[index] = rows
+        writeOverrides(map)
     }
 
     static func resetLevel(index: Int) {
-        var map = overrides(); map[index] = nil; writeOverrides(map)
+        var map = overrides()
+        map[index] = nil
+        writeOverrides(map)
     }
 
     // SHOW: materialize the file and reveal it (Finder on macOS, download on wasm).
@@ -116,7 +120,10 @@ enum LevelStore {
         let a = Array(raw), n = a.count
         var i = 0
         while i < n {
-            guard a[i] == "\"" else { i += 1; continue }
+            guard a[i] == "\"" else {
+                i += 1
+                continue
+            }
             let (keyStr, afterKey) = readString(a, n, i)
             i = afterKey
             while i < n, a[i] == " " || a[i] == "\n" || a[i] == "\t" || a[i] == "\r" || a[i] == ":" { i += 1 }
@@ -126,8 +133,11 @@ enum LevelStore {
             while i < n, a[i] != "]" {
                 if a[i] == "\"" {
                     let (s, after) = readString(a, n, i)
-                    rows.append(s); i = after
-                } else { i += 1 }
+                    rows.append(s)
+                    i = after
+                } else {
+                    i += 1
+                }
             }
             if i < n { i += 1 }
             if let idx = Int(keyStr) { result[idx] = rows }
@@ -146,7 +156,10 @@ enum LevelStore {
                 default:  s.append(a[i + 1])
                 }
                 i += 2
-            } else { s.append(a[i]); i += 1 }
+            } else {
+                s.append(a[i])
+                i += 1
+            }
         }
         return (s, min(i + 1, n))
     }
@@ -826,23 +839,57 @@ final class LevelEditorScene: SKScene {
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
-        case KeyCode.delete: flashButton(named: Strings.EditorButton.clear); confirmClearLevel()
-        case KeyCode.digit1: selectedTile = .wall;     updatePaletteHighlight()
-        case KeyCode.digit2: selectedTile = .dot;      updatePaletteHighlight()
-        case KeyCode.digit3: selectedTile = .hideout;  updatePaletteHighlight()
-        case KeyCode.digit4: selectedTile = .printer;  updatePaletteHighlight()
-        case KeyCode.digit5: selectedTile = .fax;      updatePaletteHighlight()
-        case KeyCode.digit6: selectedTile = .copy;     updatePaletteHighlight()
-        case KeyCode.digit7: selectedTile = .collator; updatePaletteHighlight()
-        case KeyCode.digit8: selectedTile = .brownBox; updatePaletteHighlight()
-        case KeyCode.digit0: selectedTile = .empty;    updatePaletteHighlight()
-        case KeyCode.keyS: flashButton(named: Strings.EditorButton.save);  saveCurrentLevel()
-        case KeyCode.keyP: flashButton(named: Strings.EditorButton.play);  playCurrentLevel()
-        case KeyCode.keyC: flashButton(named: Strings.EditorButton.copy);  copyLevel()
-        case KeyCode.keyV: flashButton(named: Strings.EditorButton.paste); pasteLevel()
-        case KeyCode.keyZ: flashButton(named: Strings.EditorButton.undo);  undo()
-        case KeyCode.keyY: flashButton(named: Strings.EditorButton.redo);  redo()
-        case KeyCode.keyR: flashButton(named: Strings.EditorButton.reset); resetCurrentLevel()
+        case KeyCode.delete:
+            flashButton(named: Strings.EditorButton.clear)
+            confirmClearLevel()
+        case KeyCode.digit1:
+            selectedTile = .wall
+            updatePaletteHighlight()
+        case KeyCode.digit2:
+            selectedTile = .dot
+            updatePaletteHighlight()
+        case KeyCode.digit3:
+            selectedTile = .hideout
+            updatePaletteHighlight()
+        case KeyCode.digit4:
+            selectedTile = .printer
+            updatePaletteHighlight()
+        case KeyCode.digit5:
+            selectedTile = .fax
+            updatePaletteHighlight()
+        case KeyCode.digit6:
+            selectedTile = .copy
+            updatePaletteHighlight()
+        case KeyCode.digit7:
+            selectedTile = .collator
+            updatePaletteHighlight()
+        case KeyCode.digit8:
+            selectedTile = .brownBox
+            updatePaletteHighlight()
+        case KeyCode.digit0:
+            selectedTile = .empty
+            updatePaletteHighlight()
+        case KeyCode.keyS:
+            flashButton(named: Strings.EditorButton.save)
+            saveCurrentLevel()
+        case KeyCode.keyP:
+            flashButton(named: Strings.EditorButton.play)
+            playCurrentLevel()
+        case KeyCode.keyC:
+            flashButton(named: Strings.EditorButton.copy)
+            copyLevel()
+        case KeyCode.keyV:
+            flashButton(named: Strings.EditorButton.paste)
+            pasteLevel()
+        case KeyCode.keyZ:
+            flashButton(named: Strings.EditorButton.undo)
+            undo()
+        case KeyCode.keyY:
+            flashButton(named: Strings.EditorButton.redo)
+            redo()
+        case KeyCode.keyR:
+            flashButton(named: Strings.EditorButton.reset)
+            resetCurrentLevel()
         default: break
         }
     }
@@ -888,3 +935,5 @@ final class LevelEditorScene: SKScene {
         ]), withKey: "savetoast")
     }
 }
+
+

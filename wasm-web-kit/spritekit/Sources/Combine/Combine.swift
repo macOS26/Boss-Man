@@ -15,7 +15,8 @@ public final class AnyCancellable: Cancellable {
     private var onCancel: (() -> Void)?
     public init(_ onCancel: @escaping () -> Void) { self.onCancel = onCancel }
     public init<C: Cancellable>(_ other: C) { self.onCancel = { other.cancel() } }
-    public func cancel() { onCancel?(); onCancel = nil }
+    public func cancel() { onCancel?()
+    onCancel = nil }
     deinit { cancel() }
     public func store(in set: inout Set<AnyCancellable>) { set.insert(self) }
     public func store(in array: inout [AnyCancellable]) { array.append(self) }
@@ -52,7 +53,9 @@ public final class PassthroughSubject<Output, Failure: Error>: Publisher {
     public func send(_ value: Output) { for (_, fn) in sinks { fn(value) } }
     public func send(completion: Subscribers.Completion<Failure>) { sinks.removeAll() }
     public func sink(receiveValue: @escaping (Output) -> Void) -> AnyCancellable {
-        let id = nextId; nextId += 1; sinks.append((id, receiveValue))
+        let id = nextId
+        nextId += 1
+        sinks.append((id, receiveValue))
         return AnyCancellable { [weak self] in
             self?.sinks.removeAll { $0.0 == id }
         }
@@ -67,7 +70,8 @@ public final class CurrentValueSubject<Output, Failure: Error>: Publisher {
     public func send(_ v: Output) { self.value = v }
     public func send(completion: Subscribers.Completion<Failure>) { sinks.removeAll() }
     public func sink(receiveValue: @escaping (Output) -> Void) -> AnyCancellable {
-        let id = nextId; nextId += 1
+        let id = nextId
+        nextId += 1
         sinks.append((id, receiveValue))
         receiveValue(value)
         return AnyCancellable { [weak self] in
@@ -122,3 +126,5 @@ public struct Published<Value> {
     public init(wrappedValue: Value) { self.subject = CurrentValueSubject(wrappedValue) }
     public var projectedValue: AnyPublisher<Value, Never> { subject.eraseToAnyPublisher() }
 }
+
+

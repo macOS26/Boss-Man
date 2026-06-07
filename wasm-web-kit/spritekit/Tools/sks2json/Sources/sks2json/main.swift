@@ -24,7 +24,9 @@ while i < args.count {
     let a = args[i]
     if a == "--out" || a == "-o" {
         if i + 1 >= args.count { fail("--out requires a path") }
-        outDir = args[i + 1]; i += 2; continue
+        outDir = args[i + 1]
+        i += 2
+        continue
     }
     if a == "-h" || a == "--help" {
         print("""
@@ -39,7 +41,8 @@ while i < args.count {
         """)
         exit(0)
     }
-    inputs.append(a); i += 1
+    inputs.append(a)
+    i += 1
 }
 
 if inputs.isEmpty {
@@ -208,4 +211,7 @@ extension String {
 }
 
 func warn(_ s: String) { FileHandle.standardError.write(("⚠️  " + s + "\n").data(using: .utf8)!) }
-func fail(_ s: String) -> Never { warn(s); exit(2) }
+func fail(_ s: String) -> Never {
+    warn(s)
+    exit(2)
+}

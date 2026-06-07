@@ -315,6 +315,7 @@ final class PixelPerson: SKNode {
         setLookDirection(nil)   // centre eyes/tie once, then stop tracking
         tracksLook = false
     }
+    func unfreezeLook() { tracksLook = true }
     func setLookDirection(_ dir: MoveDirection?) {
         guard tracksLook else { return }
         let offset: CGPoint

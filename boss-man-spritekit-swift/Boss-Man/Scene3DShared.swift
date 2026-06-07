@@ -42,12 +42,17 @@ func buildDpadFace(in parent: SKNode, center: CGPoint, inner: CGFloat, outer: CG
     for (name, ang, glyph) in dirs {
         let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang, inner: inner, outer: outer))
         w.position = center
-        w.fillColor = SKColor(white: 1, alpha: 0.12); w.strokeColor = .clear
-        w.lineWidth = 0; w.zPosition = z
-        parent.addChild(w); wedges[name] = w
+        w.fillColor = SKColor(white: 1, alpha: 0.12)
+        w.strokeColor = .clear
+        w.lineWidth = 0
+        w.zPosition = z
+        parent.addChild(w)
+        wedges[name] = w
         let arrow = SKLabelNode(text: glyph)
-        arrow.fontSize = 24; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
-        arrow.verticalAlignmentMode = .center; arrow.horizontalAlignmentMode = .center
+        arrow.fontSize = 24
+        arrow.fontColor = SKColor(white: 1, alpha: 0.7)
+        arrow.verticalAlignmentMode = .center
+        arrow.horizontalAlignmentMode = .center
         if name == "left" { arrow.xScale = -1 }
         let r = (inner + outer) / 2
         arrow.position = CGPoint(x: center.x + cos(ang) * r, y: center.y + sin(ang) * r)
@@ -62,7 +67,9 @@ func buildDpadFace(in parent: SKNode, center: CGPoint, inner: CGFloat, outer: CG
     }
     let xlines = SKShapeNode(path: xPath)
     xlines.position = center
-    xlines.strokeColor = SKColor(white: 1, alpha: 0.5); xlines.lineWidth = 2; xlines.zPosition = z
+    xlines.strokeColor = SKColor(white: 1, alpha: 0.5)
+    xlines.lineWidth = 2
+    xlines.zPosition = z
     parent.addChild(xlines)
     return wedges
 }
@@ -95,4 +102,5 @@ func dropletThreatens(dropletGrid d: CGPoint, dir: MoveDirection, boss b: CGPoin
     }
     return true
 }
+
 

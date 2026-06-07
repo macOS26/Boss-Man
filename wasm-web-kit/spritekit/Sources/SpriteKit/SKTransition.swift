@@ -13,7 +13,8 @@ public final class SKTransition {
     public var pausesIncomingScene = true
     public var pausesOutgoingScene = true
 
-    init(_ kind: Kind, _ duration: TimeInterval) { self.kind = kind; self.duration = duration }
+    init(_ kind: Kind, _ duration: TimeInterval) { self.kind = kind
+    self.duration = duration }
 
     public static func crossFade(withDuration d: TimeInterval) -> SKTransition { SKTransition(.crossFade, d) }
     public static func fade(withDuration d: TimeInterval) -> SKTransition { SKTransition(.fade, d) }
@@ -29,3 +30,4 @@ public final class SKTransition {
 // Mirror of SKTransitionDirection so call sites compile. Direction is recorded
 // but the visual transition is a no-op (see above).
 public enum SKTransitionDirection: Int { case up, down, right, left }
+

@@ -41,7 +41,8 @@ final class VoxelScene: Scene3D {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         var back = camBack
         while back > 0.05 && isWall(px - dirX * back, py - dirY * back) { back -= 0.1 }
-        camX = px - dirX * back; camY = py - dirY * back
+        camX = px - dirX * back
+        camY = py - dirY * back
         castFloor()
 
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
@@ -55,7 +56,8 @@ final class VoxelScene: Scene3D {
         let corners = [(0, 0), (1, 0), (1, 1), (0, 1)]
         for key in tops {
             let cx = Double(key % colsCount), cy = Double(key / colsCount)
-            var pp = [CGPoint](); pp.reserveCapacity(4)
+            var pp = [CGPoint]()
+            pp.reserveCapacity(4)
             var dsum = 0.0
             for (ox, oy) in corners {
                 let relX = (cx + Double(ox)) - camX, relY = (cy + Double(oy)) - camY
@@ -90,3 +92,4 @@ final class VoxelScene: Scene3D {
     override func makeNextLevelScene() -> Scene3D { VoxelScene(size: size) }
     override func makeRestartScene()   -> Scene3D { VoxelScene(size: size) }
 }
+

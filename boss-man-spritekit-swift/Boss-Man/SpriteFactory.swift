@@ -153,9 +153,14 @@ enum SpriteFactory {
         let btl = CGPoint(x: -backHalf, y: h + topH), btr = CGPoint(x: backHalf, y: h + topH)
         func face(_ pts: [CGPoint], _ color: SKColor, _ z: CGFloat) {
             let p = CGMutablePath()
-            p.move(to: pts[0]); for q in pts.dropFirst() { p.addLine(to: q) }; p.closeSubpath()
+            p.move(to: pts[0])
+            for q in pts.dropFirst() { p.addLine(to: q) }
+            p.closeSubpath()
             let sh = SKShapeNode(path: p)
-            sh.fillColor = color; sh.strokeColor = .clear; sh.isAntialiased = false; sh.zPosition = z
+            sh.fillColor = color
+            sh.strokeColor = .clear
+            sh.isAntialiased = false
+            sh.zPosition = z
             n.addChild(sh)
         }
         face([ftl, ftr, btr, btl], SKColor(calibratedRed: 0.82, green: 0.62, blue: 0.08, alpha: 1), 0)
@@ -277,3 +282,4 @@ enum SpriteFactory {
         return bossPerson(bodyColor: c.body, tieColor: c.tie)
     }
 }
+

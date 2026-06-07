@@ -1,10 +1,14 @@
 import KitABI
 
 public enum SKLineCap { case butt, round, square
-    var abiCode: Int32 { switch self { case .butt: return 0; case .round: return 1; case .square: return 2 } }
+    var abiCode: Int32 { switch self { case .butt: return 0
+    case .round: return 1
+    case .square: return 2 } }
 }
 public enum SKLineJoin { case miter, round, bevel
-    var abiCode: Int32 { switch self { case .miter: return 0; case .round: return 1; case .bevel: return 2 } }
+    var abiCode: Int32 { switch self { case .miter: return 0
+    case .round: return 1
+    case .bevel: return 2 } }
 }
 
 public final class SKShapeNode: SKNode {
@@ -34,49 +38,77 @@ public final class SKShapeNode: SKNode {
     public var strokeShader: SKShader?
     public var blendMode: SKBlendMode = .alpha
 
-    public override init() { kind = .rect(0, 0, 0, 0); super.init() }
-    public init(rectOf size: CGSize) { kind = .rect(-size.width/2, -size.height/2, size.width, size.height); super.init() }
+    public override init() { kind = .rect(0, 0, 0, 0)
+    super.init() }
+    public init(rectOf size: CGSize) { kind = .rect(-size.width/2, -size.height/2, size.width, size.height)
+    super.init() }
     public init(rectOf size: CGSize, cornerRadius: CGFloat) {
         let rect = CGRect(x: -size.width/2, y: -size.height/2, width: size.width, height: size.height)
         if cornerRadius > 0 {
-            let p = CGMutablePath(); p.addRoundedRect(in: rect, cornerRadius: cornerRadius)
-            kind = .path; super.init(); self.path = p
+            let p = CGMutablePath()
+            p.addRoundedRect(in: rect, cornerRadius: cornerRadius)
+            kind = .path
+            super.init()
+            self.path = p
         } else {
-            kind = .rect(rect.minX, rect.minY, rect.width, rect.height); super.init()
+            kind = .rect(rect.minX, rect.minY, rect.width, rect.height)
+            super.init()
         }
     }
-    public init(rect: CGRect) { kind = .rect(rect.minX, rect.minY, rect.width, rect.height); super.init() }
+    public init(rect: CGRect) { kind = .rect(rect.minX, rect.minY, rect.width, rect.height)
+    super.init() }
     public init(rect: CGRect, cornerRadius: CGFloat) {
         if cornerRadius > 0 {
-            let p = CGMutablePath(); p.addRoundedRect(in: rect, cornerRadius: cornerRadius)
-            kind = .path; super.init(); self.path = p
+            let p = CGMutablePath()
+            p.addRoundedRect(in: rect, cornerRadius: cornerRadius)
+            kind = .path
+            super.init()
+            self.path = p
         } else {
-            kind = .rect(rect.minX, rect.minY, rect.width, rect.height); super.init()
+            kind = .rect(rect.minX, rect.minY, rect.width, rect.height)
+            super.init()
         }
     }
-    public init(circleOfRadius r: CGFloat) { kind = .circle(r); super.init() }
+    public init(circleOfRadius r: CGFloat) { kind = .circle(r)
+    super.init() }
     public init(ellipseIn rect: CGRect) {
-        let p = CGMutablePath(); p.addEllipse(in: rect)
-        kind = .path; super.init(); self.path = p
+        let p = CGMutablePath()
+        p.addEllipse(in: rect)
+        kind = .path
+        super.init()
+        self.path = p
     }
     public init(ellipseOf size: CGSize) {
         let r = CGRect(x: -size.width/2, y: -size.height/2, width: size.width, height: size.height)
-        let p = CGMutablePath(); p.addEllipse(in: r)
-        kind = .path; super.init(); self.path = p
+        let p = CGMutablePath()
+        p.addEllipse(in: r)
+        kind = .path
+        super.init()
+        self.path = p
     }
-    public init(path p: CGPath) { kind = .path; self.path = p; super.init() }
-    public init(path p: CGPath, centered: Bool) { kind = .path; self.path = p; super.init() }
+    public init(path p: CGPath) { kind = .path
+    self.path = p
+    super.init() }
+    public init(path p: CGPath, centered: Bool) { kind = .path
+    self.path = p
+    super.init() }
     // Convenience polyline init (mirrors SKShapeNode(points:count:) on Apple).
     public init(points: UnsafeMutablePointer<CGPoint>, count: Int) {
         let p = CGMutablePath()
-        if count > 0 { p.move(to: points[0]); for i in 1..<count { p.addLine(to: points[i]) } }
-        kind = .path; super.init(); self.path = p
+        if count > 0 { p.move(to: points[0])
+        for i in 1..<count { p.addLine(to: points[i]) } }
+        kind = .path
+        super.init()
+        self.path = p
     }
     public init(splinePoints points: UnsafeMutablePointer<CGPoint>, count: Int) {
         // Spline isn't implemented — fall back to straight polyline.
         let p = CGMutablePath()
-        if count > 0 { p.move(to: points[0]); for i in 1..<count { p.addLine(to: points[i]) } }
-        kind = .path; super.init(); self.path = p
+        if count > 0 { p.move(to: points[0])
+        for i in 1..<count { p.addLine(to: points[i]) } }
+        kind = .path
+        super.init()
+        self.path = p
     }
     public static func node(withPath p: CGPath) -> SKShapeNode { SKShapeNode(path: p) }
 
@@ -93,8 +125,10 @@ public final class SKShapeNode: SKNode {
             }
             var minX = pts[0].x, maxX = pts[0].x, minY = pts[0].y, maxY = pts[0].y
             for p in pts.dropFirst() {
-                if p.x < minX { minX = p.x } ; if p.x > maxX { maxX = p.x }
-                if p.y < minY { minY = p.y } ; if p.y > maxY { maxY = p.y }
+                if p.x < minX { minX = p.x }
+                if p.x > maxX { maxX = p.x }
+                if p.y < minY { minY = p.y }
+                if p.y > maxY { maxY = p.y }
             }
             local = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
         }
@@ -128,8 +162,10 @@ public final class SKShapeNode: SKNode {
         case .path:
             guard let p = path else { return }
             for sub in p.resolved where sub.count >= 2 {
-                var xy = [Float](); xy.reserveCapacity(sub.count * 2)
-                for pt in sub { xy.append(Float(pt.x)); xy.append(Float(pt.y)) }
+                var xy = [Float]()
+                xy.reserveCapacity(sub.count * 2)
+                for pt in sub { xy.append(Float(pt.x))
+                xy.append(Float(pt.y)) }
                 xy.withUnsafeBufferPointer { buf in
                     let n = Int32(sub.count)
                     if hasFill && sub.count >= 3 { gfx_fill_poly(buf.baseAddress, n, fillColor.rgba) }
@@ -139,3 +175,5 @@ public final class SKShapeNode: SKNode {
         }
     }
 }
+
+

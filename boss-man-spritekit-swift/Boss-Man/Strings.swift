@@ -349,7 +349,7 @@ enum ControlMode: Int, CaseIterable {
     var showsDpad:  Bool { self == .dpadLeft  || self == .dpadRight  }
     var isHidden:   Bool { self == .hidden }
     var showsControl: Bool { showsStick || showsDpad }
-    var onLeft: Bool { self == .stickLeft || self == .dpadLeft }   // movement widget side; fire button is opposite
+    var onLeft: Bool { self == .stickLeft || self == .dpadLeft } // movement widget side; fire button is opposite
 
     var label: String {
         switch self {

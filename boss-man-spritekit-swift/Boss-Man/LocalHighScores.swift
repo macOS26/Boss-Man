@@ -108,13 +108,17 @@ struct LocalHighScores {
                     }
                     k += 2
                 } else {
-                    name.append(a[k]); k += 1
+                    name.append(a[k])
+                    k += 1
                 }
             }
             guard let ss = indexAfter(a, n, from: k, of: "\"s\":") else { break }
             var j = ss
             var num = ""
-            while j < n, a[j].isNumber || a[j] == "-" { num.append(a[j]); j += 1 }
+            while j < n, a[j].isNumber || a[j] == "-" {
+                num.append(a[j])
+                j += 1
+            }
             guard let s = Int(num) else { break }
             out.append(Entry(name: name, score: s))
             i = j
@@ -129,7 +133,10 @@ struct LocalHighScores {
         var i = from
         while i + tn <= n {
             var match = true
-            for x in 0..<tn where a[i + x] != t[x] { match = false; break }
+            for x in 0..<tn where a[i + x] != t[x] {
+                match = false
+                break
+            }
             if match { return i + tn }
             i += 1
         }
@@ -137,3 +144,5 @@ struct LocalHighScores {
     }
 
 }
+
+

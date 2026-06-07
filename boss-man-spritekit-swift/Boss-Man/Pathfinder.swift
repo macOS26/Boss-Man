@@ -33,7 +33,8 @@ final class Pathfinder {
         let cols = map.columnCount, rows = map.rowCount
         guard cols > 0, rows > 0 else { return nil }
         if bufCols != cols || bufRows != rows {
-            bufCols = cols; bufRows = rows
+            bufCols = cols
+            bufRows = rows
             parentIdx = [Int](repeating: -1, count: cols * rows)
             seenGen   = [Int](repeating: 0,  count: cols * rows)
             gen = 0
@@ -54,7 +55,8 @@ final class Pathfinder {
         var head = 0
 
         while head < queue.count {
-            let cur = queue[head]; head += 1
+            let cur = queue[head]
+            head += 1
             if cur == goalIdx { return reconstruct(goalIdx: goalIdx, startIdx: startIdx, cols: cols) }
             let cc = cur % cols, cr = cur / cols
             visit(cc + 1, cr, parent: cur, g: g, cols: cols, rows: rows)
@@ -67,7 +69,9 @@ final class Pathfinder {
                 if pc >= 0, pc < cols, pr >= 0, pr < rows {
                     let pIdx = pr * cols + pc
                     if seenGen[pIdx] != g {
-                        seenGen[pIdx] = g; parentIdx[pIdx] = cur; queue.append(pIdx)
+                        seenGen[pIdx] = g
+                        parentIdx[pIdx] = cur
+                        queue.append(pIdx)
                     }
                 }
             }
@@ -82,7 +86,9 @@ final class Pathfinder {
         guard map.isWalkable(pt), !map.isHideout(pt) else { return }
         let idx = ny * cols + nx
         if seenGen[idx] != g {
-            seenGen[idx] = g; parentIdx[idx] = parent; queue.append(idx)
+            seenGen[idx] = g
+            parentIdx[idx] = parent
+            queue.append(idx)
         }
     }
 
@@ -96,3 +102,4 @@ final class Pathfinder {
         return idxPath.reversed().map { CGPoint(x: CGFloat($0 % cols), y: CGFloat($0 / cols)) }
     }
 }
+

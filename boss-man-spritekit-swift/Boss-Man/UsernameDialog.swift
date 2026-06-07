@@ -148,10 +148,13 @@ final class UsernameDialog: SKNode {
     @discardableResult
     func handleKey(_ key: Int, shift: Bool) -> Bool {
         switch key {
-        case 58: handleConfirm(); return true            // Return / Enter
-        case 36: handleSkip();    return true            // Escape
+        case 58: handleConfirm()
+        return true  // Return / Enter
+        case 36: handleSkip()
+        return true  // Escape
         case 59:                                          // Backspace
-            if !typed.isEmpty { typed.removeLast(); refreshInput() }
+            if !typed.isEmpty { typed.removeLast()
+            refreshInput() }
             return true
         case 57:                                          // Space
             if !typed.isEmpty && typed.count < maxLength {
@@ -224,3 +227,5 @@ final class UsernameDialog: SKNode {
         return false
     }
 }
+
+

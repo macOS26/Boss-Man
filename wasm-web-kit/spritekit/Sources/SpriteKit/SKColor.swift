@@ -4,9 +4,15 @@
 public struct SKColor: Equatable, Sendable {
     public var r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat
     public init(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
-        r = red; g = green; b = blue; a = alpha
+        r = red
+        g = green
+        b = blue
+        a = alpha
     }
-    public init(white: CGFloat, alpha: CGFloat) { r = white; g = white; b = white; a = alpha }
+    public init(white: CGFloat, alpha: CGFloat) { r = white
+    g = white
+    b = white
+    a = alpha }
     public init(calibratedRed: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
         self.init(red: calibratedRed, green: green, blue: blue, alpha: alpha)
     }
@@ -66,3 +72,5 @@ public struct SKColor: Equatable, Sendable {
                        alpha: a + (color.a - a) * f)
     }
 }
+
+

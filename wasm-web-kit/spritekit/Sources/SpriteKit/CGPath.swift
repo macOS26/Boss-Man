@@ -5,7 +5,8 @@ public final class CGMutablePath {
     var subpaths: [[CGPoint]] = []
     var current: [CGPoint] = []
     public init() {}
-    public func move(to p: CGPoint) { flush(); current = [p] }
+    public func move(to p: CGPoint) { flush()
+    current = [p] }
     public func addLine(to p: CGPoint) { if current.isEmpty { current = [p] } else { current.append(p) } }
     public func addRect(_ r: CGRect) {
         flush()
@@ -42,32 +43,39 @@ public final class CGMutablePath {
     // tangent1End to tangent2End. Half-angle terms come from dot/cross so no acos/tan
     // helper is needed. Collinear / degenerate corners fall back to a straight line.
     public func addArc(tangent1End p1: CGPoint, tangent2End p2: CGPoint, radius r: CGFloat) {
-        guard let p0 = current.last else { current = [p1]; return }
-        if r <= 0 { addLine(to: p1); return }
+        guard let p0 = current.last else { current = [p1]
+        return }
+        if r <= 0 { addLine(to: p1)
+        return }
         let v1x = p0.x - p1.x, v1y = p0.y - p1.y
         let v2x = p2.x - p1.x, v2y = p2.y - p1.y
         let len1 = (v1x * v1x + v1y * v1y).squareRoot()
         let len2 = (v2x * v2x + v2y * v2y).squareRoot()
-        if len1 < 1e-6 || len2 < 1e-6 { addLine(to: p1); return }
+        if len1 < 1e-6 || len2 < 1e-6 { addLine(to: p1)
+        return }
         let u1x = v1x / len1, u1y = v1y / len1
         let u2x = v2x / len2, u2y = v2y / len2
         let dot = u1x * u2x + u1y * u2y
         let crossAbs = abs(u1x * u2y - u1y * u2x)
-        if crossAbs < 1e-6 { addLine(to: p1); return }
+        if crossAbs < 1e-6 { addLine(to: p1)
+        return }
         let dist = r * (1 + dot) / crossAbs
         let t1 = CGPoint(x: p1.x + u1x * dist, y: p1.y + u1y * dist)
         let t2 = CGPoint(x: p1.x + u2x * dist, y: p1.y + u2y * dist)
         var bx = u1x + u2x, by = u1y + u2y
         let blen = (bx * bx + by * by).squareRoot()
         let sinHalf = ((1 - dot) / 2).squareRoot()
-        if blen < 1e-6 || sinHalf < 1e-6 { addLine(to: p1); return }
-        bx /= blen; by /= blen
+        if blen < 1e-6 || sinHalf < 1e-6 { addLine(to: p1)
+        return }
+        bx /= blen
+        by /= blen
         let cx = p1.x + bx * (r / sinHalf), cy = p1.y + by * (r / sinHalf)
         addLine(to: t1)
         let a1 = atan2c(t1.y - cy, t1.x - cx)
         var da = atan2c(t2.y - cy, t2.x - cx) - a1
         let pi = CGFloat(3.141592653589793)
-        while da > pi { da -= 2 * pi }; while da < -pi { da += 2 * pi }
+        while da > pi { da -= 2 * pi }
+        while da < -pi { da += 2 * pi }
         let steps = 6
         for i in 1...steps {
             let a = a1 + da * CGFloat(i) / CGFloat(steps)
@@ -80,7 +88,8 @@ public final class CGMutablePath {
     // half the shorter side and falls back to a plain rect at radius 0.
     public func addRoundedRect(in r: CGRect, cornerRadius cr: CGFloat) {
         let rad = max(0, min(cr, min(r.width, r.height) / 2))
-        if rad <= 0 { addRect(r); return }
+        if rad <= 0 { addRect(r)
+        return }
         let seg = 4
         var pts: [CGPoint] = []
         func corner(_ cx: CGFloat, _ cy: CGFloat, from: Double, to: Double) {
@@ -99,8 +108,11 @@ public final class CGMutablePath {
         subpaths.append(pts)
     }
     public func closeSubpath() { flush() }
-    func flush() { if !current.isEmpty { subpaths.append(current); current = [] } }
-    var resolved: [[CGPoint]] { var s = subpaths; if !current.isEmpty { s.append(current) }; return s }
+    func flush() { if !current.isEmpty { subpaths.append(current)
+    current = [] } }
+    var resolved: [[CGPoint]] { var s = subpaths
+    if !current.isEmpty { s.append(current) }
+    return s }
 
     // Polyline flattening across all subpaths — used by SKAction.follow to sample
     // a path by arc length. Each subpath is treated as a continuous polyline; we
@@ -156,3 +168,5 @@ public extension CGPoint {
         return CGFloat((Double(dx*dx + dy*dy)).squareRoot())
     }
 }
+
+

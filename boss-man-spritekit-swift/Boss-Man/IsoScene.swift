@@ -54,14 +54,30 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     private func perspScale(_ row: Double) -> CGFloat { persp(row) }
 
     private func quadPath(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) -> CGPath {
-        let p = CGMutablePath(); p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath(); return p
+        let p = CGMutablePath()
+        p.move(to: a)
+        p.addLine(to: b)
+        p.addLine(to: c)
+        p.addLine(to: d)
+        p.closeSubpath()
+        return p
     }
     @discardableResult private func addQuad(_ path: CGPath, _ fill: SKColor, _ stroke: SKColor, _ z: CGFloat) -> SKShapeNode {
-        let n = SKShapeNode(path: path); n.fillColor = fill; n.strokeColor = .clear; n.lineWidth = 0; n.isAntialiased = false; n.zPosition = z
-        isoMaze.addChild(n); return n
+        let n = SKShapeNode(path: path)
+        n.fillColor = fill
+        n.strokeColor = .clear
+        n.lineWidth = 0
+        n.isAntialiased = false
+        n.zPosition = z
+        isoMaze.addChild(n)
+        return n
     }
     private func addSub(_ p: CGMutablePath, _ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) {
-        p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath()
+        p.move(to: a)
+        p.addLine(to: b)
+        p.addLine(to: c)
+        p.addLine(to: d)
+        p.closeSubpath()
     }
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
         let h = (gold ? 0.28 : 0.20) * 0.7225
@@ -115,20 +131,30 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             var hasWall = false
             var dotCols: [Int] = []
             for c in 0..<min(colsCount, row.count) {
-                let ch = row[c]; let dc = Double(c); let par = (c + r) & 1
+                let ch = row[c]
+                let dc = Double(c)
+                let par = (c + r) & 1
                 let fNW = proj(dc, Double(r), 0), fNE = proj(dc + 1, Double(r), 0)
                 let fSE = proj(dc + 1, Double(r + 1), 0), fSW = proj(dc, Double(r + 1), 0)
                 if ch == Strings.Tile.wallChar {
                     let tNW = proj(dc, Double(r), 1), tNE = proj(dc + 1, Double(r), 1)
                     let tSE = proj(dc + 1, Double(r + 1), 1), tSW = proj(dc, Double(r + 1), 1)
-                    addSub(pFront[par], fSW, fSE, tSE, tSW); hasFront[par] = true
-                    if dc + 0.5 < mid { addSub(pSide[par], fNE, fSE, tSE, tNE); hasSide[par] = true }
-                    else if dc + 0.5 > mid { addSub(pSide[par], fNW, fSW, tSW, tNW); hasSide[par] = true }
-                    addSub(pTop[par], tNW, tNE, tSE, tSW); hasTop[par] = true
+                    addSub(pFront[par], fSW, fSE, tSE, tSW)
+                    hasFront[par] = true
+                    if dc + 0.5 < mid {
+                        addSub(pSide[par], fNE, fSE, tSE, tNE)
+                        hasSide[par] = true
+                    } else if dc + 0.5 > mid {
+                        addSub(pSide[par], fNW, fSW, tSW, tNW)
+                        hasSide[par] = true
+                    }
+                    addSub(pTop[par], tNW, tNE, tSE, tSW)
+                    hasTop[par] = true
                     appendCubicleTrim(tSW, tSE, tNE, tNW, pTrim)
                     hasWall = true
                 } else {
-                    addSub(pFloor[par], fNW, fNE, fSE, fSW); hasFloor[par] = true
+                    addSub(pFloor[par], fNW, fNE, fSE, fSW)
+                    hasFloor[par] = true
                     if isDotTile(ch) { dotCols.append(c) }
                 }
             }
@@ -139,7 +165,13 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 if hasTop[par]   { addQuad(pTop[par], topP[par], edgeP[par], z + 0.3) }
             }
             if hasWall {
-                let t = SKShapeNode(path: pTrim); t.fillColor = SpriteFactory.wallTrimColor; t.strokeColor = .clear; t.lineWidth = 0; t.isAntialiased = false; t.zPosition = z + 0.40; isoMaze.addChild(t)
+                let t = SKShapeNode(path: pTrim)
+                t.fillColor = SpriteFactory.wallTrimColor
+                t.strokeColor = .clear
+                t.lineWidth = 0
+                t.isAntialiased = false
+                t.zPosition = z + 0.40
+                isoMaze.addChild(t)
             }
             if !dotCols.isEmpty {
                 isoDotRowCells[r] = dotCols
@@ -249,13 +281,16 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 if parity != runParity {
                     let r = CGRect(x: runStart, y: yu, width: x - runStart, height: rowH)
                     if runParity == 1 { pathA.addRect(r) } else { pathB.addRect(r) }
-                    runStart = x; runParity = parity
+                    runStart = x
+                    runParity = parity
                 }
                 x += 1
             }
             yu += rowH
         }
-        floorA.path = pathA; floorB.path = pathB; floorFar.path = pathFar
+        floorA.path = pathA
+        floorB.path = pathB
+        floorFar.path = pathFar
     }
 
     // IsoScene uses petePerson (front-facing), not petePersonBack
@@ -284,13 +319,18 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         for (_, l) in bossNames { l.isHidden = false }
         state.lives -= 1
         refreshHUD()
-        if state.lives <= 0 { gameOver = true; showGameOver(); return }
+        if state.lives <= 0 {
+            gameOver = true
+            showGameOver()
+            return
+        }
         let spawnGrid = CGPoint(x: Int(spawnPx), y: rowsCount - 1 - Int(spawnPy))
         workerController.teleport(to: spawnGrid)
         workerController.resetMotion()
         workerController.applySpawnShield()
         pressed.removeAll()
-        px = spawnPx; py = spawnPy
+        px = spawnPx
+        py = spawnPy
         bossController.teleportAllToSpawn()
         pete.alpha = 1
         peteName.alpha = 1
@@ -326,7 +366,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     override func setupBossController() {
         let rows = LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
         gridMap = GridMap(tileSize: 32, rows: rows)
-        gridMap.xOffset = 0; gridMap.yOffset = 0
+        gridMap.xOffset = 0
+        gridMap.yOffset = 0
         pathfinder = Pathfinder(map: gridMap)
         let spawnGrid = CGPoint(x: Int(spawnPx), y: rowsCount - 1 - Int(spawnPy))
         workerController = WorkerController(spawnGrid: spawnGrid, gridMap: gridMap, sound: sound)
@@ -364,13 +405,17 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     private func placeIsoSprite(_ node: SKNode, _ col: CGFloat, _ row: CGFloat, _ targetH: CGFloat, _ lift: CGFloat = 0) {
         let id = ObjectIdentifier(node)
         let nh: CGFloat, bottom: CGFloat
-        if let n = isoNativeH[id], let b = isoFeet[id] { nh = n; bottom = b }
-        else {
+        if let n = isoNativeH[id], let b = isoFeet[id] {
+            nh = n
+            bottom = b
+        } else {
             let prev = node.xScale
             node.setScale(1)
             let f = node.calculateAccumulatedFrame()
-            nh = max(1, f.height); bottom = f.minY - node.position.y
-            isoNativeH[id] = nh; isoFeet[id] = bottom
+            nh = max(1, f.height)
+            bottom = f.minY - node.position.y
+            isoNativeH[id] = nh
+            isoFeet[id] = bottom
             node.setScale(prev)
         }
         let s = targetH * perspScale(Double(row)) / nh
@@ -394,15 +439,22 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         peteName.zPosition = pete.zPosition + 0.1
 
         for e in bossController.entities {
-            guard let g = bossGrid[ObjectIdentifier(e.node)] else { e.node.isHidden = true; continue }
+            guard let g = bossGrid[ObjectIdentifier(e.node)] else {
+                e.node.isHidden = true
+                continue
+            }
             let bcol = g.0 + 0.5, brow = Double(rowsCount) - 0.5 - g.1
             e.node.isHidden = false
             placeIsoSprite(e.node, CGFloat(bcol), CGFloat(brow), spriteH)
             e.node.position.y += 3
             e.node.zPosition = CGFloat(brow) * 4 + 0.6
-            if let d = e.mover?.dir { e.node.unfreezeLook(); e.node.setFacing(d) }
+            if let d = e.mover?.dir {
+                e.node.unfreezeLook()
+                e.node.setFacing(d)
+            }
             if !e.name.isEmpty {
-                let label = bossNameplate(for: e.node, text: e.name); label.isHidden = false
+                let label = bossNameplate(for: e.node, text: e.name)
+                label.isHidden = false
                 let fleeing = goldDisc.isActive && bossController.isInFleeMode(boss: e.node)
                 label.text = fleeing ? "\(bossController.nextCapturePoints)" : e.name
                 label.fontColor = .white
@@ -415,13 +467,18 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             travelerSpawner?.node?.isHidden = true
             if isoTraveler == nil || isoTravelerEmoji != info.emoji {
                 isoTraveler?.removeFromParent()
-                let m = emojiBillboard(info.emoji, isoTW * 0.9); spriteLayer.addChild(m)
-                isoTraveler = m; isoTravelerEmoji = info.emoji
+                let m = emojiBillboard(info.emoji, isoTW * 0.9)
+                spriteLayer.addChild(m)
+                isoTraveler = m
+                isoTravelerEmoji = info.emoji
                 isoTravelerPoints?.removeFromParent()
                 let p = SKLabelNode(fontNamed: Strings.Font.menloBold)
-                p.text = "\(info.points)"; p.fontColor = .white
-                p.verticalAlignmentMode = .baseline; p.horizontalAlignmentMode = .center
-                spriteLayer.addChild(p); isoTravelerPoints = p
+                p.text = "\(info.points)"
+                p.fontColor = .white
+                p.verticalAlignmentMode = .baseline
+                p.horizontalAlignmentMode = .center
+                spriteLayer.addChild(p)
+                isoTravelerPoints = p
             }
             if let m = isoTraveler {
                 m.isHidden = false
@@ -443,7 +500,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
 
         let shotH = isoTW * 0.34
         for s in shots where s.alive {
-            if s.node.parent !== spriteLayer { s.node.removeFromParent(); spriteLayer.addChild(s.node) }
+            if s.node.parent !== spriteLayer {
+                s.node.removeFromParent()
+                spriteLayer.addChild(s.node)
+            }
             s.node.isHidden = false
             placeIsoSprite(s.node, CGFloat(s.x), CGFloat(s.y), shotH, 0.55)
             s.node.zPosition = CGFloat(s.y) * 4 + 0.65
@@ -456,7 +516,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         var back = camBack
         while back > 0.05 && isWall(px - dirX * back, py - dirY * back) { back -= 0.1 }
-        camX = px - dirX * back; camY = py - dirY * back
+        camX = px - dirX * back
+        camY = py - dirY * back
         castFloor()
 
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
@@ -473,8 +534,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             if r.lastCol > r.firstCol {
                 let dx = cxB - cxA
                 let sLo = (r.yLoB - r.yLoA) / dx, sHi = (r.yHiB - r.yHiA) / dx
-                yLoL = r.yLoA + sLo * (xL - cxA); yLoR = r.yLoA + sLo * (xR - cxA)
-                yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA)
+                yLoL = r.yLoA + sLo * (xL - cxA)
+                yLoR = r.yLoA + sLo * (xR - cxA)
+                yHiL = r.yHiA + sHi * (xL - cxA)
+                yHiR = r.yHiA + sHi * (xR - cxA)
             }
             let dAvg = r.depthSum / Double(r.n)
             let f = CGFloat(max(0.10, min(1.0, 1.0 - dAvg / maxVoxelDist)))
@@ -485,7 +548,12 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         }
         func addFront(_ key: Int, _ col: Int, _ yLo: CGFloat, _ yHi: CGFloat, _ d: Double, _ side: Int, _ par: Int) {
             if var r = openF[key], r.lastCol == col - 1 {
-                r.lastCol = col; r.yLoB = yLo; r.yHiB = yHi; r.depthSum += d; r.n += 1; openF[key] = r
+                r.lastCol = col
+                r.yLoB = yLo
+                r.yHiB = yHi
+                r.depthSum += d
+                r.n += 1
+                openF[key] = r
             } else {
                 if let r = openF[key] { emitFront(r) }
                 openF[key] = WallRun(firstCol: col, lastCol: col, yLoA: yLo, yHiA: yHi, yLoB: yLo, yHiB: yHi, depthSum: d, n: 1, side: side, par: par)
@@ -497,21 +565,48 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             var mapX = Int(camX.rounded(.down)), mapY = Int(camY.rounded(.down))
             let ddx = rdx == 0 ? 1e30 : abs(1 / rdx), ddy = rdy == 0 ? 1e30 : abs(1 / rdy)
             var stepX = 0, stepY = 0, sideX = 0.0, sideY = 0.0
-            if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
-            if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
+            if rdx < 0 {
+                stepX = -1
+                sideX = (camX - Double(mapX)) * ddx
+            } else {
+                stepX = 1
+                sideX = (Double(mapX) + 1 - camX) * ddx
+            }
+            if rdy < 0 {
+                stepY = -1
+                sideY = (camY - Double(mapY)) * ddy
+            } else {
+                stepY = 1
+                sideY = (Double(mapY) + 1 - camY) * ddy
+            }
             var firstHit = true
             var prevWall = false
             var guardN = 0
             while guardN < 160 {
                 guardN += 1
                 let dEntry: Double, side: Int
-                if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX; side = 0 }
-                else             { dEntry = sideY; sideY += ddy; mapY += stepY; side = 1 }
+                if sideX < sideY {
+                    dEntry = sideX
+                    sideX += ddx
+                    mapX += stepX
+                    side = 0
+                } else {
+                    dEntry = sideY
+                    sideY += ddy
+                    mapY += stepY
+                    side = 1
+                }
                 if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
                 if dEntry > maxVoxelDist { break }
-                if map[mapY][mapX] != Strings.Tile.wallChar { prevWall = false; continue }
+                if map[mapY][mapX] != Strings.Tile.wallChar {
+                    prevWall = false
+                    continue
+                }
                 let dN = max(0.05, dEntry)
-                if firstHit { zbuf[col] = dN; firstHit = false }
+                if firstHit {
+                    zbuf[col] = dN
+                    firstHit = false
+                }
                 tops.insert(mapY * colsCount + mapX)
                 if !prevWall {
                     let fid = side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1
@@ -523,7 +618,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 prevWall = true
             }
             if firstHit { zbuf[col] = 1e9 }
-            for fid in Array(openF.keys) where openF[fid]!.lastCol < col { emitFront(openF[fid]!); openF.removeValue(forKey: fid) }
+            for fid in Array(openF.keys) where openF[fid]!.lastCol < col {
+                emitFront(openF[fid]!)
+                openF.removeValue(forKey: fid)
+            }
         }
         for (_, r) in openF { emitFront(r) }
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
@@ -531,12 +629,16 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let corners = [(0, 0), (1, 0), (1, 1), (0, 1)]
         for key in tops {
             let cx = Double(key % colsCount), cy = Double(key / colsCount)
-            var pp = [CGPoint](); pp.reserveCapacity(4)
+            var pp = [CGPoint]()
+            pp.reserveCapacity(4)
             var dsum = 0.0, ok = true
             for (ox, oy) in corners {
                 let relX = (cx + Double(ox)) - camX, relY = (cy + Double(oy)) - camY
                 let depth = invDet * (-planeY * relX + planeX * relY)
-                if depth < 0.12 { ok = false; break }
+                if depth < 0.12 {
+                    ok = false
+                    break
+                }
                 let transX = invDet * (dirY * relX - dirX * relY)
                 pp.append(CGPoint(x: size.width / 2 * (1 + CGFloat(transX / depth)),
                                   y: viewMidY + viewH * CGFloat(capZ) / CGFloat(depth)))
@@ -575,7 +677,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
         }
         if let tnode = travelerSpawner?.node, travelerSpawner?.activeTraveler != nil {
-            if tnode.parent !== spriteLayer { tnode.removeFromParent(); spriteLayer.addChild(tnode) }
+            if tnode.parent !== spriteLayer {
+                tnode.removeFromParent()
+                spriteLayer.addChild(tnode)
+            }
             let g = travelerSpawner.grid
             let nh = max(1, tnode.calculateAccumulatedFrame().height)
             all.append((tnode, nh, 0.42, Double(g.x) + 0.5, Double(rowsCount) - 0.5 - Double(g.y), .greatestFiniteMagnitude, nil, -nh / 2))
@@ -587,17 +692,27 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             let relX = item.x - camX, relY = item.y - camY
             let tX = invDet * (dirY * relX - dirX * relY)
             let tY = invDet * (-planeY * relX + planeX * relY)
-            guard tY > 0.15 else { node.isHidden = true; continue }
+            guard tY > 0.15 else {
+                node.isHidden = true
+                continue
+            }
             let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
             if col >= 0, col < columns {
                 let footHalf = max(1, min(5, Int((viewH / CGFloat(tY) * item.worldH) / (size.width / CGFloat(columns)) * 0.5)))
                 var wallZ = zbuf[col]
                 for c in max(0, col - footHalf)...min(columns - 1, col + footHalf) { wallZ = min(wallZ, zbuf[c]) }
-                if tY > wallZ + 0.3 { node.isHidden = true; continue }
+                if tY > wallZ + 0.3 {
+                    node.isHidden = true
+                    continue
+                }
             }
-            if tY > 18 { node.isHidden = true; continue }
+            if tY > 18 {
+                node.isHidden = true
+                continue
+            }
             let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
-            guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
+            guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true
+            continue }
             vis.append((node, item.nativeH, item.worldH, item.maxH, item.name, item.bottom, tX, tY))
         }
         vis.sort { $0.tY > $1.tY }
@@ -635,7 +750,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             let nr = Double(rowsCount) - Double(tn.position.y) / 32.0
             let dx = nc - travCol
             if travActive, abs(dx) > 0.001, abs(dx) < 2 { travFlip = info.facesRight ? (dx < 0 ? -1 : 1) : (dx < 0 ? 1 : -1) }
-            travCol = nc; travRow = nr
+            travCol = nc
+            travRow = nr
             travActive = true
         } else { travActive = false }
         bossController.advance(1.0 / 60.0)
@@ -652,9 +768,14 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             state.bumpScore(by: caught.traveler.points)
             sound.playFishOrTreat()
             popPoints(caught.traveler.points)
-            captureFade(isoTraveler); isoTraveler = nil; isoTravelerEmoji = ""
-            captureFade(isoTravelerPoints); isoTravelerPoints = nil
-            captureFade(mapTraveler); mapTraveler = nil; mapTravelerEmoji = ""
+            captureFade(isoTraveler)
+            isoTraveler = nil
+            isoTravelerEmoji = ""
+            captureFade(isoTravelerPoints)
+            isoTravelerPoints = nil
+            captureFade(mapTraveler)
+            mapTraveler = nil
+            mapTravelerEmoji = ""
             refreshHUD()
             hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
         }
@@ -675,27 +796,49 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let key = mapKey(c, r), ch = map[r][c]
         if isDotTile(ch) {
             guard !isoDotCollected.contains(key) else { return }
-            isoDotCollected.insert(key); isoDotsLeft -= 1
-            rebuildDotRow(r); mapPickups[key]?.isHidden = true
-            sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
-            refreshHUD(); checkLevelComplete3D(); return
+            isoDotCollected.insert(key)
+            isoDotsLeft -= 1
+            rebuildDotRow(r)
+            mapPickups[key]?.isHidden = true
+            sound.playDotBlip()
+            state.collectedDots += 1
+            state.bumpScore(by: 1)
+            refreshHUD()
+            checkLevelComplete3D()
+            return
         }
         switch ch {
         case Strings.Tile.goldDiscChar:
             guard !collected.contains(key) else { return }
-            collected.insert(key); sound.playGoldDisc(); state.collectedGoldDiscs += 1
-            state.bumpScore(by: 5); popPoints(5); hidePickup(c, r); startGoldDiscMode(); refreshHUD()
+            collected.insert(key)
+            sound.playGoldDisc()
+            state.collectedGoldDiscs += 1
+            state.bumpScore(by: 5)
+            popPoints(5)
+            hidePickup(c, r)
+            startGoldDiscMode()
+            refreshHUD()
             checkLevelComplete3D()
         case Strings.Tile.waterGunChar:
             guard !collected.contains(key) else { return }
-            collected.insert(key); waterGun.activate(); waterGunPickedUp = true
-            sound.playWaterGunPickup(); state.bumpScore(by: 75); popPoints(75); hidePickup(c, r); refreshHUD()
+            collected.insert(key)
+            waterGun.activate()
+            waterGunPickedUp = true
+            sound.playWaterGunPickup()
+            state.bumpScore(by: 75)
+            popPoints(75)
+            hidePickup(c, r)
+            refreshHUD()
             checkLevelComplete3D()
         case Strings.Tile.waterPelletChar:
             guard !collected.contains(key) else { return }
-            collected.insert(key); state.bumpScore(by: 50); sound.playWaterGunPickup(); popPoints(50)
+            collected.insert(key)
+            state.bumpScore(by: 50)
+            sound.playWaterGunPickup()
+            popPoints(50)
             if waterGunPickedUp { waterGun.reloadPellets(8) }
-            hidePickup(c, r); refreshHUD()
+            hidePickup(c, r)
+            refreshHUD()
             checkLevelComplete3D()
         case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, c, r)
         case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, c, r)
@@ -712,12 +855,21 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let key = mapKey(c, r)
         guard isDotTile(map[r][c]), !isoDotCollected.contains(key) else { return }
         guard abs(px - (Double(c) + 0.5)) < 0.45, abs(py - (Double(r) + 0.5)) < 0.45 else { return }
-        isoDotCollected.insert(key); isoDotsLeft -= 1; rebuildDotRow(r)
+        isoDotCollected.insert(key)
+        isoDotsLeft -= 1
+        rebuildDotRow(r)
         switch map[r][c] {
-        case Strings.Tile.goldDiscChar: sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
-        default:                        sound.playDotBlip(); state.collectedDots += 1; state.bumpScore(by: 1)
+        case Strings.Tile.goldDiscChar: sound.playGoldDisc()
+        state.collectedGoldDiscs += 1
+        state.bumpScore(by: 5)
+        popPoints(5)
+        startGoldDiscMode()
+        default:                        sound.playDotBlip()
+        state.collectedDots += 1
+        state.bumpScore(by: 1)
         }
-        refreshHUD(); checkLevelComplete3D()
+        refreshHUD()
+        checkLevelComplete3D()
     }
 
     override func fire() {
@@ -732,7 +884,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         pellet.isHidden = true
         spriteLayer.addChild(pellet)
         let mapNode = SpriteFactory.waterPelletVisual(radius: mapCell * 0.22)
-        mapNode.position = mapLocal(px, py); mapNode.zPosition = 3; mapLayer.addChild(mapNode)
+        mapNode.position = mapLocal(px, py)
+        mapNode.zPosition = 3
+        mapLayer.addChild(mapNode)
         shots.append(Shot(x: px, y: py, dir: dir, node: pellet,
                           nativeH: max(1, pellet.calculateAccumulatedFrame().height), mapNode: mapNode, alive: true))
     }
@@ -763,7 +917,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         for i in shots.indices where shots[i].alive {
             shots[i].x += Double(shots[i].dir.x) * speed
             shots[i].y += Double(shots[i].dir.y) * speed
-            if isWall(shots[i].x, shots[i].y) { shots[i].alive = false; continue }
+            if isWall(shots[i].x, shots[i].y) { shots[i].alive = false
+            continue }
             let sgx = Int(shots[i].x.rounded(.down)), sgy = rowsCount - 1 - Int(shots[i].y.rounded(.down))
             for e in bossController.entities {
                 let bg = e.mover?.grid ?? e.ai.grid
@@ -773,14 +928,18 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 let splash = SpriteFactory.waterSplash(spread: 1.0)
                 bossController.splash(boss: e.node)
                 shots[i].alive = false
-                sound.playWaterGunSplash(); state.bumpScore(by: 50); popPoints(50); refreshHUD()
+                sound.playWaterGunSplash()
+                state.bumpScore(by: 50)
+                popPoints(50)
+                refreshHUD()
                 splash.position = CGPoint(x: hitPt.x, y: hitPt.y + 15)
                 splash.zPosition = CGFloat(hitRow) * 4 + 2
                 spriteLayer.addChild(splash)
                 break
             }
         }
-        for s in shots where !s.alive { s.node.removeFromParent(); s.mapNode.removeFromParent() }
+        for s in shots where !s.alive { s.node.removeFromParent()
+        s.mapNode.removeFromParent() }
         shots.removeAll { !$0.alive }
     }
 
@@ -789,7 +948,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let world = proj(Double(px), Double(py), 0)
         let big = SKLabelNode(fontNamed: Strings.Font.menloBold)
         big.text = Strings.Score.popup(n)
-        big.fontSize = max(30, isoTW * 0.45); big.fontColor = .systemYellow
+        big.fontSize = max(30, isoTW * 0.45)
+        big.fontColor = .systemYellow
         big.position = CGPoint(x: world.x + isoWorld.position.x, y: world.y + isoWorld.position.y + isoTW - 37)
         big.zPosition = 600
         addChild(big)
@@ -797,7 +957,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     override func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
-        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); refreshHUD()
+        state.bumpScore(by: points)
+        sound.playCaptureBoss(streak: max(1, points / 100))
+        refreshHUD()
         popPoints(points)
     }
 
@@ -842,28 +1004,38 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         fireButtonCenter = CGPoint(x: fireOnLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
         let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
         ring.position = fireButtonCenter
-        ring.fillColor = SKColor(white: 1, alpha: 0.14); ring.strokeColor = SKColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2; ring.zPosition = 300
+        ring.fillColor = SKColor(white: 1, alpha: 0.14)
+        ring.strokeColor = SKColor(white: 1, alpha: 0.5)
+        ring.lineWidth = 2
+        ring.zPosition = 300
         addChild(ring)
 
         joystickCenter = CGPoint(x: fireOnLeft ? size.width - joystickRadius : joystickRadius, y: joystickRadius + 15)
         let base = SKShapeNode(circleOfRadius: joystickRadius)
         base.position = joystickCenter
-        base.fillColor = SKColor(white: 1, alpha: 0.06); base.strokeColor = SKColor(white: 1, alpha: 0.5)
-        base.lineWidth = 2; base.zPosition = 300
+        base.fillColor = SKColor(white: 1, alpha: 0.06)
+        base.strokeColor = SKColor(white: 1, alpha: 0.5)
+        base.lineWidth = 2
+        base.zPosition = 300
         addChild(base)
-        if ControlMode.current.showsStick { addStickThumb(); return }
+        if ControlMode.current.showsStick { addStickThumb()
+        return }
         let dirs: [(String, CGFloat, String)] = [("up", .pi / 2, "\u{25B2}"), ("left", .pi, "\u{25C0}"),
                                                  ("down", -.pi / 2, "\u{25BC}"), ("right", 0, "\u{25B6}")]
         for (name, ang, glyph) in dirs {
             let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang, inner: joystickDeadzone, outer: joystickRadius))
             w.position = joystickCenter
-            w.fillColor = SKColor(white: 1, alpha: 0.12); w.strokeColor = .clear
-            w.lineWidth = 0; w.zPosition = 301
-            addChild(w); dpadWedges[name] = w
+            w.fillColor = SKColor(white: 1, alpha: 0.12)
+            w.strokeColor = .clear
+            w.lineWidth = 0
+            w.zPosition = 301
+            addChild(w)
+            dpadWedges[name] = w
             let arrow = SKLabelNode(text: glyph)
-            arrow.fontSize = 24; arrow.fontColor = SKColor(white: 1, alpha: 0.7)
-            arrow.verticalAlignmentMode = .center; arrow.horizontalAlignmentMode = .center
+            arrow.fontSize = 24
+            arrow.fontColor = SKColor(white: 1, alpha: 0.7)
+            arrow.verticalAlignmentMode = .center
+            arrow.horizontalAlignmentMode = .center
             let r = (joystickDeadzone + joystickRadius) / 2
             arrow.position = CGPoint(x: joystickCenter.x + cos(ang) * r, y: joystickCenter.y + sin(ang) * r)
             arrow.zPosition = 302
@@ -877,7 +1049,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         }
         let xlines = SKShapeNode(path: xPath)
         xlines.position = joystickCenter
-        xlines.strokeColor = SKColor(white: 1, alpha: 0.5); xlines.lineWidth = 2
+        xlines.strokeColor = SKColor(white: 1, alpha: 0.5)
+        xlines.lineWidth = 2
         xlines.zPosition = 301
         addChild(xlines)
     }
@@ -897,7 +1070,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
     @discardableResult private func joyBegin(_ p: CGPoint) -> Bool {
         guard !isUserPaused, !dying else { return false }
-        if !controlsShown { fire(); return false }
+        if !controlsShown { fire()
+        return false }
         if radius(p, joystickCenter) <= joystickRadius {
             joyActive = true
             moveStickThumb(to: p, release: false)
@@ -919,7 +1093,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self)); return }
+        if let s = gameOverScreen { s.handleTap(at: s.convert(event.location(in: self), from: self))
+        return }
         if usingTouch { return }
         joyBegin(event.location(in: self))
     }
@@ -941,7 +1116,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         if finger == joyFinger { joyMove(p) }
     }
     override func touchEnded(finger: Int, at p: CGPoint) {
-        if finger == joyFinger { joyFinger = nil; joyEnd() }
+        if finger == joyFinger { joyFinger = nil
+        joyEnd() }
     }
 
     // MARK: - Layout / projection (IsoScene-specific)
@@ -958,3 +1134,5 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     required init?(coder: NSCoder) { fatalError(Strings.System.initCoderUnsupported) }
     override init(size: CGSize) { super.init(size: size) }
 }
+
+

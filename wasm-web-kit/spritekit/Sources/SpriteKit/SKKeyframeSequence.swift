@@ -18,7 +18,8 @@ public final class SKKeyframeSequence {
     var times: [Double] = []
 
     public init() {}
-    public init(capacity: Int) { values.reserveCapacity(capacity); times.reserveCapacity(capacity) }
+    public init(capacity: Int) { values.reserveCapacity(capacity)
+    times.reserveCapacity(capacity) }
     public init(keyframeValues vs: [Any], times ts: [NSNumberLike]) {
         self.values = vs
         self.times = ts.map { $0.doubleValue }
@@ -26,13 +27,16 @@ public final class SKKeyframeSequence {
     public var count: Int { values.count }
 
     public func addKeyframeValue(_ value: Any, time: Double) {
-        values.append(value); times.append(time)
+        values.append(value)
+        times.append(time)
     }
     public func removeKeyframe(at index: Int) {
         guard index >= 0, index < values.count else { return }
-        values.remove(at: index); times.remove(at: index)
+        values.remove(at: index)
+        times.remove(at: index)
     }
-    public func removeLastKeyframe() { _ = values.popLast(); _ = times.popLast() }
+    public func removeLastKeyframe() { _ = values.popLast()
+    _ = times.popLast() }
     public func getKeyframeValue(at index: Int) -> Any? {
         (index >= 0 && index < values.count) ? values[index] : nil
     }
@@ -85,3 +89,5 @@ public protocol NSNumberLike { var doubleValue: Double { get } }
 extension Double: NSNumberLike { public var doubleValue: Double { self } }
 extension Float:  NSNumberLike { public var doubleValue: Double { Double(self) } }
 extension Int:    NSNumberLike { public var doubleValue: Double { Double(self) } }
+
+

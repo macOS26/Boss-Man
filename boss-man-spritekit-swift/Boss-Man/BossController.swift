@@ -106,7 +106,11 @@ final class BossController {
     // Loop-driven respawns for splashed bosses (the C++ master's respawnTimer).
     // An SKAction .wait+.run fires unreliably on wasm — a splashed boss would
     // respawn late, looking spontaneous "from before" — so count down in advance.
-    private struct PendingSpawn { let blueprintIndex: Int; let spawn: CGPoint; var timer: TimeInterval }
+    private struct PendingSpawn {
+        let blueprintIndex: Int
+        let spawn: CGPoint
+        var timer: TimeInterval
+    }
     private var pendingSpawns: [PendingSpawn] = []
 
     private func themed(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), level: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
@@ -346,6 +350,8 @@ final class BossController {
         entities.first(where: { $0.node === node })?.isInFleeMode ?? false
     }
 
+    var nextCapturePoints: Int { 100 * (captureStreak + 1) }
+
     func isImmobilized(boss node: PixelPerson) -> Bool {
         entities.first(where: { $0.node === node })?.isImmobilized ?? false
     }
@@ -393,7 +399,9 @@ final class BossController {
         for i in entities.indices {
             if entities[i].spawnGrace > 0 {
                 entities[i].spawnGrace -= dt
-                if entities[i].spawnGrace <= 0 { entities[i].isImmobilized = false }
+                if entities[i].spawnGrace <= 0 {
+                    entities[i].isImmobilized = false
+                }
                 continue
             }
             if entities[i].isImmobilized { continue }
@@ -487,3 +495,4 @@ final class BossController {
         pendingSpawns.append(PendingSpawn(blueprintIndex: boss.blueprintIndex, spawn: boss.spawn, timer: 5.0))
     }
 }
+

@@ -95,7 +95,7 @@ final class TitleScene: SKScene {
         mazeLabel       = makeHint(icon: "📷", iconSize: 42, value: mazeText(), y: promptY + 74, color: .systemPurple)
         bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: promptY - 74, color: .systemIndigo, left: true,
                                    sprite: SpriteFactory.bossPersonForBlueprint(0))
-        waterGunLabel   = makeHint(icon: "🕹️", iconSize: 42, value: controlModeText(), y: promptY, color: .systemOrange, left: true)   // control mode: hidden / stick / dpad + side; even with PLAY
+        waterGunLabel   = makeHint(icon: "🕹️", iconSize: 42, value: controlModeText(), y: promptY, color: .systemOrange, left: true) // control mode: hidden / stick / dpad + side; even with PLAY
     }
 
     // MARK: - Settings text
@@ -229,7 +229,8 @@ final class TitleScene: SKScene {
 
     // MARK: - Actions (shared)
     private func startGame() {
-        if MazeZoom.is3D { startBonus(); return }   // RAYCAST 3D / VOXEL 3D = first-person bonus
+        if MazeZoom.is3D { startBonus()
+        return }  // RAYCAST 3D / VOXEL 3D = first-person bonus
         view?.preferredFramesPerSecond = 60
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit
@@ -256,10 +257,14 @@ final class TitleScene: SKScene {
 
     // Shared tap routing — both ports funnel their pointer event through here.
     private func handleTap(at p: CGPoint) {
-        if playButtonRect.contains(p)   { startGame();   return }
-        if editorButtonRect.contains(p) { startEditor(); return }
-        if let fs = fullscreenLabel, labelHit(fs, p) { enterFullscreen(); return }
-        if let esc = escWindowLabel, labelHit(esc, p) { exitToWindow();   return }
+        if playButtonRect.contains(p)   { startGame()
+        return }
+        if editorButtonRect.contains(p) { startEditor()
+        return }
+        if let fs = fullscreenLabel, labelHit(fs, p) { enterFullscreen()
+        return }
+        if let esc = escWindowLabel, labelHit(esc, p) { exitToWindow()
+        return }
         if let m = mazeLabel, labelHit(m, p) {
             MazeZoom.advance()
             m.text = mazeText()
@@ -329,3 +334,4 @@ final class TitleScene: SKScene {
         return stapler
     }
 }
+

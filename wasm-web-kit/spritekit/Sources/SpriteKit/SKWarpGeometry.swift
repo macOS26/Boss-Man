@@ -42,11 +42,14 @@ public class SKWarpGeometry {
 public final class SKWarpGeometryGrid: SKWarpGeometry {
     public init(columns: Int, rows: Int) {
         super.init()
-        self.numberOfColumns = columns; self.numberOfRows = rows
+        self.numberOfColumns = columns
+        self.numberOfRows = rows
         // Identity grid: src + dst evenly spaced [0..1] across both axes.
         let cw = columns + 1, rh = rows + 1
-        var src: [CGPoint] = []; src.reserveCapacity(cw * rh)
-        var dst: [CGPoint] = []; dst.reserveCapacity(cw * rh)
+        var src: [CGPoint] = []
+        src.reserveCapacity(cw * rh)
+        var dst: [CGPoint] = []
+        dst.reserveCapacity(cw * rh)
         for r in 0..<rh {
             for c in 0..<cw {
                 let u = CGFloat(c) / CGFloat(columns)
@@ -60,8 +63,10 @@ public final class SKWarpGeometryGrid: SKWarpGeometry {
     }
     public init(columns: Int, rows: Int, sourcePositions src: [CGPoint], destPositions dst: [CGPoint]) {
         super.init()
-        self.numberOfColumns = columns; self.numberOfRows = rows
-        self.sourcePositions = src; self.destPositions = dst
+        self.numberOfColumns = columns
+        self.numberOfRows = rows
+        self.sourcePositions = src
+        self.destPositions = dst
     }
 
     // SKWarpGeometryGrid render hook used by SKSpriteNode.draw when a sprite's
@@ -71,10 +76,14 @@ public final class SKWarpGeometryGrid: SKWarpGeometry {
     func render(srcImg: Int32, dstX: Float, dstY: Float, dstW: Float, dstH: Float, color: UInt32) {
         if sourcePositions.isEmpty || destPositions.isEmpty { return }
         // Flatten both arrays into [Float] (xy pairs).
-        var srcXY: [Float] = []; srcXY.reserveCapacity(sourcePositions.count * 2)
-        for p in sourcePositions { srcXY.append(Float(p.x)); srcXY.append(Float(p.y)) }
-        var dstXY: [Float] = []; dstXY.reserveCapacity(destPositions.count * 2)
-        for p in destPositions { dstXY.append(Float(p.x)); dstXY.append(Float(p.y)) }
+        var srcXY: [Float] = []
+        srcXY.reserveCapacity(sourcePositions.count * 2)
+        for p in sourcePositions { srcXY.append(Float(p.x))
+        srcXY.append(Float(p.y)) }
+        var dstXY: [Float] = []
+        dstXY.reserveCapacity(destPositions.count * 2)
+        for p in destPositions { dstXY.append(Float(p.x))
+        dstXY.append(Float(p.y)) }
         srcXY.withUnsafeBufferPointer { srcPtr in
             dstXY.withUnsafeBufferPointer { dstPtr in
                 gfx_warp_draw(srcImg, Int32(numberOfColumns), Int32(numberOfRows),
@@ -84,3 +93,5 @@ public final class SKWarpGeometryGrid: SKWarpGeometry {
         }
     }
 }
+
+

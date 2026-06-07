@@ -50,7 +50,8 @@ private struct JSONParser {
         pos += 1   // consume '{'
         var out: [String: Any] = [:]
         skipWhitespace()
-        if pos < chars.count, chars[pos] == "}" { pos += 1; return out }
+        if pos < chars.count, chars[pos] == "}" { pos += 1
+        return out }
         while pos < chars.count {
             skipWhitespace()
             guard let key = parseString() else { return nil }
@@ -60,8 +61,10 @@ private struct JSONParser {
             guard let v = parseValue() else { return nil }
             out[key] = v
             skipWhitespace()
-            if pos < chars.count, chars[pos] == "," { pos += 1; continue }
-            if pos < chars.count, chars[pos] == "}" { pos += 1; return out }
+            if pos < chars.count, chars[pos] == "," { pos += 1
+            continue }
+            if pos < chars.count, chars[pos] == "}" { pos += 1
+            return out }
             return nil
         }
         return nil
@@ -71,13 +74,16 @@ private struct JSONParser {
         pos += 1
         var out: [Any] = []
         skipWhitespace()
-        if pos < chars.count, chars[pos] == "]" { pos += 1; return out }
+        if pos < chars.count, chars[pos] == "]" { pos += 1
+        return out }
         while pos < chars.count {
             guard let v = parseValue() else { return nil }
             out.append(v)
             skipWhitespace()
-            if pos < chars.count, chars[pos] == "," { pos += 1; continue }
-            if pos < chars.count, chars[pos] == "]" { pos += 1; return out }
+            if pos < chars.count, chars[pos] == "," { pos += 1
+            continue }
+            if pos < chars.count, chars[pos] == "]" { pos += 1
+            return out }
             return nil
         }
         return nil
@@ -89,11 +95,13 @@ private struct JSONParser {
         var out = ""
         while pos < chars.count {
             let c = chars[pos]
-            if c == "\"" { pos += 1; return out }
+            if c == "\"" { pos += 1
+            return out }
             if c == "\\" {
                 pos += 1
                 if pos >= chars.count { return nil }
-                let esc = chars[pos]; pos += 1
+                let esc = chars[pos]
+                pos += 1
                 switch esc {
                 case "\"": out.append("\"")
                 case "\\": out.append("\\")
@@ -108,7 +116,8 @@ private struct JSONParser {
                     if pos + 4 > chars.count { return nil }
                     var code: UInt32 = 0
                     for _ in 0..<4 {
-                        let h = chars[pos]; pos += 1
+                        let h = chars[pos]
+                        pos += 1
                         let v = hexValue(h)
                         if v < 0 { return nil }
                         code = code * 16 + UInt32(v)
@@ -118,7 +127,8 @@ private struct JSONParser {
                 }
                 continue
             }
-            out.append(Character(c)); pos += 1
+            out.append(Character(c))
+            pos += 1
         }
         return nil
     }
@@ -161,3 +171,5 @@ private struct JSONParser {
         return -1
     }
 }
+
+

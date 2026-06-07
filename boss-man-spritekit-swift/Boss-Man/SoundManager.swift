@@ -104,7 +104,7 @@ final class SoundManager {
     private var teleportPlaying = false
     
     private var musicEnabled = false
-    private var goldDiscBassActive = false   // bass stands in for the music during blue mode; the two never overlap
+    private var goldDiscBassActive = false // bass stands in for the music during blue mode; the two never overlap
 
     private let normalEffectsVolume: Float = 0.5
     private let duckedEffectsVolume: Float = 0.12

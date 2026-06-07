@@ -45,8 +45,10 @@ final class MazeBuilder {
     // Free baked textures on scene teardown (call from GameScene.willMove). The
     // per-level maze sheet is also freed at the top of build().
     func releaseTextures() {
-        mazeSheetTexture?.releaseImage(); mazeSheetTexture = nil
-        dotTexture?.releaseImage();       dotTexture = nil
+        mazeSheetTexture?.releaseImage()
+        mazeSheetTexture = nil
+        dotTexture?.releaseImage()
+        dotTexture = nil
     }
 
     @discardableResult
@@ -119,7 +121,8 @@ final class MazeBuilder {
 
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     if let dot = addDot(at: position, in: scene) {
-                        dotNodes[tileKey(grid)] = dot; dotCount += 1
+                        dotNodes[tileKey(grid)] = dot
+                        dotCount += 1
                     }
 
                 case Strings.Tile.goldDiscChar:
@@ -184,7 +187,8 @@ final class MazeBuilder {
                     workerSpawn = grid
                     // Worker tile is walkable + has a dot underneath.
                     if let dot = addDot(at: position, in: scene) {
-                        dotNodes[tileKey(grid)] = dot; dotCount += 1
+                        dotNodes[tileKey(grid)] = dot
+                        dotCount += 1
                     }
 
                 case Strings.Tile.boss1Char: bossSpawns.append((0, grid))
@@ -224,7 +228,10 @@ final class MazeBuilder {
             mazeSheetTexture = baked
         } else {
             // No view to bake with: fall back to the live (slower) node tree.
-            for child in staticTree.children { child.removeFromParent(); scene.addChild(child) }
+            for child in staticTree.children {
+                child.removeFromParent()
+                scene.addChild(child)
+            }
         }
 
         return dotCount
@@ -400,7 +407,10 @@ final class MazeBuilder {
         n.removeAction(forKey: Strings.ActionKey.machineCooldown)
         n.run(.sequence([
             .wait(forDuration: cooldown),
-            .run { [weak self, weak nn = n] in nn?.alpha = 1; self?.grayedBrownBoxes.remove(k) }
+            .run { [weak self, weak nn = n] in
+                nn?.alpha = 1
+                self?.grayedBrownBoxes.remove(k)
+            }
         ]), withKey: Strings.ActionKey.machineCooldown)
         return n.position
     }
@@ -424,3 +434,5 @@ final class MazeBuilder {
 // the call is a no-op there. Keeps the common builder free of #if at the call site.
 extension SKTexture { func releaseImage() {} }
 #endif
+
+

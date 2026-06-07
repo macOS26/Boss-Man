@@ -282,7 +282,10 @@ final class HUD {
             let xOffset: CGFloat = current.image != nil ? -1.5 : 0
             let yOffset: CGFloat = current.image != nil ? -2   : 0
             glyph.position = CGPoint(x: xOffset, y: yOffset)
-            if current.image != nil { glyph.xScale = -0.8; glyph.yScale = 0.8 }
+            if current.image != nil {
+                glyph.xScale = -0.8
+                glyph.yScale = 0.8
+            }
             levelEmojisContainer.addChild(glyph)
         }
         let gap: CGFloat = 9
@@ -307,7 +310,10 @@ final class HUD {
                 let xOffset: CGFloat = t.image != nil ? -2 : 0
                 let yOffset: CGFloat = t.image != nil ? -2.5 : 0
                 glyph.position = CGPoint(x: -CGFloat(i) * bottomSpacing + xOffset, y: yOffset)
-                if t.image != nil { glyph.xScale = -0.8; glyph.yScale = 0.8 }
+                if t.image != nil {
+                    glyph.xScale = -0.8
+                    glyph.yScale = 0.8
+                }
                 bottomTravelerContainer.addChild(glyph)
             }
         }
@@ -445,3 +451,4 @@ final class HUD {
         gameOverOverlay = nil
     }
 }
+

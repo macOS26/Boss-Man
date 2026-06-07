@@ -12,8 +12,10 @@ final class DoomScene: Scene3D {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         var back = camBack
         while back > 0.05 && isWall(px - dirX * back, py - dirY * back) { back -= 0.1 }
-        camX = px - dirX * back; camY = py - dirY * back
-        castFloor(); castCeiling()
+        camX = px - dirX * back
+        camY = py - dirY * back
+        castFloor()
+        castCeiling()
 
         let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
         let tops = buildWallCells(dirX: dirX, dirY: dirY, planeX: planeX, planeY: planeY)
@@ -31,3 +33,4 @@ final class DoomScene: Scene3D {
     override func makeNextLevelScene() -> Scene3D { DoomScene(size: size) }
     override func makeRestartScene()   -> Scene3D { VoxelScene(size: size) }
 }
+

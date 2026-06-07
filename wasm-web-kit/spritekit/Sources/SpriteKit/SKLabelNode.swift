@@ -25,10 +25,13 @@ public final class SKLabelNode: SKNode {
     private var cachedFontHandle: Int32 = 0
     private var fontHandleNeedsRebind: Bool = true
 
-    public init(attributedText: String) { self.text = attributedText; super.init() }
+    public init(attributedText: String) { self.text = attributedText
+    super.init() }
     public override init() { super.init() }
-    public init(text: String) { self.text = text; super.init() }
-    public init(fontNamed name: String) { self.fontName = name; super.init() }
+    public init(text: String) { self.text = text
+    super.init() }
+    public init(fontNamed name: String) { self.fontName = name
+    super.init() }
 
     // Resolve the font handle through font_by_name, retrying until the asset
     // loader has registered it (preload races scene init; first frame may see
@@ -36,7 +39,8 @@ public final class SKLabelNode: SKNode {
     private func resolvedFontHandle() -> Int32 {
         if !fontHandleNeedsRebind && cachedFontHandle != 0 { return cachedFontHandle }
         let h = withUTF8Ptr(fontName) { font_by_name($0, $1) }
-        if h > 0 { cachedFontHandle = h; fontHandleNeedsRebind = false }
+        if h > 0 { cachedFontHandle = h
+        fontHandleNeedsRebind = false }
         return h
     }
 
@@ -83,7 +87,8 @@ public final class SKLabelNode: SKNode {
         let px = Int32(fontSize)
         let font = resolvedFontHandle()
         gfx_set_alpha(Float(alpha))
-        gfx_save(); gfx_scale(1, -1)   // un-flip: text must not be mirrored
+        gfx_save()
+        gfx_scale(1, -1)  // un-flip: text must not be mirrored
         withUTF8Ptr(text) { p, n in
             let w = Float(txt_width(font, p, n, px, 0))
             let x: Float
@@ -113,3 +118,5 @@ public final class SKLabelNode: SKNode {
         gfx_restore()
     }
 }
+
+

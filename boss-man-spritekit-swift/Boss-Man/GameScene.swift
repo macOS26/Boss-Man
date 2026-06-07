@@ -221,10 +221,19 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             }
             return
         }
-        if code == KeyCode.keyP  { togglePause(); return }
-        if code == KeyCode.esc   { returnToTitleScene(); return }
+        if code == KeyCode.keyP {
+            togglePause()
+            return
+        }
+        if code == KeyCode.esc {
+            returnToTitleScene()
+            return
+        }
         guard !isUserPaused else { return }
-        if code == KeyCode.space { fireWaterGun(); return }
+        if code == KeyCode.space {
+            fireWaterGun()
+            return
+        }
         guard !event.isARepeat else { return }
         if let direction = MoveDirection(keyCode: code) { steer(direction) }
     }
@@ -253,7 +262,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             swipeStart = nil
             return
         }
-        swipeStart = ControlMode.current.isHidden ? p : nil   // swipe-to-move only in HIDDEN mode; stick/dpad uses the widget
+        swipeStart = ControlMode.current.isHidden ? p : nil // swipe-to-move only in HIDDEN mode; stick/dpad uses the widget
         swipeFired = false
         #endif
     }
@@ -288,17 +297,25 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         #if os(macOS)
         inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
         #else
-        if isGameOver || isUserPaused { moveAnchor = p; return }
+        if isGameOver || isUserPaused {
+            moveAnchor = p
+            return
+        }
         if let start = swipeStart {
             if !swipeFired, let d = swipeDirection(p.x - start.x, p.y - start.y) {
-                steer(d); swipeFired = true
+                steer(d)
+                swipeFired = true
             }
             return
         }
         guard ControlMode.current.isHidden else { return }   // drag-to-steer only in HIDDEN mode
-        guard let anchor = moveAnchor else { moveAnchor = p; return }
+        guard let anchor = moveAnchor else {
+            moveAnchor = p
+            return
+        }
         if let d = swipeDirection(p.x - anchor.x, p.y - anchor.y) {
-            steer(d); moveAnchor = p
+            steer(d)
+            moveAnchor = p
         }
         #endif
     }
@@ -431,7 +448,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func delayBossSpawn(after seconds: TimeInterval, _ action: @escaping () -> Void) {
-        if seconds <= 0 && !sound.isSpeaking { action(); return }
+        if seconds <= 0 && !sound.isSpeaking {
+            action()
+            return
+        }
         deferredBossSpawn = action
         bossSpawnGrace = 0.4
         bossSpawnMax = max(seconds, 0) + 2.5
@@ -562,7 +582,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private func updateMazeCamera() {
         guard let cam = cameraNode else { return }
         let p = workerController.node.position
-        guard var c = camPos else { camPos = p; camVel = .zero; cam.position = p; return }
+        guard var c = camPos else {
+            camPos = p
+            camVel = .zero
+            cam.position = p
+            return
+        }
         let snapThreshold = tileSize * 4
         if abs(p.x - c.x) > snapThreshold || abs(p.y - c.y) > snapThreshold {
             c = p
@@ -727,8 +752,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             highScore: state.highScore,
             defaultName: defaultName,
             allowEntry: allowEntry,
-            onPlay: { [weak self] in self?.dismissGameOverScreen(); self?.restartGame() },
-            onEsc:  { [weak self] in self?.dismissGameOverScreen(); self?.returnToTitleScene() }
+            onPlay: { [weak self] in self?.dismissGameOverScreen()
+            self?.restartGame() },
+            onEsc:  { [weak self] in self?.dismissGameOverScreen()
+            self?.returnToTitleScene() }
         )
         screen.position = .zero
         uiLayer.addChild(screen)
@@ -849,7 +876,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         base.zPosition = 50
         uiLayer.addChild(base)
 
-        if ControlMode.current.showsDpad {   // DPAD: the shared 4-wedge cross (same look + hit-area as the 3D bonus); STICK: the follow-thumb below
+        if ControlMode.current.showsDpad { // DPAD: the shared 4-wedge cross (same look + hit-area as the 3D bonus); STICK: the follow-thumb below
             dpadWedges = buildDpadFace(in: uiLayer, center: joystickCenter, inner: joystickDeadzone, outer: joystickRadius, z: 51)
             return
         }
@@ -942,3 +969,5 @@ private extension CGPoint {
     func distance(to other: CGPoint) -> CGFloat { hypot(x - other.x, y - other.y) }
 }
 #endif
+
+

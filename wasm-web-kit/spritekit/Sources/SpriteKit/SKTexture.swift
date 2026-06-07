@@ -42,7 +42,8 @@ public class SKTexture {
         if h > 0 { populateSize() }
     }
     init(handle: Int32) {
-        self.handle = handle; size = .zero
+        self.handle = handle
+        size = .zero
         if handle > 0 { populateSize() }
     }
 
@@ -51,7 +52,10 @@ public class SKTexture {
     // (e.g. a per-level maze sheet) — never on a preloaded/atlas texture other
     // nodes still share.
     public func releaseImage() {
-        if handle > 0 { gfx_free_image(handle); handle = 0; pendingName = nil; size = .zero }
+        if handle > 0 { gfx_free_image(handle)
+        handle = 0
+        pendingName = nil
+        size = .zero }
     }
 
     // Called by anyone that needs a handle: SKSpriteNode.draw, SKView.texture.
@@ -63,7 +67,9 @@ public class SKTexture {
         if handle > 0 { return handle }
         guard let name = pendingName else { return 0 }
         let h = withUTF8Ptr(name) { img_by_name($0, $1) }
-        if h > 0 { handle = h; pendingName = nil; populateSize() }
+        if h > 0 { handle = h
+        pendingName = nil
+        populateSize() }
         return h
     }
 
@@ -114,7 +120,8 @@ public final class SKMutableTexture: SKTexture {
 
     public init(size: CGSize) {
         let w = max(1, Int(size.width)), h = max(1, Int(size.height))
-        self.pixelWidth = w; self.pixelHeight = h
+        self.pixelWidth = w
+        self.pixelHeight = h
         self.pixelBuffer = [UInt8](repeating: 0, count: w * h * 4)
         // Allocate the image slot up front by pushing the all-transparent
         // initial buffer; gfx_upload_pixels(0, ...) returns a fresh handle.
@@ -144,3 +151,5 @@ public final class SKMutableTexture: SKTexture {
         }
     }
 }
+
+

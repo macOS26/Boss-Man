@@ -82,7 +82,8 @@ public final class GKLeaderboard {
 public struct NSRange {
     public var location: Int
     public var length: Int
-    public init(location: Int, length: Int) { self.location = location; self.length = length }
+    public init(location: Int, length: Int) { self.location = location
+    self.length = length }
 }
 
 public final class GKLeaderboardEntry {
@@ -125,7 +126,8 @@ public final class GKGameCenterViewController: UIViewController {
     public weak var gameCenterDelegate: GKGameCenterControllerDelegate?
     public var viewState: State = .default
     public override init() { super.init() }
-    public init(state: State) { super.init(); self.viewState = state }
+    public init(state: State) { super.init()
+    self.viewState = state }
     public func present(from vc: UIViewController) { gameCenterDelegate?.gameCenterViewControllerDidFinish(self) }
 }
 
@@ -141,3 +143,4 @@ public extension Notification.Name {
         Notification.Name("GKPlayerAuthenticationDidChangeNotificationName")
 }
 #endif
+

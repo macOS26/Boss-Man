@@ -22,20 +22,34 @@ public final class SKSpriteNode: SKNode {
     public var warpGeometry: SKWarpGeometry?
     public var subdivisionLevels: Int = 0
 
-    public init(color: SKColor, size: CGSize) { self.color = color; self.size = size; super.init() }
-    public init(texture: SKTexture?, size: CGSize) { self.texture = texture; self.size = size; super.init() }
+    public init(color: SKColor, size: CGSize) { self.color = color
+    self.size = size
+    super.init() }
+    public init(texture: SKTexture?, size: CGSize) { self.texture = texture
+    self.size = size
+    super.init() }
     public init(texture: SKTexture?, color: SKColor, size: CGSize) {
-        self.texture = texture; self.color = color; self.size = size; super.init()
+        self.texture = texture
+        self.color = color
+        self.size = size
+        super.init()
     }
     public init(texture: SKTexture?) {
-        self.texture = texture; self.size = texture?.size ?? CGSize(width: 32, height: 32); super.init()
+        self.texture = texture
+        self.size = texture?.size ?? CGSize(width: 32, height: 32)
+        super.init()
     }
     public init(texture: SKTexture?, normalMap nt: SKTexture?) {
-        self.texture = texture; self.normalTexture = nt
-        self.size = texture?.size ?? CGSize(width: 32, height: 32); super.init()
+        self.texture = texture
+        self.normalTexture = nt
+        self.size = texture?.size ?? CGSize(width: 32, height: 32)
+        super.init()
     }
     public init(imageNamed name: String) {
-        let t = SKTexture(imageNamed: name); self.texture = t; self.size = CGSize(width: 32, height: 32); super.init()
+        let t = SKTexture(imageNamed: name)
+        self.texture = t
+        self.size = CGSize(width: 32, height: 32)
+        super.init()
     }
 
     // Override SKNode.frame so calculateAccumulatedFrame / hit-testing reports
@@ -60,7 +74,8 @@ public final class SKSpriteNode: SKNode {
             return
         }
         // re-flip locally so the bitmap isn't drawn upside down
-        gfx_save(); gfx_scale(1, -1)
+        gfx_save()
+        gfx_scale(1, -1)
 
         // Shader path: when a SKShader is bound, route the texture through
         // gfx_shader_draw (WebGL2 pass) instead of a plain image blit. The
@@ -174,7 +189,8 @@ public final class SKSpriteNode: SKNode {
         let dstL = srcL, dstR = srcR, dstT = srcT, dstB = srcB
         let dstCenterW = max(0, dw - dstL - dstR)
         let dstCenterH = max(0, dh - dstT - dstB)
-        _ = sLeft; _ = sRight   // silence unused warnings on this path
+        _ = sLeft
+        _ = sRight  // silence unused warnings on this path
         let col = color.rgba
 
         // Helper to draw one source-rect → dest-rect slice.
@@ -207,3 +223,5 @@ public final class SKSpriteNode: SKNode {
               dx + dstL + dstCenterW, dy + dstT + dstCenterH, dstR, dstB)
     }
 }
+
+
