@@ -692,7 +692,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let pgx = Int(px.rounded(.down)), pgy = rowsCount - 1 - Int(py.rounded(.down))
         return bossController.entities.allSatisfy { e in
             let bg = e.mover?.grid ?? e.ai.grid
-            return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) >= 3
+            return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) > 3
         }
     }
 
@@ -1036,7 +1036,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             bossController.advance(1.0 / 60.0)
         } else {
             bossController.stopAll()
-            retreatBossesFromPete()
         }
         syncBossNodes()
         // Capture each boss's SMOOTH world position from the mover itself, not node.position:
