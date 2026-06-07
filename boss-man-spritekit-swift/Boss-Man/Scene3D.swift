@@ -819,7 +819,15 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 default: break
                 }
                 if let pickup {
-                    pickup.position = center; pickup.zPosition = 2; mapLayer.addChild(pickup)
+                    pickup.position = center
+                    switch ch {
+                    case Strings.Tile.waterGunChar, Strings.Tile.printerChar, Strings.Tile.faxChar,
+                         Strings.Tile.coverSheetChar, Strings.Tile.bookBinderChar, Strings.Tile.brownBoxChar:
+                        pickup.zPosition = 8
+                    default:
+                        pickup.zPosition = 2
+                    }
+                    mapLayer.addChild(pickup)
                     mapPickups[mapKey(c, r)] = pickup
                     switch ch {
                     case Strings.Tile.goldDiscChar, Strings.Tile.waterGunChar:
