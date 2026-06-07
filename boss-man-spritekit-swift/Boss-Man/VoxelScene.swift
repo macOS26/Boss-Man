@@ -3,8 +3,9 @@ import AppKit
 
 final class VoxelScene: Scene3D {
 
-    override var eyeHeight: CGFloat { 0.8 }
-    override var wallHeightScale: CGFloat { 0.4 }
+    override var eyeHeight: CGFloat { 0.7 }
+    override var wallHeightScale: CGFloat { 0.5 }
+    override var pelletWorldH: CGFloat { 0.15 }
 
     override func buildSky() {
         super.buildSky()

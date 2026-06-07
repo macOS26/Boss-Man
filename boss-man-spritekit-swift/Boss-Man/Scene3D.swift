@@ -56,6 +56,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var camX = 0.0, camY = 0.0
     var eyeHeight: CGFloat { 0.7 }
     var wallHeightScale: CGFloat { 0.5 }
+    var pelletWorldH: CGFloat { 0.14 }
 
     // MARK: - Billboards (pooled: built once, projected each frame)
     struct Billboard { let node: SKNode; let nativeH: CGFloat; let worldH: CGFloat; let x, y: Double; var alive: Bool }
@@ -541,7 +542,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                     inner.yScale = 0.8
                     let wrap = SKNode(); wrap.addChild(inner)
                     wrap.isHidden = true; spriteLayer.addChild(wrap)
-                    billboards.append(Billboard(node: wrap, nativeH: nh, worldH: 0.14, x: x, y: y, alive: true))
+                    billboards.append(Billboard(node: wrap, nativeH: nh, worldH: pelletWorldH, x: x, y: y, alive: true))
                     continue
                 case Strings.Tile.goldDiscChar:
                     node = throbbing(SpriteFactory.goldDiscVisual(radius: 10), 1.25, 0.35); worldH = 0.4
