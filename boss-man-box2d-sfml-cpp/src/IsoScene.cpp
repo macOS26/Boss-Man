@@ -435,8 +435,12 @@ void IsoScene::step() {
     }
 
     moveShots();
+    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
     bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(), workerDir_(),
-                          goldDiscActive_, peteShielded_);
+                           goldDiscActive_, peteShielded_,
+                           [pgx, pgy](const BossEntity& e) {
+                               return std::max(std::abs(e.grid.x - pgx), std::abs(e.grid.y - pgy)) <= 3;
+                           });
     travelerSpawner_.update(1.0 / 60.0, gridMap_);
 
     bossGrid_.assign(bossController_.entities.size(), {0.0, 0.0});
@@ -952,6 +956,32 @@ void IsoScene::drawMap(sf::RenderTarget& target) {
         sf::Vector2f p = mapLocal(px_, py_);
         mapPete.draw(target, p, worker_->facingLeft, worker_->isMoving, worker_->direction,
                      worker_->walkPhase, 1.0f, mapScale_ * 0.9f);
+        const float r = 11.7f;
+        float throb = 1.0f + 0.125f * (1.0f - std::cos(animTime_ * 6.2832f / 0.7f));
+        sf::ConvexShape arrow(4);
+        arrow.setPoint(0, sf::Vector2f(0.f,        -r));
+        arrow.setPoint(1, sf::Vector2f(-r * 0.55f,  r * 0.55f));
+        arrow.setPoint(2, sf::Vector2f(0.f,          r * 0.2f));
+        arrow.setPoint(3, sf::Vector2f( r * 0.55f,  r * 0.55f));
+        arrow.setFillColor(sf::Color::White);
+        arrow.setOutlineThickness(1.5f);
+        arrow.setOutlineColor(sf::Color(0, 0, 0, 179));
+        arrow.setOrigin(0.f, 0.f);
+        const float pad = 14.f;
+        MoveDirection face = worker_->direction;
+        sf::Vector2f ap = p;
+        if      (face == MoveDirection::Right) ap.x += pad;
+        else if (face == MoveDirection::Left)  ap.x -= pad;
+        else if (face == MoveDirection::Down)  ap.y += pad;
+        else                                   ap.y -= pad;
+        arrow.setPosition(ap);
+        arrow.setScale(throb, throb);
+        float deg = 0.f;
+        if      (face == MoveDirection::Right) deg =  90.f;
+        else if (face == MoveDirection::Left)  deg = 270.f;
+        else if (face == MoveDirection::Down)  deg = 180.f;
+        arrow.setRotation(deg);
+        target.draw(arrow);
     }
     for (auto& m : miniPops_) {
         uint8_t a = (uint8_t)(std::clamp(m.timer / 0.7f, 0.f, 1.f) * 255);

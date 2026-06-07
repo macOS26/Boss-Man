@@ -117,7 +117,6 @@ private:
     std::unique_ptr<Pathfinder> pathfinder_;
     BossController bossController_;
     bool peteShielded_ = false;
-    std::unordered_map<int, int> bossRetreatCooldown_;
 
     // MARK: - Traveler (the fish/treat that walks the maze, same spawner as 2D)
     TravelerSpawner travelerSpawner_;
@@ -214,8 +213,6 @@ private:
     void collectTPSReport();
     void resetCollectedMachines();
     void popPoints(int n);
-    bool bossesAllFar();
-    void retreatBossesFromPete();
     void checkBossCatch();
     GridPos workerGrid_() const;       // Pete reported in GridMap bottom-up coords
     MoveDirection workerDir_() const;

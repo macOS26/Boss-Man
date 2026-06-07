@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <functional>
 #include "GridMap.hpp"
 #include "Pathfinder.hpp"
 #include "BossAI.hpp"
@@ -83,7 +84,8 @@ public:
                const std::vector<std::pair<int, GridPos>>& overrides = {});
 
     void update(float dt, const GridMap& map, const Pathfinder& pf,
-                GridPos workerGrid, MoveDirection workerDir, bool isGoldDiscMode, bool isPeteShielded);
+                GridPos workerGrid, MoveDirection workerDir, bool isGoldDiscMode, bool isPeteShielded,
+                std::function<bool(const BossEntity&)> shouldMove = nullptr);
 
     void draw(sf::RenderTarget& target);
 

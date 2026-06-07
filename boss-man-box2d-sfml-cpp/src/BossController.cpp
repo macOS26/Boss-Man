@@ -174,6 +174,7 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
 
         // Post-spawn throb pulse
         if (boss.throbTimer > 0.0f) boss.throbTimer -= dt;
+        if (shouldMove && !shouldMove(boss)) continue;
 
         // Glide first (prog 0..1 over the cell, scaled by the tunnel speed ramp),
         // then dwell at the centre for idleGap, then latch the next step. Matching

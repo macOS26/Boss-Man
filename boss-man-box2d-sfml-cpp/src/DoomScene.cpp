@@ -445,11 +445,12 @@ void DoomScene::step() {
     collectStationary();
     moveShots();
 
-    if (bossesAllFar())
-        bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(),
-                               workerDir_(), goldDiscActive_, peteShielded_);
-    else
-        bossController_.stopAll();
+    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
+    bossController_.update(1.0 / 60.0, gridMap_, *pathfinder_, workerGrid_(), workerDir_(),
+                           goldDiscActive_, peteShielded_,
+                           [pgx, pgy](const BossEntity& e) {
+                               return std::max(std::abs(e.grid.x - pgx), std::abs(e.grid.y - pgy)) <= 3;
+                           });
     travelerSpawner_.update(1.0 / 60.0, gridMap_);
 
     // Capture each boss's SMOOTH world position from boss.pixelPos (the mover holds
@@ -502,15 +503,6 @@ MoveDirection DoomScene::workerDir_() const {
 
 // MARK: - Boss helpers
 
-bool DoomScene::bossesAllFar() {
-    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
-    for (auto& e : bossController_.entities) {
-        if (std::max(std::abs(e.grid.x - pgx), std::abs(e.grid.y - pgy)) <= 3)
-            return false;
-    }
-    return true;
-}
-
 // MARK: - Boss catch
 
 void DoomScene::checkBossCatch() {
@@ -531,39 +523,6 @@ void DoomScene::checkBossCatch() {
         } else if (!peteShielded_) {
             startDeath((int)i);
             return;
-        }
-    }
-}
-
-void DoomScene::retreatBossesFromPete() {
-    int pgx = (int)std::floor(px_), pgy = rowsCount_ - 1 - (int)std::floor(py_);
-    for (size_t i = 0; i < bossController_.entities.size(); ++i) {
-        auto& e = bossController_.entities[i];
-        int bgx = (int)e.grid.x, bgy = (int)e.grid.y;
-        if (std::max(std::abs(bgx - pgx), std::abs(bgy - pgy)) >= 3) continue;
-        auto it = bossRetreatCooldown_.find((int)i);
-        if (it != bossRetreatCooldown_.end() && it->second > 0) { it->second--; continue; }
-        int dx = bgx - pgx, dy = bgy - pgy;
-        std::vector<std::pair<int,int>> primary;
-        if (std::abs(dx) >= std::abs(dy)) {
-            primary = {{dx >= 0 ? 1 : -1, 0}, {0, dy >= 0 ? 1 : -1}, {0, dy >= 0 ? -1 : 1}, {dx >= 0 ? -1 : 1, 0}};
-        } else {
-            primary = {{0, dy >= 0 ? 1 : -1}, {dx >= 0 ? 1 : -1, 0}, {dx >= 0 ? -1 : 1, 0}, {0, dy >= 0 ? -1 : 1}};
-        }
-        for (auto& d : primary) {
-            int nx = bgx + d.first, ny = bgy + d.second;
-            int mr = rowsCount_ - 1 - ny;
-            if (mr < 0 || mr >= rowsCount_ || nx < 0 || nx >= colsCount_) continue;
-            if (map_[mr][nx] == Tile::wall) continue;
-            GridPos dest{nx, ny};
-            e.grid = dest;
-            e.ai.teleport(dest);
-            e.isMoving = false;
-            e.pixelPos = gridMap_.pointFor(dest);
-            e.startPos = e.pixelPos;
-            e.targetPos = e.pixelPos;
-            bossRetreatCooldown_[(int)i] = 10;
-            break;
         }
     }
 }
@@ -1463,17 +1422,25 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
         mapPete.draw(target, p, face == MoveDirection::Left, moving, face,
                      (float)peteWalkPhase_, 1.0f, mapScale_ * 0.9f);
 
-        const float r = 7.f;
+        const float r = 11.7f;
+        float throb = 1.0f + 0.125f * (1.0f - std::cos(animTime_ * 6.2832f / 0.7f));
         sf::ConvexShape arrow(4);
         arrow.setPoint(0, sf::Vector2f(0.f,        -r));
         arrow.setPoint(1, sf::Vector2f(-r * 0.55f,  r * 0.55f));
         arrow.setPoint(2, sf::Vector2f(0.f,          r * 0.2f));
         arrow.setPoint(3, sf::Vector2f( r * 0.55f,  r * 0.55f));
         arrow.setFillColor(sf::Color::White);
-        arrow.setOutlineThickness(1.f);
-        arrow.setOutlineColor(sf::Color(0, 0, 0, 128));
+        arrow.setOutlineThickness(1.5f);
+        arrow.setOutlineColor(sf::Color(0, 0, 0, 179));
         arrow.setOrigin(0.f, 0.f);
-        arrow.setPosition(p);
+        const float pad = 14.f;
+        sf::Vector2f ap = p;
+        if      (face == MoveDirection::Right) ap.x += pad;
+        else if (face == MoveDirection::Left)  ap.x -= pad;
+        else if (face == MoveDirection::Down)  ap.y += pad;
+        else                                   ap.y -= pad;
+        arrow.setPosition(ap);
+        arrow.setScale(throb, throb);
         float deg = 0.f;
         if      (face == MoveDirection::Right) deg =  90.f;
         else if (face == MoveDirection::Left)  deg = 270.f;
