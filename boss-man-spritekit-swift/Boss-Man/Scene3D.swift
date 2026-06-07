@@ -31,6 +31,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var px = 1.5, py = 1.5, angle = 0.0
     var moveDir = (x: 1, y: 0)       // current lane direction (cardinal)
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
+    var glideStartX = 0.0, glideStartY = 0.0, glideTargetX = 0.0, glideTargetY = 0.0, glideT = 1.0
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
     let camBack = 0.65               // how far the camera trails behind Pete
 
@@ -51,12 +52,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     let floorA = SKShapeNode()   // alternating floor-tile checker, cast per frame
     let floorB = SKShapeNode()
     let floorFar = SKShapeNode()  // far rows: solid (the checker aliases to garbage at distance)
+    let ceilStrip = SKShapeNode() // ceiling light panels, cast per frame
     var zbuf: [Double] = []
     var camX = 0.0, camY = 0.0
+    var eyeHeight: CGFloat { 0.7 }
+    var wallHeightScale: CGFloat { 0.5 }
 
     // MARK: - Billboards (pooled: built once, projected each frame)
     struct Billboard { let node: SKNode; let nativeH: CGFloat; let worldH: CGFloat; let x, y: Double; var alive: Bool }
     var billboards: [Billboard] = []
+    struct VQuad { var p0, p1, p2, p3: CGPoint; var color: SKColor; var depth: Double; var isCap: Bool = false }
 
     // MARK: - Bosses — the REAL BossController from the 100% game (speed, square +
     // smooth modes, flee/splash/capture/respawn all inherited; nothing hand-rolled).
@@ -103,7 +108,17 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var pete: PixelPerson!
     var peteBaseY: CGFloat = 0
     var bob = 0.0
-    var throbClock = 0.0   // free-running clock for the post-spawn boss pulse
+    var throbClock = 0.0
+    let planeScale = 1.2
+    let wallFar = 40.0
+    var wallQuads: [SKShapeNode] = []
+    var travelerMirror: SKNode?
+    var travelerMirrorEmoji = ""
+    var travelerNativeH: CGFloat = 40
+    var mapTraveler: SKNode?
+    var mapTravelerEmoji = ""
+    var travPrevCol = 0.0
+    var travFlip: CGFloat = 1
 
     var hud: HUD!
     let uiLayer = SKNode()
@@ -212,6 +227,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         floorA.zPosition = -2; floorB.zPosition = -2; floorFar.zPosition = -2
         floorA.isAntialiased = false; floorB.isAntialiased = false; floorFar.isAntialiased = false
         addChild(floorA); addChild(floorB); addChild(floorFar)
+        ceilStrip.fillColor = SKColor(red: 0.94, green: 0.97, blue: 0.88, alpha: 1)
+        ceilStrip.strokeColor = .clear; ceilStrip.zPosition = -2; ceilStrip.isAntialiased = false
+        addChild(ceilStrip)
     }
 
     // Bake a static node tree to one texture and add it as a single sprite (one
@@ -229,8 +247,265 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
     }
 
-    func buildColumns() {
-        // Wall quads are pooled lazily in render() (count varies with the view).
+    func buildColumns() { }
+
+    // MARK: - 3D rendering helpers (shared by DoomScene and VoxelScene)
+
+    func castFloor() {
+        let dirX = cos(angle), dirY = sin(angle)
+        let planeX = -dirY * planeScale, planeY = dirX * planeScale
+        let rdx0 = dirX - planeX, rdy0 = dirY - planeY
+        let rdx1 = dirX + planeX, rdy1 = dirY + planeY
+        let W = size.width, rowH: CGFloat = 0.25
+        let pathA = CGMutablePath(), pathB = CGMutablePath(), pathFar = CGMutablePath()
+        var yu = radarH
+        while yu < viewMidY - 0.5 {
+            let distFromHorizon = Double(viewMidY - yu)
+            let d = Double(viewH) * Double(eyeHeight) / distFromHorizon
+            if d > 13 {
+                pathFar.addRect(CGRect(x: 0, y: yu, width: W, height: rowH))
+                yu += rowH
+                continue
+            }
+            let fx0 = camX + d * rdx0, fy0 = camY + d * rdy0
+            let stepX = d * (rdx1 - rdx0) / Double(W), stepY = d * (rdy1 - rdy0) / Double(W)
+            var runStart: CGFloat = 0
+            var runParity = (Int(fx0.rounded(.down)) + Int(fy0.rounded(.down))) & 1
+            var x: CGFloat = 1
+            while x <= W {
+                var parity = -1
+                if x < W {
+                    let wx = fx0 + stepX * Double(x), wy = fy0 + stepY * Double(x)
+                    parity = (Int(wx.rounded(.down)) + Int(wy.rounded(.down))) & 1
+                }
+                if parity != runParity {
+                    let r = CGRect(x: runStart, y: yu, width: x - runStart, height: rowH)
+                    if runParity == 1 { pathA.addRect(r) } else { pathB.addRect(r) }
+                    runStart = x; runParity = parity
+                }
+                x += 1
+            }
+            yu += rowH
+        }
+        floorA.path = pathA; floorB.path = pathB; floorFar.path = pathFar
+    }
+
+    func castCeiling() {
+        let dirX = cos(angle), dirY = sin(angle)
+        let planeX = -dirY * planeScale, planeY = dirX * planeScale
+        let rdx0 = dirX - planeX, rdy0 = dirY - planeY
+        let rdx1 = dirX + planeX, rdy1 = dirY + planeY
+        let W = size.width, rowH: CGFloat = 0.25
+        let ceilH = 1.0 - Double(eyeHeight)
+        let ceilPath = CGMutablePath()
+        var ys = viewMidY + rowH
+        while ys < size.height {
+            let dfc = Double(ys - viewMidY)
+            let dc = Double(viewH) * ceilH / dfc
+            if dc > 13 { ys += rowH; continue }
+            let cx0 = camX + dc * rdx0, cy0 = camY + dc * rdy0
+            let cStepX = dc * (rdx1 - rdx0) / Double(W)
+            let cStepY = dc * (rdy1 - rdy0) / Double(W)
+            var cRunStart: CGFloat = 0
+            var cRunLit: Bool = { let fx = cx0 - cx0.rounded(.down); let fy = cy0 - cy0.rounded(.down); return fx > 0.25 && fx < 0.75 && fy > 0.25 && fy < 0.75 }()
+            var cx: CGFloat = 1
+            while cx <= W {
+                var lit = false
+                if cx < W {
+                    let wx = cx0 + cStepX * Double(cx), wy = cy0 + cStepY * Double(cx)
+                    let fx = wx - wx.rounded(.down), fy = wy - wy.rounded(.down)
+                    lit = fx > 0.25 && fx < 0.75 && fy > 0.25 && fy < 0.75
+                }
+                if lit != cRunLit {
+                    if cRunLit { ceilPath.addRect(CGRect(x: cRunStart, y: ys, width: cx - cRunStart, height: rowH)) }
+                    cRunStart = cx; cRunLit = lit
+                }
+                cx += 1
+            }
+            if cRunLit { ceilPath.addRect(CGRect(x: cRunStart, y: ys, width: W - cRunStart, height: rowH)) }
+            ys += rowH
+        }
+        ceilStrip.path = ceilPath
+    }
+
+    func buildWallCells(dirX: Double, dirY: Double, planeX: Double, planeY: Double) -> Set<Int> {
+        var tops = Set<Int>()
+        for col in 0..<columns {
+            let cameraX = 2.0 * (Double(col) + 0.5) / Double(columns) - 1.0
+            let rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX
+            var mapX = Int(camX.rounded(.down)), mapY = Int(camY.rounded(.down))
+            let ddx = rdx == 0 ? 1e30 : abs(1 / rdx), ddy = rdy == 0 ? 1e30 : abs(1 / rdy)
+            var stepX = 0, stepY = 0, sideX = 0.0, sideY = 0.0
+            if rdx < 0 { stepX = -1; sideX = (camX - Double(mapX)) * ddx } else { stepX = 1; sideX = (Double(mapX) + 1 - camX) * ddx }
+            if rdy < 0 { stepY = -1; sideY = (camY - Double(mapY)) * ddy } else { stepY = 1; sideY = (Double(mapY) + 1 - camY) * ddy }
+            var firstHit = true
+            var guardN = 0
+            while guardN < 300 {
+                guardN += 1
+                let dEntry: Double
+                if sideX < sideY { dEntry = sideX; sideX += ddx; mapX += stepX }
+                else             { dEntry = sideY; sideY += ddy; mapY += stepY }
+                if mapY < 0 || mapY >= rowsCount || mapX < 0 || mapX >= colsCount { break }
+                if dEntry > wallFar { break }
+                if map[mapY][mapX] != Strings.Tile.wallChar { continue }
+                let dN = max(0.05, dEntry)
+                if firstHit { zbuf[col] = dN; firstHit = false }
+                tops.insert(mapY * colsCount + mapX)
+            }
+            if firstHit { zbuf[col] = 1e9 }
+        }
+        let pTileX = Int(px.rounded(.down)), pTileY = Int(py.rounded(.down))
+        for dy in -1...1 { for dx in -1...1 {
+            let tx = pTileX + dx, ty = pTileY + dy
+            if tx >= 0 && tx < colsCount && ty >= 0 && ty < rowsCount && map[ty][tx] == Strings.Tile.wallChar {
+                tops.insert(ty * colsCount + tx)
+            }
+        }}
+        return tops
+    }
+
+    func buildFaceQuads(tops: Set<Int>, cube: SKColor, invDet: Double, wallH: Double,
+                        dirX: Double, dirY: Double, planeX: Double, planeY: Double) -> [VQuad] {
+        var quads: [VQuad] = []
+        for key in tops {
+            let tx = key % colsCount, ty = key / colsCount
+            for (side, faceV, adx, ady) in [(0, tx, -1, 0), (0, tx + 1, 1, 0), (1, ty, 0, -1), (1, ty + 1, 0, 1)] {
+                let adjX = tx + adx, adjY = ty + ady
+                let exposed = adjX < 0 || adjX >= colsCount || adjY < 0 || adjY >= rowsCount
+                           || map[adjY][adjX] != Strings.Tile.wallChar
+                if !exposed { continue }
+                let onOpen = side == 0 ? (adx < 0 ? camX <= Double(faceV) : camX >= Double(faceV))
+                                       : (ady < 0 ? camY <= Double(faceV) : camY >= Double(faceV))
+                if !onOpen { continue }
+                let wx0 = side == 0 ? Double(faceV) : Double(tx),     wy0 = side == 0 ? Double(ty)     : Double(faceV)
+                let wx1 = side == 0 ? Double(faceV) : Double(tx + 1), wy1 = side == 0 ? Double(ty + 1) : Double(faceV)
+                let rawA = invDet * (-planeY * (wx0 - camX) + planeX * (wy0 - camY))
+                let rawB = invDet * (-planeY * (wx1 - camX) + planeX * (wy1 - camY))
+                if rawA < 0.1 && rawB < 0.1 { continue }
+                let tA = rawA < 0.1 ? (0.1 - rawA) / (rawB - rawA) : 0.0
+                let tB = rawB < 0.1 ? (0.1 - rawB) / (rawA - rawB) : 0.0
+                let eX0 = rawA < 0.1 ? wx0 + tA * (wx1 - wx0) : wx0
+                let eY0 = rawA < 0.1 ? wy0 + tA * (wy1 - wy0) : wy0
+                let eX1 = rawB < 0.1 ? wx1 + tB * (wx0 - wx1) : wx1
+                let eY1 = rawB < 0.1 ? wy1 + tB * (wy0 - wy1) : wy1
+                let eRA = max(0.1, rawA), eRB = max(0.1, rawB)
+                let dAvg = (eRA + eRB) * 0.5
+                if dAvg > wallFar { continue }
+                let txA = invDet * (dirY * (eX0 - camX) - dirX * (eY0 - camY))
+                let txB = invDet * (dirY * (eX1 - camX) - dirX * (eY1 - camY))
+                let p0 = CGPoint(x: size.width / 2 * (1 + CGFloat(txA / eRA)),
+                                 y: viewMidY + viewH * CGFloat(-Double(eyeHeight)) / CGFloat(eRA))
+                let p1 = CGPoint(x: size.width / 2 * (1 + CGFloat(txA / eRA)),
+                                 y: viewMidY + viewH * CGFloat(wallH - Double(eyeHeight)) / CGFloat(eRA))
+                let p2 = CGPoint(x: size.width / 2 * (1 + CGFloat(txB / eRB)),
+                                 y: viewMidY + viewH * CGFloat(wallH - Double(eyeHeight)) / CGFloat(eRB))
+                let p3 = CGPoint(x: size.width / 2 * (1 + CGFloat(txB / eRB)),
+                                 y: viewMidY + viewH * CGFloat(-Double(eyeHeight)) / CGFloat(eRB))
+                let par = side == 0 ? (faceV + ty) & 1 : (tx + faceV) & 1
+                let faceF = CGFloat(side == 1 ? 0.62 : 1.0) * (par == 1 ? 1.0 : 0.82)
+                let baseColor = cube.blended(withFraction: 1 - faceF, of: .black) ?? cube
+                let fogT = CGFloat(min(1.0, dAvg / wallFar)) * 0.85
+                let color = baseColor.blended(withFraction: fogT, of: .black) ?? baseColor
+                quads.append(VQuad(p0: p0, p1: p1, p2: p2, p3: p3, color: color, depth: dAvg, isCap: false))
+            }
+        }
+        return quads
+    }
+
+    func paintQuads(_ quads: [VQuad]) {
+        var qi = 0
+        for q in quads {
+            let n: SKShapeNode
+            if qi < wallQuads.count { n = wallQuads[qi] }
+            else { n = SKShapeNode(); n.strokeColor = .clear; n.isAntialiased = false; addChild(n); wallQuads.append(n) }
+            n.zPosition = CGFloat(qi) * 0.0002
+            let p = CGMutablePath()
+            p.move(to: q.p0); p.addLine(to: q.p1); p.addLine(to: q.p2); p.addLine(to: q.p3); p.closeSubpath()
+            n.path = p; n.fillColor = q.color; n.isHidden = false
+            qi += 1
+        }
+        for k in qi..<wallQuads.count { wallQuads[k].isHidden = true }
+    }
+
+    func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
+        let invDet = 1.0 / (planeX * dirY - dirX * planeY)
+        var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?, bottom: CGFloat)] = []
+        for b in billboards where b.alive {
+            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil, -b.nativeH / 2))
+        }
+        for e in bossController.entities {
+            guard let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
+            let id = ObjectIdentifier(e.node)
+            let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1
+            let nh = bossNativeH[id] ?? 36
+            all.append((e.node, nh, 0.3, bx, by, .greatestFiniteMagnitude, e.name, bossFeet[id] ?? -nh / 2))
+        }
+        for s in shots where s.alive {
+            all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
+        }
+        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
+            tnode.isHidden = true
+            let nc = Double(tnode.position.x) / 32.0
+            let dCol = nc - travPrevCol
+            if abs(dCol) > 0.001, abs(dCol) < 2 { travFlip = info.facesRight ? (dCol < 0 ? -1 : 1) : (dCol < 0 ? 1 : -1) }
+            travPrevCol = nc
+            if travelerMirror == nil || travelerMirrorEmoji != info.emoji {
+                travelerMirror?.removeFromParent()
+                let wrap = SKNode(); let e = emojiBillboard(info.emoji, 40); e.name = Strings.NodeName.travelerEmoji
+                wrap.addChild(e); spriteLayer.addChild(wrap)
+                travelerMirror = wrap; travelerMirrorEmoji = info.emoji
+                travelerNativeH = 40
+            }
+            if let m = travelerMirror {
+                if let mE = m.childNode(withName: Strings.NodeName.travelerEmoji) {
+                    mE.xScale = abs(mE.xScale) * travFlip
+                }
+                all.append((m, travelerNativeH, 0.42, Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0, .greatestFiniteMagnitude, nil, -travelerNativeH / 2))
+            }
+        } else {
+            travelerMirror?.isHidden = true
+        }
+        var vis: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, maxH: CGFloat, name: String?, bottom: CGFloat, tX: Double, tY: Double)] = []
+        for item in all {
+            let node = item.node
+            item.name.map { bossNameplate(for: node, text: $0) }?.isHidden = true
+            let relX = item.x - camX, relY = item.y - camY
+            let tX = invDet * (dirY * relX - dirX * relY)
+            let tY = invDet * (-planeY * relX + planeX * relY)
+            guard tY > 0.15 else { node.isHidden = true; continue }
+            let col = Int((size.width / 2) * CGFloat(1 + tX / tY) / (size.width / CGFloat(columns)))
+            let colC = max(0, min(columns - 1, col))
+            let footHalf = max(1, min(5, Int((viewH / CGFloat(tY) * item.worldH) / (size.width / CGFloat(columns)) * 0.5)))
+            var wallZ = zbuf[colC]
+            for c in max(0, colC - footHalf)...min(columns - 1, colC + footHalf) { wallZ = min(wallZ, zbuf[c]) }
+            if tY > wallZ + 0.3 { node.isHidden = true; continue }
+            if tY > 18 { node.isHidden = true; continue }
+            let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
+            guard screenX > -60, screenX < size.width + 60 else { node.isHidden = true; continue }
+            vis.append((node, item.nativeH, item.worldH, item.maxH, item.name, item.bottom, tX, tY))
+        }
+        vis.sort { $0.tY > $1.tY }
+        let zStep = vis.count > 1 ? 80.0 / Double(vis.count - 1) : 0
+        for (i, v) in vis.enumerated() {
+            let node = v.node, tY = v.tY
+            let targetH = min(viewH / CGFloat(tY) * v.worldH, v.maxH)
+            var s = targetH / v.nativeH
+            if v.name != nil, let boss = node as? PixelPerson, bossController.isImmobilized(boss: boss) {
+                s *= 1 + 0.18 * abs(sin(throbClock * .pi * 3))
+            }
+            node.isHidden = false
+            node.setScale(s)
+            let screenX = (size.width / 2) * CGFloat(1 + v.tX / tY)
+            let floorY = viewMidY - (viewH / CGFloat(tY)) * eyeHeight
+            node.position = CGPoint(x: screenX, y: floorY - v.bottom * s)
+            node.zPosition = 2 + CGFloat(Double(i) * zStep)
+            if let name = v.name {
+                let label = bossNameplate(for: node, text: name)
+                label.isHidden = false
+                label.fontSize = max(13, min(24, targetH * 0.16))
+                label.position = CGPoint(x: screenX, y: floorY + targetH + label.fontSize * 0.7)
+            }
+        }
     }
 
     func emojiBillboard(_ text: String, _ fontSize: CGFloat) -> SKNode {
@@ -259,7 +534,13 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 var node: SKNode?; var worldH: CGFloat = 0.6
                 switch ch {
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
-                    node = SpriteFactory.pelletCube(size: 8); worldH = 0.14
+                    let inner = SpriteFactory.pelletCube(size: 8)
+                    let nh = max(1, inner.calculateAccumulatedFrame().height)
+                    inner.yScale = 0.8
+                    let wrap = SKNode(); wrap.addChild(inner)
+                    wrap.isHidden = true; spriteLayer.addChild(wrap)
+                    billboards.append(Billboard(node: wrap, nativeH: nh, worldH: 0.14, x: x, y: y, alive: true))
+                    continue
                 case Strings.Tile.goldDiscChar:
                     node = throbbing(SpriteFactory.goldDiscVisual(radius: 10), 1.25, 0.35); worldH = 0.4
                 case Strings.Tile.waterPelletChar:
@@ -372,8 +653,24 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
     }
 
-    // All-3-differ. Empty default; every scene overrides with its own body.
-    func startDeath(node: PixelPerson) { }
+    func startDeath(node: PixelPerson) {
+        if dying { return }
+        dying = true
+        _ = sound.playCaughtByBoss()
+        if goldDisc.isActive { endGoldDiscMode() }
+        pete.stopWalking()
+        pete.alpha = 0.2
+        node.stopWalking()
+        let nh = bossNativeH[ObjectIdentifier(node)] ?? max(1, node.calculateAccumulatedFrame().height)
+        node.isHidden = false
+        node.setScale(viewH * 0.42 / nh)
+        node.position = CGPoint(x: size.width / 2, y: peteBaseY)
+        node.zPosition = 500
+        for e in bossController.entities where e.node !== node { e.node.isHidden = true }
+        for (_, l) in bossNames { l.isHidden = true }
+        for s in shots { s.node.isHidden = true }
+        deathFramesLeft = deathFrames
+    }
 
     func updateDeath() {
         deathFramesLeft -= 1                          // hold the catcher on screen, still, then respawn
@@ -429,7 +726,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var isPeteShielded: Bool { peteShielded }
     func bossDidCatchWorker() { }   // bonus catches via grid checkBossCatch() after advance (no physics contact)
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
-        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); popPoints(points); refreshHUD()
+        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); refreshHUD()
+        ScorePopup.show(points, at: convert(position, from: spriteLayer), in: self, fontSize: 54)
     }
     // Bosses dodge an incoming water pellet, same as the 2D modes: report the travel
     // AXIS of any shot bearing down on this boss; BossController steps it perpendicular.
@@ -633,6 +931,22 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         for s in shots where s.alive { s.mapNode.position = mapLocal(s.x, s.y) }
     }
 
+    func updateMapTravelerMirror() {
+        if let tnode = travelerSpawner?.node, let info = travelerSpawner?.activeTraveler {
+            if mapTravelerEmoji != info.emoji {
+                mapTraveler?.removeFromParent()
+                let n = emojiBillboard(info.emoji, mapCell)
+                n.zPosition = 6; mapLayer.addChild(n)
+                mapTraveler = n; mapTravelerEmoji = info.emoji
+            }
+            mapTraveler?.isHidden = false
+            mapTraveler?.position = mapLocal(Double(tnode.position.x) / 32.0, Double(rowsCount) - Double(tnode.position.y) / 32.0)
+            if let mt = mapTraveler { mt.xScale = abs(mt.xScale) * travFlip }
+        } else {
+            mapTraveler?.isHidden = true
+        }
+    }
+
     func facing(_ d: (x: Int, y: Int)) -> MoveDirection {
         d.x > 0 ? .right : d.x < 0 ? .left : d.y > 0 ? .down : .up
     }
@@ -657,6 +971,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
         let tdir: (x: Int, y: Int)? = fwd ? moveDir : nil
         if let d = tdir {
+            glideT = 1.0
             let atCenter = abs(px - ccx) < 0.06 && abs(py - ccy) < 0.06
             if atCenter, !open(col + d.x, row + d.y),
                let partner = gridMap.tunnelPartner(of: CGPoint(x: col, y: rowsCount - 1 - row)) {
@@ -672,17 +987,21 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                     if d.y > 0 { py = min(py + speed, ccy) } else if d.y < 0 { py = max(py - speed, ccy) }
                 }
             }
-        } else {
-            // Released: always finish the step FORWARD onto a tile centre. If Pete is past the
-            // current centre with an open lane ahead, glide onto the next centre; otherwise
-            // settle on the current tile's centre. Either way he lands rounded to a tile centre.
-            let past = (moveDir.x != 0 && Double(moveDir.x) * (px - ccx) > 0) ||
-                       (moveDir.y != 0 && Double(moveDir.y) * (py - ccy) > 0)
-            let ahead = past && open(col + moveDir.x, row + moveDir.y)
-            let tx = Double(ahead ? col + moveDir.x : col) + 0.5
-            let ty = Double(ahead ? row + moveDir.y : row) + 0.5
-            px += max(-speed, min(speed, tx - px))
-            py += max(-speed, min(speed, ty - py))
+        } else if abs(px - ccx) >= 0.4 || abs(py - ccy) >= 0.4 {
+            let d = hypot(ccx - glideTargetX, ccy - glideTargetY)
+            if glideT >= 1.0 || d > 0.01 {
+                glideStartX = px; glideStartY = py
+                glideTargetX = ccx; glideTargetY = ccy
+                let dist = hypot(ccx - px, ccy - py)
+                glideT = dist < 0.001 ? 1.0 : 0.0
+            }
+            if glideT < 1.0 {
+                let dist = max(0.001, hypot(glideTargetX - glideStartX, glideTargetY - glideStartY))
+                glideT = min(1.0, glideT + speed / dist)
+                let t = glideT * glideT * (3 - 2 * glideT)
+                px = glideStartX + (glideTargetX - glideStartX) * t
+                py = glideStartY + (glideTargetY - glideStartY) * t
+            }
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {

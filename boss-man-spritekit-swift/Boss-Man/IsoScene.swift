@@ -25,12 +25,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     private var isoTraveler: SKNode?
     private var isoTravelerEmoji = ""
     private var isoTravelerPoints: SKLabelNode?
-    private var mapTraveler: SKNode?
-    private var mapTravelerEmoji = ""
     private var travCol = 0.0, travRow = 0.0
     private var travFromCol = 0.0, travFromRow = 0.0, travToCol = 0.0, travToRow = 0.0, travProgress = 1.0
     private var travActive = false
-    private var travFlip: CGFloat = 1
 
     // PARALLEL overhead projection (no vanishing point = a true top-down/isometric look, not a horizon).
     // The board is tilted down (TH < TW vertical squash) with short raised blocks; depth = row. Because
@@ -67,9 +64,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         p.move(to: a); p.addLine(to: b); p.addLine(to: c); p.addLine(to: d); p.closeSubpath()
     }
     private func appendDotFaces(_ front: CGMutablePath, _ side: CGMutablePath, _ top: CGMutablePath, _ c: Int, _ r: Int, _ gold: Bool) {
-        let h = (gold ? 0.28 : 0.20) * 0.85
+        let h = (gold ? 0.28 : 0.20) * 0.7225
         let cx0 = Double(c) + 0.5, ry0 = Double(r) + 0.5, mid = Double(colsCount) / 2
-        let yT = ((gold ? 1.2 : 0.95) * 0.85 * isoWH - 9) / max(1, isoWH)
+        let yT = ((gold ? 1.2 : 0.95) * 0.7225 * isoWH - 9) / max(1, isoWH)
         let bNW = proj(cx0 - h, ry0 - h, 0), bNE = proj(cx0 + h, ry0 - h, 0)
         let bSE = proj(cx0 + h, ry0 + h, 0), bSW = proj(cx0 - h, ry0 + h, 0)
         let uNW = proj(cx0 - h, ry0 - h, yT), uNE = proj(cx0 + h, ry0 - h, yT)
@@ -217,54 +214,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         sound.startBackgroundMusic()
     }
 
-    // MARK: - Setup
-    override func placeStart() {
-        var sc = 1, sr = 1, found = false
-        outer: for r in 0..<rowsCount {
-            for c in 0..<map[r].count where map[r][c] == Strings.Tile.workerChar { sc = c; sr = r; found = true; break outer }
-        }
-        if !found {
-            search: for r in 0..<rowsCount {
-                for c in 0..<map[r].count where map[r][c] != Strings.Tile.wallChar { sc = c; sr = r; break search }
-            }
-        }
-        px = Double(sc) + 0.5; py = Double(sr) + 0.5; tcx = px; tcy = py
-        spawnPx = px; spawnPy = py
-        for d in [(x: 1, y: 0), (x: 0, y: 1), (x: -1, y: 0), (x: 0, y: -1)] where open(sc + d.x, sr + d.y) {
-            moveDir = d; break
-        }
-        targetAngle = cardinal(moveDir); angle = targetAngle
-    }
-
-    override func buildSky() {
-        let cube = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
-        let tree = SKNode()
-        let skyBottom = viewMidY, skyTop = size.height
-        let n = max(1, Int(skyTop - skyBottom))
-        for i in 0..<n {
-            let t = CGFloat(i) / CGFloat(max(1, n - 1))
-            let factor = 0.18 + (0.05 - 0.18) * t
-            let col = cube.blended(withFraction: 1 - factor, of: .black) ?? cube
-            let band = SKShapeNode(rect: CGRect(x: 0, y: skyBottom + CGFloat(i), width: size.width, height: 2))
-            band.fillColor = col; band.strokeColor = .clear
-            tree.addChild(band)
-        }
-        let ground = SKShapeNode(rect: CGRect(x: 0, y: radarH, width: size.width, height: viewMidY - radarH))
-        ground.fillColor = cube.blended(withFraction: 0.88, of: .black) ?? cube
-        ground.strokeColor = .clear
-        tree.addChild(ground)
-        addBaked(tree, to: self, z: -3)
-
-        floorA.fillColor = cube.blended(withFraction: 0.87, of: .black) ?? cube
-        floorB.fillColor = cube.blended(withFraction: 0.76, of: .black) ?? cube
-        floorFar.fillColor = cube.blended(withFraction: 0.81, of: .black) ?? cube
-        floorA.strokeColor = .clear; floorB.strokeColor = .clear; floorFar.strokeColor = .clear
-        floorA.zPosition = -2; floorB.zPosition = -2; floorFar.zPosition = -2
-        floorA.isAntialiased = false; floorB.isAntialiased = false; floorFar.isAntialiased = false
-        addChild(floorA); addChild(floorB); addChild(floorFar)
-    }
-
-    func castFloor() {
+    override func castFloor() {
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
@@ -303,28 +253,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         floorA.path = pathA; floorB.path = pathB; floorFar.path = pathFar
     }
 
-    override func buildColumns() {
-        // Wall quads are pooled lazily in render() (count varies with the view).
-    }
-
     // IsoScene uses petePerson (front-facing), not petePersonBack
     override func makePete() -> PixelPerson {
         SpriteFactory.petePerson(walkExaggeration: 1)
-    }
-
-    override func buildPete() {
-        pete = makePete()
-        let nativeH = max(1, pete.calculateAccumulatedFrame().height)
-        let target = viewH * 0.42
-        pete.setScale(target / nativeH)
-        pete.zPosition = 90
-        peteBaseY = radarH + target / 2 + 6
-        pete.position = CGPoint(x: size.width / 2, y: peteBaseY)
-        spriteLayer.addChild(pete)
-        pete.startWalking()
-        peteName = makeNameplate(Strings.Worker.pete)
-        peteName.position = CGPoint(x: size.width / 2, y: peteBaseY + target / 2 + 16)
-        nameLayer.addChild(peteName)
     }
 
     // Caught: hold the REAL catching boss still in front of Pete for ~1.5s (no fake sprite),
@@ -360,20 +291,6 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         pete.removeAction(forKey: "shield")
         pete.run(.sequence([.repeat(.sequence([.fadeAlpha(to: 0.35, duration: 0.6), .fadeAlpha(to: 1.0, duration: 0.6)]), count: 3),
                             .run { [weak self] in self?.pete.alpha = 1 }]), withKey: "shield")
-    }
-
-    // MARK: - BossControllerDelegate (Pete reported in GridMap's bottom-up coords)
-    override var workerGrid: CGPoint { CGPoint(x: CGFloat(Int(px.rounded(.down))), y: CGFloat(rowsCount - 1 - Int(py.rounded(.down)))) }
-    override var workerDirection: MoveDirection? {
-        if moveDir.x > 0 { return .right }
-        if moveDir.x < 0 { return .left }
-        return moveDir.y > 0 ? .down : .up
-    }
-    override var isGoldDiscMode: Bool { goldDisc.isActive }
-    override var isPeteShielded: Bool { peteShielded }
-    override func bossDidCatchWorker() { }
-    override func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
-        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); popPoints(points); refreshHUD()
     }
 
     override func togglePause() {
@@ -428,14 +345,6 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     // MARK: - Per-frame
-    override func update(_ currentTime: TimeInterval) {
-        if isUserPaused || gameOver { return }
-        if dying { updateDeath(); return }
-        step()
-        if dying { return }
-        render()
-    }
-
     override func render() { renderIso() }
 
     private var isoNativeH: [ObjectIdentifier: CGFloat] = [:]
@@ -645,7 +554,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         updateMap()
     }
 
-    private func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
+    override func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
         var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?, bottom: CGFloat)] = []
         for b in billboards where b.alive {
@@ -846,10 +755,15 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         let big = SKLabelNode(fontNamed: Strings.Font.menloBold)
         big.text = Strings.Score.popup(n)
         big.fontSize = max(30, isoTW * 0.45); big.fontColor = .systemYellow
-        big.position = CGPoint(x: world.x + isoWorld.position.x, y: world.y + isoWorld.position.y + isoTW)
+        big.position = CGPoint(x: world.x + isoWorld.position.x, y: world.y + isoWorld.position.y + isoTW - 25)
         big.zPosition = 600
         addChild(big)
         big.run(.sequence([.group([.moveBy(x: 0, y: 55, duration: 0.7), .fadeOut(withDuration: 0.7)]), .removeFromParent()]))
+    }
+
+    override func bossDidGetCaptured(name: String, points: Int, at position: CGPoint) {
+        state.bumpScore(by: points); sound.playCaptureBoss(streak: max(1, points / 100)); refreshHUD()
+        popPoints(points)
     }
 
     private func captureFade(_ node: SKNode?) {
@@ -1001,12 +915,10 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         if finger == joyFinger { joyFinger = nil; joyEnd() }
     }
 
-    // Layout / projection (IsoScene-specific)
-    private let planeScale = 1.2
-    private let eyeHeight: CGFloat = 0.7
-    private let wallHeightScale: CGFloat = 0.5
+    // MARK: - Layout / projection (IsoScene-specific)
     private let maxVoxelDist = 30.0
-    private var wallQuads: [SKShapeNode] = []
+    override var eyeHeight: CGFloat { 0.7 }
+    override var wallHeightScale: CGFloat { 0.5 }
     private struct WallRun {
         var firstCol: Int, lastCol: Int
         var yLoA: CGFloat, yHiA: CGFloat
