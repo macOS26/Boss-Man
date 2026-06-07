@@ -423,7 +423,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             n.path = p; n.fillColor = q.color; n.isHidden = false
             qi += 1
         }
-        for k in qi..<wallQuads.count { wallQuads[k].isHidden = true }
+        if qi < wallQuads.count {
+            for k in qi..<wallQuads.count { wallQuads[k].removeFromParent() }
+            wallQuads.removeSubrange(qi...)
+        }
     }
 
     func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
@@ -990,9 +993,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
-                billboards[i].alive = false; billboards[i].node.isHidden = true
+                billboards[i].alive = false; billboards[i].node.removeFromParent()
                 let bc = Int(billboards[i].x), br = Int(billboards[i].y)
-                mapPickups[mapKey(bc, br)]?.isHidden = true
+                let mk = mapKey(bc, br); mapPickups[mk]?.removeFromParent(); mapPickups[mk] = nil
                 switch map[br][bc] {
                 case Strings.Tile.goldDiscChar:    sound.playGoldDisc(); state.collectedGoldDiscs += 1; state.bumpScore(by: 5); popPoints(5); startGoldDiscMode()
                 case Strings.Tile.waterPelletChar: sound.playWaterGunPickup(); state.bumpScore(by: 50); popPoints(50)
