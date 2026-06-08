@@ -39,7 +39,10 @@ if [ "${CONFIG_ARGS[1]:-}" = "release" ]; then
     # wasm-opt -Oz reads the binary's own target_features section, so it only
     # emits instructions the current runtime already supports. Squeezes a few
     # more % out after the compiler's -Osize + wasm-ld --gc-sections dead-strip.
-    wasm-opt -Oz "$REL" -o web/bossman.wasm
+    wasm-opt -Oz \
+      --enable-bulk-memory --enable-nontrapping-float-to-int \
+      --enable-sign-ext --enable-mutable-globals --enable-multivalue \
+      "$REL" -o web/bossman.wasm
     echo
     echo "✓ Release artifact published (wasm-opt -Oz): web/bossman.wasm"
   else
