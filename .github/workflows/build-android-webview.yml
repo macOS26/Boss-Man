@@ -50,9 +50,9 @@ jobs:
           name: swift-wasm-bundle
           path: |
             boss-man-spritekit-web/web/bossman.wasm
-            boss-man-spritekit-web/web/bundle.js
             boss-man-spritekit-web/web/runtime.js
-            boss-man-spritekit-web/web/local.html
+            boss-man-spritekit-web/web/server.html
+            boss-man-spritekit-web/web/assets/
           if-no-files-found: error
           retention-days: 1
 
@@ -83,10 +83,10 @@ jobs:
       - name: Copy web files into Android assets
         run: |
           mkdir -p boss-man-android-webview/app/src/main/assets/play
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/local.html  boss-man-android-webview/app/src/main/assets/play/
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/bundle.js   boss-man-android-webview/app/src/main/assets/play/
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/runtime.js  boss-man-android-webview/app/src/main/assets/play/
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/bossman.wasm boss-man-android-webview/app/src/main/assets/play/
+          cp swift-wasm-bundle/server.html  boss-man-android-webview/app/src/main/assets/play/
+          cp swift-wasm-bundle/runtime.js   boss-man-android-webview/app/src/main/assets/play/
+          cp swift-wasm-bundle/bossman.wasm boss-man-android-webview/app/src/main/assets/play/
+          cp -r swift-wasm-bundle/assets    boss-man-android-webview/app/src/main/assets/play/
 
       - name: Build APK
         working-directory: boss-man-android-webview

@@ -24,7 +24,7 @@ static void activate(GApplication *app, gpointer data)
     ssize_t len = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
     if (len > 0) exe[len] = '\0';
     char *dir = dirname(exe);
-    char *html = g_build_filename(dir, "play", "local.html", NULL);
+    char *html = g_build_filename(dir, "play", "server.html", NULL);
     char *url  = g_filename_to_uri(html, NULL, NULL);
     webkit_web_view_load_uri(wv, url);
     g_free(html);
@@ -36,7 +36,7 @@ static void activate(GApplication *app, gpointer data)
 int main(int argc, char **argv)
 {
     GtkApplication *app = gtk_application_new(
-        "com.starplayrx.bossman", G_APPLICATION_DEFAULT_FLAGS);
+        "com.starplayrx.bossman", (GApplicationFlags)0);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);

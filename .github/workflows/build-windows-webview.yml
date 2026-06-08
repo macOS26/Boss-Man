@@ -50,9 +50,9 @@ jobs:
           name: swift-wasm-bundle-win
           path: |
             boss-man-spritekit-web/web/bossman.wasm
-            boss-man-spritekit-web/web/bundle.js
             boss-man-spritekit-web/web/runtime.js
-            boss-man-spritekit-web/web/local.html
+            boss-man-spritekit-web/web/server.html
+            boss-man-spritekit-web/web/assets/
           if-no-files-found: error
           retention-days: 1
 
@@ -93,11 +93,11 @@ jobs:
         run: |
           $play = "boss-man-windows-webview/dist/play"
           New-Item -ItemType Directory -Force -Path $play | Out-Null
-          $src = "swift-wasm-bundle/boss-man-spritekit-web/web"
-          Copy-Item "$src/local.html"   $play
-          Copy-Item "$src/bundle.js"    $play
+          $src = "swift-wasm-bundle"
+          Copy-Item "$src/server.html"  $play
           Copy-Item "$src/runtime.js"   $play
           Copy-Item "$src/bossman.wasm" $play
+          Copy-Item "$src/assets" $play -Recurse
           Compress-Archive -Path boss-man-windows-webview/dist/* `
             -DestinationPath "Boss-Man-Windows-${{ matrix.arch }}.zip"
 

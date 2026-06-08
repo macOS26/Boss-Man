@@ -26,6 +26,6 @@ class MainActivity : Activity() {
                 request: WebResourceRequest
             ): WebResourceResponse? = loader.shouldInterceptRequest(request.url)
         }
-        wv.loadUrl("https://appassets.androidplatform.net/play/local.html")
+        wv.loadUrl("https://appassets.androidplatform.net/play/server.html")
     }
 }

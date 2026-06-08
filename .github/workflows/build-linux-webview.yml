@@ -50,9 +50,9 @@ jobs:
           name: swift-wasm-bundle-linux
           path: |
             boss-man-spritekit-web/web/bossman.wasm
-            boss-man-spritekit-web/web/bundle.js
             boss-man-spritekit-web/web/runtime.js
-            boss-man-spritekit-web/web/local.html
+            boss-man-spritekit-web/web/server.html
+            boss-man-spritekit-web/web/assets/
           if-no-files-found: error
           retention-days: 1
 
@@ -95,10 +95,10 @@ jobs:
         run: |
           mkdir -p dist/play
           cp boss-man-linux-webview/build/BossMan dist/
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/local.html   dist/play/
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/bundle.js    dist/play/
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/runtime.js   dist/play/
-          cp swift-wasm-bundle/boss-man-spritekit-web/web/bossman.wasm dist/play/
+          cp swift-wasm-bundle/server.html  dist/play/
+          cp swift-wasm-bundle/runtime.js   dist/play/
+          cp swift-wasm-bundle/bossman.wasm dist/play/
+          cp -r swift-wasm-bundle/assets    dist/play/
           tar -czf Boss-Man-Linux-${{ matrix.arch }}.tar.gz -C dist .
 
       - uses: actions/upload-artifact@v4

@@ -20,7 +20,7 @@ sealed class MainForm : Form
             var playDir = Path.Combine(AppContext.BaseDirectory, "play");
             _wv.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 "bossman.local", playDir, CoreWebView2HostResourceAccessKind.Allow);
-            _wv.CoreWebView2.Navigate("https://bossman.local/local.html");
+            _wv.CoreWebView2.Navigate("https://bossman.local/server.html");
         };
     }
 }
