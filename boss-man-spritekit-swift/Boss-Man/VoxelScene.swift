@@ -91,7 +91,6 @@ final class VoxelScene: Scene3D {
         updateMapTravelerMirror()
     }
 
-    override func makeNextLevelScene() -> Scene3D { VoxelScene(size: size) }
-    override func makeRestartScene()   -> Scene3D { VoxelScene(size: size) }
+    override func makeRestartScene() -> Scene3D { VoxelScene(size: size) }
 }
 

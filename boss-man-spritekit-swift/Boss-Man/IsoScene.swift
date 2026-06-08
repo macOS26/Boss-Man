@@ -976,8 +976,53 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         node.run(.sequence([.group([.scale(by: 1.5, duration: 0.25), .fadeOut(withDuration: 0.25)]), .removeFromParent()]))
     }
 
-    override func makeNextLevelScene() -> Scene3D { IsoScene(size: size) }
-    override func makeRestartScene()   -> Scene3D { IsoScene(size: size) }
+    override func makeRestartScene() -> Scene3D { IsoScene(size: size) }
+
+    override func resetSceneAndBuild() {
+        isoDotRowCells.removeAll()
+        isoDotFrontNode.removeAll()
+        isoDotSideNode.removeAll()
+        isoDotTopNode.removeAll()
+        isoDotCollected.removeAll()
+        isoDotsLeft = 0
+        isoPickups.removeAll()
+        isoTraveler = nil
+        isoTravelerEmoji = ""
+        isoTravelerPoints = nil
+        travCol = 0
+        travRow = 0
+        travFromCol = 0
+        travFromRow = 0
+        travToCol = 0
+        travToRow = 0
+        travProgress = 1.0
+        travActive = false
+        isoMaze.removeAllChildren()
+        workerHost.removeAllChildren()
+        super.resetSceneAndBuild()
+    }
+
+    override func rebuildLevel() {
+        placeStart()
+        isoWorld.zPosition = 0
+        addChild(isoWorld)
+        isoWorld.addChild(isoMaze)
+        spriteLayer.zPosition = 0
+        isoWorld.addChild(spriteLayer)
+        nameLayer.zPosition = 150
+        isoWorld.addChild(nameLayer)
+        workerHost.alpha = 0
+        addChild(workerHost)
+        buildIso()
+        buildIsoPickups()
+        buildPete()
+        buildMap()
+        setupBossController()
+        buildHUD()
+        buildControls()
+        render()
+        sound.startBackgroundMusic()
+    }
 
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {

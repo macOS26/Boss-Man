@@ -31,7 +31,6 @@ final class DoomScene: Scene3D {
         updateMapTravelerMirror()
     }
 
-    override func makeNextLevelScene() -> Scene3D { DoomScene(size: size) }
-    override func makeRestartScene()   -> Scene3D { VoxelScene(size: size) }
+    override func makeRestartScene() -> Scene3D { VoxelScene(size: size) }
 }
 

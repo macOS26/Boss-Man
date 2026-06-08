@@ -1513,20 +1513,77 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             hud.showMessage(Strings.Message.needTPSReport, duration: 3)
         }
     }
-    func makeNextLevelScene() -> Scene3D { Scene3D(size: size) }
     func startNextLevel3D() {
-        let nextLevel = state.level
-        let score = state.score
-        let lives = state.lives
-        let bonus = makeNextLevelScene()
-        bonus.scaleMode = scaleMode
-        bonus.practiceMode = practiceMode
-        bonus.startingLevel = startingLevel
-        bonus.state.level = nextLevel
-        bonus.state.score = score
-        bonus.state.lives = lives
-        hud.showMessage(Strings.Message.levelLoaded(nextLevel), duration: 3)
-        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
+        resetSceneAndBuild()
+        hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
+    }
+
+    func resetSceneAndBuild() {
+        sound.stopAllAudio()
+        gameOver = false
+        dying = false
+        deathTimeLeft = 0
+        peteShielded = false
+        waterGunPickedUp = false
+        onBrownBox = false
+        isUserPaused = false
+        frightenSecondsLeft = 0
+        bob = 0
+        throbClock = 0
+        lastUpdateTime = 0
+        waterGun.deactivate()
+        goldDisc.deactivate()
+        pressed.removeAll()
+        collected.removeAll()
+        bossRetreatCooldown.removeAll()
+        shots.removeAll()
+        bossMapNodes.removeAll()
+        bossNativeH.removeAll()
+        bossFeet.removeAll()
+        bossGrid.removeAll()
+        bossNames.removeAll()
+        mapPickups.removeAll()
+        mapDotKeys.removeAll()
+        mapDotShape = nil
+        travelerMirror = nil
+        travelerMirrorEmoji = ""
+        mapTraveler = nil
+        mapTravelerEmoji = ""
+        billboards.removeAll()
+        wallQuads.removeAll()
+        grayRectNodes.removeAll()
+        controlsShown = false
+        dpadWedges.removeAll()
+        dpadThumb = nil
+        dpadFinger.removeAll()
+        joyFingers.removeAll()
+        map = LevelStore.loadLevel(index: clampedLevelIndex).map { Array($0.utf8) }
+        spriteLayer.removeAllChildren()
+        nameLayer.removeAllChildren()
+        mapLayer.removeAllChildren()
+        uiLayer.removeAllChildren()
+        removeAllActions()
+        removeAllChildren()
+        rebuildLevel()
+    }
+
+    func rebuildLevel() {
+        zbuf = Array(repeating: 0, count: columns)
+        placeStart()
+        buildSky()
+        buildColumns()
+        spriteLayer.zPosition = 1
+        addChild(spriteLayer)
+        nameLayer.zPosition = 150
+        addChild(nameLayer)
+        buildBillboards()
+        buildPete()
+        buildMap()
+        setupBossController()
+        buildHUD()
+        buildControls()
+        render()
+        sound.startBackgroundMusic()
     }
     func resetCollectedMachines() {
         for r in 0..<rowsCount {
