@@ -1082,11 +1082,13 @@ void Game::bossCaughtWorker() {
 
 std::vector<Game::GameOverKey> Game::gameOverKeys() const {
     std::vector<GameOverKey> keys;
-    const float W = (float)WINDOW_WIDTH;
+    const float W = (float)WINDOW_WIDTH, H = (float)WINDOW_HEIGHT;
     if (goQualified) {
         const std::string rows[] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
-        const float keyW = 82.f, keyH = 50.f, gap = 10.f;
-        float y = 235.f;
+        const float keyW = std::min(W * 0.072f, (W * 0.86f) / 10.f);
+        const float keyH = keyW * 0.62f;
+        const float gap  = keyW * 0.14f;
+        float y = H * 0.37f;
         for (const auto& row : rows) {
             float rowW = (float)row.size() * keyW + (float)(row.size() - 1) * gap;
             float x = (W - rowW) / 2.f;
@@ -1103,74 +1105,92 @@ std::vector<Game::GameOverKey> Game::gameOverKeys() const {
         x += delW + gap;
         keys.push_back({sf::FloatRect(x, y - keyH / 2.f, spW, keyH), 2, 0});
     }
-    const float bw = W * 0.30f, gapB = 90.f;
-    const float bh = goQualified ? 70.f : 80.f;
-    const float by = goQualified ? 557.f : 507.f;
-    float startX = (W - (2.f * bw + gapB)) / 2.f;
-    keys.push_back({sf::FloatRect(startX, by - bh / 2.f, bw, bh), 4, 0});                 // ESC (left)
-    keys.push_back({sf::FloatRect(startX + bw + gapB, by - bh / 2.f, bw, bh), 3, 0});     // PLAY (right)
+    const float bw = W * 0.30f;
+    const float bh = H * (goQualified ? 0.095f : 0.13f);
+    const float by = H * (goQualified ? 0.915f : 0.75f) - 3.f;
+    keys.push_back({sf::FloatRect(W * 0.16f, by - bh / 2.f, bw, bh), 4, 0});
+    keys.push_back({sf::FloatRect(W * 0.54f, by - bh / 2.f, bw, bh), 3, 0});
     return keys;
 }
 
 void Game::drawGameOver() {
     const float W = (float)WINDOW_WIDTH, H = (float)WINDOW_HEIGHT;
     sf::RectangleShape dim(sf::Vector2f(W, H));
-    dim.setFillColor(sf::Color(0, 0, 0, 205));
+    dim.setFillColor(sf::Color(0, 0, 0, 199));
     window.draw(dim);
-    sf::RectangleShape panel(sf::Vector2f(520.f, 220.f));
-    panel.setPosition(W / 2.f - 260.f, H / 2.f - 110.f);
-    panel.setFillColor(sf::Color(13, 13, 18, 255));
-    panel.setOutlineColor(sf::Color(255, 140, 0));
+    const float m = std::min(W, H) * 0.03f;
+    sf::RectangleShape panel(sf::Vector2f(W - 2.f * m, H - 2.f * m));
+    panel.setPosition(m, m);
+    panel.setFillColor(sf::Color(26, 26, 33, 249));
+    panel.setOutlineColor(sf::Color(255, 140, 0, 229));
     panel.setOutlineThickness(3.f);
     window.draw(panel);
 
     const bool q = goQualified;
-    goText(window, "GAME OVER", 56.f, sf::Color(242, 51, 46), W / 2, H / 2 - 20.f, 1);
+    goText(window, "GAME OVER", H * (q ? 0.075f : 0.085f), sf::Color(242, 51, 46),
+           W / 2.f, H * (q ? 0.07f : 0.09f), 1);
+    goText(window, "FINAL " + std::to_string(state.score) + "    HIGH " + std::to_string(state.highScore),
+           H * (q ? 0.030f : 0.034f), sf::Color::White,
+           W / 2.f, H * (q ? 0.125f : 0.155f), 1);
 
     if (q) {
-        goText(window, "NEW HIGH SCORE!   Enter name:", 20.f, sf::Color(77, 217, 255), W / 2, H / 2 + 28.f, 1);
-        const float fw = 480.f, fh = 44.f, fx = (W - fw) / 2.f, fy = H / 2 + 72.f;
+        goText(window, "NEW HIGH SCORE!   Enter name:", H * 0.030f,
+               sf::Color(77, 217, 255), W / 2.f, H * 0.20f, 1);
+        const float fw = W * 0.6f, fh = H * 0.065f, fx = (W - fw) / 2.f, fy = H * 0.27f;
         sf::RectangleShape field(sf::Vector2f(fw, fh));
         field.setPosition(fx, fy - fh / 2.f);
         field.setFillColor(sf::Color(245, 245, 245));
         field.setOutlineColor(sf::Color(150, 150, 150));
         field.setOutlineThickness(1.f);
         window.draw(field);
-        float tw = goText(window, goName, 24.f, sf::Color(13, 13, 26), fx + 14.f, fy, 0, false);
+        float tw = goText(window, goName, H * 0.036f, sf::Color(13, 13, 26), fx + 14.f, fy, 0, false);
         if (std::fmod(animClock.getElapsedTime().asSeconds(), 0.9f) < 0.45f) {
-            sf::RectangleShape caret(sf::Vector2f(3.f, fh * 0.6f));
+            const float caretH = H * 0.042f;
+            sf::RectangleShape caret(sf::Vector2f(3.f, caretH));
             caret.setFillColor(sf::Color(13, 13, 26));
-            caret.setPosition(fx + 16.f + tw, fy - fh * 0.3f);
+            caret.setPosition(fx + 16.f + tw, fy - caretH / 2.f);
             window.draw(caret);
         }
     } else {
-        float blinkA = (std::fmod(animClock.getElapsedTime().asSeconds(), 1.2f) < 0.6f) ? 1.f : 0.2f;
-        sf::Color promptColor(255, 235, 59, (uint8_t)(blinkA * 255));
-        goText(window, Message::PROMPT_NEW_GAME, 18.f, promptColor, W / 2, H / 2 + 40.f, 1);
-        goText(window, Message::PROMPT_TITLE, 14.f, sf::Color(191, 191, 191), W / 2, H / 2 + 72.f, 1);
+        goText(window, "HALL OF FAME", H * 0.038f, sf::Color(255, 235, 107),
+               W / 2.f, H * 0.21f, 1);
+        const auto& entries = leaderboard.entries();
+        const float rowH = H * 0.035f;
+        float ey = H * 0.255f;
+        if (entries.empty()) {
+            goText(window, "No scores yet", H * 0.030f, sf::Color(179, 179, 179),
+                   W / 2.f, ey, 1, false);
+        } else {
+            for (int i = 0; i < std::min((int)entries.size(), 10); ++i) {
+                goText(window, std::to_string(i + 1) + ". " + entries[i].name,
+                       H * 0.030f, sf::Color::White, W * 0.30f, ey, 0, false);
+                goText(window, std::to_string(entries[i].score),
+                       H * 0.030f, sf::Color::White, W * 0.70f, ey, 2, false);
+                ey += rowH;
+            }
+        }
     }
 
-    if (q) {
-        for (const auto& k : gameOverKeys()) {
-            sf::RectangleShape r(sf::Vector2f(k.rect.width, k.rect.height));
-            r.setPosition(k.rect.left, k.rect.top);
-            sf::Color fill(56, 56, 56), stroke(110, 110, 110);
-            std::string lbl;
-            float fs = 18.f;
-            switch (k.kind) {
-            case 0: lbl = std::string(1, k.ch); break;
-            case 1: lbl = "DEL"; fill = sf::Color(80, 80, 80); fs = 15.f; break;
-            case 2: lbl = "SPACE"; fs = 15.f; break;
-            case 3: lbl = "PLAY"; fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); fs = 28.f; break;
-            case 4: lbl = "ESC"; fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); fs = 28.f; break;
-            }
-            r.setFillColor(fill);
-            r.setOutlineColor(stroke);
-            r.setOutlineThickness(1.f);
-            window.draw(r);
-            bool keyBold = (k.kind == 3 || k.kind == 4);
-            goText(window, lbl, fs, sf::Color::White, k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1, keyBold);
+    for (const auto& k : gameOverKeys()) {
+        sf::RectangleShape r(sf::Vector2f(k.rect.width, k.rect.height));
+        r.setPosition(k.rect.left, k.rect.top);
+        sf::Color fill(56, 56, 56), stroke(110, 110, 110);
+        std::string lbl;
+        float fs = k.rect.height * 0.42f;
+        switch (k.kind) {
+        case 0: lbl = std::string(1, k.ch); fs = k.rect.height * 0.5f; break;
+        case 1: lbl = "DEL";   fill = sf::Color(80,  80,  80); break;
+        case 2: lbl = "SPACE"; break;
+        case 3: lbl = "PLAY";  fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); break;
+        case 4: lbl = "ESC";   fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); break;
         }
+        r.setFillColor(fill);
+        r.setOutlineColor(stroke);
+        r.setOutlineThickness(1.f);
+        window.draw(r);
+        bool keyBold = (k.kind == 3 || k.kind == 4);
+        goText(window, lbl, fs, sf::Color::White,
+               k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1, keyBold);
     }
 }
 

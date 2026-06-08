@@ -1507,7 +1507,7 @@ void DoomScene::drawMap(sf::RenderTarget& target) {
     for (auto& tr : travelerSpawner_.travelers) {
         if (!tr.active && !tr.catching) continue;
         sf::Vector2f p = mapLocal(tr.pixelPos.x / 32.0, tr.pixelPos.y / 32.0);
-        drawEmoji(target, tr.emoji, p, mapCell_ * 1.2f * mapScale_, sf::Color::White);
+        drawEmoji(target, tr.emoji, p, mapCell_ * 1.2f * mapScale_, sf::Color::White, tr.flipX);
     }
 
     // Pete on the radar.
