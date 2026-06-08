@@ -870,27 +870,43 @@ void DoomScene::render(sf::RenderTarget& target) {
 
     drawFloor(target, dirX, dirY, planeX, planeY);
     drawCeiling(target, dirX, dirY, planeX, planeY);
-    renderWalls(target, dirX, dirY, planeX, planeY);
+    auto wallQuads = renderWalls(dirX, dirY, planeX, planeY);
     projectSprites(dirX, dirY, planeX, planeY);
 
-    // Depth-sorted sprite draw: farther first (smaller depthZ -> drawn later == in
-    // front in SpriteKit's zPosition; here we paint near-last so it sits on top).
-    struct Drawable { float depth; int kind; int idx; }; // kind 0 billboard,1 shot,2 boss,3 pete
+    // Interleave wall quads and sprites by raw perpendicular distance (farthest first)
+    // so closer wall faces correctly occlude farther dots/sprites.
+    // kind: 0=wallQuad, 1=billboard, 2=shot, 3=boss
+    struct Drawable { double depth; int kind; int idx; };
     std::vector<Drawable> order;
+    order.reserve(wallQuads.size() + billboards_.size() + shots_.size() + bossProj_.size());
+    for (size_t i = 0; i < wallQuads.size(); ++i)
+        order.push_back({wallQuads[i].depth, 0, (int)i});
     for (size_t i = 0; i < billboards_.size(); ++i)
-        if (billboards_[i].visible) order.push_back({billboards_[i].depthZ, 0, (int)i});
-    if (!dying_)   // death close-up hides all shots (matches Swift startDeath)
+        if (billboards_[i].visible) order.push_back({billboards_[i].rawDepth, 1, (int)i});
+    if (!dying_)
         for (size_t i = 0; i < shots_.size(); ++i)
-            if (shots_[i].visible) order.push_back({shots_[i].depthZ, 1, (int)i});
+            if (shots_[i].visible) order.push_back({shots_[i].rawDepth, 2, (int)i});
     for (size_t i = 0; i < bossProj_.size(); ++i)
-        if (bossProj_[i].visible) order.push_back({bossProj_[i].depthZ, 2, (int)i});
-    // Paint farther (smaller zPosition) first so nearer sprites overdraw them.
+        if (bossProj_[i].visible) order.push_back({bossProj_[i].rawDepth, 3, (int)i});
     std::sort(order.begin(), order.end(),
-              [](const Drawable& a, const Drawable& b) { return a.depth < b.depth; });
+              [](const Drawable& a, const Drawable& b) { return a.depth > b.depth; });
     for (auto& d : order) {
-        if (d.kind == 0) drawBillboardSprite(target, billboards_[d.idx]);
-        else if (d.kind == 1) drawShotSprite(target, shots_[d.idx]);
-        else if (d.kind == 2) drawBossBillboard(target, d.idx);
+        if (d.kind == 0) {
+            auto& q = wallQuads[d.idx];
+            sf::VertexArray verts(sf::Quads, 8);
+            verts[0] = sf::Vertex({q.x0, screenY(q.y0)}, q.color);
+            verts[1] = sf::Vertex({q.x1, screenY(q.y1)}, q.color);
+            verts[2] = sf::Vertex({q.x2, screenY(q.y2)}, q.color);
+            verts[3] = sf::Vertex({q.x3, screenY(q.y3)}, q.color);
+            auto& g = q.gray;
+            verts[4] = sf::Vertex({g.x0, screenY(g.y0)}, g.color);
+            verts[5] = sf::Vertex({g.x1, screenY(g.y1)}, g.color);
+            verts[6] = sf::Vertex({g.x2, screenY(g.y2)}, g.color);
+            verts[7] = sf::Vertex({g.x3, screenY(g.y3)}, g.color);
+            target.draw(verts);
+        } else if (d.kind == 1) drawBillboardSprite(target, billboards_[d.idx]);
+        else if (d.kind == 2) drawShotSprite(target, shots_[d.idx]);
+        else if (d.kind == 3) drawBossBillboard(target, d.idx);
     }
 
     // Traveler emoji billboard (fish/treat): project its grid tile and draw it like the 2D modes,
@@ -1110,8 +1126,8 @@ void DoomScene::drawCeiling(sf::RenderTarget& target, double dirX, double dirY,
     target.draw(quads);
 }
 
-void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
-                            double planeX, double planeY) {
+auto DoomScene::renderWalls(double dirX, double dirY,
+                            double planeX, double planeY) -> std::vector<WallQuad> {
     constexpr double wallFar = 40.0;
 
     // Pass 1: DDA per column (Swift buildWallCells) — fill zbuf_ and collect
@@ -1165,9 +1181,7 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
     const float  vMid  = viewMidY();
     const float  hw    = viewW_ / 2.f;
 
-    struct GrayRect { float x0,y0, x1,y1, x2,y2, x3,y3; sf::Color color; };
-    struct VQuad    { float x0,y0, x1,y1, x2,y2, x3,y3; sf::Color color; double depth; GrayRect gray; };
-    std::vector<VQuad> quads;
+    std::vector<WallQuad> quads;
     quads.reserve(tops.size() * 2);
 
     for (int key : tops) {
@@ -1258,26 +1272,7 @@ void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
         }
     }
 
-    // Pass 3: Sort far-first (painter's algorithm, mirrors Swift's quads.sort { $0.depth > $1.depth }).
-    std::sort(quads.begin(), quads.end(),
-              [](const VQuad& a, const VQuad& b) { return a.depth > b.depth; });
-
-    // Pass 4: Emit wall quad then gray inset (gray appended after = drawn on top).
-    sf::VertexArray verts(sf::Quads);
-    verts.resize(quads.size() * 8);
-    size_t vi = 0;
-    for (auto& q : quads) {
-        verts[vi++] = sf::Vertex({q.x0, screenY(q.y0)}, q.color);
-        verts[vi++] = sf::Vertex({q.x1, screenY(q.y1)}, q.color);
-        verts[vi++] = sf::Vertex({q.x2, screenY(q.y2)}, q.color);
-        verts[vi++] = sf::Vertex({q.x3, screenY(q.y3)}, q.color);
-        auto& g = q.gray;
-        verts[vi++] = sf::Vertex({g.x0, screenY(g.y0)}, g.color);
-        verts[vi++] = sf::Vertex({g.x1, screenY(g.y1)}, g.color);
-        verts[vi++] = sf::Vertex({g.x2, screenY(g.y2)}, g.color);
-        verts[vi++] = sf::Vertex({g.x3, screenY(g.y3)}, g.color);
-    }
-    target.draw(verts);
+    return quads;
 }
 
 void DoomScene::projectSprites(double dirX, double dirY, double planeX, double planeY) {
@@ -1285,7 +1280,7 @@ void DoomScene::projectSprites(double dirX, double dirY, double planeX, double p
 
     auto project = [&](double x, double y, double worldH,
                        bool& visible, float& screenXOut, float& scaleOut,
-                       float& floorYOut, float& depthOut, float nativeH) {
+                       float& floorYOut, float& depthOut, double& rawDepthOut, float nativeH) {
         visible = false;
         double relX = x - camX_, relY = y - camY_;
         double tX = invDet * (dirY * relX - dirX * relY);
@@ -1310,36 +1305,33 @@ void DoomScene::projectSprites(double dirX, double dirY, double planeX, double p
         scaleOut = targetH / nativeH;
         floorYOut = viewMidY() - (float)(viewH() / tY) * eyeHeight_;
         depthOut = std::min(40.f, (float)(2 + 30 / tY));
+        rawDepthOut = tY;
     };
 
     // Pellets / gold / water / machines / brown box.
     for (auto& b : billboards_) {
         if (!b.alive) { b.visible = false; continue; }
-        // Native height = the SpriteKit node's accumulated frame height, so the
-        // projected scale reads like the master. pelletCube(size 8) is size*1.24
-        // tall; goldDisc/waterPellet visuals (radius 10) reach the halo at r*1.35,
-        // so their frame is 2*10*1.35 = 27; emoji billboards are 128 pt.
         float nativeH = (b.kind == Tile::dot || b.kind == Tile::hideout) ? 8.f * 1.24f
                        : (b.kind == Tile::goldDisc || b.kind == Tile::waterPellet) ? 27.f
                        : 128.f;
-        project(b.x, b.y, b.worldH, b.visible, b.screenX, b.scale, b.floorY, b.depthZ, nativeH);
+        project(b.x, b.y, b.worldH, b.visible, b.screenX, b.scale, b.floorY, b.depthZ, b.rawDepth, nativeH);
     }
     // Shots (water pellets, waterPelletVisual radius 9 -> halo r*1.35 -> frame 24.3).
     for (auto& s : shots_) {
         if (!s.alive) { s.visible = false; continue; }
-        project(s.x, s.y, 0.32, s.visible, s.screenX, s.scale, s.floorY, s.depthZ, 9.f * 2.f * 1.35f);
+        project(s.x, s.y, 0.32, s.visible, s.screenX, s.scale, s.floorY, s.depthZ, s.rawDepth, 9.f * 2.f * 1.35f);
     }
 
     // Bosses: worldH 0.3 (no size cap), feet on the floor via the LOCAL feet offset.
-    bossProj_.assign(bossController_.entities.size(), BossProj{false, 0, 0, 0, 0, 0});
+    bossProj_.assign(bossController_.entities.size(), BossProj{false, 0, 0, 0, 0, 0, 0.0});
     for (size_t i = 0; i < bossController_.entities.size(); ++i) {
         auto& e = bossController_.entities[i];
         if (!e.isActive && !e.isCaptured && !e.captureReturning) continue;
         if (i >= bossGrid_.size()) continue;
         float nativeH = std::max(1.f, e.renderer.metrics().height);
-        BossProj bp{false, 0, 0, 0, 0, 0};
+        BossProj bp{false, 0, 0, 0, 0, 0, 0.0};
         project(bossGrid_[i].first, bossGrid_[i].second, 0.3,
-                bp.visible, bp.screenX, bp.scale, bp.floorY, bp.depthZ, nativeH);
+                bp.visible, bp.screenX, bp.scale, bp.floorY, bp.depthZ, bp.rawDepth, nativeH);
         bp.targetH = bp.scale * nativeH;
         bossProj_[i] = bp;
     }
