@@ -47,6 +47,7 @@ final class PixelPerson: SKNode {
          pantsColor: NSColor,
          walkExaggeration: CGFloat = 0,
          wearsSunglasses: Bool = false,
+         backView: Bool = false,
          headYOffset: CGFloat = 0) {
         self.walkExaggeration = walkExaggeration
         self.baseBodyColor = bodyColor
@@ -84,13 +85,21 @@ final class PixelPerson: SKNode {
         leftShoe.fillColor = shoeColor
         leftShoe.strokeColor = shoeOutlineColor
         leftShoe.lineWidth = 1 * rs
-        leftShoe.position = CGPoint(x: 1 * rs, y: -5 * rs)
+        leftShoe.lineJoin = .miter
+        leftShoe.miterLimit = 10
+        leftShoe.lineCap = .square
+        leftShoe.position = CGPoint(x: 1.5 * rs, y: -5 * rs)
+        leftShoe.zPosition = backView ? -1 : 0     // heels sit behind the legs from behind
         leftLeg.addChild(leftShoe)
 
         rightShoe.fillColor = shoeColor
         rightShoe.strokeColor = shoeOutlineColor
         rightShoe.lineWidth = 1 * rs
-        rightShoe.position = CGPoint(x: 1 * rs, y: -5 * rs)
+        rightShoe.lineJoin = .miter
+        rightShoe.miterLimit = 10
+        rightShoe.lineCap = .square
+        rightShoe.position = CGPoint(x: 1.5 * rs, y: -5 * rs)
+        rightShoe.zPosition = backView ? -1 : 0
         rightLeg.addChild(rightShoe)
 
         let needsBacking = bodyColor.alphaComponent < 1.0
@@ -107,7 +116,7 @@ final class PixelPerson: SKNode {
         torso.strokeColor = .white
         torso.lineWidth = 1.5 * rs
         torso.position = CGPoint(x: 0, y: -2 * rs)
-        torso.zPosition = 2
+        torso.zPosition = backView ? 3.5 : 2     // from behind, the shirt back sits in front of the arms
         bodyContainer.addChild(torso)
 
         tie.fillColor = tieColor
@@ -115,12 +124,14 @@ final class PixelPerson: SKNode {
         tie.lineWidth = (wearsSunglasses ? 1 : 0) * rs
         tie.position = CGPoint(x: 0, y: -2 * rs)
         tie.zPosition = 3
+        tie.isHidden = backView
         bodyContainer.addChild(tie)
 
         let collar = SKShapeNode(rectOf: CGSize(width: 8 * rs, height: 3 * rs))
         collar.fillColor = .white
         collar.strokeColor = .clear
         collar.position = CGPoint(x: 0, y: 5 * rs)
+        collar.isHidden = backView
         torso.addChild(collar)
 
         if needsBacking {
@@ -156,6 +167,7 @@ final class PixelPerson: SKNode {
         lh.fillColor = skin
         lh.strokeColor = .clear
         lh.position = CGPoint(x: 0, y: -8 * rs)
+        lh.zPosition = backView ? -1 : 0           // from behind, the sleeve sits in front of the hand
         leftArm.addChild(lh)
         leftHand = lh
 
@@ -163,21 +175,27 @@ final class PixelPerson: SKNode {
         rh.fillColor = skin
         rh.strokeColor = .clear
         rh.position = CGPoint(x: 0, y: -8 * rs)
+        rh.zPosition = backView ? -1 : 0
         rightArm.addChild(rh)
         rightHand = rh
 
+        // Head: identical shape front and back — a rounded rect whose top is squared off by
+        // the flat hair strip below, so the silhouette is a FLAT TOP with ROUNDED BOTTOM corners.
         let hd = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 12 * rs), cornerRadius: 2 * rs)
-        hd.fillColor = skin
-        hd.strokeColor = NSColor(calibratedWhite: 0.0, alpha: 0.5)
-        hd.lineWidth = 1 * rs
+        hd.fillColor = backView ? hairColor : skin
+        hd.strokeColor = backView ? hairColor : skin
+        hd.lineWidth = 0
         hd.position = CGPoint(x: 0, y: (13 + headYOffset) * rs)
         hd.zPosition = 4
         bodyContainer.addChild(hd)
         head = hd
 
+        // Flat strip across the top — squares the top corners (rounded bottom stays). Hair on
+        // the front, hair-coloured on the back so it just flattens the top, same shape.
         let hair = SKShapeNode(rectOf: CGSize(width: 14 * rs, height: 4 * rs))
         hair.fillColor = hairColor
-        hair.strokeColor = .clear
+        hair.strokeColor = hairColor
+        hair.lineWidth = 0
         hair.position = CGPoint(x: 0, y: 4 * rs)
         head.addChild(hair)
 
@@ -189,7 +207,7 @@ final class PixelPerson: SKNode {
             shades.position = CGPoint(x: 0.5 * rs, y: 0)
             shades.zPosition = 5
             head.addChild(shades)
-        } else {
+        } else if !backView {
             let l = SKShapeNode(rectOf: CGSize(width: 2 * rs, height: 2 * rs))
             l.fillColor = .black
             l.strokeColor = .clear
@@ -273,7 +291,7 @@ final class PixelPerson: SKNode {
     // Like setFacing, but ignores a single direction reversal so the eyes/tie/
     // body keep the general heading instead of flipping forward-opposite-forward
     // on per-tile AI jitter (most visible in square mode's dwell). A reversal
-    // that persists 2+ tiles still turns. Bosses use this; Pete uses setFacing
+    // that persists 2+ tiles still turns. Bosses use this, Pete uses setFacing
     // directly so the player gets an instant turn.
     private var smoothedFaceDir: MoveDirection?
     private var faceReverseSkips = 0
@@ -291,7 +309,15 @@ final class PixelPerson: SKNode {
     }
 
     // MARK: - Eye tracking
+    // The 3D billboards opt out (frozen eyes/tie), the radar copies keep tracking.
+    var tracksLook = true
+    func freezeLook() {
+        setLookDirection(nil)   // centre eyes/tie once, then stop tracking
+        tracksLook = false
+    }
+    func unfreezeLook() { tracksLook = true }
     func setLookDirection(_ dir: MoveDirection?) {
+        guard tracksLook else { return }
         let offset: CGPoint
         switch dir {
         case .left, .right: offset = CGPoint(x: 1, y: 0)
@@ -312,6 +338,26 @@ final class PixelPerson: SKNode {
     func setEyeColor(_ color: NSColor) {
         leftEye?.fillColor = color
         rightEye?.fillColor = color
+    }
+
+    func setFleePalette(_ flee: Bool, bodyRestore: NSColor? = nil, tieRestore: NSColor? = nil, skinRestore: NSColor? = nil) {
+        if flee {
+            setBodyColor(SpriteFactory.fleeBodyColor)
+            setTieColor(SpriteFactory.fleeTieColor)
+            setTieOutline(color: nil)
+            setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
+            setShoeOutlineColor(SpriteFactory.bossShoeGoldColor)
+            setEyeColor(SpriteFactory.fleeEyeColor)
+            setSkinColor(SpriteFactory.fleeSkinColor)
+        } else {
+            setBodyColor(bodyRestore ?? SpriteFactory.bossSkinColor)
+            setTieColor(tieRestore ?? .clear)
+            setTieOutline(color: nil)
+            setShirtOutlineColor(.white)
+            setShoeOutlineColor(SpriteFactory.bossShoeGoldColor)
+            setEyeColor(.black)
+            setSkinColor(skinRestore ?? SpriteFactory.bossSkinColor)
+        }
     }
 
     func startWalking() {

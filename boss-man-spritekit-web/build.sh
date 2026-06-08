@@ -19,7 +19,7 @@ CONFIG_ARGS=()
 PASSTHROUGH=()
 for arg in "$@"; do
   case "$arg" in
-    release) CONFIG_ARGS=(-c release -Xswiftc -Osize -Xlinker -s) ;;  # -Osize + strip symbols: ~44% smaller wasm (11.7MB->6.6MB), no behaviour change
+    release) CONFIG_ARGS=(-c release -Xswiftc -Osize -Xlinker -s -Xswiftc -Xfrontend -Xswiftc -disable-reflection-metadata) ;;  # -Osize + strip + drop reflection field metadata (Mirror only; conformance/cast metadata kept). LTO/hermetic-seal externalize the runtime DSO-image hook and break wasm instantiation
     debug)   CONFIG_ARGS=(-c debug)   ;;
     *)       PASSTHROUGH+=("$arg")    ;;
   esac
@@ -34,9 +34,19 @@ TOOLCHAINS="$SWIFT_TOOLCHAIN" \
 
 # Auto-publish into web/ when building release so the page is one curl away.
 if [ "${CONFIG_ARGS[1]:-}" = "release" ]; then
-  cp .build/wasm32-unknown-wasip1/release/BossMan.wasm web/bossman.wasm
-  echo
-  echo "✓ Release artifact published: web/bossman.wasm"
+  REL=.build/wasm32-unknown-wasip1/release/BossMan.wasm
+  if command -v wasm-opt >/dev/null 2>&1; then
+    # wasm-opt -Oz reads the binary's own target_features section, so it only
+    # emits instructions the current runtime already supports. Squeezes a few
+    # more % out after the compiler's -Osize + wasm-ld --gc-sections dead-strip.
+    wasm-opt -Oz "$REL" -o web/bossman.wasm
+    echo
+    echo "✓ Release artifact published (wasm-opt -Oz): web/bossman.wasm"
+  else
+    cp "$REL" web/bossman.wasm
+    echo
+    echo "✓ Release artifact published (install binaryen for a smaller wasm): web/bossman.wasm"
+  fi
 else
   cp .build/wasm32-unknown-wasip1/debug/BossMan.wasm web/bossman.wasm
   echo

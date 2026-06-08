@@ -5,7 +5,10 @@ public final class CGMutablePath {
     var subpaths: [[CGPoint]] = []
     var current: [CGPoint] = []
     public init() {}
-    public func move(to p: CGPoint) { flush(); current = [p] }
+    public func move(to p: CGPoint) {
+        flush()
+        current = [p]
+    }
     public func addLine(to p: CGPoint) { if current.isEmpty { current = [p] } else { current.append(p) } }
     public func addRect(_ r: CGRect) {
         flush()
@@ -37,13 +40,70 @@ public final class CGMutablePath {
         }
         if current.isEmpty { current = pts } else { current.append(contentsOf: pts) }
     }
+    // Tangent-arc corner rounding (CoreGraphics arcTo): an arc of the given radius
+    // tangent to the line from the current point to tangent1End and the line from
+    // tangent1End to tangent2End. Half-angle terms come from dot/cross so no acos/tan
+    // helper is needed. Collinear / degenerate corners fall back to a straight line.
+    public func addArc(tangent1End p1: CGPoint, tangent2End p2: CGPoint, radius r: CGFloat) {
+        guard let p0 = current.last else {
+            current = [p1]
+            return
+        }
+        if r <= 0 {
+            addLine(to: p1)
+            return
+        }
+        let v1x = p0.x - p1.x, v1y = p0.y - p1.y
+        let v2x = p2.x - p1.x, v2y = p2.y - p1.y
+        let len1 = (v1x * v1x + v1y * v1y).squareRoot()
+        let len2 = (v2x * v2x + v2y * v2y).squareRoot()
+        if len1 < 1e-6 || len2 < 1e-6 {
+            addLine(to: p1)
+            return
+        }
+        let u1x = v1x / len1, u1y = v1y / len1
+        let u2x = v2x / len2, u2y = v2y / len2
+        let dot = u1x * u2x + u1y * u2y
+        let crossAbs = abs(u1x * u2y - u1y * u2x)
+        if crossAbs < 1e-6 {
+            addLine(to: p1)
+            return
+        }
+        let dist = r * (1 + dot) / crossAbs
+        let t1 = CGPoint(x: p1.x + u1x * dist, y: p1.y + u1y * dist)
+        let t2 = CGPoint(x: p1.x + u2x * dist, y: p1.y + u2y * dist)
+        var bx = u1x + u2x, by = u1y + u2y
+        let blen = (bx * bx + by * by).squareRoot()
+        let sinHalf = ((1 - dot) / 2).squareRoot()
+        if blen < 1e-6 || sinHalf < 1e-6 {
+            addLine(to: p1)
+            return
+        }
+        bx /= blen
+        by /= blen
+        let cx = p1.x + bx * (r / sinHalf), cy = p1.y + by * (r / sinHalf)
+        addLine(to: t1)
+        let a1 = atan2c(t1.y - cy, t1.x - cx)
+        var da = atan2c(t2.y - cy, t2.x - cx) - a1
+        let pi = CGFloat(3.141592653589793)
+        while da > pi { da -= 2 * pi }
+        while da < -pi { da += 2 * pi }
+        let steps = 6
+        for i in 1...steps {
+            let a = a1 + da * CGFloat(i) / CGFloat(steps)
+            current.append(CGPoint(x: cx + cos(a) * r, y: cy + sin(a) * r))
+        }
+    }
     // Rounded rectangle as a single closed polygon: four quarter-arcs whose
     // endpoints the fill/stroke poly connects with the straight edges. Coarse
     // (few segments per corner) since the radii are small; clamps the radius to
     // half the shorter side and falls back to a plain rect at radius 0.
     public func addRoundedRect(in r: CGRect, cornerRadius cr: CGFloat) {
         let rad = max(0, min(cr, min(r.width, r.height) / 2))
-        if rad <= 0 { addRect(r); return }
+        if rad <= 0 {
+            addRect(r)
+            return
+        }
         let seg = 4
         var pts: [CGPoint] = []
         func corner(_ cx: CGFloat, _ cy: CGFloat, from: Double, to: Double) {
@@ -62,8 +122,17 @@ public final class CGMutablePath {
         subpaths.append(pts)
     }
     public func closeSubpath() { flush() }
-    func flush() { if !current.isEmpty { subpaths.append(current); current = [] } }
-    var resolved: [[CGPoint]] { var s = subpaths; if !current.isEmpty { s.append(current) }; return s }
+    func flush() {
+        if !current.isEmpty {
+            subpaths.append(current)
+            current = []
+        }
+    }
+    var resolved: [[CGPoint]] {
+        var s = subpaths
+        if !current.isEmpty { s.append(current) }
+        return s
+    }
 
     // Polyline flattening across all subpaths — used by SKAction.follow to sample
     // a path by arc length. Each subpath is treated as a continuous polyline; we
@@ -85,8 +154,10 @@ public final class CGMutablePath {
 }
 public typealias CGPath = CGMutablePath
 
-// Trig helper: per-frame action math needs sin/cos/atan2 once in a while. We
-// piggyback on Foundation/libm; the 16-entry unit-circle is for tight loops.
+// Math helpers — C libm wrappers exposed to Swift so game code can call
+// sin/cos/exp/tanh/pow without importing Foundation. Foundation drags ICU
+// into the wasm binary; these free-function overloads replace it for Float
+// and Double. (CGFloat == Double, so the CGFloat overloads cover Double.)
 public func sincos(_ a: Double) -> (Double, Double) {
     let s = sb64_sin(a), c = sb64_cos(a)
     return (c, s)
@@ -94,6 +165,16 @@ public func sincos(_ a: Double) -> (Double, Double) {
 public func atan2c(_ y: CGFloat, _ x: CGFloat) -> CGFloat { CGFloat(sb64_atan2(Double(y), Double(x))) }
 public func cos(_ x: CGFloat) -> CGFloat { sb64_cos(x) }
 public func sin(_ x: CGFloat) -> CGFloat { sb64_sin(x) }
+public func sin(_ x: Float) -> Float { Float(sb64_sin(Double(x))) }
+public func cos(_ x: Float) -> Float { Float(sb64_cos(Double(x))) }
+public func exp(_ x: Float) -> Float { Float(sb64_exp(Double(x))) }
+public func exp(_ x: Double) -> Double { sb64_exp(x) }
+public func tanh(_ x: Float) -> Float { Float(sb64_tanh(Double(x))) }
+public func tanh(_ x: Double) -> Double { sb64_tanh(x) }
+public func pow(_ base: Float, _ exp: Float) -> Float { Float(sb64_pow(Double(base), Double(exp))) }
+public func pow(_ base: Double, _ exp: Double) -> Double { sb64_pow(base, exp) }
+public func floor(_ x: Float) -> Float { Float(sb64_floor(Double(x))) }
+public func floor(_ x: Double) -> Double { sb64_floor(x) }
 
 // 32-entry quarter-rotation unit circle for coarse ellipse/arc flattening.
 func unitCircle(_ i: Int, of n: Int) -> (Double, Double) {
@@ -107,3 +188,5 @@ public extension CGPoint {
         return CGFloat((Double(dx*dx + dy*dy)).squareRoot())
     }
 }
+
+

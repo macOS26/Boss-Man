@@ -104,6 +104,10 @@ const EVT = {
   Closed: 0, Resized: 1, LostFocus: 2, GainedFocus: 3, TextEntered: 4,
   KeyPressed: 5, KeyReleased: 6, MouseWheelMoved: 7, MouseWheelScrolled: 8,
   MouseButtonPressed: 9, MouseButtonReleased: 10, MouseMoved: 11,
+  // Per-finger touch (SFML 2.6 order) carried ALONGSIDE the finger-0 mouse
+  // events above: legacy scenes consume the mouse pointer, multi-touch-aware
+  // scenes (the 3D bonus D-pad) consume these. {a:finger, b:x, c:y}.
+  TouchBegan: 19, TouchMoved: 20, TouchEnded: 21,
 };
 
 // Per-game configuration. The host page sets window.WASMWEB before loading this
@@ -245,7 +249,7 @@ class Runtime {
   // ==========================================================================
   wasiImports() {
     const WASI_EBADF = 8;
-    return {
+    const impl = {
       fd_write: (fd, iovsPtr, iovsLen, nwrittenPtr) => {
         const dv = this.dv();
         const parts = [];
@@ -282,6 +286,24 @@ class Runtime {
         for (let i = 0; i < 24; i++) dv.setUint8(statPtr + i, 0);
         return 0;
       },
+      fd_fdstat_set_flags: (_fd, _flags) => 0,
+      fd_filestat_get: (_fd, statPtr) => {
+        // zero the 64-byte WASI filestat so callers see a benign, empty descriptor
+        const dv = this.dv();
+        for (let i = 0; i < 64; i++) dv.setUint8(statPtr + i, 0);
+        return 0;
+      },
+      path_filestat_get: (_fd, _flags, _pathPtr, _pathLen, statPtr) => {
+        // no virtual filesystem: report ENOENT(44), same as path_open
+        const dv = this.dv();
+        for (let i = 0; i < 64; i++) dv.setUint8(statPtr + i, 0);
+        return 44;
+      },
+      // FS syscalls that write an out-pointer: zero it so callers never read garbage.
+      fd_pread: (_fd, _iovsPtr, _iovsLen, _offLo, _offHi, nreadPtr) => { this.dv().setUint32(nreadPtr, 0, true); return 0; },
+      fd_readdir: (_fd, _buf, _bufLen, _cookieLo, _cookieHi, bufusedPtr) => { this.dv().setUint32(bufusedPtr, 0, true); return 0; },
+      fd_tell: (_fd, offsetPtr) => { const dv = this.dv(); dv.setUint32(offsetPtr, 0, true); dv.setUint32(offsetPtr + 4, 0, true); return 0; },
+      path_readlink: (_fd, _p, _pl, _buf, _bufLen, bufusedPtr) => { this.dv().setUint32(bufusedPtr, 0, true); return 44; },
       environ_sizes_get: (countPtr, sizePtr) => {
         const dv = this.dv();
         dv.setUint32(countPtr, 0, true);
@@ -323,6 +345,11 @@ class Runtime {
       },
       sched_yield: () => 0,
     };
+    // Any WASI fn not explicitly shimmed above resolves to a benign no-op returning 0 (success),
+    // so Foundation pulling in extra fs/time syscalls (fd_filestat_set_size, path_rename, ...) never
+    // breaks linking. The output-writing ones (fd_read/seek/tell/pread/readdir, *_filestat_get) are
+    // shimmed explicitly so callers never read uninitialized out-pointers.
+    return new Proxy(impl, { get: (t, p) => (p in t ? t[p] : () => 0) });
   }
 
   // ==========================================================================
@@ -387,10 +414,10 @@ class Runtime {
       },
       gfx_set_blend: (mode) => {
         const c = this.ctx2d();
+        c.globalAlpha = 1;   // SFML carries alpha in the fill/vertex colour; never inherit a leaked globalAlpha (it washed opaque shape fills out)
         switch (mode) {
           case 1: c.globalCompositeOperation = 'lighter'; break;
           case 2: c.globalCompositeOperation = 'multiply'; break;
-          case 3: c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; break;
           default: c.globalCompositeOperation = 'source-over'; break;
         }
       },
@@ -1323,6 +1350,17 @@ class Runtime {
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         this._pseudoFullscreen(false);
       },
+      win_download: (namePtr, nlen, dataPtr, dlen) => {
+        const name = this.cstr(namePtr, nlen) || 'download.json';
+        const data = this.cstr(dataPtr, dlen);
+        try {
+          const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+          const a = document.createElement('a');
+          a.href = url; a.download = name;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (_e) {}
+      },
 
       // ---- persistence (localStorage) ----
       store_get: (keyPtr, klen, bufPtr, cap) => {
@@ -1736,22 +1774,6 @@ void main() {
     setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (_e) {} }, 0);
   }
 
-  // Double-tap toggles fullscreen (enter if not in it, exit if in it), real API
-  // where available and the iPhone pseudo-fullscreen otherwise.
-  _toggleFullscreen() {
-    const el = this.canvas;
-    const inFs = this._pseudoFsOn || document.fullscreenElement || document.webkitFullscreenElement;
-    if (inFs) {
-      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-      this._pseudoFullscreen(false);
-    } else {
-      if (el.requestFullscreen) el.requestFullscreen().catch(() => this._pseudoFullscreen(true));
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      else this._pseudoFullscreen(true);
-    }
-  }
-
   ensureAudio() {
     if (!this.audioCtx) {
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -1949,6 +1971,17 @@ void main() {
     // from scrolling/zooming the page out from under the gesture.
     this.canvas.style.touchAction = 'none';
     const touchAt = (t) => this.toLogical({ clientX: t.clientX, clientY: t.clientY });
+    // Browser touch identifiers can be large/arbitrary; map them to small stable
+    // finger slots (0,1,2,...) so the framework ABI's Int32 finger field is tidy.
+    this._fingerSlots = new Map();
+    const fingerSlot = (id) => {
+      if (!this._fingerSlots.has(id)) {
+        let n = 0; const used = new Set(this._fingerSlots.values());
+        while (used.has(n)) n++;
+        this._fingerSlots.set(id, n);
+      }
+      return this._fingerSlots.get(id);
+    };
     this.canvas.addEventListener('touchstart', (e) => {
       this._reprimeSpeech();   // keep TTS warm on every tap
       if (!e.changedTouches.length) return;
@@ -1957,6 +1990,10 @@ void main() {
       this._touchStartX = p.x; this._touchStartY = p.y; this._touchMoved = false;
       this.mouseX = p.x; this.mouseY = p.y;
       this.events.push({ type: EVT.MouseButtonPressed, a: 0, b: p.x, c: p.y, d: 0 });
+      for (const t of e.changedTouches) {
+        const q = touchAt(t);
+        this.events.push({ type: EVT.TouchBegan, a: fingerSlot(t.identifier), b: q.x, c: q.y, d: 0 });
+      }
       e.preventDefault();
     }, { passive: false });
     this.canvas.addEventListener('touchmove', (e) => {
@@ -1965,6 +2002,10 @@ void main() {
       if (Math.abs(p.x - this._touchStartX) > 16 || Math.abs(p.y - this._touchStartY) > 16) this._touchMoved = true;
       this.mouseX = p.x; this.mouseY = p.y;
       this.events.push({ type: EVT.MouseMoved, a: p.x, b: p.y, c: 0, d: 0 });
+      for (const t of e.changedTouches) {
+        const q = touchAt(t);
+        this.events.push({ type: EVT.TouchMoved, a: fingerSlot(t.identifier), b: q.x, c: q.y, d: 0 });
+      }
       e.preventDefault();
     }, { passive: false });
     const onTouchEnd = (e) => {
@@ -1972,21 +2013,12 @@ void main() {
       this.mouseDown[0] = false;
       const p = touchAt(e.changedTouches[0]);
       this.events.push({ type: EVT.MouseButtonReleased, a: 0, b: p.x, c: p.y, d: 0 });
-      e.preventDefault();
-      // Double-tap toggles fullscreen, but only on a CLEAN tap: not a swipe (moved)
-      // and not in the bottom fire-button zone, so firing + steering never trigger it.
-      const cleanTap = !this._touchMoved && p.y < LOGICAL_H - 180;
-      if (cleanTap) {
-        const now = Date.now();
-        if (this._lastTapAt && now - this._lastTapAt < 300) {
-          this._lastTapAt = 0;
-          this._toggleFullscreen();
-        } else {
-          this._lastTapAt = now;
-        }
-      } else {
-        this._lastTapAt = 0;   // a swipe or fire tap breaks the double-tap chain
+      for (const t of e.changedTouches) {
+        const q = touchAt(t);
+        this.events.push({ type: EVT.TouchEnded, a: fingerSlot(t.identifier), b: q.x, c: q.y, d: 0 });
+        this._fingerSlots.delete(t.identifier);
       }
+      e.preventDefault();
     };
     this.canvas.addEventListener('touchend', onTouchEnd, { passive: false });
     this.canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });

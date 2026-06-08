@@ -1,5 +1,3 @@
-import Foundation
-
 enum Strings {
     static let empty = String()
 
@@ -68,7 +66,7 @@ enum Strings {
     }
 
     // MARK: - Bundle resources (filename + extension passed to Bundle.url on
-    // macOS; the wasm asset preloader registers names directly).
+    // macOS, the wasm asset preloader registers names directly).
     enum Resource {
         static let levelsFile        = "levels"
         static let levelsExtension   = "json"
@@ -163,19 +161,19 @@ enum Strings {
     }
 
     // MARK: - Persistence keys (UserDefaults on macOS, localStorage on wasm).
-    // Shared key strings on both platforms; only the storage backend differs.
+    // Shared key strings on both platforms, only the storage backend differs.
     // Changing a key re-keys persisted data.
     enum DefaultsKey {
         static let highScore              = "BossMan.highScore"
         static let leaderboard            = "BossMan.leaderboard"
         static let localHighScores        = "BossMan.leaderboard"
         static let playerName             = "BossMan.playerName"
-        static let localLeaderboardUsername = "BossMan.username"
+        static let localLeaderboardName   = "BossMan.username"
         static let startFullscreen        = "BossMan.startFullscreen"
         static let bossTracksSquare       = "BossMan.bossTracksSquare"
         static let mazeZoom               = "BossMan.mazeZoom"
-        static let waterGunLeft           = "BossMan.waterGunLeft"
-        static let waterGunHide           = "BossMan.waterGunHide"
+        static let controlMode            = "BossMan.controlMode"
+        static let travelerSeed           = "BossMan.travelerSeed"
         static let editorLastLevelIndex   = "BossMan.editorLastLevelIndex"
         static let editorLevelPrefix      = "BossMan.editorLevel."
     }
@@ -239,8 +237,8 @@ enum Strings {
     enum Title {
         static let gameTitle      = "BOSS-MAN"
         static let pressSpace     = "P to Play · E for Editor"
-        static let playGame       = "(P)lay"
-        static let levelEditor    = "(E)ditor"
+        static let playGame       = "PLAY"
+        static let levelEditor    = "EDITOR"
         static let controlsHint   = "Cursor key to Move \u{00B7} Space to Fire Water Pistol"
         static func highScore(_ value: Int) -> String { "HIGH SCORE \(value)" }
     }
@@ -268,7 +266,7 @@ enum Strings {
     }
 }
 
-// Voice-picker data. apple ranks these in-process (NSSpeechSynthesizer);
+// Voice-picker data. apple ranks these in-process (NSSpeechSynthesizer),
 // wasm forwards them to the runtime as CSVs (tts_set_*). The shared spoken-line
 // pools live in Strings+Shared.
 extension Strings.Speech {
@@ -281,12 +279,12 @@ extension Strings.Speech {
         "pipe organ", "trinoids", "whisper", "zarvox", "albert", "eddy"
     ]
     // Voice selection mirrors the wasm master (wasm is the source of truth for
-    // voice): Ralph leads since Rocko isn't exposed in Safari; Daniel is last.
+    // voice): Ralph leads since Rocko isn't exposed in Safari, Daniel is last.
     static let preferredVoiceNames = [
         "ralph", "rocko", "fred", "alex", "david", "mark",
         "reed", "grandpa", "junior", "google us english", "daniel"
     ]
-    // Ranked last on apple; sent to the wasm runtime so it can deprioritize them.
+    // Ranked last on apple, sent to the wasm runtime so it can deprioritize them.
     static let femaleVoiceNames = [
         "samantha", "karen", "tessa", "moira", "ava", "susan", "victoria",
         "allison", "veena", "fiona", "kate", "kathy", "sandy", "whisper",
@@ -301,14 +299,65 @@ extension Strings.Speech {
 }
 
 // MARK: - Maze zoom (title-screen camera mode)
-enum MazeZoom {
-    static let cycle = [100, 150, 200]
-    static var current: Int {
-        let z = Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)
-        return cycle.contains(z) ? z : 100
+enum MazeZoom: Int, CaseIterable {
+    case wide2D, zoom2D, macro2D, iso3D, ray3D, voxel3D
+
+    static var current: MazeZoom {
+        MazeZoom(rawValue: Persistence.int(forKey: Strings.DefaultsKey.mazeZoom)) ?? .macro2D
     }
     static func advance() {
-        let i = cycle.firstIndex(of: current) ?? 0
-        Persistence.set(cycle[(i + 1) % cycle.count], forKey: Strings.DefaultsKey.mazeZoom)
+        Persistence.set((current.rawValue + 1) % allCases.count, forKey: Strings.DefaultsKey.mazeZoom)
+    }
+
+    static var isDoom: Bool  { current == .ray3D }
+    static var isVoxel: Bool { current == .voxel3D }
+    static var isIso: Bool   { current == .iso3D }
+    static var is3D: Bool { isDoom || isVoxel || isIso }   // any full-screen scene mode (vs the 2D follow-camera eras)
+
+    // The 2D follow-camera zoom (100 = no camera): ZOOM 2D = 150%, MACRO 2D = 200%, the 3D modes use the scene path.
+    static var zoomPercent: Int {
+        switch current {
+        case .zoom2D:  return 150
+        case .macro2D: return 200
+        default:       return 100
+        }
+    }
+    static var label: String {
+        switch current {
+        case .wide2D:  return "LUMBERGH"
+        case .zoom2D:  return "TWO BOBS"
+        case .macro2D: return "MILTON"
+        case .iso3D:   return "WONDERLAND"
+        case .ray3D:   return "SEVERANCE"
+        case .voxel3D: return "LABYRINTH"
+        }
+    }
+}
+
+// MARK: - On-screen control mode (title-screen toggle: stick/dpad side, or hidden)
+enum ControlMode: Int, CaseIterable {
+    case hidden, stickLeft, stickRight, dpadLeft, dpadRight
+
+    static var current: ControlMode {
+        ControlMode(rawValue: Persistence.int(forKey: Strings.DefaultsKey.controlMode)) ?? .hidden
+    }
+    static func advance() {
+        Persistence.set((current.rawValue + 1) % allCases.count, forKey: Strings.DefaultsKey.controlMode)
+    }
+
+    var showsStick: Bool { self == .stickLeft || self == .stickRight }
+    var showsDpad:  Bool { self == .dpadLeft  || self == .dpadRight  }
+    var isHidden:   Bool { self == .hidden }
+    var showsControl: Bool { showsStick || showsDpad }
+    var onLeft: Bool { self == .stickLeft || self == .dpadLeft } // movement widget side, fire button is opposite
+
+    var label: String {
+        switch self {
+        case .hidden:     return "HIDDEN"
+        case .stickLeft:  return "STICK LEFT"
+        case .stickRight: return "STICK RIGHT"
+        case .dpadLeft:   return "DPAD LEFT"
+        case .dpadRight:  return "DPAD RIGHT"
+        }
     }
 }

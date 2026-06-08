@@ -21,7 +21,7 @@ sf::Font& gameOverFont(bool bold) {
         if (!wideLoaded) wideLoaded = loadFont(wide, "assets/fonts/MarkerFelt-Wide.ttf");
         return wide;
     }
-    if (!menloLoaded) menloLoaded = loadFont(menlo, "assets/fonts/Menlo-Bold.ttf");
+    if (!menloLoaded) menloLoaded = loadFont(menlo, "assets/fonts/JetBrainsMono-Bold.ttf"); // body font (Menlo isn't embedded)
     return menlo;
 }
 // halign: 0 left, 1 center, 2 right (about x). Rasterizes at uiScale and
@@ -244,11 +244,25 @@ void Game::tick() {
         update(TIME_PER_UPDATE.asSeconds());
         timeSinceLastUpdate -= TIME_PER_UPDATE;
     }
-    render();
+    // The static title idles at ~10 fps to save CPU/GPU (matching the SpriteKit title's
+    // preferredFramesPerSecond = 10). Input is still polled every fixed step above, so
+    // PLAY/EDITOR/toggles stay responsive.
+    if (gameState == GameState::Title) {
+        static sf::Clock titleClock;
+        if (prevTickState_ != GameState::Title || titleClock.getElapsedTime().asSeconds() >= 0.1f) {
+            titleClock.restart();
+            render();
+        } else {
+            sf::sleep(sf::milliseconds(15));
+        }
+    } else {
+        render();
+    }
+    prevTickState_ = gameState;
 }
 
 std::vector<std::string> Game::currentLevelRows() {
-    int idx = (state.level - 1) % (int)levelNames().size();
+    int idx = std::min(state.level - 1, (int)levelNames().size() - 1);
     std::string name = levelNames()[idx];
     // LevelStore returns custom edited rows (from the level editor) when present,
     // otherwise the bundled level — so edits show up immediately in play/practice.
@@ -332,22 +346,30 @@ void Game::buildLevel() {
     refreshHUD();
 }
 
+void Game::startDoom3D(int level, bool practice) {
+    // BOSS 3D reuses the same level data as the 2D game (edited rows from the editor
+    // take precedence via currentLevelRows). The title launches level 1; the editor's
+    // test launches the level being edited, in practice mode.
+    state.resetForNewGame();
+    state.practiceMode = practice;
+    state.level = level;
+    auto rows = currentLevelRows();
+    if (rows.empty()) return;
+    if (MazeZoom::isIso())
+        doomScene = std::make_unique<IsoScene>(sound, state, rows, state.highScore);     // ISO 3D: isometric overhead
+    else if (MazeZoom::isVoxel())
+        doomScene = std::make_unique<VoxelScene>(sound, state, rows, state.highScore);   // VOXEL 3D: painter's boxy renderer
+    else
+        doomScene = std::make_unique<DoomScene>(sound, state, rows, state.highScore);    // RAY 3D: raycaster
+    gameState = GameState::Doom3D;
+}
+
 void Game::handleTitleHit(float x, float y) {
     switch (titleScreen.hitTest(x, y)) {
     case TitleScreen::Hit::Play:       input.pRequested = true; break;
     case TitleScreen::Hit::Editor:     input.eRequested = true; break;
     case TitleScreen::Hit::BossTracks: Settings::setBossTracksSquare(!Settings::bossTracksSquare()); break;
-    case TitleScreen::Hit::WaterGun:
-        // Cycle Left -> Right -> Hide -> Left (two bools: left + hide).
-        if (Settings::waterGunHide()) {
-            Settings::setWaterGunHide(false);
-            Settings::setWaterGunLeft(true);
-        } else if (Settings::waterGunLeft()) {
-            Settings::setWaterGunLeft(false);
-        } else {
-            Settings::setWaterGunHide(true);
-        }
-        break;
+    case TitleScreen::Hit::WaterGun: ControlMode::advance(); break;   // HIDDEN -> STICK LEFT -> STICK RIGHT -> DPAD LEFT -> DPAD RIGHT
     case TitleScreen::Hit::MazeZoom:   Settings::advanceMazeZoom(); break;
     case TitleScreen::Hit::Fullscreen:
     case TitleScreen::Hit::Window:     input.fullscreenToggleRequested = true; break;
@@ -371,6 +393,36 @@ void Game::processInput() {
         // ⌘ shortcuts), so route events straight to it and skip InputController.
         if (gameState == GameState::Editor) {
             editor.handleEvent(event, window);
+            continue;
+        }
+        // The 3D bonus drives a tank-style first-person input that needs raw key
+        // down/up (held forward/back) and joystick drags, so it gets events directly.
+        if (gameState == GameState::Doom3D && doomScene) {
+            // F still toggles fullscreen anywhere; keep that global affordance.
+            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::F) {
+                input.fullscreenToggleRequested = true; continue;
+            }
+            if (event.type == sf::Event::KeyPressed)
+                doomScene->keyDown(event.key.code, false);
+            else if (event.type == sf::Event::KeyReleased)
+                doomScene->keyUp(event.key.code);
+            else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y));
+                doomScene->mouseDown(p.x, p.y);
+            } else if (event.type == sf::Event::MouseMoved) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y));
+                doomScene->mouseDragged(p.x, p.y);
+            } else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+                doomScene->mouseUp();
+            } else if (event.type == sf::Event::TouchBegan) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)event.touch.x, (int)event.touch.y));
+                doomScene->touch(event.touch.finger, p.x, p.y, 0);
+            } else if (event.type == sf::Event::TouchMoved) {
+                sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)event.touch.x, (int)event.touch.y));
+                doomScene->touch(event.touch.finger, p.x, p.y, 1);
+            } else if (event.type == sf::Event::TouchEnded) {
+                doomScene->touch(event.touch.finger, 0.f, 0.f, 2);
+            }
             continue;
         }
         // Game-over combo screen: taps hit the on-screen keyboard / PLAY / ESC;
@@ -414,13 +466,30 @@ void Game::processInput() {
         // In-game mouse/trackpad: moving steers Pete (swipe), left-click fires
         // the water gun (the on-screen fire button is the visual affordance).
         if (gameState == GameState::Playing) {
-            if (event.type == sf::Event::MouseMoved) {
-                input.handleMouseMove(event.mouseMove.x, event.mouseMove.y);
-                continue;
-            }
             if (event.type == sf::Event::MouseButtonPressed
                     && event.mouseButton.button == sf::Mouse::Left) {
-                input.fireRequested = true;
+                sf::Vector2f p = window.mapPixelToCoords({event.mouseButton.x, event.mouseButton.y}, baseView);
+                sf::Vector2f c = joystickCenter2D();
+                float jdx = p.x - c.x, jdy = p.y - c.y;
+                if (ControlMode::showsControl() && jdx * jdx + jdy * jdy <= JOYSTICK_RADIUS * JOYSTICK_RADIUS) {
+                    joystickActive2D_ = true; steerJoystick2D(p.x, p.y);   // on the joystick: steer, don't fire
+                } else {
+                    input.fireRequested = true;
+                }
+                continue;
+            }
+            if (event.type == sf::Event::MouseButtonReleased
+                    && event.mouseButton.button == sf::Mouse::Left && joystickActive2D_) {
+                joystickActive2D_ = false; joystickThumb2D_ = joystickCenter2D();
+                continue;
+            }
+            if (event.type == sf::Event::MouseMoved) {
+                if (joystickActive2D_) {
+                    sf::Vector2f p = window.mapPixelToCoords({event.mouseMove.x, event.mouseMove.y}, baseView);
+                    steerJoystick2D(p.x, p.y);
+                } else {
+                    input.handleMouseMove(event.mouseMove.x, event.mouseMove.y);
+                }
                 continue;
             }
         }
@@ -431,10 +500,21 @@ void Game::processInput() {
             touchStartX = (float)event.touch.x;
             touchStartY = (float)event.touch.y;
             touchMoved = false;
+            if (gameState == GameState::Playing && ControlMode::showsControl()) {
+                sf::Vector2f p = window.mapPixelToCoords({(int)touchStartX, (int)touchStartY}, baseView);
+                sf::Vector2f c = joystickCenter2D();
+                float jdx = p.x - c.x, jdy = p.y - c.y;
+                if (jdx * jdx + jdy * jdy <= JOYSTICK_RADIUS * JOYSTICK_RADIUS) {
+                    joystickActive2D_ = true; steerJoystick2D(p.x, p.y);
+                }
+            }
             continue;
         }
         if (event.type == sf::Event::TouchMoved && (int)event.touch.finger == touchFinger) {
-            if (gameState == GameState::Playing && !touchMoved) {
+            if (joystickActive2D_) {
+                sf::Vector2f p = window.mapPixelToCoords({(int)event.touch.x, (int)event.touch.y}, baseView);
+                steerJoystick2D(p.x, p.y);
+            } else if (gameState == GameState::Playing && !touchMoved) {
                 float dx = (float)event.touch.x - touchStartX;
                 float dy = (float)event.touch.y - touchStartY;
                 float adx = std::abs(dx), ady = std::abs(dy);
@@ -448,12 +528,15 @@ void Game::processInput() {
         }
         if (event.type == sf::Event::TouchEnded && (int)event.touch.finger == touchFinger) {
             touchFinger = -1;
-            if (!touchMoved) {
+            if (joystickActive2D_) {
+                joystickActive2D_ = false; joystickThumb2D_ = joystickCenter2D();
+            } else if (!touchMoved) {
                 if (gameState == GameState::Title) {
                     sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)touchStartX, (int)touchStartY));
                     handleTitleHit(p.x, p.y);
                 } else if (gameState == GameState::Playing) {
-                    input.fireRequested = true;
+                    sf::Vector2f p = window.mapPixelToCoords(sf::Vector2i((int)touchStartX, (int)touchStartY));
+                    if (fireButtonHitTest(p.x, p.y)) input.fireRequested = true;
                 }
             }
             continue;
@@ -468,12 +551,19 @@ void Game::processInput() {
     if (gameState == GameState::Editor) {
         if (editor.playRequested) {
             editor.playRequested = false;
-            gameState = GameState::Playing;
-            state.resetForNewGame();
-            state.level = editor.currentLevelIndex + 1;
-            state.practiceMode = true;
-            buildLevel();
-            hud.showMessage(Message::PRACTICE_MODE, 3.0f);
+            // Test in whatever maze mode is selected: BOSS 3D (1993) launches the
+            // first-person view of the edited level; the other eras run the 2D
+            // follow-camera at their zoom percent.
+            if (MazeZoom::is3D()) {
+                startDoom3D(editor.currentLevelIndex + 1, true);
+            } else {
+                gameState = GameState::Playing;
+                state.resetForNewGame();
+                state.level = editor.currentLevelIndex + 1;
+                state.practiceMode = true;
+                buildLevel();
+                hud.showMessage(Message::PRACTICE_MODE, 3.0f);
+            }
         } else if (editor.backRequested) {
             editor.backRequested = false;
             gameState = GameState::Title;
@@ -484,11 +574,17 @@ void Game::processInput() {
 
     if (gameState == GameState::Title) {
         if (input.pRequested) {
-            gameState = GameState::Playing;
-            state.resetForNewGame();
-            state.practiceMode = false;
-            buildLevel();
-            hud.showMessage(Message::INTRO, 3.0f);
+            // The DOOM era (1993) launches the first-person 3D bonus; the other eras
+            // run the 2D follow-camera game at their zoom percent.
+            if (MazeZoom::is3D()) {
+                startDoom3D();
+            } else {
+                gameState = GameState::Playing;
+                state.resetForNewGame();
+                state.practiceMode = false;
+                buildLevel();
+                hud.showMessage(Message::INTRO, 3.0f);
+            }
         }
         if (input.eRequested) {
             gameState = GameState::Editor;
@@ -519,6 +615,29 @@ void Game::processInput() {
             sound.resumeAudio();
         }
         if (input.escapeRequested) returnToTitle();
+    } else if (gameState == GameState::Doom3D && doomScene) {
+        // ESC leaves the bonus to the title; running out of lives shows the shared
+        // game-over combo, with name entry when the score qualifies (like the 2D modes).
+        if (doomScene->wantsExit()) {
+            doomScene->clearExit();
+            returnToTitle();
+        } else if (doomScene->isGameOver()) {
+            gameState = GameState::GameOver;
+            goName.clear(); goCommitted = false; goQualified = false;
+            if (!state.practiceMode) {
+                state.saveHighScore();
+                goQualified = leaderboard.qualifies(state.score);
+                goName = leaderboard.savedName();
+                if (goName.empty()) { const char* user = std::getenv("USER"); goName = user ? user : ""; }
+            }
+            doomScene.reset();
+            mazeRenderer.reset();
+            worker.reset();
+            bossController.clear();
+        } else if (doomScene->wantsNextLevel()) {
+            int nextLevel = doomScene->nextLevelIndex();
+            startDoom3D(nextLevel, state.practiceMode);
+        }
     }
 
     input.consume();
@@ -527,6 +646,7 @@ void Game::processInput() {
 void Game::update(float dt) {
     sound.updateDucking(); // restore/duck SFX+music around boss voice lines
     if (gameState == GameState::Editor) { editor.update(dt); return; }
+    if (gameState == GameState::Doom3D) { if (doomScene) doomScene->update(dt); return; }
     if (gameState != GameState::Playing) return;
 
     hud.update(dt);
@@ -591,7 +711,7 @@ void Game::update(float dt) {
                         auto pos = gridMap.pointFor(bossController.entities[i].grid);
                         scorePopups.add(pts, pos);
                         refreshHUD();
-                        hud.showMessage(bossName + " captured! +" + std::to_string(pts), 2.0f);
+                        hud.showMessage(bossName + " captured!", 2.0f);
                     } else if (!shielded) {
                         bossCaught = true;
                     }
@@ -620,7 +740,8 @@ void Game::update(float dt) {
         }
         if (c.catA == PhysicsCat::TPS_BOX && c.catB == PhysicsCat::WORKER) {
             for (int i = 0; i < (int)mazeRenderer->pickups.size() && i < (int)physicsWorld.pickupBodies.size(); ++i) {
-                if (physicsWorld.pickupBodies[i] == c.bodyA && mazeRenderer->pickups[i].active)
+                if (physicsWorld.pickupBodies[i] == c.bodyA && mazeRenderer->pickups[i].active
+                    && mazeRenderer->pickups[i].cooldownTimer <= 0)
                     collectTPSReport(i);
             }
         }
@@ -633,6 +754,7 @@ void Game::update(float dt) {
                     sound.playWaterGunPickup();
                     waterGunPickedUp = true;
                     waterGun.activate();
+                    hud.showMessage(Message::WATER_GUN_ACTIVE, 3.0f);
                     refreshHUD();
                 }
             }
@@ -678,7 +800,7 @@ void Game::update(float dt) {
                 waterSplash.spawn(boss.pixelPos);
                 bossController.splash(i, gridMap, *pathfinder);
                 state.bumpScore(50);
-                scorePopups.add(50, boss.pixelPos);
+                scorePopups.add(50, boss.pixelPos, false, true);
                 sound.playWaterGunSplash();
                 hud.showMessage(Message::BOSS_SPLASHED, 1.5f);
                 refreshHUD();
@@ -696,7 +818,7 @@ void Game::update(float dt) {
                 sound.playFishOrTreat();
                 scorePopups.add(tr.points, tr.pixelPos);
                 refreshHUD();
-                hud.showMessage("Caught " + tr.emoji + "! +" + std::to_string(tr.points), 2.0f);
+                hud.showMessage("CAUGHT! +" + std::to_string(tr.points), 2.0f);
             }
         }
     }
@@ -710,7 +832,7 @@ void Game::render() {
     // Hide the cursor only during active play (shown on title / pause / game-over
     // / editor), matching the Xcode build. Synced on state change; no-op on WASM
     // (the browser owns the cursor) and on touch devices.
-    bool hideCursor = (gameState == GameState::Playing);
+    bool hideCursor = (gameState == GameState::Playing || gameState == GameState::Doom3D);
     if (hideCursor != cursorHidden) {
         window.setMouseCursorVisible(!hideCursor);
         cursorHidden = hideCursor;
@@ -727,6 +849,8 @@ void Game::render() {
         titleScreen.draw(window, WINDOW_WIDTH, WINDOW_HEIGHT, state.highScore, leaderboard.entries());
     } else if (gameState == GameState::Editor) {
         editor.draw(window);
+    } else if (gameState == GameState::Doom3D && doomScene) {
+        doomScene->render(window);
     } else {
         // At 150%/200% the world (maze, pickups, travelers, droplets, bosses, Pete,
         // splashes) is drawn through a zoomed view centred on the eased camera;
@@ -816,10 +940,10 @@ void Game::render() {
         // bottom corner (faint white fill + white stroke, NO inner core), matching
         // the SpriteKit installFireButton. Left-click anywhere fires; the Hide
         // setting suppresses the button. Side follows the Water Gun setting.
-        if (!Settings::waterGunHide()) {
-            const float R = 90.f;
-            float cx = Settings::waterGunLeft() ? R : (float)WINDOW_WIDTH - R;
-            float cy = (float)WINDOW_HEIGHT - R;
+        if (ControlMode::showsControl()) {
+            const float R = FIRE_BUTTON_RADIUS;
+            float cx = !ControlMode::onLeft() ? R : (float)WINDOW_WIDTH - R;
+            float cy = (float)WINDOW_HEIGHT - (R + 15.f);
             sf::CircleShape ring(R, 64);
             ring.setOrigin(R, R);
             ring.setPosition(cx, cy);
@@ -827,6 +951,58 @@ void Game::render() {
             ring.setOutlineThickness(2.f);
             ring.setOutlineColor(sf::Color(255, 255, 255, 128)); // white @ 0.5
             window.draw(ring);
+
+            // Movement joystick opposite the fire button (matches BOSS 3D). Base + thumb.
+            sf::Vector2f jc = joystickCenter2D();
+            if (!joystickActive2D_) joystickThumb2D_ = jc;
+            sf::CircleShape base(JOYSTICK_RADIUS, 64);
+            base.setOrigin(JOYSTICK_RADIUS, JOYSTICK_RADIUS);
+            base.setPosition(jc);
+            base.setFillColor(sf::Color(255, 255, 255, 26));    // white @ 0.10
+            base.setOutlineThickness(2.f);
+            base.setOutlineColor(sf::Color(255, 255, 255, 128));
+            window.draw(base);
+            if (ControlMode::showsDpad()) {   // DPAD: a 4-wedge cross (same hit-area; direction from steerJoystick2D)
+                const float PI = 3.14159265f;
+                const float angs[4] = {-PI / 2, PI / 2, 0.f, PI};   // up/down/right/left (SFML y-down)
+                for (float ang : angs) {
+                    float a0 = ang - PI / 4, a1 = ang + PI / 4;
+                    sf::VertexArray strip(sf::TriangleStrip);
+                    sf::Color fill(255, 255, 255, 36);
+                    for (int i = 0; i <= 14; ++i) {
+                        float t = a0 + (a1 - a0) * (float)i / 14;
+                        strip.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_DEADZONE, jc.y + std::sin(t) * JOYSTICK_DEADZONE}, fill));
+                        strip.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_RADIUS, jc.y + std::sin(t) * JOYSTICK_RADIUS}, fill));
+                    }
+                    window.draw(strip);
+                }
+                sf::VertexArray xlines(sf::Lines);
+                sf::Color line(255, 255, 255, 128);
+                for (int k = 0; k < 4; ++k) {
+                    float t = PI / 4 + (float)k * PI / 2;
+                    xlines.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_DEADZONE, jc.y + std::sin(t) * JOYSTICK_DEADZONE}, line));
+                    xlines.append(sf::Vertex({jc.x + std::cos(t) * JOYSTICK_RADIUS, jc.y + std::sin(t) * JOYSTICK_RADIUS}, line));
+                }
+                window.draw(xlines);
+                float midR = (JOYSTICK_DEADZONE + JOYSTICK_RADIUS) / 2.f, s = 13.f;
+                for (float ang : angs) {
+                    sf::ConvexShape tri(3);
+                    tri.setPoint(0, {std::cos(ang) * s, std::sin(ang) * s});
+                    tri.setPoint(1, {std::cos(ang + 2.5f) * s, std::sin(ang + 2.5f) * s});
+                    tri.setPoint(2, {std::cos(ang - 2.5f) * s, std::sin(ang - 2.5f) * s});
+                    tri.setPosition(jc.x + std::cos(ang) * midR, jc.y + std::sin(ang) * midR);
+                    tri.setFillColor(sf::Color(255, 255, 255, 178));
+                    window.draw(tri);
+                }
+            } else {
+                sf::CircleShape thumb(JOYSTICK_KNOB, 48);
+                thumb.setOrigin(JOYSTICK_KNOB, JOYSTICK_KNOB);
+                thumb.setPosition(joystickThumb2D_);
+                thumb.setFillColor(sf::Color(255, 255, 255, 71));   // white @ 0.28
+                thumb.setOutlineThickness(2.f);
+                thumb.setOutlineColor(sf::Color(255, 255, 255, 153));
+                window.draw(thumb);
+            }
         }
 
         if (gameState == GameState::GameOver) drawGameOver();
@@ -858,6 +1034,8 @@ void Game::bossCaughtWorker() {
     sound.playCaughtByBoss();
     state.lives--;
     if (goldDiscActive) endGoldDiscMode();
+    if (state.currentReportScore > 0 && worker)
+        scorePopups.add(-state.currentReportScore, worker->pixelPos, true);
     state.reportItems.clear();
     state.currentReportScore = 0;
 
@@ -898,17 +1076,19 @@ void Game::bossCaughtWorker() {
         sound.stopGoldDiscBass();
         sound.playGameOver();
     } else {
-        hud.showMessage("A boss caught you! " + std::to_string(state.lives) + " workers left.", 3.0f);
+        hud.showMessage("Boss got you! " + std::to_string(state.lives) + " left", 3.0f);
     }
 }
 
 std::vector<Game::GameOverKey> Game::gameOverKeys() const {
     std::vector<GameOverKey> keys;
-    const float W = (float)WINDOW_WIDTH;
+    const float W = (float)WINDOW_WIDTH, H = (float)WINDOW_HEIGHT;
     if (goQualified) {
         const std::string rows[] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
-        const float keyW = 82.f, keyH = 50.f, gap = 10.f;
-        float y = 235.f;
+        const float keyW = std::min(W * 0.072f, (W * 0.86f) / 10.f);
+        const float keyH = keyW * 0.62f;
+        const float gap  = keyW * 0.14f;
+        float y = H * 0.37f;
         for (const auto& row : rows) {
             float rowW = (float)row.size() * keyW + (float)(row.size() - 1) * gap;
             float x = (W - rowW) / 2.f;
@@ -925,64 +1105,68 @@ std::vector<Game::GameOverKey> Game::gameOverKeys() const {
         x += delW + gap;
         keys.push_back({sf::FloatRect(x, y - keyH / 2.f, spW, keyH), 2, 0});
     }
-    const float bw = W * 0.30f, gapB = 90.f;
-    const float bh = goQualified ? 70.f : 80.f;
-    const float by = goQualified ? 557.f : 507.f;
-    float startX = (W - (2.f * bw + gapB)) / 2.f;
-    keys.push_back({sf::FloatRect(startX, by - bh / 2.f, bw, bh), 4, 0});                 // ESC (left)
-    keys.push_back({sf::FloatRect(startX + bw + gapB, by - bh / 2.f, bw, bh), 3, 0});     // PLAY (right)
+    const float bw = W * 0.30f;
+    const float bh = H * (goQualified ? 0.095f : 0.13f);
+    const float by = H * (goQualified ? 0.915f : 0.75f) - 3.f;
+    keys.push_back({sf::FloatRect(W * 0.16f, by - bh / 2.f, bw, bh), 4, 0});
+    keys.push_back({sf::FloatRect(W * 0.54f, by - bh / 2.f, bw, bh), 3, 0});
     return keys;
 }
 
 void Game::drawGameOver() {
     const float W = (float)WINDOW_WIDTH, H = (float)WINDOW_HEIGHT;
     sf::RectangleShape dim(sf::Vector2f(W, H));
-    dim.setFillColor(sf::Color(0, 0, 0, 205));
+    dim.setFillColor(sf::Color(0, 0, 0, 199));
     window.draw(dim);
-    const float m = 18.f;
-    sf::RectangleShape panel(sf::Vector2f(W - 2 * m, H - 2 * m));
+    const float m = std::min(W, H) * 0.03f;
+    sf::RectangleShape panel(sf::Vector2f(W - 2.f * m, H - 2.f * m));
     panel.setPosition(m, m);
-    panel.setFillColor(sf::Color(26, 26, 33, 250));
-    panel.setOutlineColor(sf::Color(255, 140, 0));
+    panel.setFillColor(sf::Color(26, 26, 33, 249));
+    panel.setOutlineColor(sf::Color(255, 140, 0, 229));
     panel.setOutlineThickness(3.f);
     window.draw(panel);
 
     const bool q = goQualified;
-    goText(window, "GAME OVER", q ? 44.f : 56.f, sf::Color(242, 51, 46), W / 2, q ? 44.f : 70.f, 1);
+    goText(window, "GAME OVER", H * (q ? 0.075f : 0.085f), sf::Color(242, 51, 46),
+           W / 2.f, H * (q ? 0.07f : 0.09f), 1);
     goText(window, "FINAL " + std::to_string(state.score) + "    HIGH " + std::to_string(state.highScore),
-           q ? 22.f : 24.f, sf::Color::White, W / 2, q ? 82.f : 118.f, 1);
+           H * (q ? 0.030f : 0.034f), sf::Color::White,
+           W / 2.f, H * (q ? 0.125f : 0.155f), 1);
 
-    // The leaderboard is the least important element: shown only when there is no
-    // name entry, otherwise yielded to the keyboard.
     if (q) {
-        goText(window, "NEW HIGH SCORE!   Enter name:", 20.f, sf::Color(77, 217, 255), W / 2, 120.f, 1);
-        const float fw = 600.f, fh = 44.f, fx = (W - fw) / 2.f, fy = 165.f;
+        goText(window, "NEW HIGH SCORE!   Enter name:", H * 0.030f,
+               sf::Color(77, 217, 255), W / 2.f, H * 0.20f, 1);
+        const float fw = W * 0.6f, fh = H * 0.065f, fx = (W - fw) / 2.f, fy = H * 0.27f;
         sf::RectangleShape field(sf::Vector2f(fw, fh));
         field.setPosition(fx, fy - fh / 2.f);
         field.setFillColor(sf::Color(245, 245, 245));
         field.setOutlineColor(sf::Color(150, 150, 150));
         field.setOutlineThickness(1.f);
         window.draw(field);
-        float tw = goText(window, goName, 24.f, sf::Color(13, 13, 26), fx + 14.f, fy, 0, false);
+        float tw = goText(window, goName, H * 0.036f, sf::Color(13, 13, 26), fx + 14.f, fy, 0, false);
         if (std::fmod(animClock.getElapsedTime().asSeconds(), 0.9f) < 0.45f) {
-            // Thin rectangle caret (matches SpriteKit; tucks against the last
-            // letter with no glyph side-bearing, unlike a "|").
-            sf::RectangleShape caret(sf::Vector2f(3.f, fh * 0.6f));
+            const float caretH = H * 0.042f;
+            sf::RectangleShape caret(sf::Vector2f(3.f, caretH));
             caret.setFillColor(sf::Color(13, 13, 26));
-            caret.setPosition(fx + 16.f + tw, fy - fh * 0.3f);
+            caret.setPosition(fx + 16.f + tw, fy - caretH / 2.f);
             window.draw(caret);
         }
     } else {
-        goText(window, "LEADERBOARD", 22.f, sf::Color(255, 235, 107), W / 2, 158.f, 1);
+        goText(window, "HALL OF FAME", H * 0.038f, sf::Color(255, 235, 107),
+               W / 2.f, H * 0.21f, 1);
         const auto& entries = leaderboard.entries();
-        const float rowH = 27.f, topY = 192.f;
+        const float rowH = H * 0.035f;
+        float ey = H * 0.255f;
         if (entries.empty()) {
-            goText(window, "No local scores yet.", 18.f, sf::Color(180, 180, 180), W / 2, topY, 1);
+            goText(window, "No scores yet", H * 0.030f, sf::Color(179, 179, 179),
+                   W / 2.f, ey, 1, false);
         } else {
-            for (int i = 0; i < (int)entries.size() && i < 10; ++i) {
-                float y = topY + (float)i * rowH;
-                goText(window, std::to_string(i + 1) + ". " + entries[i].name, 20.f, sf::Color::White, W * 0.30f, y, 0, false);
-                goText(window, std::to_string(entries[i].score), 20.f, sf::Color::White, W * 0.70f, y, 2, false);
+            for (int i = 0; i < std::min((int)entries.size(), 10); ++i) {
+                goText(window, std::to_string(i + 1) + ". " + entries[i].name,
+                       H * 0.030f, sf::Color::White, W * 0.30f, ey, 0, false);
+                goText(window, std::to_string(entries[i].score),
+                       H * 0.030f, sf::Color::White, W * 0.70f, ey, 2, false);
+                ey += rowH;
             }
         }
     }
@@ -992,22 +1176,21 @@ void Game::drawGameOver() {
         r.setPosition(k.rect.left, k.rect.top);
         sf::Color fill(56, 56, 56), stroke(110, 110, 110);
         std::string lbl;
-        float fs = 18.f;
+        float fs = k.rect.height * 0.42f;
         switch (k.kind) {
-        case 0: lbl = std::string(1, k.ch); break;
-        case 1: lbl = "DEL"; fill = sf::Color(80, 80, 80); fs = 15.f; break;
-        case 2: lbl = "SPACE"; fs = 15.f; break;
-        case 3: lbl = "PLAY"; fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); fs = 28.f; break;
-        case 4: lbl = "ESC"; fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); fs = 28.f; break;
+        case 0: lbl = std::string(1, k.ch); fs = k.rect.height * 0.5f; break;
+        case 1: lbl = "DEL";   fill = sf::Color(80,  80,  80); break;
+        case 2: lbl = "SPACE"; break;
+        case 3: lbl = "PLAY";  fill = sf::Color(31, 128, 46); stroke = sf::Color(60, 180, 80); break;
+        case 4: lbl = "ESC";   fill = sf::Color(128, 46, 46); stroke = sf::Color(180, 70, 70); break;
         }
         r.setFillColor(fill);
         r.setOutlineColor(stroke);
         r.setOutlineThickness(1.f);
         window.draw(r);
-        // SpriteKit: letter/number keys + DEL/SPACE are Menlo (body); only the
-        // ESC/PLAY action buttons are Marker Felt.
         bool keyBold = (k.kind == 3 || k.kind == 4);
-        goText(window, lbl, fs, sf::Color::White, k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1, keyBold);
+        goText(window, lbl, fs, sf::Color::White,
+               k.rect.left + k.rect.width / 2.f, k.rect.top + k.rect.height / 2.f, 1, keyBold);
     }
 }
 
@@ -1060,6 +1243,33 @@ void Game::endGoldDiscMode() {
     refreshHUD();
 }
 
+bool Game::fireButtonHitTest(float x, float y) const {
+    if (!ControlMode::showsControl()) return true; // hidden: a tap anywhere fires
+    const float R = FIRE_BUTTON_RADIUS;
+    float cx = !ControlMode::onLeft() ? R : (float)WINDOW_WIDTH - R;
+    float cy = (float)WINDOW_HEIGHT - (R + 15.f);
+    float dx = x - cx, dy = y - cy;
+    return dx * dx + dy * dy <= R * R;
+}
+
+sf::Vector2f Game::joystickCenter2D() const {
+    const float R = JOYSTICK_RADIUS;
+    float cx = !ControlMode::onLeft() ? (float)WINDOW_WIDTH - R : R;   // opposite the fire button
+    float cy = (float)WINDOW_HEIGHT - (R + 15.f);
+    return {cx, cy};
+}
+
+void Game::steerJoystick2D(float x, float y) {
+    sf::Vector2f c = joystickCenter2D();
+    float dx = x - c.x, dy = y - c.y;
+    float mag = std::sqrt(dx * dx + dy * dy), limit = JOYSTICK_RADIUS - JOYSTICK_KNOB;
+    joystickThumb2D_ = (mag > limit && mag > 0.f)
+        ? sf::Vector2f(c.x + dx * limit / mag, c.y + dy * limit / mag) : sf::Vector2f(x, y);
+    if (mag < JOYSTICK_DEADZONE) return;   // inside the deadzone: keep the current heading
+    if (std::abs(dx) >= std::abs(dy)) input.lastDirection = dx > 0 ? MoveDirection::Right : MoveDirection::Left;
+    else                              input.lastDirection = dy > 0 ? MoveDirection::Down  : MoveDirection::Up; // SFML y is down
+}
+
 void Game::fireWaterGun() {
     if (!waterGun.isActive) return;
     if (goldDiscActive) { hud.showMessage(Message::WATER_GUN_BLUE, 2.0f); return; }
@@ -1097,9 +1307,6 @@ void Game::handleMachine(const std::string& name, int pickupIndex) {
 
     if ((int)state.reportItems.size() == (int)Machine::REQUIRED.size())
         hud.showMessage(Message::TPS_READY, 6.0f);
-    else
-        hud.showMessage("Collected " + name +
-                        " page for TPS report +" + std::to_string(pts), 2.0f);
 }
 
 void Game::collectTPSReport(int pickupIndex) {
@@ -1121,10 +1328,11 @@ void Game::collectTPSReport(int pickupIndex) {
         addMissing(Machine::COVER_SHEET, 'C');
         addMissing(Machine::BOOK_BINDER, 'M');
         sound.playVoice(key);
-        hud.showMessage("The TPS report is missing " + names + ".", 5.0f);
+        hud.showMessage("Missing: " + names, 5.0f);
         return;
     }
     state.tpsReportsDelivered++;
+    mazeRenderer->pickups[pickupIndex].cooldownTimer = MACHINE_COOLDOWN;
     state.reportItems.clear();
     state.currentReportScore = 0;
 
@@ -1136,8 +1344,7 @@ void Game::collectTPSReport(int pickupIndex) {
     bool gainedLife = state.lives < MAX_LIVES;
     if (gainedLife) state.lives++;
     refreshHUD();
-    hud.showMessage("TPS report turned in! +" + std::to_string(tpsPoints) +
-                    (gainedLife ? ", extra worker hired." : ", workers at max."), 3.0f);
+    hud.showMessage(gainedLife ? Message::TPS_TURNED_IN_LIFE : Message::TPS_TURNED_IN, 3.0f);
     checkLevelComplete();
 }
 
@@ -1151,7 +1358,7 @@ void Game::refreshHUD() {
     hud.reportItems = state.reportItems;
     hud.lives = state.lives;
     hud.waterGunActive = waterGun.isActive;
-    hud.waterGunVisible = waterGunPickedUp && !Settings::waterGunHide();
+    hud.waterGunVisible = waterGunPickedUp && ControlMode::showsControl();
     hud.waterGunPellets = waterGun.pelletsRemaining;
     hud.goldDiscActive = goldDiscActive;
 }
@@ -1160,7 +1367,7 @@ void Game::startNextLevel() {
     state.advanceLevel();
     resetSceneAndBuild();
     sound.playLevelStart();
-    hud.showMessage("Level " + std::to_string(state.level) + "! New office floor loaded.", 3.0f);
+    hud.showMessage(Message::levelLoaded(state.level), 3.0f);
 }
 
 void Game::resetSceneAndBuild() {
@@ -1176,6 +1383,8 @@ void Game::resetSceneAndBuild() {
 
 void Game::restartGame() {
     hud.isGameOver = false;
+    if (MazeZoom::isDoom()) Settings::setMazeEra(MazeZoom::voxel);
+    if (MazeZoom::is3D()) { startDoom3D(state.level, state.practiceMode); return; }
     gameState = GameState::Playing;
     state.resetForNewGame();
     resetSceneAndBuild();
@@ -1185,6 +1394,8 @@ void Game::restartGame() {
 void Game::returnToTitle() {
     hud.isGameOver = false;
     sound.stopBackgroundMusic();
+    sound.stopGoldDiscBass();    // the 3D bonus may have left the gold-disc bass running
+    doomScene.reset();           // tear down the first-person bonus if it was active
     if (goldDiscActive) endGoldDiscMode();
     // A practice session (started from the editor) returns to the editor at the
     // level being tested, like the SpriteKit GameScene.returnToTitleScene().

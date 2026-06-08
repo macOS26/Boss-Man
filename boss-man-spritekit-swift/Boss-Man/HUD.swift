@@ -54,7 +54,7 @@ final class HUD {
         root.zPosition = 80
         parent.addChild(root)
 
-        // The panel border/background is only drawn in the camera modes (150%/200%);
+        // The panel border/background is only drawn in the camera modes (150%/200%),
         // at 100% (extraRow) the HUD floats borderless over the full board.
         if !extraRow {
             let panel = SKShapeNode(rect: CGRect(x: pad - 5, y: top - panelHeight - 8 - 3,
@@ -68,7 +68,7 @@ final class HUD {
         }
 
         // 100% has no panel, so float the top row near the screen top and give it
-        // room above the lower row; the camera modes keep the panel-centred row.
+        // room above the lower row, the camera modes keep the panel-centred row.
         let rowY = extraRow ? top - 38 : top - 8 - panelHeight / 2
         panelRowY = rowY
 
@@ -221,12 +221,12 @@ final class HUD {
         }
     }
 
-    // ASCII-only uppercase. String.uppercased() drags ICU's tables into the wasm,
-    // so map a-z to A-Z by scalar and leave everything else (emoji, digits) alone.
+    // ASCII-only uppercase over UTF-8 bytes, String.uppercased()/.unicodeScalars
+    // pull stdlib Unicode machinery, and multibyte UTF-8 is never in the a-z range.
     private static func allCaps(_ s: String) -> String {
-        String(String.UnicodeScalarView(s.unicodeScalars.map {
-            ($0.value >= 97 && $0.value <= 122) ? Unicode.Scalar($0.value - 32)! : $0
-        }))
+        var b = Array(s.utf8)
+        for i in b.indices where b[i] >= 97 && b[i] <= 122 { b[i] &-= 32 }
+        return String(decoding: b, as: UTF8.self)
     }
 
     private static let emojiByName: [String: String] = [
@@ -282,7 +282,10 @@ final class HUD {
             let xOffset: CGFloat = current.image != nil ? -1.5 : 0
             let yOffset: CGFloat = current.image != nil ? -2   : 0
             glyph.position = CGPoint(x: xOffset, y: yOffset)
-            if current.image != nil { glyph.xScale = -0.8; glyph.yScale = 0.8 }
+            if current.image != nil {
+                glyph.xScale = -0.8
+                glyph.yScale = 0.8
+            }
             levelEmojisContainer.addChild(glyph)
         }
         let gap: CGFloat = 9
@@ -307,7 +310,10 @@ final class HUD {
                 let xOffset: CGFloat = t.image != nil ? -2 : 0
                 let yOffset: CGFloat = t.image != nil ? -2.5 : 0
                 glyph.position = CGPoint(x: -CGFloat(i) * bottomSpacing + xOffset, y: yOffset)
-                if t.image != nil { glyph.xScale = -0.8; glyph.yScale = 0.8 }
+                if t.image != nil {
+                    glyph.xScale = -0.8
+                    glyph.yScale = 0.8
+                }
                 bottomTravelerContainer.addChild(glyph)
             }
         }
@@ -445,3 +451,4 @@ final class HUD {
         gameOverOverlay = nil
     }
 }
+

@@ -2,7 +2,7 @@
 // portable PRNG. SystemRandomNumberGenerator has no working entropy source on
 // wasm, so shared game code routes its randomness through this via
 // .random(in:using:), giving identical dependency-free results on Apple and
-// wasm. Seeded once via SplitMix64; deterministic (reproducible) by design.
+// wasm. Seeded once via SplitMix64, deterministic (reproducible) by design.
 struct Xoshiro256: RandomNumberGenerator {
     private var s: (UInt64, UInt64, UInt64, UInt64)
 

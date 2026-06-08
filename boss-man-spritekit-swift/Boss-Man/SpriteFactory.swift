@@ -11,6 +11,7 @@ import SpriteKit
 enum SpriteFactory {
 
     static let bossShoeGoldColor = SKColor(calibratedRed: 0.7, green: 0.5, blue: 0.0, alpha: 1)
+    static let bossSkinColor = SKColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
 
     // Supersample factor for camera-magnified pickups/glyphs (see RenderScale).
     static let worldRenderScale = RenderScale.factor
@@ -88,6 +89,19 @@ enum SpriteFactory {
         )
     }
 
+    // Pete seen from behind (back of the head, no face/tie) for the 3D chase view.
+    static func petePersonBack(walkExaggeration: CGFloat = 0) -> PixelPerson {
+        PixelPerson(
+            bodyColor: .systemBlue,
+            tieColor: .systemOrange,
+            hairColor: SKColor(calibratedRed: 0.25, green: 0.15, blue: 0.08, alpha: 1),
+            shoeOutlineColor: .white,
+            pantsColor: SKColor(calibratedRed: 0.70, green: 0.45, blue: 0.18, alpha: 1),
+            walkExaggeration: walkExaggeration,
+            backView: true
+        )
+    }
+
     // MARK: - Cubicle + frighten palette
     static let fleeBodyColor = SKColor.systemBlue.blended(withFraction: 0.20, of: .black) ?? .systemBlue
     static let fleeEyeColor  = SKColor.systemBlue.blended(withFraction: 0.50, of: .black) ?? .systemBlue
@@ -98,6 +112,12 @@ enum SpriteFactory {
         .systemBlue,   .systemTeal, .systemIndigo, .systemGreen,  .systemPink, .systemBrown,
         .systemPurple, .systemRed,  .systemOrange, .systemYellow, .systemCyan, .systemGray,
     ]
+    static func cubicleColor(forLevel level: Int) -> SKColor {
+        cubicleColors[(level - 1) % cubicleColors.count]
+    }
+    static func cubicleColor(index: Int) -> SKColor {
+        cubicleColors[index % cubicleColors.count]
+    }
     static let wallTrimColor   = SKColor.systemGray
     static let mazeBackground  = SKColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
     static let floorTileA      = SKColor(calibratedRed: 0.11, green: 0.12, blue: 0.13, alpha: 1)
@@ -113,7 +133,7 @@ enum SpriteFactory {
     }
 
     // MARK: - Maze tiles
-    // Live-node maze pieces. The wasm port builds the maze from these; apple
+    // Live-node maze pieces. The wasm port builds the maze from these, apple
     // bakes the same shapes into one texture in MazeBuilder, so on apple these
     // helpers are available but unused (the color constants above are shared).
 
@@ -126,7 +146,36 @@ enum SpriteFactory {
         return n
     }
 
-    // A near-black floor tile with a one-pixel darker edge; the two shades
+    // A solid box in head-on 1-point perspective for the 3D bonus pellets: the
+    // front is a true square (yellow) and the only other visible face is the top,
+    // a symmetric trapezoid (gold) whose side edges converge straight up to a single
+    // vanishing point centered above the box. No side faces, no open interior.
+    static func pelletCube(size: CGFloat) -> SKNode {
+        let n = SKNode()
+        let h = size / 2
+        let topH = size * 0.24       // height of the visible top face (shortened)
+        let backHalf = h * 0.5       // back-top edge half-width — converges to the VP above center
+        let fbl = CGPoint(x: -h, y: -h), fbr = CGPoint(x: h, y: -h)
+        let ftl = CGPoint(x: -h, y: h),  ftr = CGPoint(x: h, y: h)
+        let btl = CGPoint(x: -backHalf, y: h + topH), btr = CGPoint(x: backHalf, y: h + topH)
+        func face(_ pts: [CGPoint], _ color: SKColor, _ z: CGFloat) {
+            let p = CGMutablePath()
+            p.move(to: pts[0])
+            for q in pts.dropFirst() { p.addLine(to: q) }
+            p.closeSubpath()
+            let sh = SKShapeNode(path: p)
+            sh.fillColor = color
+            sh.strokeColor = .clear
+            sh.isAntialiased = false
+            sh.zPosition = z
+            n.addChild(sh)
+        }
+        face([ftl, ftr, btr, btl], SKColor(calibratedRed: 0.82, green: 0.62, blue: 0.08, alpha: 1), 0)
+        face([fbl, fbr, ftr, ftl], .systemYellow, 1)
+        return n
+    }
+
+    // A near-black floor tile with a one-pixel darker edge, the two shades
     // alternate by (col+row) parity for the checker pattern.
     static func floorTile(size: CGFloat, alternate: Bool) -> SKShapeNode {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
@@ -144,7 +193,7 @@ enum SpriteFactory {
     // A cubicle wall tile: inset translucent fill, inset solid panel stroke, and
     // a horizontal gray trim band high on the tile. Caller passes the per-level
     // cubicle color.
-    static func wallTile(size: CGFloat, color: SKColor = cubicleColors[0]) -> SKNode {
+    static func wallTile(size: CGFloat, color: SKColor = cubicleColors[0], textured: Bool = true) -> SKNode {
         let n = SKNode()
 
         let fillRect = CGRect(x: -(size - 2) / 2, y: -(size - 2) / 2,
@@ -155,18 +204,22 @@ enum SpriteFactory {
         fill.isAntialiased = false
         n.addChild(fill)
 
-        let grain = size - 5
-        for _ in 0..<11 {
-            let gx = (nextNoise() - 0.5) * grain
-            let gy = (nextNoise() - 0.5) * grain
-            let gs = 1 + nextNoise() * 1.5
-            let speck = SKShapeNode(rect: CGRect(x: gx, y: gy, width: gs, height: gs))
-            speck.fillColor = nextNoise() < 0.5
-                ? SKColor(calibratedWhite: 0, alpha: 0.16)
-                : SKColor(calibratedWhite: 1, alpha: 0.09)
-            speck.strokeColor = .clear
-            speck.isAntialiased = false
-            n.addChild(speck)
+        // The grain is 11 extra nodes per tile, skip it where the tiles are tiny
+        // (the minimap) so we keep the cubicle look without the draw-call blow-up.
+        if textured {
+            let grain = size - 5
+            for _ in 0..<11 {
+                let gx = (nextNoise() - 0.5) * grain
+                let gy = (nextNoise() - 0.5) * grain
+                let gs = 1 + nextNoise() * 1.5
+                let speck = SKShapeNode(rect: CGRect(x: gx, y: gy, width: gs, height: gs))
+                speck.fillColor = nextNoise() < 0.5
+                    ? SKColor(calibratedWhite: 0, alpha: 0.16)
+                    : SKColor(calibratedWhite: 1, alpha: 0.09)
+                speck.strokeColor = .clear
+                speck.isAntialiased = false
+                n.addChild(speck)
+            }
         }
 
         let strokeRect = CGRect(x: -(size - 4) / 2, y: -(size - 4) / 2,
@@ -192,8 +245,41 @@ enum SpriteFactory {
         return n
     }
 
+    // MARK: - Effects
+    // A radial burst of cyan/blue droplets that grow, then shrink and fade, played
+    // where a water-gun pellet hits a boss. Shared by the 2D maze and every 3D
+    // view so the splash reads the same everywhere, spread scales the burst to the
+    // boss's on-screen size. Self-removes, caller sets position and zPosition.
+    static func waterSplash(spread: CGFloat = 1) -> SKNode {
+        let node = SKNode()
+        let count = 10
+        for i in 0..<count {
+            let angle = CGFloat(i) / CGFloat(count) * .pi * 2
+            let radius = (22 + nextNoise() * 26) * spread
+            let drop = SKShapeNode(circleOfRadius: (3 + nextNoise() * 3) * spread)
+            drop.fillColor = nextNoise() < 0.5 ? .systemCyan : .systemBlue
+            drop.strokeColor = .clear
+            drop.alpha = 0.85
+            node.addChild(drop)
+            let dx = cos(angle) * radius
+            let dy = sin(angle) * radius
+            drop.run(.sequence([
+                .group([
+                    .moveBy(x: dx, y: dy, duration: 0.35),
+                    .sequence([
+                        .scale(to: 1.4, duration: 0.1),
+                        .group([.scale(to: 0.1, duration: 0.25), .fadeOut(withDuration: 0.25)])
+                    ])
+                ]),
+                .removeFromParent()
+            ]))
+        }
+        node.run(.sequence([.wait(forDuration: 0.5), .removeFromParent()]))
+        return node
+    }
+
     // Boss visual for a blueprint index, colors from the shared BossBlueprint.
-    // On MIB levels every boss is an all-black suit + tie with sunglasses;
+    // On MIB levels every boss is an all-black suit + tie with sunglasses,
     // sunglasses are never a per-boss trait otherwise.
     static func bossPersonForBlueprint(_ index: Int, mib: Bool = false) -> PixelPerson {
         if mib {
@@ -202,4 +288,38 @@ enum SpriteFactory {
         let c = BossBlueprint.colors[min(max(index, 0), BossBlueprint.colors.count - 1)]
         return bossPerson(bodyColor: c.body, tieColor: c.tie)
     }
+
+    static func controlRing(radius: CGFloat, center: CGPoint, fillColor: SKColor = SKColor(white: 1, alpha: 0.14),
+                             strokeColor: SKColor = SKColor(white: 1, alpha: 0.5), lineWidth: CGFloat = 2,
+                             zPosition: CGFloat = 300) -> SKShapeNode {
+        let ring = SKShapeNode(circleOfRadius: radius)
+        ring.position = center
+        ring.fillColor = fillColor
+        ring.strokeColor = strokeColor
+        ring.lineWidth = lineWidth
+        ring.zPosition = zPosition
+        return ring
+    }
+
+    static let machineTiles: [(char: UInt8, emoji: String)] = [
+        (Strings.Tile.waterGunChar,   Strings.Emoji.waterGun),
+        (Strings.Tile.printerChar,    Strings.Emoji.printer),
+        (Strings.Tile.faxChar,       Strings.Emoji.fax),
+        (Strings.Tile.coverSheetChar, Strings.Emoji.coverSheet),
+        (Strings.Tile.bookBinderChar, Strings.Emoji.bookBinder),
+        (Strings.Tile.brownBoxChar,   Strings.Emoji.brownBox),
+    ]
+
+    static func machineEmoji(for char: UInt8) -> String? {
+        machineTiles.first(where: { $0.char == char })?.emoji
+    }
+
+    static func shieldBlinkAction(count: Int = 3) -> SKAction {
+        let cycle = SKAction.sequence([
+            .fadeAlpha(to: 0.35, duration: 0.6),
+            .fadeAlpha(to: 1.0, duration: 0.6)
+        ])
+        return .sequence([.repeat(cycle, count: count), .fadeAlpha(to: 1.0, duration: 0.01)])
+    }
 }
+

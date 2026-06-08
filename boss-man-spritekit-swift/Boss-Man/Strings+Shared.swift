@@ -1,5 +1,3 @@
-import Foundation
-
 // Constants shared verbatim across apple + wasm, extracted from each port's
 // Strings.swift so the level grammar, emoji glyphs, and character names live in
 // one place. Platform-specific Strings enums (fonts, DefaultsKey, Title, Editor,
@@ -25,23 +23,23 @@ extension Strings {
         static let waterGun    = "G"
         static let waterPellet = "A"
 
-        static let floorChar         = Character(floor)
-        static let dotChar           = Character(dot)
-        static let wallChar          = Character(wall)
-        static let hideoutChar       = Character(hideout)
-        static let printerChar       = Character(printer)
-        static let faxChar           = Character(fax)
-        static let coverSheetChar    = Character(coverSheet)
-        static let bookBinderChar    = Character(bookBinder)
-        static let brownBoxChar      = Character(brownBox)
-        static let goldDiscChar      = Character(goldDisc)
-        static let workerChar        = Character(worker)
-        static let boss1Char         = Character(boss1)
-        static let boss2Char         = Character(boss2)
-        static let boss3Char         = Character(boss3)
-        static let boss4Char         = Character(boss4)
-        static let waterGunChar      = Character(waterGun)
-        static let waterPelletChar   = Character(waterPellet)
+        static let floorChar         = Array(floor.utf8)[0]
+        static let dotChar           = Array(dot.utf8)[0]
+        static let wallChar          = Array(wall.utf8)[0]
+        static let hideoutChar       = Array(hideout.utf8)[0]
+        static let printerChar       = Array(printer.utf8)[0]
+        static let faxChar           = Array(fax.utf8)[0]
+        static let coverSheetChar    = Array(coverSheet.utf8)[0]
+        static let bookBinderChar    = Array(bookBinder.utf8)[0]
+        static let brownBoxChar      = Array(brownBox.utf8)[0]
+        static let goldDiscChar      = Array(goldDisc.utf8)[0]
+        static let workerChar        = Array(worker.utf8)[0]
+        static let boss1Char         = Array(boss1.utf8)[0]
+        static let boss2Char         = Array(boss2.utf8)[0]
+        static let boss3Char         = Array(boss3.utf8)[0]
+        static let boss4Char         = Array(boss4.utf8)[0]
+        static let waterGunChar      = Array(waterGun.utf8)[0]
+        static let waterPelletChar   = Array(waterPellet.utf8)[0]
     }
 
     // MARK: - Machine icons (emoji)
@@ -66,8 +64,8 @@ extension Strings {
     // MARK: - Boss display names
     enum Boss {
         static let bill = "BILL"
-        static let dom  = "DOM"
-        static let bob  = "BOB"
+        static let milt  = "MILT"
+        static let bobs  = "BOBS"
         static let stan = "STAN"
         static let boss = "BOSS"
     }
@@ -81,6 +79,7 @@ extension Strings {
         static let brownBox   = "TPS Delivery Box"
 
         static let required: [String] = [printer, fax, coverSheet, bookBinder]
+        static let reportPoints = [10, 25, 50, 100]
 
         static let displayNames: [String: String] = [
             printer:    "Printer",
@@ -198,7 +197,7 @@ extension Strings {
         static let waterPellet    = "waterPellet"
     }
 
-    // MARK: - SKAction keys (union of both ports; unused keys are harmless)
+    // MARK: - SKAction keys (union of both ports, unused keys are harmless)
     enum ActionKey {
         static let walk             = "walk"
         static let spawnShield      = "spawnShield"
@@ -218,4 +217,40 @@ extension Strings {
         static let clear            = "clear"
         static let hudSwap          = "hudSwap"
     }
+}
+
+// MARK: - JSON string escaping (shared by LocalHighScores and LevelEditorScene)
+
+func jsonEscape(_ s: String) -> String {
+    var out = ""
+    for ch in s {
+        switch ch {
+        case "\"": out += "\\\""
+        case "\\": out += "\\\\"
+        case "\n": out += "\\n"
+        case "\r": out += "\\r"
+        case "\t": out += "\\t"
+        default:   out.append(ch)
+        }
+    }
+    return out
+}
+
+func jsonReadString(_ a: [Character], _ n: Int, _ start: Int) -> (String, Int) {
+    var i = start + 1, s = ""
+    while i < n, a[i] != "\"" {
+        if a[i] == "\\", i + 1 < n {
+            switch a[i + 1] {
+            case "n": s.append("\n")
+            case "t": s.append("\t")
+            case "r": s.append("\r")
+            default:  s.append(a[i + 1])
+            }
+            i += 2
+        } else {
+            s.append(a[i])
+            i += 1
+        }
+    }
+    return (s, min(i + 1, n))
 }

@@ -1,4 +1,3 @@
-import Foundation
 import SpriteKit
 import UIKit
 import KitABI
@@ -83,7 +82,10 @@ public final class GKLeaderboard {
 public struct NSRange {
     public var location: Int
     public var length: Int
-    public init(location: Int, length: Int) { self.location = location; self.length = length }
+    public init(location: Int, length: Int) {
+        self.location = location
+        self.length = length
+    }
 }
 
 public final class GKLeaderboardEntry {
@@ -126,13 +128,23 @@ public final class GKGameCenterViewController: UIViewController {
     public weak var gameCenterDelegate: GKGameCenterControllerDelegate?
     public var viewState: State = .default
     public override init() { super.init() }
-    public init(state: State) { super.init(); self.viewState = state }
+    public init(state: State) {
+        super.init()
+        self.viewState = state
+    }
     public func present(from vc: UIViewController) { gameCenterDelegate?.gameCenterViewControllerDidFinish(self) }
 }
 
 // GK callbacks all use Swift.Error — comes from the stdlib, no redeclaration needed.
 
+#if canImport(ObjectiveC)
+// On macOS, GameKit notification constants extend Foundation's Notification.Name.
+// On wasm the observer code is behind canImport(ObjectiveC) and never compiles,
+// so there's no reference to resolve.
+import Foundation
 public extension Notification.Name {
     static let GKPlayerAuthenticationDidChangeNotificationName =
         Notification.Name("GKPlayerAuthenticationDidChangeNotificationName")
 }
+#endif
+

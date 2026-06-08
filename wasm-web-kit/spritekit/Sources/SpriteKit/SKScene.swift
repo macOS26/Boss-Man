@@ -11,7 +11,10 @@ open class SKScene: SKNode {
     public weak var view: SKView?
     public weak var camera: SKCameraNode?      // active camera; nil = default top-down
 
-    public init(size: CGSize) { self.size = size; super.init() }
+    public init(size: CGSize) {
+        self.size = size
+        super.init()
+    }
     public convenience override init() { self.init(size: CGSize(width: 1184, height: 666)) }
 
     open func didMove(to view: SKView) {}
@@ -31,7 +34,7 @@ open class SKScene: SKNode {
 
     // input hooks the demo/game can override
     open func keyDown(_ key: Int) { keyDown(with: NSEvent(keyCode: UInt16(truncatingIfNeeded: key))) }
-    open func keyUp(_ key: Int) {}
+    open func keyUp(_ key: Int) { keyUp(with: NSEvent(keyCode: UInt16(truncatingIfNeeded: key))) }
     open func mouseDown(at p: CGPoint) { mouseDown(with: NSEvent(location: p)) }
     open func mouseUp(at p: CGPoint) { mouseUp(with: NSEvent(location: p)) }
     open func mouseMoved(to p: CGPoint) { mouseDragged(with: NSEvent(location: p)) }
@@ -43,6 +46,7 @@ open class SKScene: SKNode {
     // dispatch above forwards into them; a pointer-move maps to mouseDragged (the
     // host only reports moves while a button is held, matching AppKit's drag).
     open func keyDown(with event: NSEvent) {}
+    open func keyUp(with event: NSEvent) {}
     open func mouseDown(with event: NSEvent) {}
     open func mouseDragged(with event: NSEvent) {}
     open func mouseUp(with event: NSEvent) {}
@@ -59,6 +63,19 @@ open class SKScene: SKNode {
             : children
         for c in ordered where c !== skip { c.renderTree(parentAlpha: eff) }
     }
+}
+
+// A scene opts into per-finger multi-touch by conforming. The host delivers
+// these ALONGSIDE the finger-0 mouse pointer (so single-pointer scenes keep
+// working untouched); a scene that needs true simultaneous presses (the 3D
+// bonus D-pad) reads them here. Declared as a protocol — not SKScene methods —
+// so the game conforms with a plain `func` on BOTH wasm and macOS (where the
+// real SKScene has no such method to `override`). The macOS app re-declares an
+// identical protocol in a companion; nothing calls it there (no touch hardware).
+public protocol SKTouchResponder: AnyObject {
+    func touchBegan(finger: Int, at p: CGPoint)
+    func touchMoved(finger: Int, at p: CGPoint)
+    func touchEnded(finger: Int, at p: CGPoint)
 }
 
 public typealias TimeInterval = Double
@@ -96,3 +113,4 @@ public struct NSEvent {
     }
     public func location(in node: SKNode) -> CGPoint { point }
 }
+

@@ -20,7 +20,8 @@ public final class SK3DNode: SKNode {
     public var cameraPosition = CGVector3(x: 0, y: 0, z: 1)
 
     public init(viewportSize: CGSize) {
-        self.viewportSize = viewportSize; super.init()
+        self.viewportSize = viewportSize
+        super.init()
     }
 
     public override var frame: CGRect {
@@ -33,7 +34,8 @@ public final class SK3DNode: SKNode {
         guard let t = contentTexture, t.handle != 0 else { return }
         let w = Float(viewportSize.width), h = Float(viewportSize.height)
         gfx_set_alpha(Float(alpha))
-        gfx_save(); gfx_scale(1, -1)
+        gfx_save()
+        gfx_scale(1, -1)
         gfx_3d_draw_billboard(t.handle,
                               Float(cameraPosition.x), Float(cameraPosition.y), Float(cameraPosition.z),
                               -w / 2, -h / 2, w, h, 0xFFFFFFFF)
@@ -44,9 +46,14 @@ public final class SK3DNode: SKNode {
 // Tiny 3-component vector — used by SK3DNode for camera coords without
 // pulling SceneKit / simd. Matches Apple's vector_float3 in shape.
 public struct CGVector3: Equatable, Sendable {
-    public var x: CGFloat; public var y: CGFloat; public var z: CGFloat
+    public var x: CGFloat
+    public var y: CGFloat
+    public var z: CGFloat
     public init(x: CGFloat = 0, y: CGFloat = 0, z: CGFloat = 0) {
-        self.x = x; self.y = y; self.z = z
+        self.x = x
+        self.y = y
+        self.z = z
     }
     public static let zero = CGVector3()
 }
+

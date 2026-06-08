@@ -15,10 +15,9 @@ final class TitleScene: SKScene {
     private var mazeLabel: SKLabelNode?
 
     override func didMove(to view: SKView) {
-        // The title is static, so render it at 1 fps: no animation, and it avoids
-        // re-rasterizing the leaderboard blur every frame. Game/editor scenes
-        // restore 60 fps on the way out (startGame / startEditor).
-        view.preferredFramesPerSecond = 1
+        // The title is nearly static, so render it at 10 fps to keep CPU/GPU low.
+        // Game/editor scenes restore 60 fps on the way out (startGame / startEditor).
+        view.preferredFramesPerSecond = 10
         backgroundColor = SKColor(calibratedRed: 1.0, green: 0.93, blue: 0.34, alpha: 1)
         anchorPoint = .zero
 
@@ -49,17 +48,17 @@ final class TitleScene: SKScene {
         // Two title buttons: green "(P)lay" and blue "(E)ditor". Click/tap either
         // or press P / E.
         let promptY = size.height * 0.15 + 20
-        let green = SKColor(calibratedRed: 0.0,  green: 0.55, blue: 0.18, alpha: 1)
-        let blue  = SKColor(calibratedRed: 0.10, green: 0.35, blue: 0.85, alpha: 1)
-        let bw: CGFloat = 180, bh: CGFloat = 52, gap: CGFloat = 28
+        let green = SKColor.systemGreen
+        let blue  = SKColor.systemBlue
+        let bw: CGFloat = 240, bh: CGFloat = 52, gap: CGFloat = 28
         playButtonRect = makeTitleButton(
             text: Strings.Title.playGame, color: green,
             center: CGPoint(x: size.width / 2 - bw / 2 - gap / 2, y: promptY),
-            size: CGSize(width: bw, height: bh), textDY: -2)
+            size: CGSize(width: bw, height: bh), textDY: -1, iconNode: playTriangle())
         editorButtonRect = makeTitleButton(
             text: Strings.Title.levelEditor, color: blue,
             center: CGPoint(x: size.width / 2 + bw / 2 + gap / 2, y: promptY),
-            size: CGSize(width: bw, height: bh))
+            size: CGSize(width: bw, height: bh), icon: "✏️")
 
         let high = Persistence.int(forKey: Strings.DefaultsKey.highScore)
         if high > 0 {
@@ -78,7 +77,7 @@ final class TitleScene: SKScene {
             titleFont: Strings.Font.markerFeltThin,
             bodyFont: Strings.Font.menloBold
         )
-        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5 + 20)
+        panel.position = CGPoint(x: panelSize.width / 2 + 32, y: size.height * 0.5 + 28)   // leaderboard raised 8px
         addChild(panel)
 
         let controlsHint = SKLabelNode(fontNamed: Strings.Font.menloBold)
@@ -89,89 +88,151 @@ final class TitleScene: SKScene {
         controlsHint.position = CGPoint(x: size.width / 2, y: 18)
         addChild(controlsHint)
 
-        // Window controls hug the bottom-right corner; the gameplay toggles
+        // Window controls hug the bottom-right corner, the gameplay toggles
         // (Water Gun / Boss Tracks) hug the bottom-left. 80px apart, big + tappable.
-        fullscreenLabel = makeHint("F for Fullscreen", y: 18)
-        escWindowLabel  = makeHint("ESC for Window", y: 98)
-        mazeLabel       = makeHint(mazeText(), y: 178)
-        bossTracksLabel = makeHint(bossTracksText(), y: 18, left: true)
-        waterGunLabel   = makeHint(waterGunText(), y: 98, left: true)
+        fullscreenLabel = makeHint(icon: "📺", iconSize: 42, value: "FULLSCREEN", y: promptY - 74, color: .systemRed)
+        escWindowLabel  = makeHint(icon: "🪟", iconSize: 42, value: "WINDOW", y: promptY, color: .systemTeal)   // even with EDITOR
+        mazeLabel       = makeHint(icon: "📷", iconSize: 42, value: mazeText(), y: promptY + 74, color: .systemPurple)
+        bossTracksLabel = makeHint(icon: "", iconSize: 42, value: bossTracksText(), y: promptY - 74, color: .systemIndigo, left: true,
+                                   sprite: SpriteFactory.bossPersonForBlueprint(0))
+        waterGunLabel   = makeHint(icon: "🕹️", iconSize: 42, value: controlModeText(), y: promptY, color: .systemOrange, left: true) // control mode: hidden / stick / dpad + side, even with PLAY
     }
 
     // MARK: - Settings text
     private func bossTracksText() -> String {
-        "Boss Tracks: \(isSquareTracks() ? "Square" : "Smooth")"
+        isSquareTracks() ? "HUNTER" : "SPEEDSTER"
     }
-    private func waterGunText() -> String {
-        let mode: String
-        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) {
-            mode = "Hide"
-        } else {
-            mode = Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) ? "Left" : "Right"
-        }
-        return "Water Gun: \(mode)"
-    }
-
-    // Cycle Left -> Right -> Hide -> Left (two bools: waterGunLeft + waterGunHide).
-    private func cycleWaterGun() {
-        if Persistence.bool(forKey: Strings.DefaultsKey.waterGunHide) {          // Hide -> Left
-            Persistence.set(false, forKey: Strings.DefaultsKey.waterGunHide)
-            Persistence.set(true,  forKey: Strings.DefaultsKey.waterGunLeft)
-        } else if Persistence.bool(forKey: Strings.DefaultsKey.waterGunLeft) {   // Left -> Right
-            Persistence.set(false, forKey: Strings.DefaultsKey.waterGunLeft)
-        } else {                                                                 // Right -> Hide
-            Persistence.set(true,  forKey: Strings.DefaultsKey.waterGunHide)
-        }
-    }
+    private func controlModeText() -> String { ControlMode.current.label }
+    private func cycleControlMode() { ControlMode.advance() }   // HIDDEN -> STICK LEFT -> STICK RIGHT -> DPAD LEFT -> DPAD RIGHT
     private func isSquareTracks() -> Bool {
         Persistence.bool(forKey: Strings.DefaultsKey.bossTracksSquare, default: true)
     }
     private func mazeText() -> String {
-        "Maze: \(MazeZoom.current)%"
+        MazeZoom.label
     }
 
     // MARK: - Builders
+    // Every button fill is darkened 30% toward black (richer than the raw system hue).
+    private func dimmed(_ c: SKColor) -> SKColor { c.blended(withFraction: 0.3, of: .black) ?? c }
+
+    // A yellow right-pointing triangle drawn as a play-button glyph (vector, not an emoji).
+    private func playTriangle() -> SKShapeNode {
+        let w: CGFloat = 22, h: CGFloat = 26
+        let p = CGMutablePath()
+        p.move(to: CGPoint(x: -w / 2, y: h / 2))
+        p.addLine(to: CGPoint(x: -w / 2, y: -h / 2))
+        p.addLine(to: CGPoint(x: w / 2, y: 0))
+        p.closeSubpath()
+        let n = SKShapeNode(path: p)
+        n.fillColor = .systemYellow
+        n.strokeColor = .clear
+        n.lineWidth = 0
+        n.lineJoin = .round
+        return n
+    }
+
     @discardableResult
     private func makeTitleButton(text: String, color: SKColor, center: CGPoint,
-                                 size s: CGSize, textDY: CGFloat = 0) -> CGRect {
+                                 size s: CGSize, textDY: CGFloat = 0, icon: String? = nil, iconNode: SKNode? = nil) -> CGRect {
         let N = SpriteFactory.worldRenderScale
         let container = SKNode()
         container.position = center
         container.zPosition = 5
         addChild(container)
         let bg = SKShapeNode(rect: CGRect(x: -s.width / 2 * N, y: -s.height / 2 * N, width: s.width * N, height: s.height * N),
-                             cornerRadius: 10 * N)
+                             cornerRadius: 12 * N)
         bg.setScale(1 / N)
-        bg.fillColor = color
-        bg.strokeColor = .clear
+        bg.fillColor = dimmed(color)
+        bg.strokeColor = SKColor(white: 1, alpha: 0.55)   // match the side toggle buttons
+        bg.lineWidth = 2 * N
         container.addChild(bg)
-        let label = SKLabelNode(fontNamed: Strings.Font.markerFeltThin)
+
+        let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
         label.text = text
         label.fontSize = 34 * N
         label.setScale(1 / N)
         label.fontColor = .white
-        label.horizontalAlignmentMode = .center
         label.verticalAlignmentMode = .center
-        label.position = CGPoint(x: 0, y: textDY)
         label.zPosition = 6
+        let resolvedIcon: SKNode? = iconNode ?? icon.map { txt in
+            let l = SKLabelNode(text: txt)
+            l.fontSize = 42 * N
+            l.setScale(1 / N)
+            l.verticalAlignmentMode = .center
+            l.horizontalAlignmentMode = .center
+            return l
+        }
+        if let resolvedIcon {
+            resolvedIcon.position = CGPoint(x: -s.width / 2 + 40, y: textDY)
+            resolvedIcon.zPosition = 6
+            container.addChild(resolvedIcon)
+            label.horizontalAlignmentMode = .left
+            label.position = CGPoint(x: -s.width / 2 + 84, y: textDY)
+        } else {
+            label.horizontalAlignmentMode = .center
+            label.position = CGPoint(x: 0, y: textDY)
+        }
         container.addChild(label)
         return CGRect(x: center.x - s.width / 2, y: center.y - s.height / 2, width: s.width, height: s.height)
     }
 
-    private func makeHint(_ text: String, y: CGFloat, left: Bool = false) -> SKLabelNode {
-        let label = SKLabelNode(fontNamed: Strings.Font.menloBold)
-        label.text = text
-        label.fontSize = 25 * SpriteFactory.worldRenderScale
-        label.setScale(1 / SpriteFactory.worldRenderScale)
-        label.fontColor = .black
-        label.horizontalAlignmentMode = left ? .left : .right
-        label.position = CGPoint(x: left ? 20 : size.width - 20, y: y)
-        addChild(label)
+    // Side toggle as a button: rounded fill + border, a fixed-position emoji icon, and
+    // the left-aligned value in Marker Felt Wide (white). Anchoring the icon and value at
+    // fixed offsets means changing the value never re-centres the row (no number jump).
+    private func makeHint(icon: String, iconSize: CGFloat, value: String, y: CGFloat, color: SKColor, left: Bool = false, sprite: SKNode? = nil) -> SKLabelNode {
+        let N = SpriteFactory.worldRenderScale
+        let btnW: CGFloat = 292, btnH: CGFloat = 50, margin: CGFloat = 16
+        let cx = left ? margin + btnW / 2 : size.width - margin - btnW / 2
+        let container = SKNode()
+        container.position = CGPoint(x: cx, y: y)
+        container.zPosition = 5
+        addChild(container)
+
+        let bg = SKShapeNode(rect: CGRect(x: -btnW / 2 * N, y: -btnH / 2 * N, width: btnW * N, height: btnH * N), cornerRadius: 12 * N)
+        bg.setScale(1 / N)
+        bg.fillColor = dimmed(color)
+        bg.strokeColor = SKColor(white: 1, alpha: 0.55)
+        bg.lineWidth = 2 * N
+        container.addChild(bg)
+
+        let iconX = -btnW / 2 + 38
+        if let sprite {
+            let f = sprite.calculateAccumulatedFrame()
+            let s = f.height > 0 ? iconSize / f.height : 1
+            sprite.setScale(s)
+            sprite.position = CGPoint(x: iconX - f.midX * s, y: -f.midY * s)
+            sprite.zPosition = 6
+            container.addChild(sprite)
+        } else {
+            let iconNode = SKLabelNode(text: icon)
+            iconNode.fontSize = iconSize * N
+            iconNode.setScale(1 / N)
+            iconNode.verticalAlignmentMode = .center
+            iconNode.horizontalAlignmentMode = .center
+            iconNode.position = CGPoint(x: iconX, y: 0)
+            iconNode.zPosition = 6
+            container.addChild(iconNode)
+        }
+
+        let label = SKLabelNode(fontNamed: Strings.Font.markerFeltWide)
+        label.text = value
+        label.fontSize = 32 * N
+        label.setScale(1 / N)
+        label.fontColor = .white
+        label.horizontalAlignmentMode = .left
+        label.verticalAlignmentMode = .center
+        label.position = CGPoint(x: -btnW / 2 + 80, y: 0)
+        label.zPosition = 6
+        container.addChild(label)
         return label
     }
 
     // MARK: - Actions (shared)
     private func startGame() {
+        if MazeZoom.is3D {
+            startBonus()
+            return
+        }
         view?.preferredFramesPerSecond = 60
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit
@@ -185,15 +246,35 @@ final class TitleScene: SKScene {
         view?.presentScene(editor, transition: .fade(withDuration: 0.3))
     }
 
+    private func startBonus() {
+        view?.preferredFramesPerSecond = 60
+        let bonus: Bonus3DScene = MazeZoom.isIso ? IsoScene(size: size)
+                               : MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)
+        bonus.scaleMode = SKSceneScaleMode.aspectFit
+        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
+    }
+
     private func enterFullscreen() { view?.enterFullscreen() }
     private func exitToWindow()    { view?.exitFullscreen() }
 
     // Shared tap routing — both ports funnel their pointer event through here.
     private func handleTap(at p: CGPoint) {
-        if playButtonRect.contains(p)   { startGame();   return }
-        if editorButtonRect.contains(p) { startEditor(); return }
-        if let fs = fullscreenLabel, labelHit(fs, p) { enterFullscreen(); return }
-        if let esc = escWindowLabel, labelHit(esc, p) { exitToWindow();   return }
+        if playButtonRect.contains(p) {
+            startGame()
+            return
+        }
+        if editorButtonRect.contains(p) {
+            startEditor()
+            return
+        }
+        if let fs = fullscreenLabel, labelHit(fs, p) {
+            enterFullscreen()
+            return
+        }
+        if let esc = escWindowLabel, labelHit(esc, p) {
+            exitToWindow()
+            return
+        }
         if let m = mazeLabel, labelHit(m, p) {
             MazeZoom.advance()
             m.text = mazeText()
@@ -205,14 +286,15 @@ final class TitleScene: SKScene {
             return
         }
         if let wg = waterGunLabel, labelHit(wg, p) {
-            cycleWaterGun()
-            wg.text = waterGunText()
+            cycleControlMode()
+            wg.text = controlModeText()
             return
         }
     }
 
     private func labelHit(_ label: SKLabelNode, _ p: CGPoint) -> Bool {
-        label.frame.insetBy(dx: -12, dy: -10).contains(p)
+        guard let container = label.parent else { return label.frame.insetBy(dx: -12, dy: -10).contains(p) }
+        return container.calculateAccumulatedFrame().contains(p)   // whole button is tappable
     }
 
     // MARK: - Input (platform event shapes funnel into the shared actions)
@@ -223,6 +305,7 @@ final class TitleScene: SKScene {
         switch key {
         case KeyCode.keyP, KeyCode.space: startGame()
         case KeyCode.keyE:                startEditor()
+        case KeyCode.digit3:              startBonus()
         case KeyCode.keyF:                enterFullscreen()
         case KeyCode.esc:                 exitToWindow()
         default:                          break
@@ -261,3 +344,4 @@ final class TitleScene: SKScene {
         return stapler
     }
 }
+

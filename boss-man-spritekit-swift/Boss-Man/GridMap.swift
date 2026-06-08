@@ -1,7 +1,7 @@
 import SpriteKit
 
 // Tile-grid math shared by the maze, Pete, and the boss. Rows are stored top
-// to bottom; positions are returned bottom-up (SpriteKit y-up), matching the
+// to bottom, positions are returned bottom-up (SpriteKit y-up), matching the
 // SuperBox64 SpriteKit world.
 //
 // tunnelPartner builds the Pac-Man-style wrap pairs at parse time: a top-row
@@ -17,21 +17,24 @@ final class GridMap {
     // WorkerController (which positions via gridMap.point) drops in unchanged.
     var xOffset: CGFloat = 0
     private(set) var rows: [String] = []
+    private var byteRows: [[UInt8]] = []
     private var tunnelPairs: [(CGPoint, CGPoint)] = []
 
     init(tileSize: CGFloat, rows: [String] = []) {
         self.tileSize = tileSize
         self.rows = rows
+        byteRows = rows.map { Array($0.utf8) }
         rebuildTunnels()
     }
 
     func setRows(_ rows: [String]) {
         self.rows = rows
+        byteRows = rows.map { Array($0.utf8) }
         rebuildTunnels()
     }
 
-    var columnCount: Int { rows.first?.count ?? 0 }
-    var rowCount: Int    { rows.count }
+    var columnCount: Int { byteRows.first?.count ?? 0 }
+    var rowCount: Int    { byteRows.count }
 
     // World-coordinate center of the tile at `grid` (col, row) in y-up space.
     func point(for grid: CGPoint) -> CGPoint {
@@ -41,12 +44,12 @@ final class GridMap {
 
     // The character at this grid coordinate, treating row 0 as the bottom row
     // and rows.first as the top of the maze.
-    func tile(at grid: CGPoint) -> Character? {
-        let row = rows.count - 1 - Int(grid.y)
+    func tile(at grid: CGPoint) -> UInt8? {
+        let row = byteRows.count - 1 - Int(grid.y)
         let column = Int(grid.x)
-        guard row >= 0, row < rows.count,
-              column >= 0, column < rows[row].count else { return nil }
-        return Array(rows[row])[column]
+        guard row >= 0, row < byteRows.count,
+              column >= 0, column < byteRows[row].count else { return nil }
+        return byteRows[row][column]
     }
 
     func isWalkable(_ grid: CGPoint) -> Bool {
@@ -95,25 +98,25 @@ final class GridMap {
 
     private func rebuildTunnels() {
         tunnelPairs.removeAll()
-        guard let firstRow = rows.first, !firstRow.isEmpty, rows.count >= 2 else { return }
+        guard let firstRow = byteRows.first, !firstRow.isEmpty, byteRows.count >= 2 else { return }
         let cols = firstRow.count
         let lastCol = cols - 1
-        let topY = rows.count - 1
+        let topY = byteRows.count - 1
         let floor = Strings.Tile.floorChar
 
         // Vertical wrap: top-row floor + bottom-row floor in the same column.
-        let topChars    = Array(rows[0])
-        let bottomChars = Array(rows[rows.count - 1])
+        let topChars    = byteRows[0]
+        let bottomChars = byteRows[byteRows.count - 1]
         for col in 0..<cols where col < topChars.count && col < bottomChars.count {
             if topChars[col] == floor && bottomChars[col] == floor {
                 tunnelPairs.append((CGPoint(x: col, y: topY), CGPoint(x: col, y: 0)))
             }
         }
         // Horizontal wrap: any row with floor at both edges links its ends.
-        for rowIndex in 0..<rows.count {
-            let chars = Array(rows[rowIndex])
+        for rowIndex in 0..<byteRows.count {
+            let chars = byteRows[rowIndex]
             guard chars.count >= cols, chars.first == floor, chars[lastCol] == floor else { continue }
-            let gridY = rows.count - 1 - rowIndex
+            let gridY = byteRows.count - 1 - rowIndex
             tunnelPairs.append((CGPoint(x: 0, y: gridY), CGPoint(x: lastCol, y: gridY)))
         }
     }

@@ -4,9 +4,17 @@
 public struct SKColor: Equatable, Sendable {
     public var r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat
     public init(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
-        r = red; g = green; b = blue; a = alpha
+        r = red
+        g = green
+        b = blue
+        a = alpha
     }
-    public init(white: CGFloat, alpha: CGFloat) { r = white; g = white; b = white; a = alpha }
+    public init(white: CGFloat, alpha: CGFloat) {
+        r = white
+        g = white
+        b = white
+        a = alpha
+    }
     public init(calibratedRed: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
         self.init(red: calibratedRed, green: green, blue: blue, alpha: alpha)
     }
@@ -39,21 +47,22 @@ public struct SKColor: Equatable, Sendable {
     public static let orange  = SKColor(red: 1, green: 0.5, blue: 0, alpha: 1)
     public static let cyan    = SKColor(red: 0, green: 1, blue: 1, alpha: 1)
     public static let magenta = SKColor(red: 1, green: 0, blue: 1, alpha: 1)
-    // Apple's iOS light-mode sRGB system palette, so game source that uses
-    // .systemRed / .systemPurple / etc. renders the same color it does on Apple.
-    public static let systemRed    = SKColor(red: 1.0,   green: 0.231, blue: 0.188, alpha: 1)
-    public static let systemOrange = SKColor(red: 1.0,   green: 0.584, blue: 0.0,   alpha: 1)
-    public static let systemYellow = SKColor(red: 1.0,   green: 0.8,   blue: 0.0,   alpha: 1)
-    public static let systemGreen  = SKColor(red: 0.204, green: 0.78,  blue: 0.349, alpha: 1)
-    public static let systemMint   = SKColor(red: 0.0,   green: 0.78,  blue: 0.745, alpha: 1)
-    public static let systemTeal   = SKColor(red: 0.188, green: 0.69,  blue: 0.78,  alpha: 1)
-    public static let systemCyan   = SKColor(red: 0.196, green: 0.678, blue: 0.902, alpha: 1)
-    public static let systemBlue   = SKColor(red: 0.0,   green: 0.48,  blue: 1.0,   alpha: 1)
-    public static let systemIndigo = SKColor(red: 0.345, green: 0.337, blue: 0.839, alpha: 1)
-    public static let systemPurple = SKColor(red: 0.686, green: 0.322, blue: 0.871, alpha: 1)
-    public static let systemPink   = SKColor(red: 1.0,   green: 0.176, blue: 0.333, alpha: 1)
-    public static let systemBrown  = SKColor(red: 0.635, green: 0.518, blue: 0.369, alpha: 1)
-    public static let systemGray   = SKColor(red: 0.557, green: 0.557, blue: 0.576, alpha: 1)
+    // macOS NSColor light-mode sRGB system palette (the SpriteKit master is a Mac
+    // app), so game source that uses .systemRed / .systemPurple / etc. renders the
+    // same color the Xcode build does — iOS values differ and looked washed out.
+    public static let systemRed    = SKColor(red: 1.0,   green: 0.259, blue: 0.271, alpha: 1)
+    public static let systemOrange = SKColor(red: 1.0,   green: 0.573, blue: 0.188, alpha: 1)
+    public static let systemYellow = SKColor(red: 1.0,   green: 0.839, blue: 0.0,   alpha: 1)
+    public static let systemGreen  = SKColor(red: 0.188, green: 0.820, blue: 0.345, alpha: 1)
+    public static let systemMint   = SKColor(red: 0.0,   green: 0.855, blue: 0.765, alpha: 1)
+    public static let systemTeal   = SKColor(red: 0.0,   green: 0.824, blue: 0.878, alpha: 1)
+    public static let systemCyan   = SKColor(red: 0.235, green: 0.827, blue: 0.996, alpha: 1)
+    public static let systemBlue   = SKColor(red: 0.0,   green: 0.569, blue: 1.0,   alpha: 1)
+    public static let systemIndigo = SKColor(red: 0.427, green: 0.486, blue: 1.0,   alpha: 1)
+    public static let systemPurple = SKColor(red: 0.859, green: 0.204, blue: 0.949, alpha: 1)
+    public static let systemPink   = SKColor(red: 1.0,   green: 0.216, blue: 0.373, alpha: 1)
+    public static let systemBrown  = SKColor(red: 0.718, green: 0.541, blue: 0.400, alpha: 1)
+    public static let systemGray   = SKColor(red: 0.596, green: 0.596, blue: 0.616, alpha: 1)
 
     // NSColor.blended(withFraction:of:): weighted RGBA mix of self and `color`.
     // Returns optional to match the Apple signature (never nil here).
@@ -65,3 +74,5 @@ public struct SKColor: Equatable, Sendable {
                        alpha: a + (color.a - a) * f)
     }
 }
+
+

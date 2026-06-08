@@ -79,6 +79,13 @@ public:
             event.joystickMove.axis       = (Joystick::Axis)b;
             event.joystickMove.position   = (float)c;
             break;
+        case Event::TouchBegan:
+        case Event::TouchMoved:
+        case Event::TouchEnded:
+            event.touch.finger = (unsigned)a;
+            event.touch.x      = b;
+            event.touch.y      = c;
+            break;
         default:
             break;
         }

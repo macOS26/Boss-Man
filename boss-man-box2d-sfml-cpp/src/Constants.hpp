@@ -60,6 +60,16 @@ constexpr float WATER_DROPLET_SPEED = 320.0f;
 constexpr float WATER_DROPLET_MAX_DIST = 576.0f;
 constexpr float WATER_DROPLET_RADIUS = 5.0f;
 
+// On-screen fire-button ring. Matches the BOSS 3D (DoomScene) fire button + the
+// SpriteKit fireButtonRadius so the touch target is identical across all modes.
+constexpr float FIRE_BUTTON_RADIUS = 129.375f;
+
+// On-screen movement joystick (opposite the fire button), matching the BOSS 3D
+// (DoomScene) joystick so the 2D modes have the same control affordance.
+constexpr float JOYSTICK_RADIUS   = 129.375f;
+constexpr float JOYSTICK_KNOB     = 51.75f;
+constexpr float JOYSTICK_DEADZONE = 37.375f;
+
 // Worker default spawn
 struct GridPos {
     int x, y;
@@ -113,8 +123,8 @@ inline const std::unordered_map<char, std::string>& MACHINE_NAMES_BY_TILE() {
 // so the boss name tags are never empty.
 namespace Boss {
     inline constexpr const char* BILL = "BILL";
-    inline constexpr const char* DOM  = "DOM";
-    inline constexpr const char* BOB  = "BOB";
+    inline constexpr const char* DOM  = "MILT";
+    inline constexpr const char* BOB  = "BOBS";
     inline constexpr const char* STAN = "STAN";
 }
 
@@ -196,19 +206,22 @@ inline const BossBlueprint BOSS_BLUEPRINTS[] = {
 
 // Messages
 namespace Message {
-    const std::string INTRO             = "Collect office dots and finish the TPS report!";
-    const std::string PRACTICE_MODE     = "PRACTICE MODE - score not saved";
-    const std::string PAUSED            = "Paused - press P to resume";
-    const std::string NEED_TPS          = "Turn in at least 1 TPS report to complete the level!";
-    const std::string BROWN_BOX_HINT    = "Brown boxes collect finished TPS reports.";
-    const std::string TPS_READY         = "TPS report complete! Deliver it to a brown box.";
-    const std::string NEW_GAME          = "New game! Collect dots and TPS reports.";
-    const std::string GOLD_DISC_ACTIVE  = "Gold disc! Capture the bosses for 20 seconds.";
-    const std::string GOLD_DISC_ENDED   = "Gold disc mode ended.";
-    const std::string WATER_GUN_ACTIVE  = "Water gun! Shoot the bosses.";
-    const std::string WATER_GUN_ENDED   = "Water gun empty.";
-    const std::string WATER_GUN_EXPIRED = "Water gun time expired.";
-    const std::string WATER_GUN_BLUE    = "Water pistol unavailable in blue boss mode.";
+    inline std::string levelLoaded(int n) { return "Level " + std::to_string(n) + "!"; }
+    const std::string INTRO             = "Collect dots and the TPS report!";
+    const std::string PRACTICE_MODE     = "Practice mode (no score)";
+    const std::string PAUSED            = "PAUSED";
+    const std::string NEED_TPS          = "Turn in 1 TPS report first!";
+    const std::string BROWN_BOX_HINT    = "Brown boxes take TPS reports";
+    const std::string TPS_READY             = "TPS ready! Drop at a brown box";
+    const std::string TPS_TURNED_IN_LIFE   = "TPS in! New worker hired";
+    const std::string TPS_TURNED_IN        = "TPS turned in!";
+    const std::string NEW_GAME          = "New game!";
+    const std::string GOLD_DISC_ACTIVE  = "Gold disc! Catch the bosses";
+    const std::string GOLD_DISC_ENDED   = "Gold disc over";
+    const std::string WATER_GUN_ACTIVE  = "Water gun! Soak the bosses";
+    const std::string WATER_GUN_ENDED   = "Out of water";
+    const std::string WATER_GUN_EXPIRED = "Water gun expired";
+    const std::string WATER_GUN_BLUE    = "No water gun in blue mode";
     const std::string BOSS_SPLASHED     = "SPLASH!";
     const std::string GAME_OVER         = "GAME OVER";
     const std::string PROMPT_NEW_GAME   = "PRESS P TO START A NEW GAME";
@@ -218,7 +231,7 @@ namespace Message {
 // Title scene
 namespace Title {
     const std::string GAME_TITLE = "BOSS-MAN";
-    const std::string PRESS_SPACE = "P to Play | E for Editor";
+    const std::string PRESS_SPACE = "P to Play \xc2\xb7 E for Editor";
 }
 
 // Level names

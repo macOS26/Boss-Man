@@ -35,17 +35,32 @@ open class SKNode {
 
     public init() {}
 
-    public func setScale(_ s: CGFloat) { xScale = s; yScale = s }
+    public func setScale(_ s: CGFloat) {
+        xScale = s
+        yScale = s
+    }
 
-    open func addChild(_ node: SKNode) { node.parent = self; children.append(node) }
-    public func insertChild(_ node: SKNode, at index: Int) { node.parent = self; children.insert(node, at: max(0, min(index, children.count))) }
+    open func addChild(_ node: SKNode) {
+        node.parent = self
+        children.append(node)
+    }
+    public func insertChild(_ node: SKNode, at index: Int) {
+        node.parent = self
+        children.insert(node, at: max(0, min(index, children.count)))
+    }
     open func removeFromParent() {
         guard let p = parent else { return }
         p.children.removeAll { $0 === self }
         parent = nil
         teardownPhysics()
     }
-    public func removeAllChildren() { for c in children { c.parent = nil; c.teardownPhysics() }; children.removeAll() }
+    public func removeAllChildren() {
+        for c in children {
+            c.parent = nil
+            c.teardownPhysics()
+        }
+        children.removeAll()
+    }
 
     // Apple SpriteKit destroys a node's physics body when the node leaves the
     // scene. SuperBox64 has to do it explicitly: drop the Box2D body and its
@@ -73,7 +88,10 @@ open class SKNode {
                                using block: (SKNode, inout Bool) -> Void) {
         for c in children {
             if stop { return }
-            if c.name == name { block(c, &stop); if stop { return } }
+            if c.name == name {
+                block(c, &stop)
+                if stop { return }
+            }
             c.enumerateImpl(withName: name, stop: &stop, using: block)
         }
     }
@@ -101,7 +119,10 @@ open class SKNode {
             // maze via SKView.texture(from:)).
             let off = CGRect(x: cf.minX + position.x, y: cf.minY + position.y,
                              width: cf.width, height: cf.height)
-            if r == .zero { r = off; continue }
+            if r == .zero {
+                r = off
+                continue
+            }
             let minX = min(r.minX, off.minX), minY = min(r.minY, off.minY)
             let maxX = max(r.maxX, off.maxX), maxY = max(r.maxY, off.maxY)
             r = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
@@ -111,7 +132,10 @@ open class SKNode {
 
     public func inParentHierarchy(_ candidate: SKNode) -> Bool {
         var n: SKNode? = self.parent
-        while let p = n { if p === candidate { return true }; n = p.parent }
+        while let p = n {
+            if p === candidate { return true }
+            n = p.parent
+        }
         return false
     }
 
@@ -177,7 +201,9 @@ open class SKNode {
     public func run(_ action: SKAction) { runningActions.append(RunningAction(action)) }
     public func run(_ action: SKAction, withKey key: String) {
         runningActions.removeAll { $0.key == key }
-        let r = RunningAction(action); r.key = key; runningActions.append(r)
+        let r = RunningAction(action)
+        r.key = key
+        runningActions.append(r)
     }
     public func removeAllActions() { runningActions.removeAll() }
     public func removeAction(forKey key: String) { runningActions.removeAll { $0.key == key } }
@@ -198,7 +224,10 @@ open class SKNode {
         var i = 0
         while i < runningActions.count {
             let ra = runningActions[i]
-            guard stepped.insert(ObjectIdentifier(ra)).inserted else { i += 1; continue }
+            guard stepped.insert(ObjectIdentifier(ra)).inserted else {
+                i += 1
+                continue
+            }
             if ra.step(scaled, node: self) {
                 if let idx = runningActions.firstIndex(where: { $0 === ra }) {
                     runningActions.remove(at: idx)
@@ -218,3 +247,5 @@ open class SKNode {
     // Default is a no-op; overridden by node types that need to advance state.
     open func tickSelf(_ dt: TimeInterval) {}
 }
+
+

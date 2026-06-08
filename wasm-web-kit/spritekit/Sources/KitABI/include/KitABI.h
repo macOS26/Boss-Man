@@ -196,6 +196,9 @@ WABI void win_set_title(const char* s, int len);
 WABI void win_request_fullscreen(void);
 WABI void win_exit_fullscreen(void);
 
+/* Browser "Save As": host wraps data in a Blob and clicks a download anchor. */
+WABI void win_download(const char* name, int nlen, const char* data, int dlen);
+
 /* libm wrappers — see shim.c. Swift uses these instead of importing libm
  * directly because @_silgen_name passes through Swift's witness mangling
  * and produces a signature mismatch with libc's (Double)->Double. */
@@ -207,6 +210,8 @@ double sb64_floor(double x);
 double sb64_ceil(double x);
 double sb64_fmod(double a, double b);
 double sb64_pow(double a, double b);
+double sb64_exp(double x);
+double sb64_tanh(double x);
 double sb64_hypot(double x, double y);
 int    sb64_rand(void);
 void   sb64_srand(unsigned int seed);

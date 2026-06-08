@@ -1,7 +1,5 @@
-import Foundation
-
 // Bonus "traveler" pickups: the emoji that flies across the maze each level for
-// a bonus. Each level cycles through this table to pick the next one; the HUD
+// a bonus. Each level cycles through this table to pick the next one, the HUD
 // shows the upcoming sequence in the top-right corner. Shared verbatim across
 // apple + wasm. The per-platform level-map loader stays in each port's own
 // Levels.swift.

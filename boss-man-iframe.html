@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Boss-Man iframe test</title>
+  <style>
+    body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    iframe { border: none; display: block; }
+  </style>
+</head>
+<body>
+  <iframe
+    id="game"
+    src="https://boss-man.us/play"
+    width="1184"
+    height="666"
+    allow="autoplay; fullscreen"
+    allowfullscreen
+    tabindex="0"
+  ></iframe>
+  <script>
+    document.getElementById('game').addEventListener('load', function () {
+      this.focus();
+    });
+    document.body.addEventListener('click', function () {
+      document.getElementById('game').focus();
+    });
+  </script>
+</body>
+</html>

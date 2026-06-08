@@ -1,5 +1,3 @@
-import Foundation
-
 enum MoveDirection: CaseIterable {
     case left, right, down, up
 
@@ -12,7 +10,7 @@ enum MoveDirection: CaseIterable {
         }
     }
 
-    // Arrow keys + WASD. The key-to-direction mapping is shared; only the raw
+    // Arrow keys + WASD. The key-to-direction mapping is shared, only the raw
     // code values differ per platform (Carbon virtual codes on macOS, the web
     // runtime's codes on wasm).
     init?(keyCode: Int) {
@@ -26,7 +24,7 @@ enum MoveDirection: CaseIterable {
     }
 }
 
-// Physical movement key codes. Values are platform-specific; the names are
+// Physical movement key codes. Values are platform-specific, the names are
 // common so the key-to-direction logic lives in one place.
 enum KeyCode {
 #if os(macOS)
@@ -39,6 +37,7 @@ enum KeyCode {
     static let keyS = 1
     static let keyW = 13
     static let keyP = 35
+    static let keyB = 11
     static let keyE = 14
     static let keyF = 3
     static let esc = 53
@@ -68,6 +67,7 @@ enum KeyCode {
     static let keyS = 18
     static let keyW = 22
     static let keyP = 15
+    static let keyB = 1
     static let keyE = 4
     static let keyF = 5
     static let esc = 36

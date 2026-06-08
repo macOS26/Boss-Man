@@ -1,5 +1,4 @@
 import AVFoundation
-import Foundation
 
 enum MusicTheme {
     case normal
@@ -11,7 +10,7 @@ final class SoundManager {
     private let engine = AVAudioEngine()
     // A pool of effect voices, round-robined per SFX. One shared node queues
     // buffers (at: nil) behind whatever is still playing, so rapid sound effects
-    // drift further and further behind the action on Apple; spreading them across
+    // drift further and further behind the action on Apple, spreading them across
     // players lets each fire immediately and overlap (matching the wasm voices).
     private let effectsPlayers: [AVAudioPlayerNode] = (0..<8).map { _ in AVAudioPlayerNode() }
     private var effectsRR = 0
@@ -55,14 +54,16 @@ final class SoundManager {
     }
 
     #if os(macOS)
-    // Walks the preferred-name list in order; for each name returns the highest-
+    // Walks the preferred-name list in order, for each name returns the highest-
     // quality matching voice in the pool, else the best-quality voice in the pool.
     private static func bestVoice(in pool: [AVSpeechSynthesisVoice]) -> AVSpeechSynthesisVoice? {
         for name in Strings.Speech.preferredVoiceNames {
             let m = pool.filter { $0.identifier.lowercased().contains(name) || $0.name.lowercased().contains(name) }
             if let v = m.first(where: { $0.quality == .premium })
                     ?? m.first(where: { $0.quality == .enhanced })
-                    ?? m.first { return v }
+                    ?? m.first {
+                return v
+            }
         }
         return pool.first(where: { $0.quality == .premium })
             ?? pool.first(where: { $0.quality == .enhanced })
@@ -92,7 +93,7 @@ final class SoundManager {
         (783.99, 987.77)
     ]
     // MIB dots an octave below the originals (C5-C6 read as a tinny ting against
-    // the dark 12/24 theme); same C-minor pattern, just warmer.
+    // the dark 12/24 theme), same C-minor pattern, just warmer.
     private let mibDotStages: [(Float, Float)] = [
         (261.63, 311.13),
         (311.13, 392.00),
@@ -105,7 +106,7 @@ final class SoundManager {
     private var teleportPlaying = false
     
     private var musicEnabled = false
-    private var goldDiscBassActive = false   // bass stands in for the music during blue mode; the two never overlap
+    private var goldDiscBassActive = false // bass stands in for the music during blue mode, the two never overlap
 
     private let normalEffectsVolume: Float = 0.5
     private let duckedEffectsVolume: Float = 0.12
@@ -428,7 +429,7 @@ final class SoundManager {
         let attack: Float = 0.008
         let release: Float = 0.010
 
-        // Start from silence; notes ring through a following rest (filling the
+        // Start from silence, notes ring through a following rest (filling the
         // staccato gaps that read as "tap tap tap"), so rests are not re-zeroed.
         for i in 0..<frames { data[i] = 0 }
 

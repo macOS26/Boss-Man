@@ -1,11 +1,12 @@
 import SpriteKit
 import AppKit
+import AVFoundation
 
 // One spawner per game: owns the active traveler node, the spawn/exit grid
 // coords, and the self-chaining stepper that walks the traveler tile-by-tile
 // toward the exit. After firstVisitDelay (or respawnDelay after one exits/is
 // caught) the next traveler from the level table walks across the floor.
-// Shared by both ports; the only platform branch is loading the traveler image.
+// Shared by both ports, the only platform branch is loading the traveler image.
 @MainActor
 final class TravelerSpawner {
     private weak var scene: SKScene?
@@ -22,6 +23,18 @@ final class TravelerSpawner {
     private(set) var grid = CGPoint.zero
     private var previousGrid: CGPoint?
     private(set) var activeTraveler: LevelTraveler?
+    // The traveler's OWN PRNG, reseeded every spawn so each visit roams a fresh path that still drifts toward the
+    // exit. Mixes the wall clock and a per-process tick with the persisted counter so the seed keeps varying even
+    // when persisted state can't round-trip (a fresh tab / sandboxed host pinned the old persist-only seed to one
+    // value, replaying an identical path). The shared game RNG stays fixed-seed/deterministic.
+    private var rng = Xoshiro256(seed: 0)
+    private static var spawnTick: UInt64 = 0
+    private static func nextSeed() -> UInt64 {
+        spawnTick &+= 1
+        let n = Persistence.int(forKey: Strings.DefaultsKey.travelerSeed) &+ 1
+        Persistence.set(n, forKey: Strings.DefaultsKey.travelerSeed)
+        return UInt64(bitPattern: Int64(n)) ^ (spawnTick &* 0x9E3779B97F4A7C15) ^ CACurrentMediaTime().bitPattern
+    }
 
     private var pendingTraveler: LevelTraveler?
     private var keepSpawning: (() -> Bool)?
@@ -58,18 +71,24 @@ final class TravelerSpawner {
         scheduleNextSpawn(after: firstVisitDelay)
     }
 
+    func pauseSpawnTimer() {
+        scene?.removeAction(forKey: Strings.ActionKey.travelerVisit1)
+    }
+
+    func resumeSpawnTimer() {
+        guard node == nil else { return }
+        scheduleNextSpawn(after: firstVisitDelay)
+    }
+
     private func scheduleNextSpawn(after delay: TimeInterval) {
         guard let scene else { return }
         scene.removeAction(forKey: Strings.ActionKey.travelerVisit1)
         scene.run(.sequence([
             .wait(forDuration: delay),
             .run { [weak self] in
-                guard let self,
-                      let traveler = self.pendingTraveler,
-                      self.keepSpawning?() == true,
-                      self.node == nil
-                else { return }
-                self.spawn(traveler)
+                guard let self, let traveler = self.pendingTraveler, self.node == nil else { return }
+                if self.keepSpawning?() == true { self.spawn(traveler) }
+                else { self.scheduleNextSpawn(after: 1.0) }   // blocked (paused/dying): retry, don't give up forever
             }
         ]), withKey: Strings.ActionKey.travelerVisit1)
     }
@@ -109,8 +128,8 @@ final class TravelerSpawner {
     }
 
     // MARK: - Spawn + walk
-    // The doorway can sit on any row; resolve it from the current maze each
-    // spawn. Right mouth spawns, left mouth exits; fall back to the row-8 mouths.
+    // The doorway can sit on any row, resolve it from the current maze each
+    // spawn. Right mouth spawns, left mouth exits, fall back to the row-8 mouths.
     private func resolveDoorway() {
         let cols = gridMap.columnCount
         let doorway = gridMap.horizontalDoorway()
@@ -118,7 +137,7 @@ final class TravelerSpawner {
         exitGrid  = exitOverride  ?? doorway?.exit  ?? CGPoint(x: 0, y: 8)
     }
 
-    // gridMap.point(for:) already includes the maze offset; containerOriginX is
+    // gridMap.point(for:) already includes the maze offset, containerOriginX is
     // 0 on apple and the legacy origin on wasm.
     private func sceneCoord(forGrid g: CGPoint) -> CGPoint {
         let local = gridMap.point(for: g)
@@ -130,6 +149,7 @@ final class TravelerSpawner {
         node?.removeFromParent()
 
         let wrapper = SKNode()
+        rng = Xoshiro256(seed: TravelerSpawner.nextSeed())   // fresh random walk every visit
         resolveDoorway()
         grid = spawnGrid
         previousGrid = nil
@@ -140,6 +160,7 @@ final class TravelerSpawner {
         // body is non-dynamic on wasm (and it is harmless on apple).
         let body = SKPhysicsBody(circleOfRadius: 10)
         body.isDynamic = true
+        body.affectedByGravity = false // the SKAction walk owns its position, default scene gravity would otherwise drift node.position off its aisle (the iso/3D mirrors read node.position)
         body.categoryBitMask = PhysicsCategory.fish
         body.contactTestBitMask = PhysicsCategory.worker
         body.collisionBitMask = 0
@@ -230,12 +251,12 @@ final class TravelerSpawner {
         }
         guard !candidates.isEmpty else { return }
         let next: CGPoint
-        if Int.random(in: 0..<10, using: &GameRandom.shared) < 6, let towardExit = candidates.min(by: {
+        if Int.random(in: 0..<10, using: &rng) < 6, let towardExit = candidates.min(by: {
             Pathfinder.manhattanDistance($0, exitGrid) < Pathfinder.manhattanDistance($1, exitGrid)
         }) {
             next = towardExit
         } else {
-            next = candidates.randomElement(using: &GameRandom.shared)!
+            next = candidates.randomElement(using: &rng)!
         }
         let dx = next.x - grid.x
         if dx != 0, let emoji = fish.childNode(withName: Strings.NodeName.travelerEmoji) {

@@ -5,33 +5,64 @@ public typealias CGFloat = Double
 
 public struct CGPoint: Equatable, Hashable, Sendable {
     public var x: CGFloat, y: CGFloat
-    public init() { x = 0; y = 0 }
-    public init(x: CGFloat, y: CGFloat) { self.x = x; self.y = y }
-    public init(x: Int, y: Int) { self.x = CGFloat(x); self.y = CGFloat(y) }
+    public init() {
+        x = 0
+        y = 0
+    }
+    public init(x: CGFloat, y: CGFloat) {
+        self.x = x
+        self.y = y
+    }
+    public init(x: Int, y: Int) {
+        self.x = CGFloat(x)
+        self.y = CGFloat(y)
+    }
     public static let zero = CGPoint()
 }
 
 public struct CGSize: Equatable, Hashable, Sendable {
     public var width: CGFloat, height: CGFloat
-    public init() { width = 0; height = 0 }
-    public init(width: CGFloat, height: CGFloat) { self.width = width; self.height = height }
-    public init(width: Int, height: Int) { self.width = CGFloat(width); self.height = CGFloat(height) }
+    public init() {
+        width = 0
+        height = 0
+    }
+    public init(width: CGFloat, height: CGFloat) {
+        self.width = width
+        self.height = height
+    }
+    public init(width: Int, height: Int) {
+        self.width = CGFloat(width)
+        self.height = CGFloat(height)
+    }
     public static let zero = CGSize()
 }
 
 public struct CGVector: Equatable, Hashable, Sendable {
     public var dx: CGFloat, dy: CGFloat
-    public init() { dx = 0; dy = 0 }
-    public init(dx: CGFloat, dy: CGFloat) { self.dx = dx; self.dy = dy }
+    public init() {
+        dx = 0
+        dy = 0
+    }
+    public init(dx: CGFloat, dy: CGFloat) {
+        self.dx = dx
+        self.dy = dy
+    }
     public static let zero = CGVector()
 }
 
 public struct CGRect: Equatable, Sendable {
     public var origin: CGPoint, size: CGSize
-    public init() { origin = .zero; size = .zero }
-    public init(origin: CGPoint, size: CGSize) { self.origin = origin; self.size = size }
+    public init() {
+        origin = .zero
+        size = .zero
+    }
+    public init(origin: CGPoint, size: CGSize) {
+        self.origin = origin
+        self.size = size
+    }
     public init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        origin = CGPoint(x: x, y: y); size = CGSize(width: width, height: height)
+        origin = CGPoint(x: x, y: y)
+        size = CGSize(width: width, height: height)
     }
     public var minX: CGFloat { origin.x }
     public var minY: CGFloat { origin.y }
@@ -72,3 +103,5 @@ public struct CGRect: Equatable, Sendable {
 public func + (a: CGPoint, b: CGPoint) -> CGPoint { CGPoint(x: a.x + b.x, y: a.y + b.y) }
 public func - (a: CGPoint, b: CGPoint) -> CGPoint { CGPoint(x: a.x - b.x, y: a.y - b.y) }
 public func * (a: CGPoint, s: CGFloat) -> CGPoint { CGPoint(x: a.x * s, y: a.y * s) }
+
+

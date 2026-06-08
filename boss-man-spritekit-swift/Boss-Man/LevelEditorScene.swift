@@ -13,7 +13,7 @@ import AppKit
 
 // MARK: - Tile <-> Character mapping
 struct EditorTile: Equatable {
-    let character: Character
+    let character: UInt8
     let displayName: String
 
     static let empty       = EditorTile(character: Strings.Tile.floorChar,       displayName: Strings.Editor.Tile.floor)
@@ -28,8 +28,8 @@ struct EditorTile: Equatable {
     static let goldDisc    = EditorTile(character: Strings.Tile.goldDiscChar,     displayName: Strings.Editor.Tile.goldDisc)
     static let worker      = EditorTile(character: Strings.Tile.workerChar,       displayName: "Hero Pete")
     static let boss1       = EditorTile(character: Strings.Tile.boss1Char,        displayName: "Boss Bill")
-    static let boss2       = EditorTile(character: Strings.Tile.boss2Char,        displayName: "Boss Dom")
-    static let boss3       = EditorTile(character: Strings.Tile.boss3Char,        displayName: "Boss Bob")
+    static let boss2       = EditorTile(character: Strings.Tile.boss2Char,        displayName: "Boss Milt")
+    static let boss3       = EditorTile(character: Strings.Tile.boss3Char,        displayName: "Boss Bobs")
     static let boss4       = EditorTile(character: Strings.Tile.boss4Char,        displayName: "Boss Stan")
     static let waterGun    = EditorTile(character: Strings.Tile.waterGunChar,     displayName: Strings.Editor.Tile.waterGun)
     static let waterPellet = EditorTile(character: Strings.Tile.waterPelletChar,  displayName: Strings.Editor.Tile.waterPellet)
@@ -41,15 +41,17 @@ struct EditorTile: Equatable {
     ]
 }
 
-// MARK: - Level store (platform-specific persistence)
-// Custom edited levels live under their own Persistence key (UserDefaults on
-// macOS, localStorage on wasm) as the rows joined by newlines; built-in levels
-// seed from the read-only Levels.officeMaps asset.
+// MARK: - Level store (JSON file on every platform)
+// Custom edited levels live in levels.json as one object { "<index>": [rows] },
+// built-in levels seed from the read-only Levels.officeMaps asset. The file is a
+// real file under Application Support on macOS (revealed in Finder by SHOW) and a
+// localStorage blob on wasm (downloaded by SHOW) — both via LevelStoreIO. The
+// payload is hand-rolled JSON because Foundation's JSONEncoder/Codable is absent
+// on the WASI toolchain.
 enum LevelStore {
     static let mapCols = 37
     static let mapRows = 17
-
-    static func key(_ index: Int) -> String { Strings.DefaultsKey.editorLevelPrefix + String(index) }
+    static let fileName = "levels.json"
 
     static func normalize(_ rows: [String]) -> [String] {
         var out = rows.map { row -> String in
@@ -62,26 +64,87 @@ enum LevelStore {
         return out
     }
 
-    static func hasOverride(index: Int) -> Bool {
-        !(Persistence.string(forKey: key(index)) ?? "").isEmpty
+    private static func overrides() -> [Int: [String]] {
+        guard let raw = LevelStoreIO.readBlob(), !raw.isEmpty else { return [:] }
+        return decode(raw)
     }
 
+    private static func writeOverrides(_ map: [Int: [String]]) {
+        LevelStoreIO.writeBlob(encode(map))
+    }
+
+    static func hasOverride(index: Int) -> Bool { overrides()[index] != nil }
+
     static func loadLevel(index: Int) -> [String] {
-        if let stored = Persistence.string(forKey: key(index)), !stored.isEmpty {
-            return normalize(stored.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
-        }
+        if let rows = overrides()[index], !rows.isEmpty { return normalize(rows) }
         let maps = Levels.officeMaps
         let safe = (index >= 0 && index < maps.count) ? maps[index] : (maps.first ?? [])
         return normalize(safe)
     }
 
     static func saveLevel(index: Int, rows: [String]) {
-        Persistence.setString(rows.joined(separator: "\n"), forKey: key(index))
+        var map = overrides()
+        map[index] = rows
+        writeOverrides(map)
     }
 
     static func resetLevel(index: Int) {
-        Persistence.setString("", forKey: key(index))
+        var map = overrides()
+        map[index] = nil
+        writeOverrides(map)
     }
+
+    // SHOW: materialize the file and reveal it (Finder on macOS, download on wasm).
+    static func revealFile() {
+        LevelStoreIO.exportAndReveal(encode(overrides()))
+    }
+
+    // MARK: - Hand-rolled JSON (no Codable, runs on apple + WASI)
+    private static func encode(_ map: [Int: [String]]) -> String {
+        let keys = map.keys.sorted()
+        if keys.isEmpty { return "{}" }
+        var out = "{\n"
+        for (i, k) in keys.enumerated() {
+            out += "  \"\(k)\": [\n"
+            let rows = map[k] ?? []
+            for (j, row) in rows.enumerated() {
+                out += "    \"\(jsonEscape(row))\"" + (j < rows.count - 1 ? ",\n" : "\n")
+            }
+            out += "  ]" + (i < keys.count - 1 ? ",\n" : "\n")
+        }
+        return out + "}"
+    }
+
+    private static func decode(_ raw: String) -> [Int: [String]] {
+        var result: [Int: [String]] = [:]
+        let a = Array(raw), n = a.count
+        var i = 0
+        while i < n {
+            guard a[i] == "\"" else {
+                i += 1
+                continue
+            }
+            let (keyStr, afterKey) = jsonReadString(a, n, i)
+            i = afterKey
+            while i < n, a[i] == " " || a[i] == "\n" || a[i] == "\t" || a[i] == "\r" || a[i] == ":" { i += 1 }
+            guard i < n, a[i] == "[" else { continue }   // a row string, not a "<index>": [ key
+            i += 1
+            var rows: [String] = []
+            while i < n, a[i] != "]" {
+                if a[i] == "\"" {
+                    let (s, after) = jsonReadString(a, n, i)
+                    rows.append(s)
+                    i = after
+                } else {
+                    i += 1
+                }
+            }
+            if i < n { i += 1 }
+            if let idx = Int(keyStr) { result[idx] = rows }
+        }
+        return result
+    }
+
 }
 
 // MARK: - Level editor scene
@@ -102,6 +165,11 @@ final class LevelEditorScene: SKScene {
     var gridContainer = SKNode()
     var uiContainer = SKNode()
     var tileNodes: [[SKNode]] = []
+    // One baked texture per (tile char, floor parity), every grid cell is a single
+    // SKSpriteNode sharing these, so hundreds of cells batch instead of building a
+    // fresh ~14-node tree each (6000+ live nodes crawled at ~1fps). Cleared on every
+    // rebuildGrid (tile size / cubicle colour can change).
+    private var tileTexCache: [String: SKTexture] = [:]
     var paletteNodes: [SKShapeNode] = []
     var paletteRects: [CGRect] = []
     var buttonRects: [(rect: CGRect, name: String)] = []
@@ -128,12 +196,12 @@ final class LevelEditorScene: SKScene {
     var gridOffsetX: CGFloat = 12
     var gridOffsetY: CGFloat = 12
 
-    private static func paletteName(for char: Character) -> String {
-        "\(Strings.NodeName.palettePrefix)\(char)"
+    private static func paletteName(for char: UInt8) -> String {
+        "\(Strings.NodeName.palettePrefix)\(Character(UnicodeScalar(char)))"
     }
 
     private var currentCubicleColor: SKColor {
-        SpriteFactory.cubicleColors[currentLevelIndex % SpriteFactory.cubicleColors.count]
+        SpriteFactory.cubicleColor(index: currentLevelIndex)
     }
 
     // MARK: - Lifecycle
@@ -274,6 +342,7 @@ final class LevelEditorScene: SKScene {
             (Strings.Editor.save,  SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0), Strings.EditorButton.save),
             (Strings.Editor.copy,  SKColor(red: 0.20, green: 0.40, blue: 0.30, alpha: 1.0), Strings.EditorButton.copy),
             (Strings.Editor.paste, SKColor(red: 0.25, green: 0.35, blue: 0.30, alpha: 1.0), Strings.EditorButton.paste),
+            (Strings.Editor.revealFile, SKColor(red: 0.25, green: 0.35, blue: 0.45, alpha: 1.0), Strings.EditorButton.reveal),
         ]
         btnData.append((Strings.Editor.play, SKColor(red: 0.15, green: 0.15, blue: 0.55, alpha: 1.0), Strings.EditorButton.play))
         btnData.append((Strings.Editor.back, SKColor(red: 0.45, green: 0.4,  blue: 0.15, alpha: 1.0), Strings.EditorButton.back))
@@ -327,6 +396,7 @@ final class LevelEditorScene: SKScene {
     func rebuildGrid() {
         gridContainer.removeAllChildren()
         tileNodes = []
+        tileTexCache = [:]
 
         let availWidth = size.width - panelWidth - margin * 2 - 8
         let availHeight = size.height - margin * 2
@@ -345,37 +415,67 @@ final class LevelEditorScene: SKScene {
             for col in 0..<gridCols {
                 let x = gridOffsetX + CGFloat(col) * tileSize
                 let y = gridOffsetY + CGFloat(gridRows - 1 - row) * tileSize
-                let container = SKNode()
-                container.position = CGPoint(x: x + tileSize / 2, y: y + tileSize / 2)
-                container.zPosition = 10
-                gridContainer.addChild(container)
-                renderTileInto(container, row: row, col: col, size: tileSize)
-                rowNodes.append(container)
+                let node: SKNode
+                if let tex = tileTexture(char: charAt(row: row, col: col), parity: row + col) {
+                    node = SKSpriteNode(texture: tex)
+                } else {
+                    let container = SKNode()
+                    renderTileInto(container, row: row, col: col, size: tileSize)
+                    node = container
+                }
+                node.position = CGPoint(x: x + tileSize / 2, y: y + tileSize / 2)
+                node.zPosition = 10
+                gridContainer.addChild(node)
+                rowNodes.append(node)
             }
             tileNodes.append(rowNodes)
         }
     }
 
-    func charAt(row: Int, col: Int) -> Character {
+    func charAt(row: Int, col: Int) -> UInt8 {
         guard row < mapRows.count else { return Strings.Tile.floorChar }
-        let chars = Array(mapRows[row])
+        let chars = Array(mapRows[row].utf8)
         guard col < chars.count else { return Strings.Tile.floorChar }
         return chars[col]
     }
 
-    func setChar(row: Int, col: Int, ch: Character) {
+    func setChar(row: Int, col: Int, ch: UInt8) {
         guard row < mapRows.count else { return }
-        var chars = Array(mapRows[row])
+        var chars = Array(mapRows[row].utf8)
         guard col < chars.count else { return }
         chars[col] = ch
-        mapRows[row] = String(chars)
+        mapRows[row] = String(decoding: chars, as: UTF8.self)
     }
 
     func updateTileVisual(row: Int, col: Int) {
         guard row < tileNodes.count, col < tileNodes[row].count else { return }
-        let container = tileNodes[row][col]
-        container.removeAllChildren()
-        renderTileInto(container, row: row, col: col, size: tileSize)
+        let old = tileNodes[row][col]
+        let node: SKNode
+        if let tex = tileTexture(char: charAt(row: row, col: col), parity: row + col) {
+            node = SKSpriteNode(texture: tex)
+        } else {
+            let container = SKNode()
+            renderTileInto(container, row: row, col: col, size: tileSize)
+            node = container
+        }
+        node.position = old.position
+        node.zPosition = old.zPosition
+        old.removeFromParent()
+        gridContainer.addChild(node)
+        tileNodes[row][col] = node
+    }
+
+    // Bakes a tile (floor + content) to a texture once, keyed by char + parity, so
+    // every cell of that kind shares one texture. nil if there's no view to bake with.
+    private func tileTexture(char: UInt8, parity: Int) -> SKTexture? {
+        let key = "\(char)-\(parity % 2)"
+        if let t = tileTexCache[key] { return t }
+        let tree = SKNode()
+        addFloor(to: tree, size: tileSize, parity: parity)
+        addContent(to: tree, char: char, size: tileSize)
+        guard let t = view?.texture(from: tree) else { return nil }
+        tileTexCache[key] = t
+        return t
     }
 
     // MARK: - Rendering (matches the in-game MazeBuilder visuals)
@@ -389,7 +489,7 @@ final class LevelEditorScene: SKScene {
         addContent(to: container, char: ch, size: size)
     }
 
-    private func renderTile(char: Character, size: CGFloat, isPaletteSwatch: Bool = false) -> SKNode {
+    private func renderTile(char: UInt8, size: CGFloat, isPaletteSwatch: Bool = false) -> SKNode {
         let container = SKNode()
         if !isPaletteSwatch { addFloor(to: container, size: size, parity: 0) }
         addContent(to: container, char: char, size: size)
@@ -405,7 +505,7 @@ final class LevelEditorScene: SKScene {
         container.addChild(floor)
     }
 
-    private func addContent(to container: SKNode, char: Character, size: CGFloat) {
+    private func addContent(to container: SKNode, char: UInt8, size: CGFloat) {
         switch char {
         case Strings.Tile.wallChar:        addWall(to: container, size: size)
         case Strings.Tile.dotChar:         addDot(to: container, size: size)
@@ -630,6 +730,7 @@ final class LevelEditorScene: SKScene {
         case Strings.EditorButton.save:   saveCurrentLevel()
         case Strings.EditorButton.copy:   copyLevel()
         case Strings.EditorButton.paste:  pasteLevel()
+        case Strings.EditorButton.reveal: LevelStore.revealFile()
         case Strings.EditorButton.play:   playCurrentLevel()
         case Strings.EditorButton.back:
             autosaveIfDirty()
@@ -719,23 +820,57 @@ final class LevelEditorScene: SKScene {
             currentLevelIndex = (currentLevelIndex + 1) % Levels.levelNames.count
             pendingFlashName = Strings.EditorButton.next
             loadCurrentLevel()
-        case KeyCode.delete: flashButton(named: Strings.EditorButton.clear); confirmClearLevel()
-        case KeyCode.digit1: selectedTile = .wall;     updatePaletteHighlight()
-        case KeyCode.digit2: selectedTile = .dot;      updatePaletteHighlight()
-        case KeyCode.digit3: selectedTile = .hideout;  updatePaletteHighlight()
-        case KeyCode.digit4: selectedTile = .printer;  updatePaletteHighlight()
-        case KeyCode.digit5: selectedTile = .fax;      updatePaletteHighlight()
-        case KeyCode.digit6: selectedTile = .copy;     updatePaletteHighlight()
-        case KeyCode.digit7: selectedTile = .collator; updatePaletteHighlight()
-        case KeyCode.digit8: selectedTile = .brownBox; updatePaletteHighlight()
-        case KeyCode.digit0: selectedTile = .empty;    updatePaletteHighlight()
-        case KeyCode.keyS: flashButton(named: Strings.EditorButton.save);  saveCurrentLevel()
-        case KeyCode.keyP: flashButton(named: Strings.EditorButton.play);  playCurrentLevel()
-        case KeyCode.keyC: flashButton(named: Strings.EditorButton.copy);  copyLevel()
-        case KeyCode.keyV: flashButton(named: Strings.EditorButton.paste); pasteLevel()
-        case KeyCode.keyZ: flashButton(named: Strings.EditorButton.undo);  undo()
-        case KeyCode.keyY: flashButton(named: Strings.EditorButton.redo);  redo()
-        case KeyCode.keyR: flashButton(named: Strings.EditorButton.reset); resetCurrentLevel()
+        case KeyCode.delete:
+            flashButton(named: Strings.EditorButton.clear)
+            confirmClearLevel()
+        case KeyCode.digit1:
+            selectedTile = .wall
+            updatePaletteHighlight()
+        case KeyCode.digit2:
+            selectedTile = .dot
+            updatePaletteHighlight()
+        case KeyCode.digit3:
+            selectedTile = .hideout
+            updatePaletteHighlight()
+        case KeyCode.digit4:
+            selectedTile = .printer
+            updatePaletteHighlight()
+        case KeyCode.digit5:
+            selectedTile = .fax
+            updatePaletteHighlight()
+        case KeyCode.digit6:
+            selectedTile = .copy
+            updatePaletteHighlight()
+        case KeyCode.digit7:
+            selectedTile = .collator
+            updatePaletteHighlight()
+        case KeyCode.digit8:
+            selectedTile = .brownBox
+            updatePaletteHighlight()
+        case KeyCode.digit0:
+            selectedTile = .empty
+            updatePaletteHighlight()
+        case KeyCode.keyS:
+            flashButton(named: Strings.EditorButton.save)
+            saveCurrentLevel()
+        case KeyCode.keyP:
+            flashButton(named: Strings.EditorButton.play)
+            playCurrentLevel()
+        case KeyCode.keyC:
+            flashButton(named: Strings.EditorButton.copy)
+            copyLevel()
+        case KeyCode.keyV:
+            flashButton(named: Strings.EditorButton.paste)
+            pasteLevel()
+        case KeyCode.keyZ:
+            flashButton(named: Strings.EditorButton.undo)
+            undo()
+        case KeyCode.keyY:
+            flashButton(named: Strings.EditorButton.redo)
+            redo()
+        case KeyCode.keyR:
+            flashButton(named: Strings.EditorButton.reset)
+            resetCurrentLevel()
         default: break
         }
     }
@@ -743,6 +878,17 @@ final class LevelEditorScene: SKScene {
     // MARK: - Play / save
     func playCurrentLevel() {
         autosaveIfDirty()
+        // Test in whatever maze mode is selected: BOSS 3D launches the first-person
+        // view of the edited level, the other eras run the 2D follow-camera at zoom.
+        if MazeZoom.is3D {
+            let bonus: Bonus3DScene = MazeZoom.isIso ? IsoScene(size: size)
+                                   : MazeZoom.isVoxel ? VoxelScene(size: size) : DoomScene(size: size)
+            bonus.scaleMode = SKSceneScaleMode.aspectFit
+            bonus.practiceMode = true
+            bonus.startingLevel = currentLevelIndex + 1
+            view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
+            return
+        }
         let game = GameScene(size: size)
         game.scaleMode = .aspectFit
         game.practiceMode = true
@@ -770,3 +916,5 @@ final class LevelEditorScene: SKScene {
         ]), withKey: "savetoast")
     }
 }
+
+

@@ -1,11 +1,11 @@
 // Local high-score leaderboard, shared verbatim by the apple and wasm builds.
-// Storage goes through Persistence (UserDefaults on apple, localStorage on web);
+// Storage goes through Persistence (UserDefaults on apple, localStorage on web),
 // the payload is hand-rolled JSON ([{"n":NAME,"s":SCORE}, ...]) because
 // Foundation's JSONEncoder/Codable isn't available on the WASI toolchain.
 //
-// Game-Center-style local rules: ONE entry per unique name; a submission only
+// Game-Center-style local rules: ONE entry per unique name, a submission only
 // overwrites that name's entry when it beats their own best (otherwise it is not
-// recorded, so the same name is never logged twice); sorted, top-10.
+// recorded, so the same name is never logged twice), sorted, top-10.
 struct LocalHighScores {
     struct Entry: Equatable {
         let name: String
@@ -14,7 +14,7 @@ struct LocalHighScores {
 
     static let maxEntries = 10
     private static let storeKey = Strings.DefaultsKey.localHighScores
-    private static let usernameKey = Strings.DefaultsKey.localLeaderboardUsername
+    private static let usernameKey = Strings.DefaultsKey.localLeaderboardName
 
     // MARK: - Username
     static var savedUsername: String? {
@@ -32,10 +32,9 @@ struct LocalHighScores {
     // upcase compare: String.uppercased() would drag ICU's tables into the wasm.
     private static func isAnonymous(_ name: String) -> Bool {
         if name.isEmpty { return true }
-        let up = String(String.UnicodeScalarView(name.unicodeScalars.map {
-            ($0.value >= 97 && $0.value <= 122) ? Unicode.Scalar($0.value - 32)! : $0
-        }))
-        return up == "ANON"
+        var b = Array(name.utf8)
+        for i in b.indices where b[i] >= 97 && b[i] <= 122 { b[i] &-= 32 }
+        return b == Array("ANON".utf8)
     }
 
     // MARK: - Write (per-name best)
@@ -80,12 +79,12 @@ struct LocalHighScores {
         Persistence.setString("", forKey: storeKey)
     }
 
-    // MARK: - Hand-rolled JSON (no Codable; runs on apple + WASI)
+    // MARK: - Hand-rolled JSON (no Codable, runs on apple + WASI)
     private static func encode(_ entries: [Entry]) -> String {
         var out = "["
         for (i, e) in entries.enumerated() {
             if i > 0 { out += "," }
-            out += "{\"n\":\"\(escape(e.name))\",\"s\":\(e.score)}"
+            out += "{\"n\":\"\(jsonEscape(e.name))\",\"s\":\(e.score)}"
         }
         return out + "]"
     }
@@ -109,13 +108,17 @@ struct LocalHighScores {
                     }
                     k += 2
                 } else {
-                    name.append(a[k]); k += 1
+                    name.append(a[k])
+                    k += 1
                 }
             }
             guard let ss = indexAfter(a, n, from: k, of: "\"s\":") else { break }
             var j = ss
             var num = ""
-            while j < n, a[j].isNumber || a[j] == "-" { num.append(a[j]); j += 1 }
+            while j < n, a[j].isNumber || a[j] == "-" {
+                num.append(a[j])
+                j += 1
+            }
             guard let s = Int(num) else { break }
             out.append(Entry(name: name, score: s))
             i = j
@@ -130,25 +133,16 @@ struct LocalHighScores {
         var i = from
         while i + tn <= n {
             var match = true
-            for x in 0..<tn where a[i + x] != t[x] { match = false; break }
+            for x in 0..<tn where a[i + x] != t[x] {
+                match = false
+                break
+            }
             if match { return i + tn }
             i += 1
         }
         return nil
     }
 
-    private static func escape(_ s: String) -> String {
-        var out = ""
-        for ch in s {
-            switch ch {
-            case "\"": out += "\\\""
-            case "\\": out += "\\\\"
-            case "\n": out += "\\n"
-            case "\r": out += "\\r"
-            case "\t": out += "\\t"
-            default:   out.append(ch)
-            }
-        }
-        return out
-    }
 }
+
+

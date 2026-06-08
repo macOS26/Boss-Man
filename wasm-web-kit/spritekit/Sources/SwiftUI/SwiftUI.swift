@@ -28,7 +28,10 @@ public extension View {
     public static func buildArray<V: View>(_ vs: [V]) -> [V] { vs }
 }
 public struct EmptyView: View { public init() {} }
-public struct TupleView<T>: View { public let value: T; public init(_ v: T) { self.value = v } }
+public struct TupleView<T>: View {
+    public let value: T
+    public init(_ v: T) { self.value = v }
+}
 
 // Common containers.
 public struct VStack<Content: View>: View {
@@ -112,7 +115,10 @@ final class StateBox<Value> {
 public struct Binding<Value> {
     private let get: () -> Value
     private let set: (Value) -> Void
-    public init(get: @escaping () -> Value, set: @escaping (Value) -> Void) { self.get = get; self.set = set }
+    public init(get: @escaping () -> Value, set: @escaping (Value) -> Void) {
+        self.get = get
+        self.set = set
+    }
     public var wrappedValue: Value {
         get { get() }
         nonmutating set { set(newValue) }
@@ -154,7 +160,10 @@ public extension View {
     func offset(x: CGFloat = 0, y: CGFloat = 0) -> Self { self }
     func rotationEffect(_ angle: Any) -> Self { self }
     func scaleEffect(_ s: CGFloat) -> Self { self }
-    func onAppear(perform action: (() -> Void)? = nil) -> Self { action?(); return self }
+    func onAppear(perform action: (() -> Void)? = nil) -> Self {
+        action?()
+        return self
+    }
     func onDisappear(perform action: (() -> Void)? = nil) -> Self { self }
     func onTapGesture(_ count: Int = 1, perform action: @escaping () -> Void) -> Self { self }
     func id<H: Hashable>(_ id: H) -> Self { self }
@@ -167,3 +176,4 @@ public struct SpriteView: View {
     public let scene: SKScene
     public init(scene: SKScene) { self.scene = scene }
 }
+

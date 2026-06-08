@@ -94,11 +94,18 @@ public final class SKEmitterNode: SKNode {
     // back an emitter with defaults — call sites compile.
     public init?(fileNamed name: String) { super.init() }
 
-    public func resetSimulation() { particles.removeAll(); emitAccum = 0; emittedSoFar = 0 }
+    public func resetSimulation() {
+        particles.removeAll()
+        emitAccum = 0
+        emittedSoFar = 0
+    }
     public func advanceSimulationTime(_ t: TimeInterval) {
         let dt: TimeInterval = 1.0 / 60.0
         var remaining = t
-        while remaining > 0 { tickSelf(min(dt, remaining)); remaining -= dt }
+        while remaining > 0 {
+            tickSelf(min(dt, remaining))
+            remaining -= dt
+        }
     }
 
     public override func tickSelf(_ dt: TimeInterval) {
@@ -108,7 +115,11 @@ public final class SKEmitterNode: SKNode {
         while i >= 0 {
             particles[i].age += d
             let p = particles[i]
-            if p.age >= p.life { particles.remove(at: i); i -= 1; continue }
+            if p.age >= p.life {
+                particles.remove(at: i)
+                i -= 1
+                continue
+            }
 
             // Velocity integration (with global acceleration).
             particles[i].vx += xAcceleration * d
@@ -137,7 +148,10 @@ public final class SKEmitterNode: SKNode {
             particles[i].a = clamp01(p.a + particleColorAlphaSpeed * d)
             particles[i].blendFactor = clamp01(p.blendFactor + particleColorBlendFactorSpeed * d)
             if let c = particleColorSequence?.sample(atTime: Double(agePct)) as? SKColor {
-                particles[i].r = c.r; particles[i].g = c.g; particles[i].b = c.b; particles[i].a = c.a
+                particles[i].r = c.r
+                particles[i].g = c.g
+                particles[i].b = c.b
+                particles[i].a = c.a
             }
             if let bf = particleColorBlendFactorSequence?.sample(atTime: Double(agePct)) as? CGFloat {
                 particles[i].blendFactor = bf
@@ -169,7 +183,8 @@ public final class SKEmitterNode: SKNode {
         let speed = particleSpeed + (particleSpeedRange > 0 ? Double.random(in: -particleSpeedRange/2 ... particleSpeedRange/2) : 0)
         let life = particleLifetime + (particleLifetimeRange > 0 ? Double.random(in: -particleLifetimeRange/2 ... particleLifetimeRange/2) : 0)
         let step = Double.pi / 8                       // 22.5° per table entry
-        var idx = Int(ang / step) % 16; if idx < 0 { idx += 16 }
+        var idx = Int(ang / step) % 16
+        if idx < 0 { idx += 16 }
         let (cx, cy) = SKEmitterNode.UNIT[idx]
 
         // Position jitter inside particlePositionRange (treated as ±halfRange).
@@ -241,3 +256,5 @@ public final class SKEmitterNode: SKNode {
         }
     }
 }
+
+

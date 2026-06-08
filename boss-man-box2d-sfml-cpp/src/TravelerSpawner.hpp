@@ -5,6 +5,9 @@
 #include "SoundManager.hpp"
 #include <vector>
 #include <cstdlib>
+#include <functional>
+#include <random>
+#include <chrono>
 
 namespace bm {
 
@@ -44,6 +47,8 @@ public:
     GridPos spawnGrid = {36, 8};
     GridPos exitGrid = {0, 8};
 
+    std::function<bool()> keepSpawning;
+
     void scheduleVisits(int level, const Pathfinder& pf) {
         pathfinder = &pf;
         visitTimer = FIRST_VISIT_DELAY;
@@ -52,13 +57,19 @@ public:
     }
 
     void update(float dt, const GridMap& map) {
-        if (!scheduled) return;
+        if (!scheduled || paused_) return;
 
         visitTimer -= dt;
         if (visitTimer <= 0) {
             bool anyActive = false;
             for (auto& tr : travelers) if (tr.active || tr.catching) { anyActive = true; break; }
-            if (!anyActive) spawnNext(map);
+            if (!anyActive) {
+                if (keepSpawning && !keepSpawning()) {
+                    visitTimer = 1.0f;
+                } else {
+                    spawnNext(map);
+                }
+            }
         }
 
         for (auto& tr : travelers) {
@@ -110,16 +121,37 @@ public:
         tr.catchAlpha = 1.0f;
     }
 
+    void pause()  { paused_ = true; }
+    void resume() {
+        paused_ = false;
+        bool anyActive = false;
+        for (auto& tr : travelers) if (tr.active || tr.catching) { anyActive = true; break; }
+        if (!anyActive) visitTimer = FIRST_VISIT_DELAY;
+    }
+
     void reset() {
         travelers.clear();
         scheduled = false;
+        paused_ = false;
     }
 
 private:
+    bool paused_ = false;
+    std::mt19937 rng_{std::random_device{}()};
+    inline static uint64_t spawnTick_ = 0;
+
+    static uint64_t nextSeed() {
+        auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+        return static_cast<uint64_t>(now) ^ (++spawnTick_ * 6364136223846793005ULL);
+    }
+
+    void reseedRng() {
+        rng_.seed(static_cast<uint32_t>(nextSeed()));
+    }
+
     void spawnNext(const GridMap& map) {
+        reseedRng();
         auto& t = TRAVELERS[travelerIndex % TRAVELER_COUNT];
-        // The doorway can sit on any row, so resolve it from the current maze
-        // each spawn (a level may have moved the tunnel); defaults stand if none.
         map.horizontalDoorway(spawnGrid, exitGrid);
         Traveler tr;
         tr.grid = spawnGrid;
@@ -163,10 +195,9 @@ private:
 
         if (candidates.empty()) return;
 
-        // Biased random walk: 60% toward exit, 40% random
         GridPos next;
-        if (std::rand() % 10 < 6) {
-            // Move toward exit (smallest Manhattan distance)
+        std::uniform_int_distribution<int> d10(0, 9);
+        if (d10(rng_) < 6) {
             GridPos best = candidates[0];
             float bestDist = Pathfinder::manhattanDist(best, exitGrid);
             for (auto& c : candidates) {
@@ -175,7 +206,8 @@ private:
             }
             next = best;
         } else {
-            next = candidates[std::rand() % candidates.size()];
+            std::uniform_int_distribution<int> pick(0, static_cast<int>(candidates.size()) - 1);
+            next = candidates[pick(rng_)];
         }
 
         // Flip the emoji to face the travel direction (only on horizontal moves).

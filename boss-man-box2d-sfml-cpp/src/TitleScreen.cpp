@@ -1,7 +1,9 @@
 #include "TitleScreen.hpp"
 #include "UiScale.hpp"
 #include "Assets.hpp"
+#include "EmojiText.hpp"
 #include "Settings.hpp"
+#include "PixelPersonRenderer.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -13,7 +15,8 @@ namespace {
 // Rasterized at size*uiScale and counter-scaled so it stays crisp on Retina.
 sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string& s, unsigned size,
               sf::Color color, float x, float y, int halign = 1,
-              float rotationDeg = 0.f, uint8_t alpha = 255, const char* baselineRef = nullptr) {
+              float rotationDeg = 0.f, uint8_t alpha = 255, const char* baselineRef = nullptr,
+              bool vCenter = false) {
     float dpi = uiScale();
     sf::Text txt;
     txt.setFont(f);
@@ -22,21 +25,21 @@ sf::FloatRect drawText(sf::RenderTarget& t, const sf::Font& f, const std::string
     color.a = alpha;
     txt.setFillColor(color);
     auto lb = txt.getLocalBounds();
-    float ox = (halign == 0) ? lb.left : (halign == 2 ? lb.left + lb.width : lb.left + lb.width / 2.f);
+    float ox = (halign == 0) ? 0.f : (halign == 2 ? lb.left + lb.width : lb.left + lb.width / 2.f);
     // SpriteKit SKLabelNode uses baseline vertical alignment by default: the node's
     // y is the text baseline and glyphs sit above it. Anchor on the bounding-box
     // bottom, which equals the baseline for all-caps labels. Pass baselineRef to
     // anchor on a MASTER string's baseline instead, so sibling labels (the
     // "(P)lay"/"(E)ditor" buttons) share "(E)ditor"'s baseline rather than each
     // drifting by its own descender.
-    float oy = lb.top + lb.height;
+    float oy = vCenter ? (lb.top + lb.height / 2.f) : (lb.top + lb.height);
     if (baselineRef) {
         sf::Text ref;
         ref.setFont(f);
         ref.setString(std::string(baselineRef));
         ref.setCharacterSize((unsigned)(size * dpi));
         auto rb = ref.getLocalBounds();
-        oy = rb.top + rb.height;
+        oy = vCenter ? (rb.top + rb.height / 2.f) : (rb.top + rb.height);
     }
     txt.setOrigin(ox, oy);
     txt.setScale(1.f / dpi, 1.f / dpi);
@@ -56,6 +59,42 @@ float sdRoundRect(float px, float py, float halfW, float halfH, float r) {
                               std::max(qy, 0.f) * std::max(qy, 0.f));
     float inside = std::min(std::max(qx, qy), 0.f);
     return outside + inside - r;
+}
+
+// Rounded rect matching SKShapeNode(rect:cornerRadius:): a filled convex body with
+// a stroked border drawn over it. Anti-aliased by the window's 8x MSAA context.
+void drawRoundedRect(sf::RenderTarget& t, const sf::FloatRect& r, float radius,
+                     sf::Color fill, sf::Color stroke, float lineWidth) {
+    const int seg = 8; // arc subdivisions per corner
+    float x0 = r.left, y0 = r.top, x1 = r.left + r.width, y1 = r.top + r.height;
+    float rad = std::min(radius, std::min(r.width, r.height) * 0.5f);
+    struct C { float cx, cy, a0; };
+    const C corners[4] = {
+        {x1 - rad, y1 - rad, 0.f},                          // bottom-right
+        {x0 + rad, y1 - rad, (float)M_PI / 2.f},            // bottom-left
+        {x0 + rad, y0 + rad, (float)M_PI},                  // top-left
+        {x1 - rad, y0 + rad, (float)M_PI * 1.5f},           // top-right
+    };
+    sf::ConvexShape body;
+    body.setPointCount((seg + 1) * 4);
+    int p = 0;
+    for (const C& c : corners) {
+        for (int i = 0; i <= seg; ++i) {
+            float a = c.a0 + (float)M_PI / 2.f * (float)i / (float)seg;
+            body.setPoint(p++, sf::Vector2f(c.cx + std::cos(a) * rad, c.cy + std::sin(a) * rad));
+        }
+    }
+    body.setFillColor(fill);
+    // One shape carrying both fill and outline: the web shim emulates an outline by
+    // filling the outward-expanded polygon BEHIND the fill, so the solid fill covers
+    // the interior and the stroke shows only as the ring outside it. A separate
+    // transparent-fill border shape would instead paint the stroke colour over the
+    // whole interior (no hollow-ring primitive on web), washing the fill out.
+    if (lineWidth > 0.f && stroke.a > 0) {
+        body.setOutlineColor(stroke);
+        body.setOutlineThickness(lineWidth);
+    }
+    t.draw(body);
 }
 } // namespace
 
@@ -106,7 +145,7 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
     // --- Leaderboard sticky-note panel (drawn first; title sits on top if overlapping) ---
     const float panelW = 320.f, panelH = 400.f;
     const float panelCX = panelW / 2.f + 32.f;
-    const float panelCY = H * 0.5f - 20.f;
+    const float panelCY = H * 0.5f - 28.f;   // leaderboard raised 8px
     const float panelLeft = panelCX - panelW / 2.f;
     const float panelTop = panelCY - panelH / 2.f;
 
@@ -179,19 +218,42 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
         target.draw(sp, sf::RenderStates(sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha)));
     }
 
-    // --- (P)lay / (E)ditor buttons (replace the old text prompt) ---
+    // --- PLAY / EDITOR title buttons (makeTitleButton) ---
+    // SpriteKit (y-up): rounded fill dimmed 30% toward black + white 0.55 border,
+    // 42pt emoji icon left, white Marker Felt Wide label left of it. promptY is
+    // size.height*0.15+20 from the bottom; SFML is y-down so flip about H.
     {
-        auto button = [&](float cx, sf::Color col, const char* label) -> sf::FloatRect {
-            sf::FloatRect r(cx - 90.f, H * 0.85f - 46.f, 180.f, 52.f);
-            sf::RectangleShape box(sf::Vector2f(r.width, r.height));
-            box.setPosition(r.left, r.top);
-            box.setFillColor(col);
-            target.draw(box);
-            drawText(target, fontThin_, label, 34, sf::Color::White, cx, H * 0.85f - 6.f, 1, 0.f, 255, "(E)ditor");
+        const sf::Color border(255, 255, 255, 140); // SKColor(white:1, alpha:0.55)
+        const float bw = 240.f, bh = 52.f, gap = 28.f;
+        const float yc = H - (H * 0.15f + 20.f);
+        // makeTitleButton: textDY is a y-up offset → subtract in SFML.
+        auto button = [&](float cx, sf::Color fill, const char* emoji,
+                          const char* label, float textDY) -> sf::FloatRect {
+            sf::FloatRect r(cx - bw / 2.f, yc - bh / 2.f, bw, bh);
+            drawRoundedRect(target, r, 12.f, fill, border, 2.f);
+            float ly = yc - textDY;
+            if (emoji) {
+                drawEmoji(target, emoji, sf::Vector2f(cx - bw / 2.f + 40.f, ly), 42.f);
+            } else {
+                // Yellow vector play-triangle (matches the SpriteKit playTriangle): apex points right.
+                float ix = cx - bw / 2.f + 40.f, iy = ly;
+                const float tw = 22.f, th = 26.f;
+                sf::ConvexShape tri;
+                tri.setPointCount(3);
+                tri.setPoint(0, sf::Vector2f(ix - tw / 2.f, iy - th / 2.f));
+                tri.setPoint(1, sf::Vector2f(ix - tw / 2.f, iy + th / 2.f));
+                tri.setPoint(2, sf::Vector2f(ix + tw / 2.f, iy));
+                tri.setFillColor(sf::Color(255, 204, 0));   // systemYellow
+                target.draw(tri);
+            }
+            drawText(target, fontWide_, label, 34, sf::Color::White,
+                     cx - bw / 2.f + 84.f, ly, 0, 0.f, 255, "EDITOR", true);
             return r;
         };
-        playRect_   = button(W / 2.f - 104.f, sf::Color(0, 140, 46),  "(P)lay");
-        editorRect_ = button(W / 2.f + 104.f, sf::Color(26, 89, 217), "(E)ditor");
+        playRect_   = button(W / 2.f - bw / 2.f - gap / 2.f, sf::Color(33, 157, 64),
+                             nullptr, "PLAY", -1.f);   // yellow play-triangle, systemGreen
+        editorRect_ = button(W / 2.f + bw / 2.f + gap / 2.f, sf::Color(0, 108, 192),
+                             "\xe2\x9c\x8f\xef\xb8\x8f", "EDITOR", 0.f);      // ✏️ systemBlue
     }
 
     // --- High score ---
@@ -200,33 +262,67 @@ void TitleScreen::draw(sf::RenderTarget& target, float W, float H,
                  W / 2.f, H * 0.94f - 10.f, 1);
     }
 
-    // --- Controls + fullscreen hints, bottom of screen, HUD mono font ---
+    // --- Controls hint, bottom-center, HUD mono font ---
     drawText(target, fontMono_, "Cursor key to Move \xC2\xB7 Space to Fire Water Pistol", 16, ink,
              W / 2.f, H - 18.f, 1);
-    // Window controls hug the bottom-right corner; the gameplay toggles hug the
-    // bottom-left. 80px apart, large + tappable on mobile.
-    fullscreenRect_ = drawText(target, fontMono_, "F for Fullscreen", 25, ink, W - 20.f, H - 18.f, 2);
-    windowRect_     = drawText(target, fontMono_, "ESC for Window", 25, ink, W - 20.f, H - 98.f, 2);
-    // Third right-column hint, stacked above the window controls (matches the
-    // SpriteKit TitleScene maze hint at y:178). Read fresh at level-build time.
-    mazeZoomRect_   = drawText(target, fontMono_,
-        std::string("Maze: ") + std::to_string(Settings::mazeZoom()) + "%",
-        25, ink, W - 20.f, H - 178.f, 2);
-    // baselineRef pins these to a fixed (descender-free) baseline so toggling the
-    // value doesn't jump the line vertically (Square's q / Right's g would shift a
-    // glyph-box-bottom anchor). Descenders simply hang below the shared baseline.
-    bossTracksRect_ = drawText(target, fontMono_,
-        std::string("Boss Tracks: ") + (Settings::bossTracksSquare() ? "Square" : "Smooth"),
-        25, ink, 20.f, H - 18.f, 0, 0.f, 255, "Boss Tracks: Smooth");
-    waterGunRect_   = drawText(target, fontMono_,
-        std::string("Water Gun: ") + (Settings::waterGunHide() ? "Hide" : (Settings::waterGunLeft() ? "Left" : "Right")),
-        25, ink, 20.f, H - 98.f, 0, 0.f, 255, "Water Gun: Hide");
+
+    // --- Five side toggle buttons (makeHint) ---
+    // Rounded fill dimmed 30% toward black + white 0.55 border, a fixed-position
+    // 42pt emoji icon, and the left-aligned ALL-CAPS value in Marker Felt Wide
+    // (white). Fixed icon/value offsets mean a value change never re-centres the
+    // row (no jump). Right column hugs the right edge; left column hugs the left.
+    // SpriteKit y (40/114/188) is from the bottom; SFML is y-down so flip about H.
+    {
+        const sf::Color border(255, 255, 255, 140); // SKColor(white:1, alpha:0.55)
+        const float btnW = 292.f, btnH = 50.f, margin = 16.f;
+        const float cxRight = W - margin - btnW / 2.f;
+        const float cxLeft = margin + btnW / 2.f;
+        const float playYSK = H * 0.15f + 20.f;   // PLAY/EDITOR row; the middle side buttons align here
+        auto hint = [&](float cx, float ySK, sf::Color fill, const char* emoji,
+                        const std::string& value, int bossIcon = -1) -> sf::FloatRect {
+            float yc = H - ySK;
+            sf::FloatRect r(cx - btnW / 2.f, yc - btnH / 2.f, btnW, btnH);
+            drawRoundedRect(target, r, 12.f, fill, border, 2.f);
+            if (bossIcon >= 0) {
+                const BossBlueprint& bp = BOSS_BLUEPRINTS[bossIcon % 12];   // boss figure as the icon
+                PersonConfig cfg;
+                cfg.bodyColor = bp.bodyColor;
+                cfg.tieColor = bp.tieColor;
+                cfg.hairColor = BOSS_HAIR;
+                cfg.shoeOutlineColor = BOSS_SHOE_GOLD;
+                cfg.pantsColor = bp.pantsColor;
+                cfg.headYOffset = 1.0f;
+                PixelPersonRenderer boss(cfg);
+                auto m = boss.metrics();
+                float sc = 42.f / m.height;
+                float ox = cx - btnW / 2.f + 38.f;
+                float oy = yc - (m.feetOffset - m.headOffset) / 2.f * sc;
+                boss.draw(target, sf::Vector2f(ox, oy), false, false, MoveDirection::None, 0.f, 1.f, sc);
+            } else {
+                drawEmoji(target, emoji, sf::Vector2f(cx - btnW / 2.f + 38.f, yc), 42.f);   // content-cropped PNG is targetSize tall -> matches the SK iconSize 42
+            }
+            drawText(target, fontWide_, value, 32, sf::Color::White,
+                     cx - btnW / 2.f + 80.f, yc, 0, 0.f, 255, "WINDOW", true);
+            return r;
+        };
+        fullscreenRect_ = hint(cxRight, playYSK - 74.f, sf::Color(192, 47, 50),
+            "\xf0\x9f\x93\xba", "FULLSCREEN");                           // 📺 systemRed
+        windowRect_     = hint(cxRight, playYSK, sf::Color(0, 157, 168),
+            "\xf0\x9f\xaa\x9f", "WINDOW");                               // 🪟 systemTeal (even with EDITOR)
+        mazeZoomRect_   = hint(cxRight, playYSK + 74.f, sf::Color(164, 41, 182),
+            "\xf0\x9f\x93\xb7", MazeZoom::label());                     // 📷 camera, systemPurple
+        bossTracksRect_ = hint(cxLeft, playYSK - 74.f, sf::Color(80, 92, 192),
+            "", Settings::bossTracksSquare() ? "HUNTER" : "SPEEDSTER", 0); // red boss (Bill) icon, systemIndigo
+        waterGunRect_   = hint(cxLeft, playYSK, sf::Color(192, 108, 33),  // control mode, even with PLAY
+            "\xf0\x9f\x95\xb9\xef\xb8\x8f",                              // 🕹️ systemOrange
+            ControlMode::label());
+    }
 }
 
 TitleScreen::Hit TitleScreen::hitTest(float x, float y) const {
-    auto in = [&](const sf::FloatRect& r) {
-        return sf::FloatRect(r.left - 12.f, r.top - 10.f, r.width + 24.f, r.height + 20.f).contains(x, y);
-    };
+    // Whole button is tappable: each rect is the button's full container frame
+    // (matches SpriteKit calculateAccumulatedFrame), so hit-test the rect directly.
+    auto in = [&](const sf::FloatRect& r) { return r.contains(x, y); };
     if (in(playRect_))        return Hit::Play;
     if (in(editorRect_))      return Hit::Editor;
     if (in(bossTracksRect_))  return Hit::BossTracks;

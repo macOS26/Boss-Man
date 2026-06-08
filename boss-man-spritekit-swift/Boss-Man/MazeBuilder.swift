@@ -2,8 +2,8 @@ import SpriteKit
 
 // MazeBuilder — common to both ports. Scans the level grid and builds the maze:
 // floor + wall VISUALS are gathered into a throwaway tree and baked to one
-// sprite via SKView.texture(from:); pickups (gold disc, water gun, water
-// pellet), TPS machines, and the brown box are placed as nodes; dots are kept by
+// sprite via SKView.texture(from:), pickups (gold disc, water gun, water
+// pellet), TPS machines, and the brown box are placed as nodes, dots are kept by
 // grid. Pickups/machines/dots are collected by grid (collectX(at:)), not by
 // physics contact. The ONLY platform branch is wall PHYSICS: per-wall Box2D
 // bodies on wasm, one compound body on apple. build(in:view:) returns the dot
@@ -28,7 +28,7 @@ final class MazeBuilder {
     private var waterGunNodes: [Int: SKNode] = [:]
     // Machine name (Strings.Machine.*) + scene node, indexed by tile.
     // bossman-apple stores these in a [String: SKNode] via the node's
-    // SKNode.name; we go by grid so handlePeteArrival can look up by tile.
+    // SKNode.name, we go by grid so handlePeteArrival can look up by tile.
     private(set) var machineNodes: [Int: (name: String, node: SKNode)] = [:]
     private(set) var brownBoxNodes: [Int: SKNode] = [:]
 
@@ -36,7 +36,7 @@ final class MazeBuilder {
     // pellet — mirrors bossman-apple's single pelletTexture. Cached across
     // levels so we only pay the offscreen bake one time.
     private var dotTexture: SKTexture?
-    // The baked floor+wall sheet is re-rendered every level; hold its texture so
+    // The baked floor+wall sheet is re-rendered every level, hold its texture so
     // we can free the previous level's canvas instead of leaking one per level.
     private var mazeSheetTexture: SKTexture?
 
@@ -45,8 +45,10 @@ final class MazeBuilder {
     // Free baked textures on scene teardown (call from GameScene.willMove). The
     // per-level maze sheet is also freed at the top of build().
     func releaseTextures() {
-        mazeSheetTexture?.releaseImage(); mazeSheetTexture = nil
-        dotTexture?.releaseImage();       dotTexture = nil
+        mazeSheetTexture?.releaseImage()
+        mazeSheetTexture = nil
+        dotTexture?.releaseImage()
+        dotTexture = nil
     }
 
     @discardableResult
@@ -72,7 +74,7 @@ final class MazeBuilder {
         mazeSheetTexture = nil
 
         // Backdrop — solid dark fill behind the maze. The per-tile floor
-        // checker sits at z=-9; walls and pickups go on top.
+        // checker sits at z=-9, walls and pickups go on top.
         let bg = SKShapeNode(rect: CGRect(x: 0, y: 0,
                                           width: CGFloat(map.columnCount) * map.tileSize,
                                           height: CGFloat(map.rowCount) * map.tileSize))
@@ -99,12 +101,12 @@ final class MazeBuilder {
         var wallCenters: [CGPoint] = []
 
         for (rowIndex, row) in map.rows.reversed().enumerated() {
-            for (columnIndex, char) in row.enumerated() {
+            for (columnIndex, char) in row.utf8.enumerated() {
                 let grid = CGPoint(x: columnIndex, y: rowIndex)
                 let position = map.point(for: grid)
 
                 // Floor checker tile under every cell. The macOS edition
-                // bakes this into a single texture; we draw one SKShapeNode
+                // bakes this into a single texture, we draw one SKShapeNode
                 // per tile because we don't have offscreen CG rendering.
                 let alt = (rowIndex + columnIndex).isMultiple(of: 2)
                 let floor = SpriteFactory.floorTile(size: map.tileSize, alternate: alt)
@@ -119,7 +121,8 @@ final class MazeBuilder {
 
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     if let dot = addDot(at: position, in: scene) {
-                        dotNodes[tileKey(grid)] = dot; dotCount += 1
+                        dotNodes[tileKey(grid)] = dot
+                        dotCount += 1
                     }
 
                 case Strings.Tile.goldDiscChar:
@@ -184,7 +187,8 @@ final class MazeBuilder {
                     workerSpawn = grid
                     // Worker tile is walkable + has a dot underneath.
                     if let dot = addDot(at: position, in: scene) {
-                        dotNodes[tileKey(grid)] = dot; dotCount += 1
+                        dotNodes[tileKey(grid)] = dot
+                        dotCount += 1
                     }
 
                 case Strings.Tile.boss1Char: bossSpawns.append((0, grid))
@@ -206,11 +210,11 @@ final class MazeBuilder {
         // scene-res bake into a soft, rounded blur. Capped at 5x to bound the
         // texture memory. WASM (view==scene) bakes at ~zoom and stays crisp.
         let frame = staticTree.calculateAccumulatedFrame()
-        // Apple bakes the maze to one bitmap; RenderScale.mazeBake sizes it to the
+        // Apple bakes the maze to one bitmap, RenderScale.mazeBake sizes it to the
         // display so the camera magnifies a sharp sheet (WASM bakes 1:1, redrawn
         // live). The sheet is then drawn back down by the same factor.
         let bakeScale = RenderScale.mazeBake(sceneWidth: frame.width,
-                                             zoom: max(1, CGFloat(MazeZoom.current) / 100))
+                                             zoom: max(1, CGFloat(MazeZoom.zoomPercent) / 100))
         staticTree.setScale(bakeScale)
         let baked = view?.texture(from: staticTree)
         staticTree.setScale(1)
@@ -224,7 +228,10 @@ final class MazeBuilder {
             mazeSheetTexture = baked
         } else {
             // No view to bake with: fall back to the live (slower) node tree.
-            for child in staticTree.children { child.removeFromParent(); scene.addChild(child) }
+            for child in staticTree.children {
+                child.removeFromParent()
+                scene.addChild(child)
+            }
         }
 
         return dotCount
@@ -324,7 +331,7 @@ final class MazeBuilder {
 
     // Tile char -> machine emoji, used by the level editor's palette glyphs.
     static func emoji(forSymbol symbol: String) -> String {
-        guard let char = symbol.first else { return symbol }
+        guard let char = symbol.utf8.first else { return symbol }
         switch char {
         case Strings.Tile.printerChar:    return Strings.Emoji.printer
         case Strings.Tile.faxChar:        return Strings.Emoji.fax
@@ -337,7 +344,7 @@ final class MazeBuilder {
     }
 
     // Tracks which machine tiles are currently grayed (in cooldown).
-    // bossman-apple drops the contactTestBitMask while grayed; we just
+    // bossman-apple drops the contactTestBitMask while grayed, we just
     // skip the collectable flag here.
     private var grayedMachines: Set<Int> = []
 
@@ -388,6 +395,26 @@ final class MazeBuilder {
         return n.position
     }
 
+    // Dim the brown box on a TPS-report turn-in, same fade + cooldown as a collected
+    // machine: alpha 0.55 for `cooldown` seconds, then back to 1.
+    private var grayedBrownBoxes: Set<Int> = []
+    @discardableResult
+    func collectBrownBox(at grid: CGPoint, cooldown: TimeInterval = 15) -> CGPoint? {
+        let k = tileKey(grid)
+        guard let n = brownBoxNodes[k], !grayedBrownBoxes.contains(k) else { return nil }
+        grayedBrownBoxes.insert(k)
+        n.alpha = 0.55
+        n.removeAction(forKey: Strings.ActionKey.machineCooldown)
+        n.run(.sequence([
+            .wait(forDuration: cooldown),
+            .run { [weak self, weak nn = n] in
+                nn?.alpha = 1
+                self?.grayedBrownBoxes.remove(k)
+            }
+        ]), withKey: Strings.ActionKey.machineCooldown)
+        return n.position
+    }
+
     private func addDot(at position: CGPoint, in scene: SKNode) -> SKNode? {
         let dot: SKNode
         if let tex = dotTexture {
@@ -403,7 +430,9 @@ final class MazeBuilder {
 }
 
 #if os(macOS)
-// The kit frees the baked offscreen canvas on wasm; macOS GCs SKTextures, so
+// The kit frees the baked offscreen canvas on wasm, macOS GCs SKTextures, so
 // the call is a no-op there. Keeps the common builder free of #if at the call site.
 extension SKTexture { func releaseImage() {} }
 #endif
+
+

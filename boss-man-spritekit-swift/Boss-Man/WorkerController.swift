@@ -14,6 +14,7 @@ final class WorkerController {
     private(set) var grid: CGPoint
     private(set) var direction: MoveDirection?
     private(set) var queuedDirection: MoveDirection?
+    var worldPosition: CGPoint { mover.worldPosition }   // smooth tile-to-tile position (read by render-only scenes like ISOMETRIC)
 
     private let gridMap: GridMap
     private let sound: SoundManager
@@ -102,7 +103,7 @@ final class WorkerController {
     // Pete's shield is driven by GameScene from the boss-flashing state (a boss is
     // immobilized while it spawns in), not a standalone timer: invincibility ends
     // the instant the bosses stop flashing. Mirrors the loop-driven boss
-    // spawnGrace; avoids the wasm SKAction .run-after-wait that never fired and
+    // spawnGrace, avoids the wasm SKAction .run-after-wait that never fired and
     // left Pete permanently shielded.
     func setShielded(_ shielded: Bool) { isShielded = shielded }
 
@@ -111,15 +112,7 @@ final class WorkerController {
         node.setBodyColor(.systemBlue)
         node.setTieColor(.systemOrange)
         node.alpha = 1
-
-        let blinkCycle = SKAction.sequence([
-            .fadeAlpha(to: 0.35, duration: 0.6),
-            .fadeAlpha(to: 1.0, duration: 0.6)
-        ])
-        node.run(.sequence([
-            .repeat(blinkCycle, count: 1),
-            .run { [weak self] in self?.node.alpha = 1 }
-        ]), withKey: Strings.ActionKey.spawnShieldBlink)
+        node.run(SpriteFactory.shieldBlinkAction(count: 1), withKey: Strings.ActionKey.spawnShieldBlink)
     }
 
     private static func lerpColor(from a: NSColor, to b: NSColor, progress t: CGFloat) -> NSColor {

@@ -20,10 +20,14 @@
 #include "LocalLeaderboard.hpp"
 #include "LevelStore.hpp"
 #include "LevelEditor.hpp"
+#include "DoomScene.hpp"
+#include "VoxelScene.hpp"
+#include "IsoScene.hpp"
+#include "Scene3D.hpp"
 
 namespace bm {
 
-enum class GameState { Title, Playing, Paused, GameOver, Editor };
+enum class GameState { Title, Playing, Paused, GameOver, Editor, Doom3D };
 
 class Game : public BossControllerDelegate {
 public:
@@ -62,6 +66,7 @@ private:
     void updateMazeCamera(); // ease the camera toward Pete once per frame
     sf::View worldView() const; // the snapped, Pete-centred world view at the current zoom
     void buildLevel();
+    void startDoom3D(int level = 1, bool practice = false); // build + enter the first-person 3D bonus (era 1993)
     void resetSceneAndBuild();
     void startNextLevel();
     void restartGame();
@@ -80,6 +85,15 @@ private:
     void startGoldDiscMode();
     void endGoldDiscMode();
     void fireWaterGun();
+    // True when a tap at logical point p should fire the water gun: any tap when the
+    // fire button is hidden (a no-swipe tap fires), or a tap inside the visible
+    // ring. Mirrors the SpriteKit touchesBegan/touchesEnded fire path.
+    bool fireButtonHitTest(float x, float y) const;
+    // On-screen movement joystick for the 2D modes (opposite the fire button).
+    sf::Vector2f joystickCenter2D() const;
+    void steerJoystick2D(float x, float y);   // thumb tracking + queue a MoveDirection
+    sf::Vector2f joystickThumb2D_{0.f, 0.f};
+    bool joystickActive2D_ = false;
     void handleMachine(const std::string& name, int pickupIndex);
     void collectTPSReport(int pickupIndex);
     void catchTraveler();
@@ -106,8 +120,10 @@ private:
     LevelStore levelStore;
     LevelEditor editor{levelStore};
     std::unique_ptr<WorkerController> worker;
+    std::unique_ptr<Scene3D> doomScene; // first-person 3D bonus: DoomScene (RAY) or VoxelScene (VOXEL)
 
     GameState gameState = GameState::Title;
+    GameState prevTickState_ = GameState::Playing;   // != Title so the title renders on entry (1 fps idle)
     bool fullscreen = false;
 
     // Maze camera state. `cameraZoom` is the active zoom percent latched at build

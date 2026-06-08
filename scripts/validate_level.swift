@@ -54,7 +54,8 @@ let map: [String] = [
 
 func validate(_ map: [String]) -> [String] {
     var errors: [String] = []
-    guard map.count == 17 else { errors.append("Need 17 rows, got \(map.count)"); return errors }
+    guard map.count == 17 else { errors.append("Need 17 rows, got \(map.count)")
+    return errors }
     for (i, r) in map.enumerated() {
         if r.count != 36 { errors.append("Row \(i) len=\(r.count): [\(r)]") }
     }
@@ -95,7 +96,8 @@ func validate(_ map: [String]) -> [String] {
             if at(r,c) == "H" {
                 hCount += 1
                 if !(r >= 1 && r <= 15 && c >= 1 && c <= 34) {
-                    errors.append("H at (\(r),\(c)) not interior"); continue
+                    errors.append("H at (\(r),\(c)) not interior")
+                    continue
                 }
                 var walls = 0
                 var opens: [(Int,Int)] = []
@@ -103,11 +105,13 @@ func validate(_ map: [String]) -> [String] {
                     if at(r+dr,c+dc) == "#" { walls += 1 } else { opens.append((dr,dc)) }
                 }
                 guard walls == 3, opens.count == 1 else {
-                    errors.append("H at (\(r),\(c)) walls=\(walls) opens=\(opens.count); want 3+1"); continue
+                    errors.append("H at (\(r),\(c)) walls=\(walls) opens=\(opens.count); want 3+1")
+                    continue
                 }
                 let (dr,dc) = opens[0]
                 let pellet = at(r+dr,c+dc)
-                if pellet != "." { errors.append("H at (\(r),\(c)) open neighbor '\(pellet)' ≠ '.'"); continue }
+                if pellet != "." { errors.append("H at (\(r),\(c)) open neighbor '\(pellet)' ≠ '.'")
+                continue }
                 let behind = at(r+2*dr,c+2*dc)
                 if behind != "#" {
                     errors.append("H at (\(r),\(c)) wall-behind-pellet '\(behind)' at (\(r+2*dr),\(c+2*dc)) ≠ '#'")
@@ -162,3 +166,5 @@ if errs.isEmpty {
     for e in errs { print("  - \(e)") }
     exit(1)
 }
+
+

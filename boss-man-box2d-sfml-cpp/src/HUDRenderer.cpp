@@ -124,7 +124,8 @@ void HUDRenderer::showPaused(bool paused) {
         paused_ = false;
         message_.clear();
         messageHold_ = 0.f;
-        messageOut_ = true;
+        messageFade_ = 0.f;
+        messageOut_ = false;
     }
 }
 
@@ -144,7 +145,7 @@ void HUDRenderer::update(float dt) {
 }
 
 void HUDRenderer::draw(sf::RenderTarget& target, float windowWidth, float windowHeight) {
-    extraRow = (Settings::mazeZoom() <= 100);
+    extraRow = compactHud ? false : (Settings::mazeZoom() <= 100);
 
     const float W = windowWidth;
     const float top = windowHeight; // SpriteKit `top = size.height`
@@ -301,9 +302,17 @@ void HUDRenderer::draw(sf::RenderTarget& target, float windowWidth, float window
     if (extraRow) {
         float sfBottomY = Y(bottomY);
 
-        // 3a. High score (💎 N), left-anchored.
-        drawLabel(target, menloFont(), EMO_DIAMOND + " " + std::to_string(highScore),
-                  24.84f, sf::Color::White, lifeStartX - 13.8f, sfBottomY, 0);
+        // 3a. High score (💎 N), left-anchored. The mono font can't rasterize the
+        // diamond glyph (it tofu-boxes), so draw it through the emoji texture path
+        // like every other HUD glyph, then the number left-anchored after it. The
+        // Swift label is "💎 \(highScore)": one glyph box + a space before digits.
+        {
+            const float fs = 24.84f;
+            const float anchorX = lifeStartX - 13.8f;
+            drawEmoji(target, EMO_DIAMOND, {anchorX + fs * 0.5f, sfBottomY}, fs);
+            drawLabel(target, menloFont(), std::to_string(highScore), fs, sf::Color::White,
+                      anchorX + fs + fs * 0.62f, sfBottomY, 0);
+        }
 
         // 3b. Dots counter (zero-padded to the total's width), centered at W/2+3.4.
         std::string totalStr = std::to_string(dotCount);

@@ -57,7 +57,15 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
     float armAmp = 2.0f + config.walkExaggeration;
     float leftLegLift = 0, rightLegLift = 0, leftArmSwing = 0, rightArmSwing = 0;
     if (walking) {
-        float w = walkPhase * 10.0f;
+        // walkPhase is elapsed walking time in SECONDS (accumulated by the caller
+        // while moving). The SpriteKit master runs the leg/arm cycle as two
+        // stepDuration phases (up then down), so a full cycle is 2*stepDuration of
+        // real time. Mapping seconds -> radians at 2*PI per full cycle keeps the
+        // cadence locked to the master regardless of the 60/120Hz render loop.
+        static const float PI = 3.14159265f;
+        static const float STEP_DURATION = 0.16f;             // master stepDuration
+        static const float CYCLE_RATE = PI / STEP_DURATION;   // 2*PI / (2*stepDuration)
+        float w = walkPhase * CYCLE_RATE;
         leftLegLift   = legAmp * (0.5f - 0.5f * std::cos(w));
         rightLegLift  = legAmp * (0.5f + 0.5f * std::cos(w));
         leftArmSwing  = armAmp * (0.5f + 0.5f * std::cos(w));
@@ -125,65 +133,98 @@ void PixelPersonRenderer::draw(sf::RenderTarget& target, sf::Vector2f position, 
         target.draw(c, states);
     };
 
-    // Drawing order matches original SpriteKit zPositions:
-    // z=1: legs, z=1.5: torso backing, z=2: torso+collar, z=2.5: arm backing,
-    // z=3: arms+hands+tie, z=4: head+hair+eyes
-
-    // z=1: Legs (lift up only)
-    drawR(-4 * sx, 14 - leftLegLift, 6, 8, pantsFill);
-    drawR(4 * sx, 14 - rightLegLift, 6, 8, pantsFill);
-
-    // Shoes (children of legs)
-    drawR((-4 + 1) * sx, 19 - leftLegLift, 8, 3, shoeFill, shoeOut, 1.0f);
-    drawR((4 + 1) * sx, 19 - rightLegLift, 8, 3, shoeFill, shoeOut, 1.0f);
-
-    // z=1.5: Torso backing (only for translucent bodies like DOM)
     bool needsBacking = config.bodyColor.a < 1.0f;
-    if (needsBacking) {
-        drawR(0, 2, 18, 16, sf::Color::White, sf::Color::Transparent, 0.f, 2.0f);
-    }
+    bool back = config.backView;
+    float headY = -13 + config.headYOffset;
 
-    // z=2: Torso
-    drawR(0, 2, 18, 16, bodyFill, sf::Color::White, 1.5f, 2.0f);
-
-    // Collar (child of torso)
-    drawR(0, -3, 8, 3, sf::Color::White);
-
-    // z=2.5: Arm backing (only for translucent bodies)
-    if (needsBacking) {
+    // Reusable part draws, sequenced below in the painter order the SpriteKit
+    // zPositions imply. Back view differs only in ordering and three omissions
+    // (no collar/tie/eyes) plus a hair-coloured head; the shapes are identical.
+    auto drawLegs = [&] {
+        drawR(-4 * sx, 14 - leftLegLift, 6, 8, pantsFill);
+        drawR(4 * sx, 14 - rightLegLift, 6, 8, pantsFill);
+    };
+    auto drawShoes = [&] {
+        drawR((-4 + 1) * sx, 19 - leftLegLift, 8, 3, shoeFill, shoeOut, 1.0f);
+        drawR((4 + 1) * sx, 19 - rightLegLift, 8, 3, shoeFill, shoeOut, 1.0f);
+    };
+    auto drawTorsoBacking = [&] {
+        if (needsBacking)
+            drawR(0, 2, 18, 16, sf::Color::White, sf::Color::Transparent, 0.f, 2.0f);
+    };
+    auto drawArmBacking = [&] {
+        if (!needsBacking) return;
         drawR(-11 * sx, 2 + leftArmSwing, 5, 14, sf::Color::White, sf::Color::Transparent, 0.f, 1.0f);
         drawR(11 * sx, 2 + rightArmSwing, 5, 14, sf::Color::White, sf::Color::Transparent, 0.f, 1.0f);
+    };
+    auto drawArms = [&] {
+        auto shirtOut = toSfColor(config.shirtOutlineColor);
+        drawR(-11 * sx, 2 + leftArmSwing, 5, 14, bodyFill, shirtOut, 1.0f, 1.0f);
+        drawR(11 * sx, 2 + rightArmSwing, 5, 14, bodyFill, shirtOut, 1.0f, 1.0f);
+    };
+    auto drawHands = [&] {
+        drawC(-11 * sx, 10 + leftArmSwing, 2.5f, skinFill);
+        drawC(11 * sx, 10 + rightArmSwing, 2.5f, skinFill);
+    };
+    auto drawTorso = [&] {
+        auto shirtOut = toSfColor(config.shirtOutlineColor);
+        drawR(0, 2, 18, 16, bodyFill, shirtOut, 1.5f, 2.0f);
+    };
+    auto drawHead = [&] {
+        sf::Color faceFill = back ? hairFill : skinFill;
+        drawR(0, headY, 14, 12, faceFill, sf::Color::Transparent, 0.f, 2.0f);
+        drawR(0, headY - 4, 14, 4, hairFill);
+    };
+
+    if (back) {
+        // Back silhouette painter order (ascending effective SpriteKit z):
+        // shoes (z 0, behind legs), legs (1), backings (1.5/2.5),
+        // hands (z 2, behind sleeves), arms (3), shirt back (3.5, over arms),
+        // head (4, hair-coloured). No collar, tie, or eyes.
+        drawShoes();
+        drawLegs();
+        drawTorsoBacking();
+        drawArmBacking();
+        drawHands();
+        drawArms();
+        drawTorso();
+        drawHead();
+        return;
     }
 
-    // z=3: Arms (drawn before tie so tie is on top)
-    drawR(-11 * sx, 2 + leftArmSwing, 5, 14, bodyFill, sf::Color::White, 1.0f, 1.0f);
-    drawR(11 * sx, 2 + rightArmSwing, 5, 14, bodyFill, sf::Color::White, 1.0f, 1.0f);
+    // Front silhouette: legs(1), shoes over legs, torso backing(1.5), torso(2)+collar,
+    // arm backing(2.5), arms(3)+hands over arms, tie(3), head(4)+hair+eyes/shades.
+    drawLegs();
+    drawShoes();
+    drawTorsoBacking();
+    drawTorso();
+    drawR(0, -3, 8, 3, sf::Color::White);   // collar, child of torso
+    drawArmBacking();
+    drawArms();
+    drawHands();
 
-    // Hands (children of arms, at bottom of arm)
-    drawC(-11 * sx, 10 + leftArmSwing, 2.5f, skinFill);
-    drawC(11 * sx, 10 + rightArmSwing, 2.5f, skinFill);
-
-    // z=3: Tie (on top of arms, shifts with look direction like original)
-    if (config.wearsSunglasses) {
-        drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill, sf::Color::White, 1.0f);
-    } else {
-        drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill);
+    // Tie (on top of arms, shifts with look direction like original)
+    {
+        auto tieOut = toSfColor(config.tieOutlineColor);
+        float tlw = config.tieLineWidth;
+        if (config.wearsSunglasses && tlw <= 0.f) {
+            drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill, sf::Color::White, 1.0f);
+        } else if (tlw > 0.f) {
+            drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill, tieOut, tlw);
+        } else {
+            drawR(lookOffX * sx, 2 + lookOffY, 4, 12, tieFill);
+        }
     }
 
-    // z=4: Head
-    float headY = -13 + config.headYOffset;
-    drawR(0, headY, 14, 12, skinFill, sf::Color(0, 0, 0, 128), 1.0f, 2.0f);
-
-    // Hair (child of head)
-    drawR(0, headY - 4, 14, 4, hairFill);
+    drawHead();
 
     // Eyes or sunglasses
     if (config.wearsSunglasses) {
         drawR(0, headY, 12, 4, sf::Color(30, 30, 30));
     } else {
-        // Eyes shift 1px in look direction, mirrored by sx for facing
-        drawR((-3 + lookOffX) * sx, headY + lookOffY, 2, 2, sf::Color::Black);
-        drawR((3 + lookOffX) * sx, headY + lookOffY, 2, 2, sf::Color::Black);
+        auto eyeFill = toSfColor(config.eyeColor);
+        drawR((-3 + lookOffX) * sx, headY + lookOffY, 2, 2, eyeFill);
+        drawR((3 + lookOffX) * sx, headY + lookOffY, 2, 2, eyeFill);
     }
 }
 

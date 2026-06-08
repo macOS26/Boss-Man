@@ -29,6 +29,10 @@ public:
         pelletsRemaining = std::min(WATER_GUN_PELLETS, pelletsRemaining + count);
         if (pelletsRemaining > 0) isActive = true;
     }
+    void addPellets(int count) {
+        if (!isActive) return;
+        pelletsRemaining = std::min(WATER_GUN_PELLETS, pelletsRemaining + count);
+    }
     bool consumePellet() {
         if (!isActive || pelletsRemaining <= 0) return false;
         pelletsRemaining--;

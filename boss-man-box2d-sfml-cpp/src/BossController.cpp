@@ -75,6 +75,7 @@ void BossController::spawn(int level, const GridMap& map, const Pathfinder& pf,
         const float speed = square ? (bp.speed * 1.15f) : bp.speed;
         ent.moveInterval = (square ? BOSS_MOVE_INTERVAL : 0.16f) / speed;
         ent.moveDuration = (square ? BOSS_MOVE_DURATION : 0.16f) / speed;
+        ent.frightenedStep = 0.22f / speed;
         ent.grid = spawnPos;
         ent.pixelPos = map.pointFor(spawnPos);
         ent.blueprintIndex = bpIdx;
@@ -94,7 +95,8 @@ void BossController::spawn(int level, const GridMap& map, const Pathfinder& pf,
 
 void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
                             GridPos workerGrid, MoveDirection workerDir,
-                            bool isGoldDiscMode, bool isPeteShielded) {
+                            bool isGoldDiscMode, bool isPeteShielded,
+                            std::function<bool(const BossEntity&)> shouldMove) {
 
     for (int i = 0; i < (int)entities.size(); ++i) {
         auto& boss = entities[i];
@@ -153,7 +155,11 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
                     boss.isInFleeMode = true;
                     boss.renderer.config.bodyColor = FLEE_BODY;
                     boss.renderer.config.tieColor = FLEE_TIE;
+                    boss.renderer.config.tieOutlineColor = {0.f, 0.f, 0.f, 0.f};
+                    boss.renderer.config.tieLineWidth = 0.f;
+                    boss.renderer.config.shirtOutlineColor = {1.f, 1.f, 1.f, 0.75f};
                     boss.renderer.config.shoeOutlineColor = BOSS_SHOE_GOLD;
+                    boss.renderer.config.eyeColor = FLEE_EYE;
                     boss.renderer.config.skinColor = FLEE_SKIN;
                 }
             }
@@ -161,19 +167,21 @@ void BossController::update(float dt, const GridMap& map, const Pathfinder& pf,
         }
 
         // Freeze timer
+        if (boss.spawnGrace > 0.0f) boss.spawnGrace -= dt;
         if (boss.isImmobilized) {
             boss.freezeTimer -= dt;
             boss.fadeInAlpha = std::min(1.0f, boss.fadeInAlpha + dt / 1.5f);
             if (boss.freezeTimer <= 0) {
                 boss.isImmobilized = false;
                 boss.fadeInAlpha = 1.0f;
-                boss.throbTimer = SPAWN_THROB_DUR; // pulse starts as the boss wakes
+                boss.throbTimer = SPAWN_THROB_DUR;
             }
             continue;
         }
 
         // Post-spawn throb pulse
         if (boss.throbTimer > 0.0f) boss.throbTimer -= dt;
+        if (shouldMove && !shouldMove(boss)) continue;
 
         // Glide first (prog 0..1 over the cell, scaled by the tunnel speed ramp),
         // then dwell at the centre for idleGap, then latch the next step. Matching
@@ -265,7 +273,8 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         boss.lookDir = mdy > 0 ? MoveDirection::Up : MoveDirection::Down;
     }
 
-    const float idleGap = boss.moveInterval - boss.moveDuration; // pause between steps
+    const float stepDur = boss.isInFleeMode ? boss.frightenedStep : boss.moveDuration;
+    const float idleGap = boss.isInFleeMode ? 0.0f : (boss.moveInterval - boss.moveDuration);
 
     // A partner-edge move (the AI picked the far doorway directly) is an instant
     // teleport with no glide.
@@ -275,10 +284,10 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         boss.grid = move.to;
         boss.isMoving = false;
         boss.arrivedAtDoorway = false;
-        boss.stepDuration = boss.moveDuration;
+        boss.stepDuration = stepDur;
         boss.idleGap = idleGap;
-        boss.moveTimer = boss.moveInterval;
-        boss.stepTotal = boss.moveInterval;
+        boss.moveTimer = stepDur + idleGap;
+        boss.stepTotal = stepDur + idleGap;
         boss.prog = 1.0f;
         boss.stepKind = 0;
     } else {
@@ -287,18 +296,13 @@ void BossController::stepOne(int index, const GridMap& map, const Pathfinder& pf
         boss.targetPos = map.pointFor(move.to);
         boss.grid = move.to;
         boss.prog = 0.0f;
-        // Tunnel slowdown ramp (full->slow->full across an enter/exit pair, the
-        // slowdown produced by the speed fraction itself, not a doubled glide):
-        // stepping INTO a tunnel-mouth cell ramps full->slow over the back half;
-        // stepping OUT of one ramps slow->full over the front half.
         if (map.tunnelPartner(move.to).x >= 0)        boss.stepKind = 1;
         else if (map.tunnelPartner(move.from).x >= 0) boss.stepKind = 2;
         else                                          boss.stepKind = 0;
-        boss.stepDuration = boss.moveDuration;
+        boss.stepDuration = stepDur;
         boss.idleGap = idleGap;
-        boss.stepTotal = boss.moveDuration + idleGap; // total step time = glide + idle pause
+        boss.stepTotal = stepDur + idleGap;
         boss.moveTimer = boss.stepTotal;
-        // If we just slid ONTO a doorway, mark it so the next step crosses over.
         boss.arrivedAtDoorway = (map.tunnelPartner(move.to).x >= 0);
     }
 
@@ -335,11 +339,8 @@ void BossController::draw(sf::RenderTarget& target) {
         boss.renderer.draw(target, boss.pixelPos, facingLeft, boss.isMoving,
                           boss.lookDir, boss.walkPhase, alpha, scale);
 
-        // Name tag: SpriteKit SKLabelNode, Menlo-Bold 9, baseline 24 above center.
-        // White normally; in flee mode it shows the next capture value in yellow.
-        // Rendered via the crisp uiScale text path (was raw 9px before).
-        int nextCapturePts = 100 * (captureStreak + 1);
-        std::string tagText = (boss.isInFleeMode) ? std::to_string(nextCapturePts) : boss.name;
+        // MARK: Name tag
+        std::string tagText = (boss.isInFleeMode) ? std::to_string(nextCapturePoints()) : boss.name;
         sf::Color tagColor = boss.isInFleeMode ? PixelPersonRenderer::toSfColor(YELLOW)
                                                : sf::Color::White;
         drawNameLabel(target, font, tagText, 9, tagColor,
@@ -355,17 +356,28 @@ void BossController::setGoldDiscActive(bool active) {
         if (active) {
             boss.renderer.config.bodyColor = FLEE_BODY;
             boss.renderer.config.tieColor = FLEE_TIE;
+            boss.renderer.config.tieOutlineColor = {0.f, 0.f, 0.f, 0.f};
+            boss.renderer.config.tieLineWidth = 0.f;
+            boss.renderer.config.shirtOutlineColor = {1.f, 1.f, 1.f, 0.75f};
             boss.renderer.config.shoeOutlineColor = BOSS_SHOE_GOLD;
+            boss.renderer.config.eyeColor = FLEE_EYE;
             boss.renderer.config.skinColor = FLEE_SKIN;
         } else {
             boss.renderer.config.bodyColor = boss.baseColor;
             boss.renderer.config.tieColor = boss.tieColor;
+            boss.renderer.config.tieOutlineColor = {0.f, 0.f, 0.f, 0.f};
+            boss.renderer.config.tieLineWidth = 0.f;
+            boss.renderer.config.shirtOutlineColor = WHITE;
+            boss.renderer.config.shoeOutlineColor = BOSS_SHOE_GOLD;
+            boss.renderer.config.eyeColor = BLACK;
             boss.renderer.config.skinColor = SKIN_COLOR;
-            // Reactivate bosses that were captured 3x (respawnTimer was 999)
             if (!boss.isActive && boss.respawnTimer > 10.0f) {
                 boss.respawnTimer = 3.0f;
             }
         }
+    }
+    if (!active) {
+        applyFleeThawTransition();
     }
 }
 
@@ -441,9 +453,35 @@ void BossController::applySpawnFreeze(int index) {
     auto& boss = entities[index];
     boss.isImmobilized = true;
     boss.freezeTimer = SPAWN_FREEZE_DUR;
+    boss.spawnGrace = 3.0f;
     boss.fadeInAlpha = 0.0f;
     boss.throbTimer = 0.0f;
     if (sound) sound->playTeleport();
+}
+
+void BossController::applyFleeThawTransition() {
+    if (sound) sound->playTeleport();
+    for (auto& boss : entities) {
+        if (!boss.isActive) continue;
+        boss.isImmobilized = true;
+        boss.freezeTimer = 1.5f;
+    }
+}
+
+bool BossController::isAnyBossSpawning() const {
+    for (auto& e : entities) {
+        if (e.spawnGrace > 0.0f) return true;
+    }
+    return false;
+}
+
+void BossController::relocateAfterCatch(BossEntity* node, const GridMap& map) {
+    for (int i = 0; i < (int)entities.size(); ++i) {
+        if (&entities[i] == node) {
+            relocateToSpawn(i, map);
+            return;
+        }
+    }
 }
 
 } // namespace bm

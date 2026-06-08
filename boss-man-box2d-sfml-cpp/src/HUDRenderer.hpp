@@ -33,6 +33,9 @@ public:
     // row (high score / dots counter / traveler accumulation). 150%/200% draw the
     // bordered panel and no bottom row. Game sets this from Settings::mazeZoom().
     bool extraRow = false;
+    // BOSS 3D forces the compact (150/200%-style) mini HUD regardless of the era's
+    // zoomPercent (which is 100 for the 1993 DOOM era).
+    bool compactHud = false;
 
     void showMessage(const std::string& text, float duration);
     void showPaused(bool paused);

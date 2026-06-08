@@ -19,7 +19,10 @@ public final class SKPhysicsContact {
     public var contactPoint: CGPoint = .zero
     public var contactNormal: CGVector = .zero
     public var collisionImpulse: CGFloat = 0
-    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) { bodyA = a; bodyB = b }
+    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) {
+        bodyA = a
+        bodyB = b
+    }
 }
 
 public final class SKPhysicsBody {
@@ -64,7 +67,10 @@ public final class SKPhysicsBody {
     public init(rectangleOf size: CGSize, center: CGPoint) { shape = .rect(size.width, size.height) }
     public init(circleOfRadius r: CGFloat) { shape = .circle(r) }
     public init(circleOfRadius r: CGFloat, center: CGPoint) { shape = .circle(r) }
-    public init(edgeLoopFrom rect: CGRect) { shape = .edgeLoop(rect); isDynamic = false }
+    public init(edgeLoopFrom rect: CGRect) {
+        shape = .edgeLoop(rect)
+        isDynamic = false
+    }
     public init(edgeLoopFrom path: CGPath) {
         let pts = path.flattenedPoints
         shape = .edgeChain(pts.isEmpty ? [.zero, .zero] : pts)
@@ -114,8 +120,10 @@ public final class SKPhysicsBody {
         var minX = Float.infinity, maxX = -Float.infinity, minY = Float.infinity, maxY = -Float.infinity
         for i in 0..<n {
             let x = buf[i*2], y = buf[i*2+1]
-            if x < minX { minX = x }; if x > maxX { maxX = x }
-            if y < minY { minY = y }; if y > maxY { maxY = y }
+            if x < minX { minX = x }
+            if x > maxX { maxX = x }
+            if y < minY { minY = y }
+            if y > maxY { maxY = y }
         }
         let rangeX = max(maxX - minX, 0.0001), rangeY = max(maxY - minY, 0.0001)
         let sx = Float(size.width)  / rangeX
@@ -199,8 +207,12 @@ public final class SKPhysicsBody {
 // + count to the closure. Used for cb_add_polygon / cb_add_chain.
 @inline(__always)
 private func withFlatXY<R>(_ pts: [CGPoint], _ body: (UnsafePointer<Float>, Int32) -> R) -> R {
-    var flat = [Float](); flat.reserveCapacity(pts.count * 2)
-    for p in pts { flat.append(Float(p.x)); flat.append(Float(p.y)) }
+    var flat = [Float]()
+    flat.reserveCapacity(pts.count * 2)
+    for p in pts {
+        flat.append(Float(p.x))
+        flat.append(Float(p.y))
+    }
     return flat.withUnsafeBufferPointer { buf in
         body(buf.baseAddress!, Int32(pts.count))
     }
@@ -211,8 +223,10 @@ private func boundingBox(of pts: [CGPoint]) -> CGRect {
     guard let first = pts.first else { return .zero }
     var minX = first.x, maxX = first.x, minY = first.y, maxY = first.y
     for p in pts.dropFirst() {
-        if p.x < minX { minX = p.x }; if p.x > maxX { maxX = p.x }
-        if p.y < minY { minY = p.y }; if p.y > maxY { maxY = p.y }
+        if p.x < minX { minX = p.x }
+        if p.x > maxX { maxX = p.x }
+        if p.y < minY { minY = p.y }
+        if p.y > maxY { maxY = p.y }
     }
     return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
 }
@@ -228,7 +242,10 @@ public class SKPhysicsJoint {
     public var reactionForce = CGVector.zero
     public var reactionTorque: CGFloat = 0
     var jointId: Int32 = -1
-    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) { bodyA = a; bodyB = b }
+    init(_ a: SKPhysicsBody, _ b: SKPhysicsBody) {
+        bodyA = a
+        bodyB = b
+    }
     // Subclasses override to create the joint in the Box2D world once both
     // bodies are registered. SKPhysicsWorld.add calls this.
     func createInWorld() {}
@@ -241,7 +258,9 @@ public final class SKPhysicsJointPin: SKPhysicsJoint {
     public var rotationSpeed: CGFloat = 0
     var anchor: CGPoint = .zero
     public static func joint(withBodyA a: SKPhysicsBody, bodyB b: SKPhysicsBody, anchor: CGPoint) -> SKPhysicsJointPin {
-        let j = SKPhysicsJointPin(a, b); j.anchor = anchor; return j
+        let j = SKPhysicsJointPin(a, b)
+        j.anchor = anchor
+        return j
     }
     override func createInWorld() {
         if jointId >= 0 || bodyA.bodyId < 0 || bodyB.bodyId < 0 { return }
@@ -256,7 +275,10 @@ public final class SKPhysicsJointSpring: SKPhysicsJoint {
     public var frequency: CGFloat = 1
     var anchorA: CGPoint = .zero, anchorB: CGPoint = .zero
     public static func joint(withBodyA a: SKPhysicsBody, bodyB b: SKPhysicsBody, anchorA aa: CGPoint, anchorB ab: CGPoint) -> SKPhysicsJointSpring {
-        let j = SKPhysicsJointSpring(a, b); j.anchorA = aa; j.anchorB = ab; return j
+        let j = SKPhysicsJointSpring(a, b)
+        j.anchorA = aa
+        j.anchorB = ab
+        return j
     }
     override func createInWorld() {
         if jointId >= 0 || bodyA.bodyId < 0 || bodyB.bodyId < 0 { return }
@@ -269,7 +291,9 @@ public final class SKPhysicsJointSpring: SKPhysicsJoint {
 public final class SKPhysicsJointFixed: SKPhysicsJoint {
     var anchor: CGPoint = .zero
     public static func joint(withBodyA a: SKPhysicsBody, bodyB b: SKPhysicsBody, anchor: CGPoint) -> SKPhysicsJointFixed {
-        let j = SKPhysicsJointFixed(a, b); j.anchor = anchor; return j
+        let j = SKPhysicsJointFixed(a, b)
+        j.anchor = anchor
+        return j
     }
     override func createInWorld() {
         if jointId >= 0 || bodyA.bodyId < 0 || bodyB.bodyId < 0 { return }
@@ -282,7 +306,10 @@ public final class SKPhysicsJointSliding: SKPhysicsJoint {
     public var upperDistanceLimit: CGFloat = 0
     var anchor: CGPoint = .zero, axis: CGVector = CGVector(dx: 1, dy: 0)
     public static func joint(withBodyA a: SKPhysicsBody, bodyB b: SKPhysicsBody, anchor: CGPoint, axis: CGVector) -> SKPhysicsJointSliding {
-        let j = SKPhysicsJointSliding(a, b); j.anchor = anchor; j.axis = axis; return j
+        let j = SKPhysicsJointSliding(a, b)
+        j.anchor = anchor
+        j.axis = axis
+        return j
     }
     override func createInWorld() {
         if jointId >= 0 || bodyA.bodyId < 0 || bodyB.bodyId < 0 { return }
@@ -297,7 +324,10 @@ public final class SKPhysicsJointLimit: SKPhysicsJoint {
     public var maxLength: CGFloat = 0
     var anchorA: CGPoint = .zero, anchorB: CGPoint = .zero
     public static func joint(withBodyA a: SKPhysicsBody, bodyB b: SKPhysicsBody, anchorA aa: CGPoint, anchorB ab: CGPoint) -> SKPhysicsJointLimit {
-        let j = SKPhysicsJointLimit(a, b); j.anchorA = aa; j.anchorB = ab; return j
+        let j = SKPhysicsJointLimit(a, b)
+        j.anchorA = aa
+        j.anchorB = ab
+        return j
     }
     override func createInWorld() {
         if jointId >= 0 || bodyA.bodyId < 0 || bodyB.bodyId < 0 { return }
@@ -310,7 +340,10 @@ public final class SKPhysicsJointLimit: SKPhysicsJoint {
 public final class SKPhysicsJointDistance: SKPhysicsJoint {
     var anchorA: CGPoint = .zero, anchorB: CGPoint = .zero
     public static func joint(withBodyA a: SKPhysicsBody, bodyB b: SKPhysicsBody, anchorA aa: CGPoint, anchorB ab: CGPoint) -> SKPhysicsJointDistance {
-        let j = SKPhysicsJointDistance(a, b); j.anchorA = aa; j.anchorB = ab; return j
+        let j = SKPhysicsJointDistance(a, b)
+        j.anchorA = aa
+        j.anchorB = ab
+        return j
     }
     override func createInWorld() {
         if jointId >= 0 || bodyA.bodyId < 0 || bodyB.bodyId < 0 { return }
@@ -370,7 +403,8 @@ public final class SKPhysicsWorld {
                     }
                 }
             case let .polygon(verts):
-                var flat = [Float](); flat.reserveCapacity(verts.count * 2)
+                var flat = [Float]()
+                flat.reserveCapacity(verts.count * 2)
                 let c = Float(sb64_cos(Double(angle))), s = Float(sb64_sin(Double(angle)))
                 for p in verts {
                     let px = Float(p.x), py = Float(p.y)
@@ -394,7 +428,8 @@ public final class SKPhysicsWorld {
             case let .edgeChain(pts):
                 var flat = [Float]()
                 for p in pts {
-                    flat.append(x + Float(p.x)); flat.append(y + Float(p.y))
+                    flat.append(x + Float(p.x))
+                    flat.append(y + Float(p.y))
                 }
                 flat.withUnsafeBufferPointer { buf in
                     gfx_stroke_poly(buf.baseAddress, Int32(pts.count), 0, t, rgba)
@@ -414,11 +449,17 @@ public final class SKPhysicsWorld {
         joint.createInWorld()
     }
     public func remove(_ joint: SKPhysicsJoint) {
-        if joint.jointId >= 0 { cb_remove_joint(joint.jointId); joint.jointId = -1 }
+        if joint.jointId >= 0 {
+            cb_remove_joint(joint.jointId)
+            joint.jointId = -1
+        }
         joints.removeAll { $0 === joint }
     }
     public func removeAllJoints() {
-        for j in joints where j.jointId >= 0 { cb_remove_joint(j.jointId); j.jointId = -1 }
+        for j in joints where j.jointId >= 0 {
+            cb_remove_joint(j.jointId)
+            j.jointId = -1
+        }
         joints.removeAll()
     }
     fileprivate func createPendingJoints() {
@@ -498,7 +539,10 @@ public final class SKPhysicsWorld {
     }
 
     private func createBodies(_ node: SKNode) {
-        if let b = node.physicsBody, b.bodyId < 0 { b.node = node; b.createInWorld() }
+        if let b = node.physicsBody, b.bodyId < 0 {
+            b.node = node
+            b.createInWorld()
+        }
         for c in node.children { createBodies(c) }
     }
 
@@ -532,10 +576,12 @@ public final class SKPhysicsWorld {
                     fy = strength * f.direction.dy
                 case .radialGravity:
                     if dist == 0 { continue }
-                    fx = (-dx / dist) * strength; fy = (-dy / dist) * strength
+                    fx = (-dx / dist) * strength
+                    fy = (-dy / dist) * strength
                 case .vortex:
                     if dist == 0 { continue }
-                    fx = (-dy / dist) * strength; fy = ( dx / dist) * strength
+                    fx = (-dy / dist) * strength
+                    fy = ( dx / dist) * strength
                 case .drag:
                     fx = -body.velocity.dx * strength
                     fy = -body.velocity.dy * strength
@@ -545,7 +591,8 @@ public final class SKPhysicsWorld {
                 case .magnetic:
                     if dist == 0 { continue }
                     let s = strength * body.charge
-                    fx = (-dx / dist) * s; fy = (-dy / dist) * s
+                    fx = (-dx / dist) * s
+                    fy = (-dy / dist) * s
                 case .noise, .turbulence, .electric, .velocityField, .customField:
                     continue
                 }
@@ -560,12 +607,16 @@ public final class SKPhysicsWorld {
     }
 
     func step(_ dt: TimeInterval, scene: SKScene) {
-        if !started { begin(scene); return }
+        if !started {
+            begin(scene)
+            return
+        }
         createBodies(scene)                                   // pick up nodes added since last step
         createPendingJoints()                                 // joints added before their bodies
         applyFields(scene, dt: dt)                            // SKFieldNode → cb_apply_force
         for (_, b) in SKPhysicsWorld.registry where b.velocityDirty {
-            cb_set_velocity(b.bodyId, Float(b.velocity.dx), Float(b.velocity.dy)); b.velocityDirty = false
+            cb_set_velocity(b.bodyId, Float(b.velocity.dx), Float(b.velocity.dy))
+            b.velocityDirty = false
         }
         // Push every body's Box2D transform FROM its SKNode each frame
         // so contact detection always sees the actual current scene
@@ -581,7 +632,10 @@ public final class SKPhysicsWorld {
         // never goes anywhere as far as Box2D is concerned.
         var orphaned: [Int32] = []
         for (id, b) in SKPhysicsWorld.registry {
-            guard let n = b.node else { orphaned.append(id); continue }
+            guard let n = b.node else {
+                orphaned.append(id)
+                continue
+            }
             cb_set_transform(id, Float(n.position.x), Float(n.position.y),
                              Float(n.zRotation))
         }
@@ -614,3 +668,5 @@ public final class SKPhysicsWorld {
         }
     }
 }
+
+

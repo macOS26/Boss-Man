@@ -3,7 +3,7 @@ import GameKit
 import SpriteKit
 
 // Gameplay scene, common to the macOS master and the wasm port. The game logic
-// is shared; only platform input, movement timing, and Game Center fork behind
+// is shared, only platform input, movement timing, and Game Center fork behind
 // #if.
 final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate {
     private let tileSize: CGFloat = 32
@@ -19,7 +19,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var bossSpawnMax: TimeInterval = 0
     private var nextBossSpawnSeconds: TimeInterval = 0
     private let requiredItems = Strings.Machine.required
-    private let reportItemPoints = [10, 25, 50, 100]
+    private let reportItemPoints = Strings.Machine.reportPoints
     private let dropletDodgeRange = 8
 
     private var gridMap: GridMap!
@@ -35,9 +35,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
-    private var gameOverScreen: GameOverScreen?
-
     private(set) var isGameOver = false
+    var lastUpdateTime: TimeInterval = 0
     var practiceMode: Bool {
         get { state.practiceMode }
         set { state.practiceMode = newValue }
@@ -55,17 +54,17 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private let waterDropletSpeed: CGFloat = 12 * 32
     private var fireButtonCenter = CGPoint.zero
     private var fireButtonHidden = false
-    private let fireButtonRadius: CGFloat = 112.5
+    private let fireButtonRadius: CGFloat = 129.375
     private var isUserPaused = false
     private var pauseOverlay: SKNode? = nil
     // Maze 200% mode (title toggle): an SKCameraNode zoomed 2x that follows Pete,
-    // clamped to the scene so the view never scrolls past the maze. Render-only;
+    // clamped to the scene so the view never scrolls past the maze. Render-only,
     // physics and the grid catch stay in world coordinates, unaffected.
     private var cameraNode: SKCameraNode?
     private var camPos: CGPoint?
     private var camVel: CGPoint = .zero
     // Screen-fixed overlay layer (HUD, fire button, joystick, PAUSED, game-over).
-    // A scene child at 100%; a camera child at 200% so it stays unscaled while
+    // A scene child at 100%, a camera child at 200% so it stays unscaled while
     // the board zooms. Re-created fresh each buildLevel (removeAllChildren wipes
     // the previous one).
     private var uiLayer = SKNode()
@@ -80,13 +79,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     #endif
 
     // MARK: - Joystick (on-screen movement control)
-    private let joystickRadius: CGFloat = 112.5
-    private let joystickKnobRadius: CGFloat = 45
-    private let joystickDeadzone: CGFloat = 32.5
+    private let joystickRadius: CGFloat = 129.375
+    private let joystickKnobRadius: CGFloat = 51.75
+    private let joystickDeadzone: CGFloat = 37.375
     private var joystickCenter = CGPoint.zero
     private var joystickHidden = false
     private var joystickActive = false
     private var joystickThumb: SKShapeNode?
+    private var dpadWedges: [String: SKShapeNode] = [:]
 
     // MARK: - Lifecycle
     override func didMove(to view: SKView) {
@@ -99,7 +99,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         gridMap = GridMap(tileSize: tileSize, rows: currentLevelRows())
         gridMap.yOffset = 0
         // Centre the maze horizontally. On a scene sized to the maze (apple) the
-        // offset is 0; on a full-viewport scene (web) it pads the slack so the maze
+        // offset is 0, on a full-viewport scene (web) it pads the slack so the maze
         // sits centred. containerOriginX feeds the movers their world origin.
         let mazeWidth = CGFloat(gridMap.columnCount) * tileSize
         gridMap.xOffset = max(0, (size.width - mazeWidth) / 2)
@@ -116,7 +116,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         inputController.delegate = self
         inputController.start()
         view.window?.acceptsMouseMovedEvents = true
-        inputController.hideCursor()
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(true)
         #endif
     }
 
@@ -125,12 +125,13 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         mazeBuilder.releaseTextures()
         #if os(macOS)
         inputController.unhideCursor()
+        (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(false)
         #endif
     }
 
     private func buildLevel() {
         sound.startBackgroundMusic(theme: musicTheme(for: state.level))
-        mazeBuilder.cubicleColor = SpriteFactory.cubicleColors[(state.level - 1) % SpriteFactory.cubicleColors.count]
+        mazeBuilder.cubicleColor = SpriteFactory.cubicleColor(forLevel: state.level)
         gridMap.setRows(currentLevelRows())
         state.dotCount = mazeBuilder.build(in: self, view: view)
         state.goldDiscCount = mazeBuilder.goldDiscPositions.count
@@ -159,8 +160,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
+    private var clampedLevelIndex: Int { max(0, min(state.level - 1, Levels.levelNames.count - 1)) }
     private func currentLevelRows() -> [String] {
-        LevelStore.loadLevel(index: max(0, min(state.level - 1, Levels.levelNames.count - 1)))
+        LevelStore.loadLevel(index: clampedLevelIndex)
     }
 
     private func musicTheme(for level: Int) -> MusicTheme {
@@ -187,22 +189,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // apple calls natively, and KeyCode abstracts the per-platform raw codes. Only
     // the input device with no counterpart on the other platform stays behind #if:
     // apple's gamepad / mouse-delta (inputController) and key-repeat filter, web's
-    // touch swipe, and apple's Carbon username-key translation.
-    #if os(macOS)
-    private func usernameKeyCode(for event: NSEvent) -> Int {
-        switch event.keyCode {
-        case 36, 76: return 58
-        case 53:     return 36
-        case 51:     return 59
-        case 49:     return 57
-        default:
-            guard let u = (event.charactersIgnoringModifiers ?? "").uppercased().unicodeScalars.first else { return -1 }
-            if u.value >= 65, u.value <= 90 { return Int(u.value) - 65 }
-            if u.value >= 48, u.value <= 57 { return 26 + Int(u.value) - 48 }
-            return -1
-        }
-    }
-    #endif
+    // touch swipe, and apple's Carbon username-key translation (usernameKeyCode,
+    // shared with DoomScene in GameOverKeyCompat.swift).
 
     private func swipeDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
         guard max(abs(dx), abs(dy)) >= swipeThreshold else { return nil }
@@ -217,41 +205,30 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if let s = gameOverScreen {
-            #if os(macOS)
-            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
-            #else
-            s.handleKey(code, shift: false)
-            #endif
+        if isGameOver { return }
+        if code == KeyCode.keyP {
+            togglePause()
             return
         }
-        if isGameOver {
-            switch code {
-            case KeyCode.keyP: restartGame()
-            case KeyCode.esc:  returnToTitleScene()
-            default: break
-            }
+        if code == KeyCode.esc {
+            returnToTitleScene()
             return
         }
-        if code == KeyCode.keyP  { togglePause(); return }
-        if code == KeyCode.esc   { returnToTitleScene(); return }
         guard !isUserPaused else { return }
-        if code == KeyCode.space { fireWaterGun(); return }
+        if code == KeyCode.space {
+            fireWaterGun()
+            return
+        }
         guard !event.isARepeat else { return }
         if let direction = MoveDirection(keyCode: code) { steer(direction) }
     }
 
     override func mouseDown(with event: NSEvent) {
-        let p = event.location(in: self)
-        if let s = gameOverScreen {
-            s.handleTap(at: s.convert(p, from: self))
-            return
-        }
         guard !isUserPaused, !isGameOver else { return }
+        let p = event.location(in: uiLayer)
         if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
             joystickActive = true
-            moveJoystickThumb(to: p)
-            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
+            applyJoystick(at: p)
             swipeStart = nil
             moveAnchor = nil
             return
@@ -265,7 +242,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             swipeStart = nil
             return
         }
-        swipeStart = p
+        swipeStart = ControlMode.current.isHidden ? p : nil // swipe-to-move only in HIDDEN mode, stick/dpad uses the widget
         swipeFired = false
         #endif
     }
@@ -274,39 +251,51 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if joystickActive {
             joystickActive = false
             recenterJoystickThumb()
+            lightDpadFace(dpadWedges, up: false, down: false, left: false, right: false)
             return
         }
         // Swipe release. Dormant on apple (mouseDown fires there and never arms
         // swipeStart), so the guard short-circuits and the writes are harmless.
-        let p = event.location(in: self)
-        if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused,
-           let d = swipeDirection(p.x - start.x, p.y - start.y) {
-            steer(d)
+        let p = event.location(in: uiLayer)
+        if let start = swipeStart, !swipeFired, !isGameOver, !isUserPaused {
+            if let d = swipeDirection(p.x - start.x, p.y - start.y) {
+                steer(d)
+            } else if fireButtonHidden {
+                fireWaterGun()   // fire button hidden: a tap (no swipe) fires the water gun
+            }
         }
         swipeStart = nil
         moveAnchor = p
     }
 
     override func mouseDragged(with event: NSEvent) {
-        let p = event.location(in: self)
+        let p = event.location(in: uiLayer)
         if joystickActive {
-            moveJoystickThumb(to: p)
-            if let d = joystickDirection(p.x - joystickCenter.x, p.y - joystickCenter.y) { steer(d) }
+            applyJoystick(at: p)
             return
         }
         #if os(macOS)
         inputController.handleMouseDelta(dx: event.deltaX, dy: event.deltaY)
         #else
-        if isGameOver || isUserPaused { moveAnchor = p; return }
+        if isGameOver || isUserPaused {
+            moveAnchor = p
+            return
+        }
         if let start = swipeStart {
             if !swipeFired, let d = swipeDirection(p.x - start.x, p.y - start.y) {
-                steer(d); swipeFired = true
+                steer(d)
+                swipeFired = true
             }
             return
         }
-        guard let anchor = moveAnchor else { moveAnchor = p; return }
+        guard ControlMode.current.isHidden else { return }   // drag-to-steer only in HIDDEN mode
+        guard let anchor = moveAnchor else {
+            moveAnchor = p
+            return
+        }
         if let d = swipeDirection(p.x - anchor.x, p.y - anchor.y) {
-            steer(d); moveAnchor = p
+            steer(d)
+            moveAnchor = p
         }
         #endif
     }
@@ -362,7 +351,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             handleMachine(name: machine.name, at: machine.position)
         }
         if mazeBuilder.touchedBrownBox(at: grid) != nil {
-            collectTPSReport()
+            collectTPSReport(at: grid)
         }
     }
 
@@ -394,13 +383,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
     }
 
-    private func collectTPSReport() {
+    private func collectTPSReport(at grid: CGPoint) {
         guard state.reportItems.count == requiredItems.count else {
             let missing = requiredItems.filter { !state.reportItems.contains($0) }
             hud.showMessage(Strings.Message.tpsMissingItems(missing), duration: 5)
             sound.playTpsMissingItems(missing)
             return
         }
+        mazeBuilder.collectBrownBox(at: grid)   // dim the box on turn-in, same fade + cooldown as a collected machine
         state.tpsReportsDelivered += 1
         state.reportItems.removeAll()
         let tpsPoints = state.level * 100 + 100
@@ -438,7 +428,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func delayBossSpawn(after seconds: TimeInterval, _ action: @escaping () -> Void) {
-        if seconds <= 0 && !sound.isSpeaking { action(); return }
+        if seconds <= 0 && !sound.isSpeaking {
+            action()
+            return
+        }
         deferredBossSpawn = action
         bossSpawnGrace = 0.4
         bossSpawnMax = max(seconds, 0) + 2.5
@@ -515,7 +508,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // Proximity catch: same tile, or centres within bossCatchDistance (their
     // bodies overlap). Pure overlap, so it never fires a full tile away — Pete is
     // only safe from a boss while that boss is flashing in (immobilized during its
-    // spawnGrace), which resolveBossContact guards on; the run-through was the
+    // spawnGrace), which resolveBossContact guards on, the run-through was the
     // never-clearing shield, not the detection.
     private func checkBossCatch() {
         let petePos = workerController.node.position
@@ -532,8 +525,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private func setupMazeCamera() {
         camPos = nil
         camVel = .zero
-        let zoom = MazeZoom.current
-        guard zoom > 100 else {
+        let zoom = MazeZoom.zoomPercent        // 1982 -> 150%, 1983 -> 200% (the year is the era key)
+        guard zoom > 100, zoom <= 200 else {   // 1980 classic / DOOM 3D get no 2D camera zoom
             camera = nil
             cameraNode = nil
             return
@@ -549,7 +542,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // Host for all screen-fixed UI. Under the camera (200%) it is offset by
     // -half the scene so its scene-style child coords land at the same on-screen
-    // spot as at 100%; with no camera it sits at the scene origin. A brand-new
+    // spot as at 100%, with no camera it sits at the scene origin. A brand-new
     // node each call, since removeAllChildren cleared the previous one.
     private func setupUILayer() {
         uiLayer = SKNode()
@@ -566,16 +559,20 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // Follow Pete, clamped so the (zoomed) viewport never scrolls past the scene
     // edges — it stays inside the maze area of the 100% view, scrolling x/y with
     // the player.
-    private func updateMazeCamera() {
+    private func updateMazeCamera(dt: CGFloat) {
         guard let cam = cameraNode else { return }
         let p = workerController.node.position
-        guard var c = camPos else { camPos = p; camVel = .zero; cam.position = p; return }
+        guard var c = camPos else {
+            camPos = p
+            camVel = .zero
+            cam.position = p
+            return
+        }
         let snapThreshold = tileSize * 4
         if abs(p.x - c.x) > snapThreshold || abs(p.y - c.y) > snapThreshold {
             c = p
             camVel = .zero
         } else {
-            let dt: CGFloat = 1.0 / 60.0
             let smoothTime: CGFloat = 0.22
             c.x = GameScene.smoothDamp(c.x, p.x, &camVel.x, smoothTime, dt)
             c.y = GameScene.smoothDamp(c.y, p.y, &camVel.y, smoothTime, dt)
@@ -604,7 +601,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // MARK: - Update loop
     override func update(_ currentTime: TimeInterval) {
         guard workerController != nil else { return }
-        let dt: TimeInterval = 1.0 / 60.0
+        if lastUpdateTime == 0 { lastUpdateTime = currentTime }
+        let dt = min(currentTime - lastUpdateTime, 1.0 / 20.0)
+        lastUpdateTime = currentTime
         if let caughtBy = pendingCatch {
             pendingCatch = nil
             #if os(macOS)
@@ -631,7 +630,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         // grace ends for worker and boss at the same instant. No standalone timer.
         workerController.setShielded(bossController.isAnyBossSpawning)
         checkBossCatch()
-        updateMazeCamera()
+        updateMazeCamera(dt: CGFloat(dt))
         stepWaterDroplets(dt: dt)
 
         if frightenSecondsLeft > 0 {
@@ -677,17 +676,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         buildLevel()
     }
 
-    private func restartGame() {
-        hud.hideGameOver()
-        isGameOver = false
-        state.resetForNewGame()
-        resetSceneAndBuild()
-        hud.showMessage(Strings.Message.newGame, duration: 3)
-        #if os(macOS)
-        inputController.hideCursor()
-        #endif
-    }
-
     private func returnToTitleScene() {
         guard let view else { return }
         hud.hideGameOver()
@@ -720,34 +708,23 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
         }
         if GKLocalPlayer.local.isAuthenticated {
-            // Game Center owns the cloud identity, but the board shown here is the
-            // local one — still let the player enter a name (pre-filled with the
-            // GC name) so a qualifying score lands on the local leaderboard.
             defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
         }
         #endif
-        presentGameOverScreen(defaultName: defaultName, allowEntry: allowEntry)
-    }
 
-    private func presentGameOverScreen(defaultName: String, allowEntry: Bool) {
-        let screen = GameOverScreen(
-            size: size,
-            font: Strings.Font.menloBold,
-            score: state.score,
-            highScore: state.highScore,
-            defaultName: defaultName,
-            allowEntry: allowEntry,
-            onPlay: { [weak self] in self?.dismissGameOverScreen(); self?.restartGame() },
-            onEsc:  { [weak self] in self?.dismissGameOverScreen(); self?.returnToTitleScene() }
-        )
-        screen.position = .zero
-        uiLayer.addChild(screen)
-        gameOverScreen = screen
-    }
-
-    private func dismissGameOverScreen() {
-        gameOverScreen?.removeFromParent()
-        gameOverScreen = nil
+        guard let view else { return }
+        let sz = size, sm = scaleMode, pm = state.practiceMode, lvl = state.level
+        let goScene = GameOverScene(
+            size: sz, score: state.score, highScore: state.highScore,
+            allowEntry: allowEntry, defaultName: defaultName,
+            isPractice: pm, practiceLevel: lvl,
+            makeRestartScene: {
+                let g = GameScene(size: sz)
+                g.scaleMode = sm
+                if pm { g.startingLevel = lvl }
+                return g
+            })
+        view.presentScene(goScene, transition: .fade(withDuration: 0.5))
     }
 
     private func togglePause() {
@@ -824,61 +801,39 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func spawnWaterSplash(at center: CGPoint) {
-        let count = 10
-        for i in 0..<count {
-            let angle = CGFloat(i) / CGFloat(count) * .pi * 2
-            let radius = CGFloat.random(in: 22...48, using: &GameRandom.shared)
-            let drop = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6, using: &GameRandom.shared))
-            drop.fillColor = Bool.random(using: &GameRandom.shared) ? .systemCyan : .systemBlue
-            drop.strokeColor = .clear
-            drop.position = center
-            drop.zPosition = 15
-            drop.alpha = 0.85
-            addChild(drop)
-            let dx = cos(angle) * radius
-            let dy = sin(angle) * radius
-            drop.run(.sequence([
-                .group([
-                    .moveBy(x: dx, y: dy, duration: 0.35),
-                    .sequence([
-                        .scale(to: 1.4, duration: 0.1),
-                        .group([.scale(to: 0.1, duration: 0.25), .fadeOut(withDuration: 0.25)])
-                    ])
-                ]),
-                .removeFromParent()
-            ]))
-        }
+        let splash = SpriteFactory.waterSplash()
+        splash.position = center
+        splash.zPosition = 15
+        addChild(splash)
     }
 
     // MARK: - Fire button
     private func installFireButton() {
-        fireButtonHidden = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide)
+        fireButtonHidden = !ControlMode.current.showsControl
         if fireButtonHidden { return }
-        let onLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
+        let onLeft = !ControlMode.current.onLeft   // fire button opposite the movement widget
         fireButtonCenter = CGPoint(x: onLeft ? fireButtonRadius : size.width - fireButtonRadius, y: fireButtonRadius + 15)
-        let ring = SKShapeNode(circleOfRadius: fireButtonRadius)
-        ring.position = fireButtonCenter
-        ring.fillColor = SKColor(white: 1, alpha: 0.14)
-        ring.strokeColor = SKColor(white: 1, alpha: 0.5)
-        ring.lineWidth = 2
-        ring.zPosition = 50
-        uiLayer.addChild(ring)
+        uiLayer.addChild(SpriteFactory.controlRing(radius: fireButtonRadius, center: fireButtonCenter, zPosition: 50))
     }
 
     // MARK: - Joystick
     private func installJoystick() {
-        if UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunHide) { return }
-        let fireOnLeft = UserDefaults.standard.bool(forKey: Strings.DefaultsKey.waterGunLeft)
-        let onLeft = !fireOnLeft
+        if !ControlMode.current.showsControl { return }
+        let onLeft = ControlMode.current.onLeft   // movement widget side
         joystickCenter = CGPoint(x: onLeft ? joystickRadius : size.width - joystickRadius, y: joystickRadius + 15)
 
         let base = SKShapeNode(circleOfRadius: joystickRadius)
         base.position = joystickCenter
-        base.fillColor = SKColor(white: 1, alpha: 0.10)
+        base.fillColor = SKColor(white: 1, alpha: 0.06)
         base.strokeColor = SKColor(white: 1, alpha: 0.5)
         base.lineWidth = 2
         base.zPosition = 50
         uiLayer.addChild(base)
+
+        if ControlMode.current.showsDpad { // DPAD: the shared 4-wedge cross (same look + hit-area as the 3D bonus), STICK: the follow-thumb below
+            dpadWedges = buildDpadFace(in: uiLayer, center: joystickCenter, inner: joystickDeadzone, outer: joystickRadius, z: 51)
+            return
+        }
 
         let thumb = SKShapeNode(circleOfRadius: joystickKnobRadius)
         thumb.position = joystickCenter
@@ -890,10 +845,20 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         joystickThumb = thumb
     }
 
-    private func joystickDirection(_ dx: CGFloat, _ dy: CGFloat) -> MoveDirection? {
-        guard (dx * dx + dy * dy).squareRoot() >= joystickDeadzone else { return nil }
-        if abs(dx) >= abs(dy) { return dx > 0 ? .right : .left }
-        return dy > 0 ? .up : .down
+    // Drive the shared D-pad from a pointer in uiLayer space: move the thumb (stick mode), light the
+    // pressed wedge, and steer. One cardinal per pointer, in stick mode the wedge dict is empty so the
+    // highlight is a no-op.
+    private func applyJoystick(at p: CGPoint) {
+        moveJoystickThumb(to: p)
+        let c = dpadCardinal(p, center: joystickCenter, deadzone: joystickDeadzone, radius: joystickRadius)
+        lightDpadFace(dpadWedges, up: c == "up", down: c == "down", left: c == "left", right: c == "right")
+        switch c {
+        case "up":    steer(.up)
+        case "down":  steer(.down)
+        case "left":  steer(.left)
+        case "right": steer(.right)
+        default:      break
+        }
     }
 
     private func moveJoystickThumb(to p: CGPoint) {
@@ -915,37 +880,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // MARK: - Boss water-droplet dodge (BossControllerDelegate)
     func dropletAxisThreatening(_ bossGrid: CGPoint) -> MoveDirection? {
-        for line in activeDropletLines() where dropletThreatens(dropletGrid: line.grid, dir: line.dir, boss: bossGrid) {
+        for line in activeDropletLines() where dropletThreatens(dropletGrid: line.grid, dir: line.dir, boss: bossGrid, range: dropletDodgeRange, isWalkable: { gridMap.isWalkable($0) }) {
             return line.dir
         }
         return nil
     }
 
-    // A boss is threatened when it shares the droplet's row/col, sits ahead of it
-    // along its travel axis within dropletDodgeRange tiles, and every tile between
-    // is walkable (a wall would stop the shot first).
-    private func dropletThreatens(dropletGrid d: CGPoint, dir: MoveDirection, boss b: CGPoint) -> Bool {
-        let (dx, dy) = dir.delta
-        let dist: Int
-        if dx != 0 {
-            guard Int(b.y) == Int(d.y) else { return false }
-            let delta = Int(b.x) - Int(d.x)
-            guard delta != 0, (dx > 0) == (delta > 0) else { return false }
-            dist = abs(delta)
-        } else {
-            guard Int(b.x) == Int(d.x) else { return false }
-            let delta = Int(b.y) - Int(d.y)
-            guard delta != 0, (dy > 0) == (delta > 0) else { return false }
-            dist = abs(delta)
-        }
-        guard dist <= dropletDodgeRange else { return false }
-        var step = d
-        for _ in 0..<dist {
-            step = CGPoint(x: step.x + CGFloat(dx), y: step.y + CGFloat(dy))
-            if !gridMap.isWalkable(step) { return false }
-        }
-        return true
-    }
 
     private func dropletGrid(_ p: CGPoint) -> CGPoint {
         CGPoint(x: CGFloat(Int((p.x - gridMap.xOffset) / tileSize)),
@@ -983,3 +923,5 @@ private extension CGPoint {
     func distance(to other: CGPoint) -> CGFloat { hypot(x - other.x, y - other.y) }
 }
 #endif
+
+

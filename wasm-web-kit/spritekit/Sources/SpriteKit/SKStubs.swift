@@ -23,7 +23,10 @@ public final class SKShader {
 
     public init() {}
     public init(source: String) { self.source = source }
-    public init(source: String, uniforms: [SKUniform]) { self.source = source; self.uniforms = uniforms }
+    public init(source: String, uniforms: [SKUniform]) {
+        self.source = source
+        self.uniforms = uniforms
+    }
     public init(fileNamed name: String) {
         if let asset = SKSceneLoader.loadAssetText("\(name).fsh") ?? SKSceneLoader.loadAssetText(name) {
             self.source = asset
@@ -68,19 +71,34 @@ public final class SKUniform {
     public var vectorFloat4: (Float, Float, Float, Float) = (0, 0, 0, 0)
     public var textureValue: SKTexture?
 
-    public init(name: String) { self.name = name; self.kind = .float }
-    public init(name: String, float value: Float) { self.name = name; self.kind = .float; self.floatValue = value }
+    public init(name: String) {
+        self.name = name
+        self.kind = .float
+    }
+    public init(name: String, float value: Float) {
+        self.name = name
+        self.kind = .float
+        self.floatValue = value
+    }
     public init(name: String, vectorFloat2 v: (Float, Float)) {
-        self.name = name; self.kind = .v2; self.vectorFloat2 = v
+        self.name = name
+        self.kind = .v2
+        self.vectorFloat2 = v
     }
     public init(name: String, vectorFloat3 v: (Float, Float, Float)) {
-        self.name = name; self.kind = .v3; self.vectorFloat3 = v
+        self.name = name
+        self.kind = .v3
+        self.vectorFloat3 = v
     }
     public init(name: String, vectorFloat4 v: (Float, Float, Float, Float)) {
-        self.name = name; self.kind = .v4; self.vectorFloat4 = v
+        self.name = name
+        self.kind = .v4
+        self.vectorFloat4 = v
     }
     public init(name: String, texture: SKTexture?) {
-        self.name = name; self.kind = .texture; self.textureValue = texture
+        self.name = name
+        self.kind = .texture
+        self.textureValue = texture
     }
 
     func push(to shader: Int32) {
@@ -100,7 +118,10 @@ public final class SKUniform {
 public final class SKAttribute {
     public let name: String
     public let type: Int
-    public init(name: String, type: Int) { self.name = name; self.type = type }
+    public init(name: String, type: Int) {
+        self.name = name
+        self.type = type
+    }
 }
 
 public final class SKAttributeValue {
@@ -122,7 +143,8 @@ public final class SKRange {
     public var lowerLimit: CGFloat = -.infinity
     public var upperLimit: CGFloat =  .infinity
     public init(lowerLimit l: CGFloat = -.infinity, upperLimit u: CGFloat = .infinity) {
-        self.lowerLimit = l; self.upperLimit = u
+        self.lowerLimit = l
+        self.upperLimit = u
     }
     public static func constant(_ v: CGFloat) -> SKRange { SKRange(lowerLimit: v, upperLimit: v) }
     public static func lowerLimit(_ v: CGFloat) -> SKRange { SKRange(lowerLimit: v) }
@@ -151,11 +173,15 @@ public final class SKConstraint {
     public static func positionX(_ rx: SKRange, y ry: SKRange) -> SKConstraint { SKConstraint(.positionXY(rx, ry)) }
     public static func distance(_ r: SKRange, to point: CGPoint) -> SKConstraint { SKConstraint(.distance(r, point)) }
     public static func distance(_ r: SKRange, to node: SKNode) -> SKConstraint {
-        let c = SKConstraint(.distance(r, node.absolutePosition())); c.referenceNode = node; return c
+        let c = SKConstraint(.distance(r, node.absolutePosition()))
+        c.referenceNode = node
+        return c
     }
     public static func orient(to point: CGPoint, offset r: SKRange) -> SKConstraint { SKConstraint(.orientToPoint(point, r)) }
     public static func orient(to node: SKNode, offset r: SKRange) -> SKConstraint {
-        let c = SKConstraint(.orientToNode(r)); c.referenceNode = node; return c
+        let c = SKConstraint(.orientToNode(r))
+        c.referenceNode = node
+        return c
     }
     public static func zRotation(_ r: SKRange) -> SKConstraint { SKConstraint(.zRotation(r)) }
 
@@ -200,9 +226,21 @@ public final class SKConstraint {
 public final class SKReferenceNode: SKNode {
     public let fileName: String?
     public let url: SKAudioURL?
-    public override init() { fileName = nil; url = nil; super.init() }
-    public init(fileNamed name: String) { fileName = name; url = nil; super.init() }
-    public init(url: SKAudioURL) { fileName = nil; self.url = url; super.init() }
+    public override init() {
+        fileName = nil
+        url = nil
+        super.init()
+    }
+    public init(fileNamed name: String) {
+        fileName = name
+        url = nil
+        super.init()
+    }
+    public init(url: SKAudioURL) {
+        fileName = nil
+        self.url = url
+        super.init()
+    }
     public func didLoad() {}
     public func resolve() {}
 }
@@ -459,20 +497,51 @@ public final class SKFieldNode: SKNode {
     public override init() { super.init() }
 
     public static func linearGravityField(withVector v: CGVector) -> SKFieldNode {
-        let n = SKFieldNode(); n.fieldType = .linearGravity; n.direction = v; return n
+        let n = SKFieldNode()
+        n.fieldType = .linearGravity
+        n.direction = v
+        return n
     }
-    public static func radialGravityField() -> SKFieldNode { let n = SKFieldNode(); n.fieldType = .radialGravity; return n }
-    public static func vortexField() -> SKFieldNode { let n = SKFieldNode(); n.fieldType = .vortex; return n }
-    public static func dragField() -> SKFieldNode { let n = SKFieldNode(); n.fieldType = .drag; return n }
-    public static func springField() -> SKFieldNode { let n = SKFieldNode(); n.fieldType = .spring; return n }
+    public static func radialGravityField() -> SKFieldNode {
+        let n = SKFieldNode()
+        n.fieldType = .radialGravity
+        return n
+    }
+    public static func vortexField() -> SKFieldNode {
+        let n = SKFieldNode()
+        n.fieldType = .vortex
+        return n
+    }
+    public static func dragField() -> SKFieldNode {
+        let n = SKFieldNode()
+        n.fieldType = .drag
+        return n
+    }
+    public static func springField() -> SKFieldNode {
+        let n = SKFieldNode()
+        n.fieldType = .spring
+        return n
+    }
     public static func noiseField(withSmoothness s: CGFloat, animationSpeed a: CGFloat) -> SKFieldNode {
-        let n = SKFieldNode(); n.fieldType = .noise; return n
+        let n = SKFieldNode()
+        n.fieldType = .noise
+        return n
     }
     public static func turbulenceField(withSmoothness s: CGFloat, animationSpeed a: CGFloat) -> SKFieldNode {
-        let n = SKFieldNode(); n.fieldType = .turbulence; return n
+        let n = SKFieldNode()
+        n.fieldType = .turbulence
+        return n
     }
-    public static func electricField() -> SKFieldNode { let n = SKFieldNode(); n.fieldType = .electric; return n }
-    public static func magneticField() -> SKFieldNode { let n = SKFieldNode(); n.fieldType = .magnetic; return n }
+    public static func electricField() -> SKFieldNode {
+        let n = SKFieldNode()
+        n.fieldType = .electric
+        return n
+    }
+    public static func magneticField() -> SKFieldNode {
+        let n = SKFieldNode()
+        n.fieldType = .magnetic
+        return n
+    }
 }
 
 // =============================================================================
@@ -505,9 +574,14 @@ public final class SKTileDefinition {
     public var userData: [String: Any]? = nil
     public init() {}
     public init(texture: SKTexture) { textures = [texture] }
-    public init(texture: SKTexture, size: CGSize) { textures = [texture]; self.size = size }
+    public init(texture: SKTexture, size: CGSize) {
+        textures = [texture]
+        self.size = size
+    }
     public init(textures: [SKTexture], size: CGSize, timePerFrame: TimeInterval) {
-        self.textures = textures; self.size = size; self.timePerFrame = timePerFrame
+        self.textures = textures
+        self.size = size
+        self.timePerFrame = timePerFrame
     }
 }
 
@@ -517,7 +591,10 @@ public final class SKTileGroup {
     public init() { name = nil }
     public init(_ name: String) { self.name = name }
     public init(tileDefinition: SKTileDefinition) { name = tileDefinition.name }
-    public init(rules: [AnyObject]) { name = nil; self.rules = rules }
+    public init(rules: [AnyObject]) {
+        name = nil
+        self.rules = rules
+    }
 }
 public final class SKTileSet {
     public let name: String?
@@ -578,16 +655,29 @@ public final class SKVideoNode: SKNode {
     var videoId: Int32 = -1
 
     public init(fileNamed name: String) {
-        videoName = name; videoURL = nil; super.init()
+        videoName = name
+        videoURL = nil
+        super.init()
         self.videoId = withUTF8Ptr(name) { vid_load($0, $1) }
     }
     public init(url: SKAudioURL) {
-        videoName = nil; videoURL = url; super.init()
+        videoName = nil
+        videoURL = url
+        super.init()
         self.videoId = withUTF8Ptr(url.lastPathComponent) { vid_load($0, $1) }
     }
-    public func play()  { if videoId >= 0 { vid_play(videoId); isPlaying = true } }
-    public func pause() { if videoId >= 0 { vid_pause(videoId); isPlaying = false } }
-    public func stop()  { if videoId >= 0 { vid_stop(videoId);  isPlaying = false } }
+    public func play() {
+        if videoId >= 0 { vid_play(videoId) }
+        isPlaying = true
+    }
+    public func pause() {
+        if videoId >= 0 { vid_pause(videoId) }
+        isPlaying = false
+    }
+    public func stop() {
+        if videoId >= 0 { vid_stop(videoId) }
+        isPlaying = false
+    }
 
     override func draw(alpha: CGFloat) {
         guard videoId >= 0 else { return }
@@ -616,3 +706,5 @@ public final class SKRegion {
     public init(size: CGSize) {}
     public init(path: CGPath) { self.path = path }
 }
+
+

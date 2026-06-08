@@ -34,10 +34,16 @@ public final class SKAudioNode: SKNode {
         if voice >= 0 { snd_stop(voice) }
         voice = snd_play(buffer, volume, autoplayLooped ? 1 : 0)
     }
-    public func pause() { if voice >= 0 { snd_stop(voice); voice = -1 } }
+    public func pause() {
+        if voice >= 0 { snd_stop(voice) }
+        voice = -1
+    }
     public func stop()  { pause() }
 
-    public override func removeFromParent() { stop(); super.removeFromParent() }
+    public override func removeFromParent() {
+        stop()
+        super.removeFromParent()
+    }
 
     func applyVolume() { if voice >= 0 { snd_set_volume(voice, volume) } }
 }
@@ -52,3 +58,4 @@ public extension SKAction {
     static func play(on node: SKAudioNode) -> SKAction { SKAction.run { node.play() } }
     static func stop(on node: SKAudioNode) -> SKAction { SKAction.run { node.stop() } }
 }
+

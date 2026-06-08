@@ -127,7 +127,10 @@ public final class GCControllerButtonInput: GCControllerElement {
     public var pressedChangedHandler: ((GCControllerButtonInput, Float, Bool) -> Void)?
     public var valueChangedHandler: ((GCControllerButtonInput, Float, Bool) -> Void)?
     private var lastPressed = false
-    init(pad: Int32, btn: Int32) { self.padIndex = pad; self.btn = btn }
+    init(pad: Int32, btn: Int32) {
+        self.padIndex = pad
+        self.btn = btn
+    }
     func refresh(handler outer: (GCControllerElement) -> Void) {
         let v = gp_button_value(padIndex, btn)
         let pressed = v > 0.5
@@ -146,7 +149,10 @@ public final class GCControllerAxisInput: GCControllerElement {
     let padIndex: Int32, axis: Int32
     public var value: Float = 0
     public var valueChangedHandler: ((GCControllerAxisInput, Float) -> Void)?
-    init(pad: Int32, axis: Int32) { self.padIndex = pad; self.axis = axis }
+    init(pad: Int32, axis: Int32) {
+        self.padIndex = pad
+        self.axis = axis
+    }
     func refresh(handler outer: (GCControllerElement) -> Void) {
         let v = gp_axis(padIndex, axis)
         if v != value {
@@ -172,7 +178,8 @@ public final class GCControllerDirectionPad: GCControllerElement {
     private var lastX: Float = 0, lastY: Float = 0
 
     init(pad: Int32, kind: Kind) {
-        self.padIndex = pad; self.kind = kind
+        self.padIndex = pad
+        self.kind = kind
         switch kind {
         case .leftStick:
             xAxis = GCControllerAxisInput(pad: pad, axis: 0)
@@ -195,8 +202,10 @@ public final class GCControllerDirectionPad: GCControllerElement {
         case .dpad:
             x = (gp_button(padIndex, 15) != 0 ? 1 : 0) - (gp_button(padIndex, 14) != 0 ? 1 : 0)
             y = (gp_button(padIndex, 12) != 0 ? 1 : 0) - (gp_button(padIndex, 13) != 0 ? 1 : 0)
-            up.refresh(handler: outer); down.refresh(handler: outer)
-            left.refresh(handler: outer); right.refresh(handler: outer)
+            up.refresh(handler: outer)
+            down.refresh(handler: outer)
+            left.refresh(handler: outer)
+            right.refresh(handler: outer)
         default:
             x = gp_axis(padIndex, kind == .leftStick ? 0 : 2)
             y = -gp_axis(padIndex, kind == .leftStick ? 1 : 3)  // y-up to match SpriteKit
@@ -204,7 +213,8 @@ public final class GCControllerDirectionPad: GCControllerElement {
         if x != lastX || y != lastY {
             valueChangedHandler?(self, x, y)
             outer(self)
-            lastX = x; lastY = y
+            lastX = x
+            lastY = y
         }
     }
 }
@@ -214,3 +224,5 @@ public extension String {
     static let GCControllerDidConnect = "GCControllerDidConnect"
     static let GCControllerDidDisconnect = "GCControllerDidDisconnect"
 }
+
+

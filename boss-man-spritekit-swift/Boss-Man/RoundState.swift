@@ -1,5 +1,3 @@
-import Foundation
-
 @MainActor
 final class RoundState {
     static let highScoreKey = Strings.DefaultsKey.highScore

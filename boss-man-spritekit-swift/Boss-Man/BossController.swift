@@ -10,7 +10,7 @@ protocol BossControllerDelegate: AnyObject {
     func bossDidCatchWorker()
     func bossDidGetCaptured(name: String, points: Int, at position: CGPoint)
     // Travel axis of a water droplet bearing down on a boss at `grid` (nil if
-    // none); the boss steps perpendicular to dodge it.
+    // none), the boss steps perpendicular to dodge it.
     func dropletAxisThreatening(_ grid: CGPoint) -> MoveDirection?
 }
 
@@ -44,7 +44,7 @@ final class BossController {
     // built. (A hardcoded home here once let a tile-less level spawn Bill at a
     // fixed corner.)
     // name/personality/speed + the body/tie palette come from the shared
-    // BossBlueprint (common with the wasm port); apple layers the pants color +
+    // BossBlueprint (common with the wasm port), apple layers the pants color +
     // spawn slot on top.
     private static let blueprints: [(name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double)] =
         BossBlueprint.table.enumerated().map { i, bp in
@@ -56,7 +56,7 @@ final class BossController {
     private let moveDuration: TimeInterval = 0.22
     private let detectionRange: CGFloat = 10
 
-    static let baseSkinColor: NSColor = NSColor(calibratedRed: 0.96, green: 0.78, blue: 0.62, alpha: 1)
+    static let baseSkinColor: NSColor = SpriteFactory.bossSkinColor
     static var bossShoeGoldColor: NSColor { SpriteFactory.bossShoeGoldColor }
 
     weak var delegate: BossControllerDelegate?
@@ -106,7 +106,11 @@ final class BossController {
     // Loop-driven respawns for splashed bosses (the C++ master's respawnTimer).
     // An SKAction .wait+.run fires unreliably on wasm — a splashed boss would
     // respawn late, looking spontaneous "from before" — so count down in advance.
-    private struct PendingSpawn { let blueprintIndex: Int; let spawn: CGPoint; var timer: TimeInterval }
+    private struct PendingSpawn {
+        let blueprintIndex: Int
+        let spawn: CGPoint
+        var timer: TimeInterval
+    }
     private var pendingSpawns: [PendingSpawn] = []
 
     private func themed(_ blueprint: (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double), level: Int) -> (name: String, color: NSColor, tie: NSColor, pants: NSColor, spawn: CGPoint, personality: BossPersonality, speed: Double) {
@@ -129,14 +133,7 @@ final class BossController {
         let index = entities.count - 1
         if goldDiscActive {
             entities[index].isInFleeMode = true
-            let node = entities[index].node
-            node.setBodyColor(SpriteFactory.fleeBodyColor)
-            node.setTieColor(SpriteFactory.fleeTieColor)
-            node.setTieOutline(color: nil)
-            node.setShirtOutlineColor(NSColor(calibratedWhite: 1, alpha: 0.75))
-            node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            node.setEyeColor(SpriteFactory.fleeEyeColor)
-            node.setSkinColor(SpriteFactory.fleeSkinColor)
+            entities[index].node.setFleePalette(true)
             entities[index].mover?.step = entities[index].frightenedStep
         }
         applySpawnFreeze(at: index)
@@ -307,13 +304,7 @@ final class BossController {
         for i in entities.indices {
             entities[i].captureCount = 0
             entities[i].isInFleeMode = active
-            entities[i].node.setBodyColor(active ? SpriteFactory.fleeBodyColor : entities[i].baseColor)
-            entities[i].node.setTieColor(active ? SpriteFactory.fleeTieColor : entities[i].tieColor)
-            entities[i].node.setTieOutline(color: nil)
-            entities[i].node.setShirtOutlineColor(active ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
-            entities[i].node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            entities[i].node.setEyeColor(active ? SpriteFactory.fleeEyeColor : .black)
-            entities[i].node.setSkinColor(active ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
+            entities[i].node.setFleePalette(active, bodyRestore: entities[i].baseColor, tieRestore: entities[i].tieColor, skinRestore: Self.baseSkinColor)
             entities[i].mover?.step = active ? entities[i].frightenedStep : entities[i].moveDuration
         }
         refreshTags(goldDiscActive: active)
@@ -346,6 +337,8 @@ final class BossController {
         entities.first(where: { $0.node === node })?.isInFleeMode ?? false
     }
 
+    var nextCapturePoints: Int { 100 * (captureStreak + 1) }
+
     func isImmobilized(boss node: PixelPerson) -> Bool {
         entities.first(where: { $0.node === node })?.isImmobilized ?? false
     }
@@ -371,9 +364,9 @@ final class BossController {
     // MARK: - Stepping
     // Each boss steps through its own TileMover, advanced once per frame from the
     // scene update. The AI plans the next target tile from Pete's position, heading,
-    // and the flee state; the mover owns glide, per-tile dwell, tunnel wrap, and
+    // and the flee state, the mover owns glide, per-tile dwell, tunnel wrap, and
     // slow-in-tunnels.
-    func advance(_ dt: TimeInterval) {
+    func advance(_ dt: TimeInterval, shouldMove: ((Entity) -> Bool)? = nil) {
         guard let delegate else { return }
         if !pendingSpawns.isEmpty {
             for i in pendingSpawns.indices { pendingSpawns[i].timer -= dt }
@@ -393,10 +386,13 @@ final class BossController {
         for i in entities.indices {
             if entities[i].spawnGrace > 0 {
                 entities[i].spawnGrace -= dt
-                if entities[i].spawnGrace <= 0 { entities[i].isImmobilized = false }
+                if entities[i].spawnGrace <= 0 {
+                    entities[i].isImmobilized = false
+                }
                 continue
             }
             if entities[i].isImmobilized { continue }
+            if let shouldMove, !shouldMove(entities[i]) { continue }
             guard let mover = entities[i].mover else { continue }
             let ai = entities[i].ai
             let node = entities[i].node
@@ -461,13 +457,7 @@ final class BossController {
                 self.entities[i].isImmobilized = false
             })
             bossNode.run(.sequence(seq))
-            boss.node.setBodyColor(powerActive ? SpriteFactory.fleeBodyColor : boss.baseColor)
-            boss.node.setTieColor(powerActive ? SpriteFactory.fleeTieColor : boss.tieColor)
-            boss.node.setTieOutline(color: nil)
-            boss.node.setShirtOutlineColor(powerActive ? NSColor(calibratedWhite: 1, alpha: 0.75) : .white)
-            boss.node.setShoeOutlineColor(Self.bossShoeGoldColor)
-            boss.node.setEyeColor(powerActive ? SpriteFactory.fleeEyeColor : .black)
-            boss.node.setSkinColor(powerActive ? SpriteFactory.fleeSkinColor : Self.baseSkinColor)
+            boss.node.setFleePalette(powerActive, bodyRestore: boss.baseColor, tieRestore: boss.tieColor, skinRestore: Self.baseSkinColor)
         }
         refreshTags(goldDiscActive: powerActive)
         delegate?.bossDidGetCaptured(name: boss.name, points: points, at: boss.node.position)
@@ -487,3 +477,4 @@ final class BossController {
         pendingSpawns.append(PendingSpawn(blueprintIndex: boss.blueprintIndex, spawn: boss.spawn, timer: 5.0))
     }
 }
+

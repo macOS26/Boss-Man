@@ -81,7 +81,22 @@ protected:
                 outl.push_back(cx + dx * s);
                 outl.push_back(cy + dy * s);
             }
-            gfx_fill_poly(outl.data(), (int)n, m_outline.toInteger());
+            // A filled shape lays the expanded poly behind, then the fill covers the
+            // interior so only the ring shows. A HOLLOW shape (transparent fill) has
+            // no fill to cover it, so filling the expanded poly would paint the whole
+            // interior the stroke colour; emit the ring as edge quads instead so the
+            // interior stays clear.
+            if (m_fill.a == 0) {
+                const uint32_t oc = m_outline.toInteger();
+                for (std::size_t i = 0; i < n; ++i) {
+                    std::size_t j = (i + 1) % n;
+                    float quad[8] = { xy[i * 2], xy[i * 2 + 1], xy[j * 2], xy[j * 2 + 1],
+                                      outl[j * 2], outl[j * 2 + 1], outl[i * 2], outl[i * 2 + 1] };
+                    gfx_fill_poly(quad, 4, oc);
+                }
+            } else {
+                gfx_fill_poly(outl.data(), (int)n, m_outline.toInteger());
+            }
         }
 
         gfx_fill_poly(xy.data(), (int)n, m_fill.toInteger());

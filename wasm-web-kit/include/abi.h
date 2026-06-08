@@ -116,6 +116,8 @@ WABI int  win_width();
 WABI int  win_height();
 WABI void win_request_fullscreen();
 WABI void win_exit_fullscreen();
+// Browser "Save As": host wraps data in a Blob and clicks a download anchor.
+WABI void win_download(const char* name, int nlen, const char* data, int dlen);
 
 // ---- persistence (localStorage-backed; for high score / levels / leaderboard) ----
 // Reads up to cap bytes into buf; returns actual length (or -1 if absent).

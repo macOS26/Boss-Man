@@ -77,7 +77,20 @@ int MazeRenderer::build() {
             case Tile::goldDisc:   goldDiscPositionsFromMap.push_back(grid); break;
             case Tile::waterGun:   waterGunPositionsFromMap.push_back(grid); break;
             case Tile::waterPellet: waterPelletPositionsFromMap.push_back(grid); break;
-            case Tile::worker:     workerSpawnFromMap = grid; break;
+            case Tile::worker:
+                workerSpawnFromMap = grid;
+                dotPresence[rowIndex][colIndex] = true;
+                dotCount++;
+                {
+                    const sf::Color dotColor(255, 231, 0);
+                    const float dx = pos.x - 3.f, dy = pos.y - 3.f;
+                    dotGridToQuad[rowIndex * 1000 + colIndex] = (int)dotVerts.getVertexCount() / 4;
+                    dotVerts.append(sf::Vertex(sf::Vector2f(dx,       dy),       dotColor));
+                    dotVerts.append(sf::Vertex(sf::Vector2f(dx + 6.f, dy),       dotColor));
+                    dotVerts.append(sf::Vertex(sf::Vector2f(dx + 6.f, dy + 6.f), dotColor));
+                    dotVerts.append(sf::Vertex(sf::Vector2f(dx,       dy + 6.f), dotColor));
+                }
+                break;
             case '1': bossSpawnsFromMap.push_back({0, grid}); break;
             case '2': bossSpawnsFromMap.push_back({1, grid}); break;
             case '3': bossSpawnsFromMap.push_back({2, grid}); break;
@@ -342,6 +355,45 @@ bool MazeRenderer::collectDot(int col, int row) {
     }
 
     return true;
+}
+
+bool MazeRenderer::collectGold(int col, int row) {
+    for (auto& p : pickups) {
+        if (p.type == 'O' && p.grid.x == col && p.grid.y == row && p.active) {
+            p.active = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool MazeRenderer::collectWaterGun(int col, int row) {
+    for (auto& p : pickups) {
+        if (p.type == 'G' && p.grid.x == col && p.grid.y == row && p.active) {
+            p.active = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool MazeRenderer::collectWaterPellet(int col, int row) {
+    for (auto& p : pickups) {
+        if (p.type == 'A' && p.grid.x == col && p.grid.y == row && p.active) {
+            p.active = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+sf::Vector2f* MazeRenderer::touchedBrownBox(int col, int row) {
+    for (auto& p : pickups) {
+        if (p.type == Tile::brownBox && p.grid.x == col && p.grid.y == row && p.active) {
+            return &p.pixelPos;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace bm

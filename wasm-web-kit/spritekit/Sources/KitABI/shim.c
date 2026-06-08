@@ -13,6 +13,8 @@ double sb64_floor(double x)          { return floor(x); }
 double sb64_ceil(double x)           { return ceil(x); }
 double sb64_fmod(double a, double b) { return fmod(a, b); }
 double sb64_pow(double a, double b)  { return pow(a, b); }
+double sb64_exp(double x)            { return exp(x); }
+double sb64_tanh(double x)           { return tanh(x); }
 double sb64_hypot(double x, double y){ return hypot(x, y); }
 
 #include <stdlib.h>

@@ -1,5 +1,3 @@
-import Foundation
-
 @MainActor
 final class WaterGunState {
     private(set) var isActive = false
