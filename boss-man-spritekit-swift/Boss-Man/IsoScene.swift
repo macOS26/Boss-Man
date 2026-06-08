@@ -803,7 +803,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             state.collectedDots += 1
             state.bumpScore(by: 1)
             refreshHUD()
-            checkLevelComplete3D()
+            checkLevelComplete()
             return
         }
         switch ch {
@@ -817,10 +817,11 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             hidePickup(c, r)
             startGoldDiscMode()
             refreshHUD()
-            checkLevelComplete3D()
+            checkLevelComplete()
         case Strings.Tile.waterGunChar:
             guard !collected.contains(key) else { return }
             collected.insert(key)
+            state.collectedWaterGuns += 1
             waterGun.activate()
             waterGunPickedUp = true
             sound.playWaterGunPickup()
@@ -828,17 +829,18 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             popPoints(75)
             hidePickup(c, r)
             refreshHUD()
-            checkLevelComplete3D()
+            checkLevelComplete()
         case Strings.Tile.waterPelletChar:
             guard !collected.contains(key) else { return }
             collected.insert(key)
+            state.collectedWaterPellets += 1
             state.bumpScore(by: 50)
             sound.playWaterGunPickup()
             popPoints(50)
             if waterGunPickedUp { waterGun.reloadPellets(8) }
             hidePickup(c, r)
             refreshHUD()
-            checkLevelComplete3D()
+            checkLevelComplete()
         case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, c, r)
         case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, c, r)
         case Strings.Tile.coverSheetChar: collectMachine(Strings.Machine.coverSheet, key, c, r)
@@ -868,7 +870,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         state.bumpScore(by: 1)
         }
         refreshHUD()
-        checkLevelComplete3D()
+        checkLevelComplete()
     }
 
     override func fire() {

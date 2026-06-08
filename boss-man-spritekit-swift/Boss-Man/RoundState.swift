@@ -9,6 +9,10 @@ final class RoundState {
     var collectedDots = 0
     var goldDiscCount = 0
     var collectedGoldDiscs = 0
+    var waterGunCount = 0
+    var collectedWaterGuns = 0
+    var waterPelletCount = 0
+    var collectedWaterPellets = 0
     var tpsReportsDelivered = 0
     var reportItems: Set<String> = []
     var currentReportScore = 0
@@ -29,18 +33,48 @@ final class RoundState {
         lives = HUD.startingLives
         score = 0
         tpsReportsDelivered = 0
-        collectedDots = 0
-        collectedGoldDiscs = 0
-        reportItems.removeAll()
-        currentReportScore = 0
+        clearCollected()
     }
 
     func advanceLevel() {
         level += 1
+        tpsReportsDelivered = 0
+        clearCollected()
+    }
+
+    private func clearCollected() {
         collectedDots = 0
         collectedGoldDiscs = 0
-        tpsReportsDelivered = 0
+        collectedWaterGuns = 0
+        collectedWaterPellets = 0
         reportItems.removeAll()
         currentReportScore = 0
+    }
+
+    var pickupsComplete: Bool {
+        collectedDots >= dotCount
+            && collectedGoldDiscs >= goldDiscCount
+            && collectedWaterGuns >= waterGunCount
+            && collectedWaterPellets >= waterPelletCount
+    }
+}
+
+// MARK: - Shared level completion (one path for every game mode)
+
+@MainActor
+protocol LevelCompletionHost: AnyObject {
+    var state: RoundState { get }
+    var hud: HUD! { get }
+    func startNextLevel()
+}
+
+extension LevelCompletionHost {
+    func checkLevelComplete() {
+        guard state.pickupsComplete else { return }
+        if state.tpsReportsDelivered >= 1 {
+            startNextLevel()
+        } else {
+            hud.showMessage(Strings.Message.needTPSReport, duration: 3)
+        }
     }
 }

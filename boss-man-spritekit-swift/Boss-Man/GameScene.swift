@@ -5,7 +5,7 @@ import SpriteKit
 // Gameplay scene, common to the macOS master and the wasm port. The game logic
 // is shared, only platform input, movement timing, and Game Center fork behind
 // #if.
-final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate {
+final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate, LevelCompletionHost {
     private let tileSize: CGFloat = 32
     private let goldDiscDuration: TimeInterval = 20
     private var frightenSecondsLeft: TimeInterval = 0
@@ -25,10 +25,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var gridMap: GridMap!
     private var pathfinder: Pathfinder!
     private var mazeBuilder: MazeBuilder!
-    private var hud: HUD!
+    var hud: HUD!
     private let sound = SoundManager()
 
-    private let state = RoundState()
+    let state = RoundState()
     private let goldDisc = GoldDiscTimer()
     private let waterGun = WaterGunState()
     private var waterGunPickedUp = false
@@ -135,6 +135,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         gridMap.setRows(currentLevelRows())
         state.dotCount = mazeBuilder.build(in: self, view: view)
         state.goldDiscCount = mazeBuilder.goldDiscPositions.count
+        state.waterGunCount = mazeBuilder.waterGunPositions.count
+        state.waterPelletCount = mazeBuilder.waterPelletPositions.count
         setupMazeCamera()
         setupUILayer()
         hud.install(in: uiLayer, size: size, extraRow: cameraNode == nil)
@@ -330,6 +332,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             checkLevelComplete()
         }
         if mazeBuilder.collectWaterPellet(at: grid) {
+            state.collectedWaterPellets += 1
             state.bumpScore(by: 50)
             ScorePopup.show(50, at: gridMap.point(for: grid), in: self)
             if waterGunPickedUp {
@@ -337,13 +340,16 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
                 sound.playWaterGunPickup()
             }
             refreshHUD()
+            checkLevelComplete()
         }
         if mazeBuilder.collectWaterGun(at: grid) {
+            state.collectedWaterGuns += 1
             sound.playWaterGunPickup()
             state.bumpScore(by: 75)
             ScorePopup.show(75, at: gridMap.point(for: grid), in: self)
             startWaterGunMode()
             refreshHUD()
+            checkLevelComplete()
         }
         if let machine = mazeBuilder.collectMachine(at: grid, shouldCollect: {
                requiredItems.contains($0) && !state.reportItems.contains($0)
@@ -352,17 +358,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         }
         if mazeBuilder.touchedBrownBox(at: grid) != nil {
             collectTPSReport(at: grid)
-        }
-    }
-
-    private func checkLevelComplete() {
-        let dotsDone = state.collectedDots >= state.dotCount
-        let discsDone = state.collectedGoldDiscs >= state.goldDiscCount
-        guard dotsDone && discsDone else { return }
-        if state.tpsReportsDelivered >= 1 {
-            startNextLevel()
-        } else {
-            hud.showMessage(Strings.Message.needTPSReport, duration: 3)
         }
     }
 
@@ -655,7 +650,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     // MARK: - Level / game flow
-    private func startNextLevel() {
+    func startNextLevel() {
         state.advanceLevel()
         nextBossSpawnSeconds = sound.playLevelStart()
         resetSceneAndBuild()

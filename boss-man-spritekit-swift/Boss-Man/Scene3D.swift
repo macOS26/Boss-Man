@@ -2,7 +2,7 @@ import SpriteKit
 import AppKit
 
 // MARK: - Shared base for the 3D bonus scenes (Doom raycaster, Voxel painter, Iso overhead)
-class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
+class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, LevelCompletionHost {
 
     // MARK: - Maze (loaded for the selected level, the editor's test plays the edited rows)
     var clampedLevelIndex: Int { max(0, min(state.level - 1, Levels.levelNames.count - 1)) }
@@ -793,6 +793,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
         state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
         state.goldDiscCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.goldDiscChar }.count }
+        state.waterGunCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.waterGunChar }.count }
+        state.waterPelletCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.waterPelletChar }.count }
         refreshHUD()
     }
 
@@ -1308,6 +1310,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 popPoints(5)
                 startGoldDiscMode()
                 case Strings.Tile.waterPelletChar: sound.playWaterGunPickup()
+                state.collectedWaterPellets += 1
                 state.bumpScore(by: 50)
                 popPoints(50)
                 if waterGunPickedUp { waterGun.reloadPellets(8) }
@@ -1316,7 +1319,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 state.bumpScore(by: 1)
                 }
                 refreshHUD()
-                checkLevelComplete3D()
+                checkLevelComplete()
             }
         }
         collectStationary()
@@ -1433,6 +1436,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         switch ch {
         case Strings.Tile.waterGunChar:
             collected.insert(key)
+            state.collectedWaterGuns += 1
             waterGun.activate()
             waterGunPickedUp = true
             state.bumpScore(by: 50)
@@ -1440,6 +1444,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             hidePickup(pcol, prow)
             popPoints(50)
             refreshHUD()
+            checkLevelComplete()
         case Strings.Tile.printerChar:    collectMachine(Strings.Machine.printer, key, pcol, prow)
         case Strings.Tile.faxChar:        collectMachine(Strings.Machine.fax, key, pcol, prow)
         case Strings.Tile.coverSheetChar: collectMachine(Strings.Machine.coverSheet, key, pcol, prow)
@@ -1500,20 +1505,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         resetCollectedMachines()   // un-gray so a fresh report can be gathered (GameScene.resetGrayedMachines)
         refreshHUD()
         hud.showMessage(Strings.Message.tpsTurnedIn(points: tpsPoints, gainedLife: gainedLife), duration: 3)
-        checkLevelComplete3D()
+        checkLevelComplete()
     }
-    func checkLevelComplete3D() {
-        let dotsDone = state.collectedDots >= state.dotCount
-        let discsDone = state.collectedGoldDiscs >= state.goldDiscCount
-        guard dotsDone && discsDone else { return }
-        if state.tpsReportsDelivered >= 1 {
-            state.advanceLevel()
-            startNextLevel3D()
-        } else {
-            hud.showMessage(Strings.Message.needTPSReport, duration: 3)
-        }
-    }
-    func startNextLevel3D() {
+    func startNextLevel() {
+        state.advanceLevel()
         resetSceneAndBuild()
         hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
     }
