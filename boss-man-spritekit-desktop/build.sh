@@ -32,6 +32,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleDisplayName</key><string>Boss-Man-wk</string>
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleIdentifier</key><string>com.starplayrx.bossman.desktop</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundleVersion</key><string>1</string>
@@ -43,6 +44,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+cp "$HERE/Resources/AppIcon.icns" "$APP/Contents/Resources/"
 cp "$WEB_SRC/server.html" "$APP/Contents/Resources/web/"
 cp -L "$WEB_SRC/runtime.js" "$APP/Contents/Resources/web/"
 cp "$WEB_SRC/manifest.json" "$APP/Contents/Resources/web/"
