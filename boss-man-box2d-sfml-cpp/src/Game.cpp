@@ -818,7 +818,7 @@ void Game::update(float dt) {
                 sound.playFishOrTreat();
                 scorePopups.add(tr.points, tr.pixelPos);
                 refreshHUD();
-                hud.showMessage("Caught " + tr.emoji + "!", 2.0f);
+                hud.showMessage("CAUGHT! +" + std::to_string(tr.points), 2.0f);
             }
         }
     }
