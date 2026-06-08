@@ -80,6 +80,9 @@ jobs:
             xcrun --toolchain "$TOOLCHAINS" swift build \
             --swift-sdk "$WASM_SDK" -c release
 
+      - name: Install wasm-opt (Binaryen)
+        run: brew install binaryen
+
       - name: Build boss-man-spritekit-web (the wasm port)
         working-directory: boss-man-spritekit-web
         run: |
