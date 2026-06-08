@@ -9,9 +9,9 @@
 
 # Boss-Man
 
-The office maze arcade game, runs on Mac, Windows, Linux, Web (mobile friendly), and Android. An *Office Space* inspired maze game built in Swift and ported to C++. One interesting aspect is we are actively creating two WebAssembly game engines for Swift and C++. Swift focuses on porting SpriteKit to the web, branded **SuperBox64 SpriteKit**, and our C++ port focuses on using existing C/C++ code with minimal to no code changes. Both WASM game engines use WASI Preview 1.
+The office maze arcade game, runs on Mac, Windows, Linux, Web (mobile friendly), and Android. An *Office Space* inspired maze game built in Swift using **SuperBox64 SpriteKit** — an open source reimplementation of Apple's SpriteKit, compiled to WebAssembly via WASI Preview 1 and wrapped in a native WebView on every platform.
 
-It runs far beyond the Mac: one shared codebase ships to the browser as WebAssembly (via SuperBox64 SpriteKit) and to Windows, Linux, Android, and the web through a C++ port. See [The Tech](#the-tech-one-game-three-ports-one-framework) below.
+The C++ port is legacy. The future is Swift: one shared Swift codebase, one open source SpriteKit engine, six platforms. A 2D/3D simulated game engine is coming soon. See [The Tech](#the-tech-one-game-three-ports-one-framework) below.
 
 ## Download the DMG
 
@@ -198,17 +198,19 @@ Press the **LEVEL EDITOR** button from the title screen to design your own floor
 
 PETE, the four bosses, and life-icon stand-ins are drawn procedurally by `PixelPerson.swift`. No sprite sheets, no boss PNGs. The app icon lives in `Boss-Man/Resources/AppIcon.icon`.
 
-## The Tech: One Game, Three Ports, One Framework
+## The Tech: One Game, One Framework, Six Platforms
 
-Boss-Man ships from three codebases that stay in lockstep, plus the framework that makes the web and wasm builds possible.
+Boss-Man is the proving ground for **SuperBox64 SpriteKit** — a custom open source reimplementation of Apple's closed SpriteKit framework, compiled to WebAssembly (WASI Preview 1) and wrapped in a native WebView on every platform.
 
 | Port | Folder | Stack | Targets |
 |------|--------|-------|---------|
-| **Swift / SpriteKit** (master) | `boss-man-spritekit-swift/` | Swift + Apple SpriteKit | macOS (the signed, notarized DMG) |
-| **Swift / WebAssembly** | `boss-man-spritekit-web/` | the *same* Swift, compiled to wasm | any modern browser |
-| **C++ / Box2D + SFML** | `boss-man-box2d-sfml-cpp/` | C++17, Box2D 2.4.1, SFML 2.6 | macOS, Windows, Linux, Android, browser |
+| **Swift / SpriteKit** (master) | `boss-man-spritekit-swift/` | Swift + Apple SpriteKit | macOS (signed, notarized DMG) |
+| **Swift / SuperBox64 SpriteKit** | `boss-man-spritekit-web/` | the *same* Swift, compiled to WASM | browser, macOS/Windows/Linux/Android WebView |
+| **C++ / Box2D + SFML** (legacy) | `boss-man-box2d-sfml-cpp/` | C++17, Box2D 2.4.1, SFML 2.6 | macOS, Windows, Linux, Android, browser |
 
 The Swift macOS project is the single source of truth. The Swift WASM port does not fork the game: 32 of its 33 source files are symlinks straight back to the macOS master, so both builds compile identical Swift. The only port-specific file is `main.swift` (the wasm `boot`/`frame` entry points in place of the macOS `NSApplicationDelegate`). The goal is 100% common game source, with every platform difference pushed down into the framework instead of forked into the game.
+
+A fully simulated 2D/3D game engine built on SuperBox64 SpriteKit is in development.
 
 ### wasm-web-kit
 
@@ -225,11 +227,11 @@ The wasm module is a WASI reactor that exports three functions the runtime calls
 
 ## What We're Building Now
 
+- **SuperBox64 SpriteKit as a standalone open source engine.** The same Swift SpriteKit reimplementation that ships Boss-Man on six platforms is being hardened into a general-purpose engine any SpriteKit game can drop in.
+- **2D/3D simulated game engine.** A full simulated rendering pipeline — 2D and 3D — built on top of SuperBox64 SpriteKit. Coming soon.
 - **100% common Swift source.** 32 of 33 game files are already symlinked between macOS and wasm. The remaining work is pushing the last platform seam into the framework.
-- **Cross-platform parity.** A steady stream of sync passes keeps the C++ and wasm ports faithful to the Apple master, down to boss speeds, animation timing, and pixel-level visuals. Recent ports: per-entity boss freeze fix with Chebyshev 3-tile gate, minimap Pete arrow with throb and directional offset, IsoScene arrow (was missing), all applied across Doom/Voxel/Iso in C++.
-- **Native Android** via the NDK (SFML `NativeActivity`, drag to steer and tap to fire), built in CI into a downloadable APK.
-- **Framework-first fixes.** When a port is missing something, the fix lands in wasm-web-kit (the SpriteKit reimplementation or the SFML shim), not in a per-game workaround, so the next game inherits it.
-- **Voxel far-field fidelity.** The VOXEL mode has a known far-field flaw (jittery blocks and see-through gaps at distance) in both Swift and C++. Live iteration needed.
+- **Framework-first fixes.** When a port is missing something, the fix lands in wasm-web-kit (the SpriteKit reimplementation), not in a per-game workaround, so the next game inherits it.
+- **Voxel far-field fidelity.** The VOXEL mode has a known far-field flaw (jittery blocks and see-through gaps at distance). Live iteration needed.
 
 ## Run Everywhere on Anything
 
@@ -318,8 +320,9 @@ Like the Swift WASM port, this is WASI Preview 1 with **no Emscripten**: the WAS
 - Releases, DMGs, and notes all deployed by Agent itself. The future of indie shipping.
 
 ## Built from Scratch
-- Custom **Box2D + SFML + C++** port, written by Todd Bruss.
-- The **wasm-web-kit** framework and **SuperBox64 SpriteKit** (an Apple-SpriteKit reimplementation in Swift), built from the ground up, no Emscripten.
+- **SuperBox64 SpriteKit** — an open source Apple-SpriteKit reimplementation in Swift, compiled to WASM via WASI Preview 1, built from the ground up with no Emscripten.
+- **wasm-web-kit** — the WASM runtime and native WebView wrappers that ship the Swift engine to every platform.
+- Legacy **Box2D + SFML + C++** port, written by Todd Bruss.
 - Original music, graphics, art, sound effects, and game design, all by Todd Bruss.
 
 ## Honest Licensing
