@@ -44,6 +44,9 @@ jobs:
           CHECKSUM=$(shasum -a 256 "/tmp/${BUNDLE}" | awk '{print $1}')
           xcrun --toolchain "$TOOLCHAINS" swift sdk install "/tmp/${BUNDLE}" --checksum "${CHECKSUM}"
 
+      - name: Install wasm-opt (Binaryen)
+        run: brew install binaryen --quiet
+
       - name: Build boss-man-spritekit-web
         working-directory: boss-man-spritekit-web
         run: SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
