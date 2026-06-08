@@ -91,6 +91,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         var color: SKColor
         var depth: Double
         var isCap: Bool = false
+        var gray: GrayRect?
+    }
+    final class GrayRect {
+        var gp0 = CGPoint.zero, gp1 = CGPoint.zero, gp2 = CGPoint.zero, gp3 = CGPoint.zero
+        var color: SKColor = .clear
     }
 
     // MARK: - Bosses — the REAL BossController from the 100% game (speed, square +
@@ -149,6 +154,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     let planeScale = 1.2
     let wallFar = 40.0
     var wallQuads: [SKShapeNode] = []
+    var grayRectNodes: [SKShapeNode] = []
     var travelerMirror: SKNode?
     var travelerMirrorEmoji = ""
     var travelerNativeH: CGFloat = 40
@@ -514,7 +520,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                 let baseColor = cube.blended(withFraction: 1 - faceF, of: .black) ?? cube
                 let fogT = CGFloat(min(1.0, dAvg / wallFar)) * 0.85
                 let color = baseColor.blended(withFraction: fogT, of: .black) ?? baseColor
-                quads.append(VQuad(p0: p0, p1: p1, p2: p2, p3: p3, color: color, depth: dAvg, isCap: false))
+                var gray: GrayRect?
                 if faceGrayRects {
                     let topT: CGFloat = 0.18, botT: CGFloat = 0.32, hMarg: CGFloat = 0.18
                     let lT = CGPoint(x: p1.x, y: p1.y + (p0.y - p1.y) * topT)
@@ -527,8 +533,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
                     let gp3 = CGPoint(x: lB.x + (rB.x - lB.x) * (1 - hMarg), y: lB.y + (rB.y - lB.y) * (1 - hMarg))
                     let grayBase = SKColor(white: 0.62, alpha: 1)
                     let grayC = grayBase.blended(withFraction: fogT, of: .black) ?? grayBase
-                    quads.append(VQuad(p0: gp0, p1: gp1, p2: gp2, p3: gp3, color: grayC, depth: dAvg - 0.001, isCap: false))
+                    gray = GrayRect()
+                    gray!.gp0 = gp0; gray!.gp1 = gp1; gray!.gp2 = gp2; gray!.gp3 = gp3
+                    gray!.color = grayC
                 }
+                quads.append(VQuad(p0: p0, p1: p1, p2: p2, p3: p3, color: color, depth: dAvg, isCap: false, gray: gray))
             }
         }
         return quads
@@ -536,6 +545,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     func paintQuads(_ quads: [VQuad]) {
         var qi = 0
+        var gi = 0
         for q in quads {
             let n: SKShapeNode
             if qi < wallQuads.count { n = wallQuads[qi] }
@@ -557,10 +567,36 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             n.fillColor = q.color
             n.isHidden = false
             qi += 1
+            if let g = q.gray {
+                let gn: SKShapeNode
+                if gi < grayRectNodes.count { gn = grayRectNodes[gi] }
+                else {
+                    gn = SKShapeNode()
+                    gn.strokeColor = .clear
+                    gn.isAntialiased = false
+                    addChild(gn)
+                    grayRectNodes.append(gn)
+                }
+                gn.zPosition = CGFloat(qi) * 0.0002 - 0.0001
+                let gp = CGMutablePath()
+                gp.move(to: g.gp0)
+                gp.addLine(to: g.gp1)
+                gp.addLine(to: g.gp2)
+                gp.addLine(to: g.gp3)
+                gp.closeSubpath()
+                gn.path = gp
+                gn.fillColor = g.color
+                gn.isHidden = false
+                gi += 1
+            }
         }
         if qi < wallQuads.count {
             for k in qi..<wallQuads.count { wallQuads[k].removeFromParent() }
             wallQuads.removeSubrange(qi...)
+        }
+        if gi < grayRectNodes.count {
+            for k in gi..<grayRectNodes.count { grayRectNodes[k].removeFromParent() }
+            grayRectNodes.removeSubrange(gi...)
         }
     }
 

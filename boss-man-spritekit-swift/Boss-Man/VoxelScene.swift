@@ -78,7 +78,18 @@ final class VoxelScene: Scene3D {
             let capBase = base.blended(withFraction: 0.3, of: .white) ?? base
             let capFogT = CGFloat(min(1.0, dAvg / wallFar)) * 0.85
             let color = capBase.blended(withFraction: capFogT, of: .black) ?? capBase
-            quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg, isCap: true))
+            let grayCapBase = SKColor(white: 0.62, alpha: 1)
+            let grayCapC = grayCapBase.blended(withFraction: capFogT, of: .black) ?? grayCapBase
+            let m: CGFloat = 0.20
+            let bl: (CGFloat, CGFloat) -> CGPoint = { u, v in
+                let a = (1-u)*(1-v), b = u*(1-v), c = u*v, d = (1-u)*v
+                return CGPoint(x: pp[0].x*a+pp[1].x*b+pp[2].x*c+pp[3].x*d,
+                               y: pp[0].y*a+pp[1].y*b+pp[2].y*c+pp[3].y*d)
+            }
+            let gray = GrayRect()
+            gray.gp0 = bl(m,m); gray.gp1 = bl(1-m,m); gray.gp2 = bl(1-m,1-m); gray.gp3 = bl(m,1-m)
+            gray.color = grayCapC
+            quads.append(VQuad(p0: pp[0], p1: pp[1], p2: pp[2], p3: pp[3], color: color, depth: dAvg, isCap: true, gray: gray))
         }
         quads.sort { a, b in
             if a.isCap != b.isCap { return !a.isCap }
