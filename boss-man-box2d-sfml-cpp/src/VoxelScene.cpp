@@ -905,7 +905,7 @@ void VoxelScene::render(sf::RenderTarget& target) {
         double invDet = 1.0 / (planeX * dirY - dirX * planeY);
         for (auto& tr : travelerSpawner_.travelers) {
             if (!tr.active && !tr.catching) continue;
-            double wx = tr.grid.x + 0.5, wy = (rowsCount_ - 1 - tr.grid.y) + 0.5;
+            double wx = tr.pixelPos.x / 32.0, wy = tr.pixelPos.y / 32.0;
             double relX = wx - camX_, relY = wy - camY_;
             double tX = invDet * (dirY * relX - dirX * relY);
             double tY = invDet * (-planeY * relX + planeX * relY); // depth
