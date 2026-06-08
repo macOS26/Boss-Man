@@ -1188,18 +1188,6 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         }
         double dAvg = r.depthSum / r.n;
         quads.push_back({xL, yLoL, xL, yHiL, xR, yHiR, xR, yLoR, shade(dAvg, r.side, r.par), dAvg, false});
-        {
-            const float topT = 0.18f, botT = 0.32f, hMarg = 0.18f;
-            float gxL = xL + (xR - xL) * hMarg;
-            float gxR = xL + (xR - xL) * (1.0f - hMarg);
-            float grTL = yHiL + (yLoL - yHiL) * topT;
-            float grBL = yHiL + (yLoL - yHiL) * botT;
-            float grTR = yHiR + (yLoR - yHiR) * topT;
-            float grBR = yHiR + (yLoR - yHiR) * botT;
-            float gv = (float)std::max(0.10, std::min(1.0, 1.0 - dAvg / maxD)) * 0.62f;
-            sf::Color grayC((uint8_t)(gv*255), (uint8_t)(gv*255), (uint8_t)(gv*255));
-            quads.push_back({gxL, grBL, gxL, grTL, gxR, grTR, gxR, grBR, grayC, dAvg - 0.001, false});
-        }
     };
     auto addFront = [&](int key, int col, float yLo, float yHi, double d, int side, int par) {
         auto it = openF.find(key);
@@ -1285,6 +1273,14 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         br *= (1.0f - capFogT); bg *= (1.0f - capFogT); bb *= (1.0f - capFogT);
         sf::Color col((uint8_t)(br * 255), (uint8_t)(bg * 255), (uint8_t)(bb * 255));
         quads.push_back({qx[0],qy[0], qx[1],qy[1], qx[2],qy[2], qx[3],qy[3], col, dAvg, true});
+        const float hMarg = 0.18f;
+        float gx0 = qx[0] + (qx[3] - qx[0]) * hMarg, gy0 = qy[0] + (qy[3] - qy[0]) * hMarg;
+        float gx1 = qx[1] + (qx[2] - qx[1]) * hMarg, gy1 = qy[1] + (qy[2] - qy[1]) * hMarg;
+        float gx2 = qx[1] + (qx[2] - qx[1]) * (1.0f - hMarg), gy2 = qy[1] + (qy[2] - qy[1]) * (1.0f - hMarg);
+        float gx3 = qx[0] + (qx[3] - qx[0]) * (1.0f - hMarg), gy3 = qy[0] + (qy[3] - qy[0]) * (1.0f - hMarg);
+        float gv = (float)std::max(0.10, std::min(1.0, 1.0 - dAvg / wallFar)) * 0.62f;
+        sf::Color grayC((uint8_t)(gv*255), (uint8_t)(gv*255), (uint8_t)(gv*255));
+        quads.push_back({gx0,gy0, gx1,gy1, gx2,gy2, gx3,gy3, grayC, dAvg - 0.001, true});
     }
 
     std::sort(quads.begin(), quads.end(), [](const VQuad& a, const VQuad& b) {
