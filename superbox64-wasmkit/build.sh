@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# wasm-web-kit build helper. No Emscripten: compiles a C/C++ game to wasm32-wasi
+# superbox64-wasmkit build helper. No Emscripten: compiles a C/C++ game to wasm32-wasi
 # with the WASI SDK and links it against the kit's sf:: web layer.
 #
 # Usage from your game's build script:
@@ -12,7 +12,7 @@
 #   WASMWEB_SFML=on                         # on links the sf:: layer; off = raw ABI
 #   WASMWEB_ASSETS=path/to/assets           # optional: scan for manifest
 #   WASMWEB_MANIFEST=path/to/web/manifest.json
-#   source path/to/wasm-web-kit/build.sh
+#   source path/to/superbox64-wasmkit/build.sh
 #   wasmweb_build
 set -euo pipefail
 WASMWEB_KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,7 +36,7 @@ m = {
     "texts":  sorted(f for f in os.listdir(A) if f.endswith('.json')),
 }
 open(out, 'w').write(json.dumps(m))
-print(f"wasm-web-kit: manifest {len(m['fonts'])}f {len(m['images'])}i {len(m['sounds'])}s {len(m['texts'])}t")
+print(f"superbox64-wasmkit: manifest {len(m['fonts'])}f {len(m['images'])}i {len(m['sounds'])}s {len(m['texts'])}t")
 PY
 }
 
@@ -69,7 +69,7 @@ wasmweb_build() {
     wasmweb_manifest "$WASMWEB_ASSETS" "$WASMWEB_MANIFEST"
   fi
 
-  echo "wasm-web-kit: compiling ${#srcs[@]} sources -> $WASMWEB_OUT"
+  echo "superbox64-wasmkit: compiling ${#srcs[@]} sources -> $WASMWEB_OUT"
   "$CLANGXX" \
     --target=wasm32-wasip1 --sysroot="$SYSROOT" -mexec-model=reactor \
     -std="$STD" -Os -fno-rtti $EXC \
@@ -80,5 +80,5 @@ wasmweb_build() {
     -Wl,--strip-all \
     -Wl,--export=_initialize -Wl,--export=boot -Wl,--export=frame -Wl,--export=memory \
     -o "$WASMWEB_OUT"
-  echo "wasm-web-kit: built $WASMWEB_OUT ($(du -h "$WASMWEB_OUT" | cut -f1))"
+  echo "superbox64-wasmkit: built $WASMWEB_OUT ($(du -h "$WASMWEB_OUT" | cut -f1))"
 }

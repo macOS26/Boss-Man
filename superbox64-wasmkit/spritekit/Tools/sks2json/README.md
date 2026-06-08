@@ -13,7 +13,7 @@ once on macOS, ship the resulting `.json` alongside the wasm.
 ## Build
 
 ```sh
-cd wasm-web-kit/spritekit/Tools/sks2json
+cd superbox64-wasmkit/spritekit/Tools/sks2json
 swift build -c release
 ln -sf "$PWD/.build/release/sks2json" /usr/local/bin/sks2json     # optional
 ```

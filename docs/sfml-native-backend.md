@@ -26,8 +26,8 @@ SFML is C++. Swift cannot call C++ directly (without a C bridge or Swift/C++ int
 ## What already exists
 
 - `boss-man-box2d-sfml-cpp/` is a complete, working C++ port of the game using SFML + Box2D. It is the reference implementation for every scene, every behavior, every visual. The SFML backend would port its rendering logic into the Swift framework rather than maintaining a separate C++ codebase.
-- `Box2DBridge` (in `wasm-web-kit/spritekit/Sources/`) already proves C interop works for Box2D. The same bridge pattern applies to CSFML.
-- The Canvas 2D backend (`wasm-web-kit/spritekit/`) defines the full SpriteKit API surface the game uses. That API is the contract the SFML backend must satisfy.
+- `Box2DBridge` (in `superbox64-wasmkit/spritekit/Sources/`) already proves C interop works for Box2D. The same bridge pattern applies to CSFML.
+- The Canvas 2D backend (`superbox64-wasmkit/spritekit/`) defines the full SpriteKit API surface the game uses. That API is the contract the SFML backend must satisfy.
 
 ---
 
@@ -35,7 +35,7 @@ SFML is C++. Swift cannot call C++ directly (without a C bridge or Swift/C++ int
 
 ### Phase 1: CSFML Swift wrapper
 
-Add CSFML as a system library target in `wasm-web-kit/spritekit/Package.swift` (or as a vendored source target). Create a thin Swift overlay (`SFMLKit`) that wraps:
+Add CSFML as a system library target in `superbox64-wasmkit/spritekit/Package.swift` (or as a vendored source target). Create a thin Swift overlay (`SFMLKit`) that wraps:
 
 - `sfRenderWindow` (window + event loop)
 - `sfSprite` / `sfTexture` (sprite rendering)
@@ -170,5 +170,5 @@ Google's 2D graphics library (Chrome, Flutter, Android). Extremely capable, Meta
 - sokol: https://github.com/floooh/sokol
 - Raylib: https://www.raylib.com
 - `boss-man-box2d-sfml-cpp/` — working C++ reference implementation
-- `wasm-web-kit/spritekit/` — Canvas 2D backend (the API contract to match)
+- `superbox64-wasmkit/spritekit/` — Canvas 2D backend (the API contract to match)
 - `Box2DBridge` — existing C interop pattern to follow

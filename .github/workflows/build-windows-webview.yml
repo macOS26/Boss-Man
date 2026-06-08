@@ -6,7 +6,7 @@ on:
     paths:
       - 'boss-man-windows-webview/**'
       - 'boss-man-spritekit-web/**'
-      - 'wasm-web-kit/**'
+      - 'superbox64-wasmkit/**'
       - '.github/workflows/build-windows-webview.yml'
     tags: ['pre-*']
   workflow_dispatch:

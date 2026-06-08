@@ -13,7 +13,7 @@ import PackageDescription
 // no real concurrency to police, but the keyword is required for v6 to accept
 // the mutable shared globals.
 let package = Package(
-    name: "SuperBox64SpriteKit",
+    name: "superbox64-spritekit",
     products: [
         .library(name: "SpriteKit",      targets: ["SpriteKit"]),
         .library(name: "KitABI",         targets: ["KitABI"]),

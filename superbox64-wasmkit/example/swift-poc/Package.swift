@@ -15,7 +15,7 @@ let package = Package(
                     "-Xlinker", "--export=frame",
                     "-Xlinker", "--export-if-defined=_initialize",
                     "-Xlinker", "--allow-undefined",
-                    "-Xlinker", "/Users/toddbruss/Documents/GitHub/BossMan/wasm-web-kit/example/swift-poc/native/libcbox2d.a",
+                    "-Xlinker", "/Users/toddbruss/Documents/GitHub/BossMan/superbox64-wasmkit/example/swift-poc/native/libcbox2d.a",
                 ])
             ]
         )

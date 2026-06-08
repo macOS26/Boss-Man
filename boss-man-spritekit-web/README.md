@@ -1,7 +1,7 @@
 # Boss-Man · SpriteKit edition on WebAssembly
 
 The macOS [Boss-Man](../boss-man-spritekit-swift) SpriteKit game ported to
-WebAssembly via [SuperBox64 SpriteKit](../wasm-web-kit/spritekit) — Apple's
+WebAssembly via [SuperBox64 SpriteKit](../superbox64-wasmkit/spritekit) — Apple's
 SpriteKit reimplemented in Swift, no Emscripten, no Apple frameworks. The
 game's `import SpriteKit` lines work unchanged here because SuperBox64
 SpriteKit vends a module named `SpriteKit` that the Swift compiler binds to
@@ -43,7 +43,7 @@ runs `_initialize` + `boot`, then drives `frame(dtMs)` once per
 ```
 boss-man-spritekit-web/
 ├── Package.swift            SwiftPM manifest. Depends on
-│                            ../wasm-web-kit/spritekit by path; pulls
+│                            ../superbox64-wasmkit/spritekit by path; pulls
 │                            SpriteKit + Box2DBridge + AppKit + GameKit +
 │                            GameController + AVFoundation products.
 ├── Sources/BossMan/
@@ -60,7 +60,7 @@ boss-man-spritekit-web/
 ├── build.sh                 Wraps swift build with TOOLCHAINS + wasm SDK.
 └── web/
     ├── index.html           Hosting page; canvas + window.WASMWEB.
-    ├── runtime.js → ../../wasm-web-kit/runtime.js
+    ├── runtime.js → ../../superbox64-wasmkit/runtime.js
     └── assets/
         ├── manifest.json    Preloader-driven asset registration.
         └── images/red-stapler.png

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generic wasm-web-kit asset bundler for file:/// playability.
+"""Generic superbox64-wasmkit asset bundler for file:/// playability.
 
 Walks a web/ directory and emits web/bundle.js, containing:
   1. window.__BUNDLE_DATA__ — { id -> data: URL }, each shipped asset's
@@ -24,7 +24,7 @@ assetRoot setting).
 
 Drop this into a port's build script after the wasm is published into
 web/, e.g.:
-  python3 ../wasm-web-kit/scripts/bundle.py web boss.wasm
+  python3 ../superbox64-wasmkit/scripts/bundle.py web boss.wasm
 
 The bundle can be deleted (or its <script> tag removed from index.html)
 when shipping behind a real HTTP server.

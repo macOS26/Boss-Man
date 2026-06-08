@@ -212,9 +212,9 @@ The Swift macOS project is the single source of truth. The Swift WASM port does 
 
 A fully simulated 2D/3D game engine built on SuperBox64 SpriteKit is in development.
 
-### wasm-web-kit
+### superbox64-wasmkit
 
-`wasm-web-kit/` is a hand-built WASM runtime that ships your game with zero third-party baggage. No Emscripten loading screens, no spinning gear logo, no watermarks, no injected ads, no forced branding on your title screen. Emscripten was built to port C code to the web in a hurry — it solves that problem by pulling in an entire POSIX runtime, a custom linker, and a runtime shell that announces itself. wasm-web-kit solves a different problem: shipping a polished commercial game that looks like it belongs on the platform.
+`superbox64-wasmkit/` is a hand-built WASM runtime that ships your game with zero third-party baggage. No Emscripten loading screens, no spinning gear logo, no watermarks, no injected ads, no forced branding on your title screen. Emscripten was built to port C code to the web in a hurry — it solves that problem by pulling in an entire POSIX runtime, a custom linker, and a runtime shell that announces itself. superbox64-wasmkit solves a different problem: shipping a polished commercial game that looks like it belongs on the platform.
 
 The game is compiled with the WASI SDK (`--target=wasm32-wasip1`, WASI Preview 1) and driven by a lean hand-written JavaScript runtime (`runtime.js`) that implements exactly what a game needs and nothing more: graphics on Canvas2D, audio on Web Audio, input on DOM events and the Web Gamepad API, persistence on localStorage. You get a single `runtime.js`, a single `bossman.wasm`, and your own `index.html`. No black box. No phone home. No logo that is not yours.
 
@@ -227,7 +227,7 @@ The wasm module is a WASI reactor exporting three functions: `_initialize` (libc
 
 Most cross-platform solutions for Apple games ask you to rewrite your game, swap your framework, learn a new API, or accept a lowest-common-denominator engine with its own rendering model and its own opinions about your code. SuperBox64 SpriteKit does none of that.
 
-`wasm-web-kit/spritekit/` is a from-scratch open source Swift reimplementation of Apple's closed SpriteKit API (`SKScene`, `SKNode`, `SKSpriteNode`, `SKLabelNode`, `SKShapeNode`, `SKAction`, `SKPhysicsBody`, `SKPhysicsWorld`, `SKView`, `SKCameraNode`, and more), running on the wasm-web-kit runtime. Physics is provided by Box2D 2.4.1 (the "Box" in SuperBox64). It ships as a SwiftPM package that vends a module literally named `SpriteKit`, so a game's `import SpriteKit` resolves to this implementation instead of Apple's, with zero changes at the call site. Drop-in shims for `AppKit`, `UIKit`, `Cocoa`, `GameKit`, `GameplayKit`, `GameController`, and `AVFoundation` round out the surface area.
+`superbox64-wasmkit/spritekit/` is a from-scratch open source Swift reimplementation of Apple's closed SpriteKit API (`SKScene`, `SKNode`, `SKSpriteNode`, `SKLabelNode`, `SKShapeNode`, `SKAction`, `SKPhysicsBody`, `SKPhysicsWorld`, `SKView`, `SKCameraNode`, and more), running on the superbox64-wasmkit runtime. Physics is provided by Box2D 2.4.1 (the "Box" in SuperBox64). It ships as a SwiftPM package that vends a module literally named `SpriteKit`, so a game's `import SpriteKit` resolves to this implementation instead of Apple's, with zero changes at the call site. Drop-in shims for `AppKit`, `UIKit`, `Cocoa`, `GameKit`, `GameplayKit`, `GameController`, and `AVFoundation` round out the surface area.
 
 The result: the exact same Swift source that runs as a signed notarized macOS app compiles to a WASI Preview 1 wasm binary that runs in any modern browser and inside native WebViews on Windows, Linux, and Android. No rewrites. No forks. No Emscripten watermarks. No logo you did not design. Your game, your brand, everywhere.
 
@@ -236,7 +236,7 @@ The result: the exact same Swift source that runs as a signed notarized macOS ap
 - **SuperBox64 SpriteKit as a standalone open source engine.** The same Swift SpriteKit reimplementation that ships Boss-Man on six platforms is being hardened into a general-purpose engine any SpriteKit game can drop in.
 - **2D/3D simulated game engine.** A full simulated rendering pipeline — 2D and 3D — built on top of SuperBox64 SpriteKit. Coming soon.
 - **100% common Swift source.** 32 of 33 game files are already symlinked between macOS and wasm. The remaining work is pushing the last platform seam into the framework.
-- **Framework-first fixes.** When a port is missing something, the fix lands in wasm-web-kit (the SpriteKit reimplementation), not in a per-game workaround, so the next game inherits it.
+- **Framework-first fixes.** When a port is missing something, the fix lands in superbox64-wasmkit (the SpriteKit reimplementation), not in a per-game workaround, so the next game inherits it.
 - **Voxel far-field fidelity.** The VOXEL mode has a known far-field flaw (jittery blocks and see-through gaps at distance). Live iteration needed.
 
 ## Run Everywhere on Anything
@@ -318,7 +318,7 @@ cd boss-man-box2d-sfml-cpp && cmake -B build    # populate Box2D + json sources 
 cd ../boss-man-web && ./build-web.sh            # -> web/boss.wasm
 ```
 
-Like the Swift WASM port, this is WASI Preview 1 with **no Emscripten**: the WASI SDK clang compiles the same `src/` tree (`--target=wasm32-wasip1`, reactor model), swapping real SFML for the wasm-web-kit SFML shim while still compiling real Box2D. Open `boss-man-web/web/index.html` directly (the inlined bundle works from `file://`), or serve the `web/` folder with any static server.
+Like the Swift WASM port, this is WASI Preview 1 with **no Emscripten**: the WASI SDK clang compiles the same `src/` tree (`--target=wasm32-wasip1`, reactor model), swapping real SFML for the superbox64-wasmkit SFML shim while still compiling real Box2D. Open `boss-man-web/web/index.html` directly (the inlined bundle works from `file://`), or serve the `web/` folder with any static server.
 
 ## Crafted by One, Amplified by AI
 - Designed, coded, and shipped using **Agent**, an autonomous agentic AI for macOS 26.4.1. [github.com/macos26/agent](https://github.com/macos26/agent)
@@ -327,7 +327,7 @@ Like the Swift WASM port, this is WASI Preview 1 with **no Emscripten**: the WAS
 
 ## Built from Scratch
 - **SuperBox64 SpriteKit** — an open source Apple-SpriteKit reimplementation in Swift, compiled to WASM via WASI Preview 1, built from the ground up with no Emscripten.
-- **wasm-web-kit** — the WASM runtime and native WebView wrappers that ship the Swift engine to every platform.
+- **superbox64-wasmkit** — the WASM runtime and native WebView wrappers that ship the Swift engine to every platform.
 - Legacy **Box2D + SFML + C++** port, written by Todd Bruss.
 - Original music, graphics, art, sound effects, and game design, all by Todd Bruss.
 

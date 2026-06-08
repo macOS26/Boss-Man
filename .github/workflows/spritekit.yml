@@ -3,12 +3,12 @@ name: SuperBox64 SpriteKit
 on:
   push:
     paths:
-      - 'wasm-web-kit/**'
+      - 'superbox64-wasmkit/**'
       - 'boss-man-spritekit-web/**'
       - '.github/workflows/spritekit.yml'
   pull_request:
     paths:
-      - 'wasm-web-kit/**'
+      - 'superbox64-wasmkit/**'
       - 'boss-man-spritekit-web/**'
       - '.github/workflows/spritekit.yml'
   workflow_dispatch: {}
@@ -66,14 +66,14 @@ jobs:
           xcrun --toolchain "$TOOLCHAINS" swift sdk list
 
       - name: Build SuperBox64 SpriteKit (debug + release)
-        working-directory: wasm-web-kit/spritekit
+        working-directory: superbox64-wasmkit/spritekit
         run: |
           set -euo pipefail
           SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh
           SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
 
       - name: Build Examples/Hello
-        working-directory: wasm-web-kit/spritekit/Examples/Hello
+        working-directory: superbox64-wasmkit/spritekit/Examples/Hello
         run: |
           set -euo pipefail
           TOOLCHAINS="$TOOLCHAINS" \
@@ -94,8 +94,8 @@ jobs:
         with:
           name: superbox64-spritekit-wasm
           path: |
-            wasm-web-kit/spritekit/.build/wasm32-unknown-wasip1/release/*.wasm
-            wasm-web-kit/spritekit/Examples/Hello/.build/wasm32-unknown-wasip1/release/Hello.wasm
+            superbox64-wasmkit/spritekit/.build/wasm32-unknown-wasip1/release/*.wasm
+            superbox64-wasmkit/spritekit/Examples/Hello/.build/wasm32-unknown-wasip1/release/Hello.wasm
             boss-man-spritekit-web/.build/wasm32-unknown-wasip1/release/BossMan.wasm
             boss-man-spritekit-web/web/bossman.wasm
           if-no-files-found: warn

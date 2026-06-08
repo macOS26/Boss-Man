@@ -14,7 +14,7 @@ import PackageDescription
 let package = Package(
     name: "BossManSpriteKit",
     dependencies: [
-        .package(path: "../wasm-web-kit/spritekit"),
+        .package(path: "../superbox64-wasmkit/spritekit"),
     ],
     targets: [
         .executableTarget(
