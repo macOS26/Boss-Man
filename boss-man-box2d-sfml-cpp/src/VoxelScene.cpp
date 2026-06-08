@@ -1154,62 +1154,15 @@ void VoxelScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
     target.draw(walls);
 }
 
-// Painter's voxel walls, ported from VoxelScene.swift render(). Per column, march the WHOLE ray and record
-// every wall as a FULL, unclipped FRONT face (open->wall, coalesced across columns into smooth quads) plus
-// each wall cell's flat TOP (4 corners projected with 1-pt perspective). All quads sorted far->near and the
-// nearer ones paint over the farther (no clipping -> no bent edges, deep + clean).
 void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double dirY,
                                   double planeX, double planeY) {
     const Color cube = CUBICLE_COLORS[(state_.level - 1) % 12];
-    const float w = viewW_ / (float)columns_;
-    const float half = (float)(wallHeightScale_ - eyeHeight_);   // negative: tops below the horizon
-    const float floorClamp = radarH_ - viewH();
-    const double maxD = maxVoxelDist_;
     const float vMid = viewMidY(), vH = viewH();
+    const double wallH = wallHeightScale_;
+    const double wallFar = maxVoxelDist_;
 
     struct VQuad { float x0,y0,x1,y1,x2,y2,x3,y3; sf::Color color; double depth; bool isCap; };
-    std::vector<VQuad> quads; quads.reserve(columns_);
-    struct WallRun { int firstCol, lastCol; float yLoA, yHiA, yLoB, yHiB; double depthSum; int n, side, par; };
-    std::unordered_map<int, WallRun> openF;
-
-    auto shade = [&](double dAvg, int side, int par) -> sf::Color {
-        float f = (float)std::max(0.10, std::min(1.0, 1.0 - dAvg / maxD)) * (side == 1 ? 0.62f : 1.0f) * (par == 1 ? 1.0f : 0.82f);
-        return sf::Color((uint8_t)(cube.r * f * 255), (uint8_t)(cube.g * f * 255), (uint8_t)(cube.b * f * 255));
-    };
-    auto emitFront = [&](const WallRun& r) {
-        float xL = r.firstCol * w, xR = (r.lastCol + 1) * w + 0.6f;
-        float cxA = (r.firstCol + 0.5f) * w, cxB = (r.lastCol + 0.5f) * w;
-        float yLoL = r.yLoA, yLoR = r.yLoB, yHiL = r.yHiA, yHiR = r.yHiB;
-        if (r.lastCol > r.firstCol) {
-            float dx = cxB - cxA;
-            float sLo = (r.yLoB - r.yLoA) / dx, sHi = (r.yHiB - r.yHiA) / dx;
-            yLoL = r.yLoA + sLo * (xL - cxA); yLoR = r.yLoA + sLo * (xR - cxA);
-            yHiL = r.yHiA + sHi * (xL - cxA); yHiR = r.yHiA + sHi * (xR - cxA);
-        }
-        double dAvg = r.depthSum / r.n;
-        quads.push_back({xL, yLoL, xL, yHiL, xR, yHiR, xR, yLoR, shade(dAvg, r.side, r.par), dAvg, false});
-        const float topT = 0.18f, botT = 0.32f, hMarg = 0.18f;
-        float lTx = xL, lTy = yHiL + (yLoL - yHiL) * topT;
-        float lBx = xL, lBy = yHiL + (yLoL - yHiL) * botT;
-        float rTx = xR, rTy = yHiR + (yLoR - yHiR) * topT;
-        float rBx = xR, rBy = yHiR + (yLoR - yHiR) * botT;
-        float gp0x = lBx + (rBx - lBx) * hMarg,       gp0y = lBy + (rBy - lBy) * hMarg;
-        float gp1x = lTx + (rTx - lTx) * hMarg,       gp1y = lTy + (rTy - lTy) * hMarg;
-        float gp2x = lTx + (rTx - lTx) * (1.f - hMarg), gp2y = lTy + (rTy - lTy) * (1.f - hMarg);
-        float gp3x = lBx + (rBx - lBx) * (1.f - hMarg), gp3y = lBy + (rBy - lBy) * (1.f - hMarg);
-        float gv = (float)std::max(0.10, std::min(1.0, 1.0 - dAvg / maxD)) * 0.62f;
-        sf::Color grayC((uint8_t)(gv*255), (uint8_t)(gv*255), (uint8_t)(gv*255));
-        quads.push_back({gp0x,gp0y, gp1x,gp1y, gp2x,gp2y, gp3x,gp3y, grayC, dAvg - 0.001, false});
-    };
-    auto addFront = [&](int key, int col, float yLo, float yHi, double d, int side, int par) {
-        auto it = openF.find(key);
-        if (it != openF.end() && it->second.lastCol == col - 1) {
-            it->second.lastCol = col; it->second.yLoB = yLo; it->second.yHiB = yHi; it->second.depthSum += d; it->second.n++;
-        } else {
-            if (it != openF.end()) emitFront(it->second);
-            openF[key] = WallRun{col, col, yLo, yHi, yLo, yHi, d, 1, side, par};
-        }
-    };
+    std::vector<VQuad> quads;
 
     std::unordered_set<int> tops;
     for (int col = 0; col < columns_; ++col) {
@@ -1218,37 +1171,23 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         int mapX = (int)std::floor(camX_), mapY = (int)std::floor(camY_);
         double ddx = rdx == 0 ? 1e30 : std::abs(1 / rdx), ddy = rdy == 0 ? 1e30 : std::abs(1 / rdy);
         int stepX, stepY; double sideX, sideY;
-        if (rdx < 0) { stepX = -1; sideX = (camX_ - mapX) * ddx; } else { stepX = 1; sideX = (mapX + 1 - camX_) * ddx; }
+        if (rdx < 0) { stepX = -1; sideX = (camX_ - mapX) * ddx; } else { stepX = 1; sideX = (mapX + 1 - mapX) * ddx; }
         if (rdy < 0) { stepY = -1; sideY = (camY_ - mapY) * ddy; } else { stepY = 1; sideY = (mapY + 1 - camY_) * ddy; }
-        bool firstHit = true, prevWall = false; int guardN = 0;
+        bool firstHit = true; int guardN = 0;
         while (guardN < 300) {
             guardN++;
-            double dEntry; int side;
-            if (sideX < sideY) { dEntry = sideX; sideX += ddx; mapX += stepX; side = 0; }
-            else               { dEntry = sideY; sideY += ddy; mapY += stepY; side = 1; }
+            if (sideX < sideY) { sideX += ddx; mapX += stepX; } else { sideY += ddy; mapY += stepY; }
             if (mapY < 0 || mapY >= rowsCount_ || mapX < 0 || mapX >= colsCount_) break;
-            if (dEntry > maxD) break;
-            if (map_[mapY][mapX] != Tile::wall) { prevWall = false; continue; }
-            double dN = std::max(0.05, dEntry);
-            if (firstHit) { zbuf_[col] = dN; firstHit = false; }
-            tops.insert(mapY * colsCount_ + mapX);
-            if (!prevWall) {
-                int fid = side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2 : (stepY > 0 ? mapY : mapY + 1) * 2 + 1;
-                int par = (mapX + mapY) & 1;
-                float baseY = std::max(floorClamp, (float)(vMid - vH * eyeHeight_ / dN));
-                float frontTopY = (float)(vMid + vH * half / dN);
-                addFront(fid * 2 + par, col, baseY, frontTopY, dN, side, par);
+            double dEntry = (sideX - ddx < sideY - ddy) ? (sideX - ddx) : (sideY - ddy);
+            if (dEntry > wallFar) break;
+            if (map_[mapY][mapX] == Tile::wall) {
+                double dN = std::max(0.05, dEntry);
+                if (firstHit) { zbuf_[col] = dN; firstHit = false; }
+                tops.insert(mapY * colsCount_ + mapX);
             }
-            prevWall = true;
         }
         if (firstHit) zbuf_[col] = 1e9;
-        for (auto it = openF.begin(); it != openF.end(); ) {
-            if (it->second.lastCol < col) { emitFront(it->second); it = openF.erase(it); }
-            else ++it;
-        }
     }
-    for (auto& kv : openF) emitFront(kv.second);
-
     int ptx = (int)std::floor(px_), pty = (int)std::floor(py_);
     for (int dy = -1; dy <= 1; ++dy)
         for (int dx = -1; dx <= 1; ++dx) {
@@ -1257,9 +1196,70 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
                 tops.insert(ty * colsCount_ + tx);
         }
 
-    // Wall TOPS: project each in-view cell's flat top (4 corners, 1-pt perspective).
     double invDet = 1.0 / (planeX * dirY - dirX * planeY);
     float capZ = (float)(wallHeightScale_ - eyeHeight_);
+
+    for (int key : tops) {
+        int tx = key % colsCount_, ty = key / colsCount_;
+        double dtx0 = tx, dtx1 = tx + 1, dty0 = ty, dty1 = ty + 1;
+        struct Face { int side; int faceV; int adx; int ady; };
+        std::vector<Face> faces;
+        if (camX_ <= dtx0) faces.push_back({0, tx, -1, 0});
+        if (camX_ >= dtx1) faces.push_back({0, tx + 1, 1, 0});
+        if (camY_ <= dty0) faces.push_back({1, ty, 0, -1});
+        if (camY_ >= dty1) faces.push_back({1, ty + 1, 0, 1});
+        for (auto& f : faces) {
+            int adjX = tx + f.adx, adjY = ty + f.ady;
+            bool exposed = adjX < 0 || adjX >= colsCount_ || adjY < 0 || adjY >= rowsCount_
+                        || map_[adjY][adjX] != Tile::wall;
+            if (!exposed) continue;
+            double wx0 = f.side == 0 ? f.faceV : tx,     wy0 = f.side == 0 ? ty     : f.faceV;
+            double wx1 = f.side == 0 ? f.faceV : tx + 1, wy1 = f.side == 0 ? ty + 1 : f.faceV;
+            double rawA = invDet * (-planeY * (wx0 - camX_) + planeX * (wy0 - camY_));
+            double rawB = invDet * (-planeY * (wx1 - camX_) + planeX * (wy1 - camY_));
+            if (rawA < 0.1 && rawB < 0.1) continue;
+            double tA = rawA < 0.1 ? (0.1 - rawA) / (rawB - rawA) : 0.0;
+            double tB = rawB < 0.1 ? (0.1 - rawB) / (rawA - rawB) : 0.0;
+            double eX0 = rawA < 0.1 ? wx0 + tA * (wx1 - wx0) : wx0;
+            double eY0 = rawA < 0.1 ? wy0 + tA * (wy1 - wy0) : wy0;
+            double eX1 = rawB < 0.1 ? wx1 + tB * (wx0 - wx1) : wx1;
+            double eY1 = rawB < 0.1 ? wy1 + tB * (wy0 - wy1) : wy1;
+            double eRA = std::max(0.1, rawA), eRB = std::max(0.1, rawB);
+            double dAvg = (eRA + eRB) * 0.5;
+            if (dAvg > wallFar) continue;
+            double txA = invDet * (dirY * (eX0 - camX_) - dirX * (eY0 - camY_));
+            double txB = invDet * (dirY * (eX1 - camX_) - dirX * (eY1 - camY_));
+            float p0x = (float)(viewW_ / 2.0 * (1 + txA / eRA));
+            float p0y = (float)(vMid + vH * (float)(-eyeHeight_) / (float)eRA);
+            float p1x = (float)(viewW_ / 2.0 * (1 + txA / eRA));
+            float p1y = (float)(vMid + vH * (float)(wallH - eyeHeight_) / (float)eRA);
+            float p2x = (float)(viewW_ / 2.0 * (1 + txB / eRB));
+            float p2y = (float)(vMid + vH * (float)(wallH - eyeHeight_) / (float)eRB);
+            float p3x = (float)(viewW_ / 2.0 * (1 + txB / eRB));
+            float p3y = (float)(vMid + vH * (float)(-eyeHeight_) / (float)eRB);
+            int par = f.side == 0 ? (f.faceV + ty) & 1 : (tx + f.faceV) & 1;
+            float faceF = (f.side == 1 ? 0.62f : 1.0f) * (par == 1 ? 1.0f : 0.82f);
+            float fogT = std::min(1.0f, (float)(dAvg / wallFar)) * 0.85f;
+            float cr = cube.r * faceF * (1.0f - fogT);
+            float cg = cube.g * faceF * (1.0f - fogT);
+            float cb = cube.b * faceF * (1.0f - fogT);
+            sf::Color col((uint8_t)(cr * 255), (uint8_t)(cg * 255), (uint8_t)(cb * 255));
+            quads.push_back({p0x,p0y, p1x,p1y, p2x,p2y, p3x,p3y, col, dAvg, false});
+            const float topT = 0.18f, botT = 0.32f, hMarg = 0.18f;
+            float lTx = p1x, lTy = p1y + (p0y - p1y) * topT;
+            float lBx = p1x, lBy = p1y + (p0y - p1y) * botT;
+            float rTx = p2x, rTy = p2y + (p3y - p2y) * topT;
+            float rBx = p2x, rBy = p2y + (p3y - p2y) * botT;
+            float gp0x = lBx + (rBx - lBx) * hMarg,       gp0y = lBy + (rBy - lBy) * hMarg;
+            float gp1x = lTx + (rTx - lTx) * hMarg,       gp1y = lTy + (rTy - lTy) * hMarg;
+            float gp2x = lTx + (rTx - lTx) * (1.f - hMarg), gp2y = lTy + (rTy - lTy) * (1.f - hMarg);
+            float gp3x = lBx + (rBx - lBx) * (1.f - hMarg), gp3y = lBy + (rBy - lBy) * (1.f - hMarg);
+            float gv = std::max(0.1f, std::min(1.0f, 1.0f - (float)(dAvg / wallFar))) * 0.62f;
+            sf::Color grayC((uint8_t)(gv * 255), (uint8_t)(gv * 255), (uint8_t)(gv * 255));
+            quads.push_back({gp0x,gp0y, gp1x,gp1y, gp2x,gp2y, gp3x,gp3y, grayC, dAvg - 0.001, false});
+        }
+    }
+
     const int corners[4][2] = {{0,0},{1,0},{1,1},{0,1}};
     for (int key : tops) {
         double cx = key % colsCount_, cy = key / colsCount_;
@@ -1275,7 +1275,6 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         }
         if (dsum / 4 < -0.5) continue;
         double dAvg = std::max(0.05, dsum / 4);
-        const double wallFar = 40.0;
         if (dAvg > wallFar) continue;
         int par = ((int)cx + (int)cy) & 1;
         float f = (par == 1 ? 1.0f : 0.82f);
