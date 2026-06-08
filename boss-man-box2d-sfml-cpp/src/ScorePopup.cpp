@@ -1,1 +1,0 @@
-// ScorePopup is header-only

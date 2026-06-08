@@ -1,1 +1,0 @@
-// GridMap is header-only
