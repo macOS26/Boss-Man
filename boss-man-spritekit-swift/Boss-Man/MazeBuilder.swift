@@ -120,7 +120,7 @@ final class MazeBuilder {
                     wallCenters.append(position)
 
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
-                    if let dot = addDot(at: position, in: scene) {
+                    if !RoundState.demoMode, let dot = addDot(at: position, in: scene) {
                         dotNodes[tileKey(grid)] = dot
                         dotCount += 1
                     }

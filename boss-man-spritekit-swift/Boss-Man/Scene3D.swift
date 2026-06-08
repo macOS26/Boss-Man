@@ -729,6 +729,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 var worldH: CGFloat = 0.6
                 switch ch {
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
+                    if RoundState.demoMode { continue }
                     let inner = SpriteFactory.pelletCube(size: 8)
                     let nh = max(1, inner.calculateAccumulatedFrame().height)
                     inner.yScale = 0.8
@@ -791,7 +792,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         addChild(uiLayer)
         hud = HUD(requiredItems: Strings.Machine.required)
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
-        state.dotCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
+        state.dotCount = RoundState.demoMode ? 0 : map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
         state.goldDiscCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.goldDiscChar }.count }
         state.waterGunCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.waterGunChar }.count }
         state.waterPelletCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.waterPelletChar }.count }
