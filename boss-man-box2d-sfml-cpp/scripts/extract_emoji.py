@@ -25,22 +25,22 @@ from fontTools.ttLib import TTCollection
 FONT_PATH = "/System/Library/Fonts/Apple Color Emoji.ttc"
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "emoji")
 
-# Exact UTF-8 byte sequences as used in the C++ source
-# (Constants.hpp travelers, MazeRenderer machines, HUDRenderer checklist).
+# Exact UTF-8 byte sequences as used in the Swift + C++ source
+# (Strings+Shared.swift Emoji, LevelTravelers.swift, Constants.hpp travelers,
+# MazeRenderer machines, HUDRenderer checklist, TitleScene toggles).
 EMOJIS = [
     b"\xf0\x9f\x8e\xb2",              # 🎲 dice    (HUD score label)
     b"\xf0\x9f\x92\x8e",              # 💎 diamond (HUD bottom-row high score)
     b"\xf0\x9f\x90\x9f",              # 🐟 fish
     b"\xf0\x9f\x8d\xa9",              # 🍩 donut
-    b"\xe2\x98\x95",                  # ☕ coffee
+    b"\xe2\x98\x95\xef\xb8\x8f",      # ☕️ coffee
     b"\xf0\x9f\xa5\xa4",              # 🥤 soda
     b"\xf0\x9f\x8d\x8e",              # 🍎 apple
-    # NOTE: ✂️ (e29c82efb88f.png) is intentionally NOT extracted — the level-6
-    # traveler uses the shiny red stapler image dropped in at that filename instead.
+    b"\xe2\x9c\x82\xef\xb8\x8f",      # ✂️ scissors (stapler slot — PNG overridden by shinyredstapler)
     b"\xf0\x9f\x8d\x89",              # 🍉 melon
     b"\xf0\x9f\xa7\x87",              # 🧇 waffle
     b"\xf0\x9f\x8d\xa6",              # 🍦 ice cream
-    b"\xf0\x9f\x8e\x82",              # 🎂 cake
+    b"\xf0\x9f\x8d\xb0",              # 🍰 shortcake (level-10 traveler)
     b"\xf0\x9f\x91\x80",              # 👀 eyes
     b"\xf0\x9f\x91\x81\xef\xb8\x8f",  # 👁️ big eye
     b"\xf0\x9f\x96\xa8\xef\xb8\x8f",  # 🖨️ printer
