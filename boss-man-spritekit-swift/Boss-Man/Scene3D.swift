@@ -1074,12 +1074,13 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         arrow.fillColor = .white
         arrow.strokeColor = SKColor(white: 0, alpha: 0.7)
         arrow.lineWidth = 1.5
-        arrow.zPosition = 220
+        arrow.zPosition = 10
+        arrow.setScale(1 / mapScale)
         arrow.run(.repeatForever(.sequence([
-            .scale(to: 1.25, duration: 0.35),
-            .scale(to: 1.0,  duration: 0.35)
+            .scale(by: 1.25, duration: 0.35),
+            .scale(by: 1 / 1.25, duration: 0.35)
         ])))
-        addChild(arrow)
+        mapPete.addChild(arrow)
         mapPeteArrow = arrow
         mapLayer.zPosition = 201
         addChild(mapLayer)
@@ -1197,11 +1198,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         mapPete.position = pPos
         mapPete.setFacing(facing(moveDir))
         if let arrow = mapPeteArrow {
-            let base = convert(pPos, from: mapLayer)
             let pad: CGFloat = 14
             let ox: CGFloat = moveDir.x > 0 ? pad : moveDir.x < 0 ? -pad : 0
             let oy: CGFloat = moveDir.y > 0 ? -pad : moveDir.y < 0 ? pad : 0
-            arrow.position = CGPoint(x: base.x + ox, y: base.y + oy)
+            arrow.position = CGPoint(x: ox, y: oy)
             if moveDir.x > 0      { arrow.zRotation = -.pi / 2 }
             else if moveDir.x < 0 { arrow.zRotation =  .pi / 2 }
             else if moveDir.y > 0 { arrow.zRotation =  .pi }
