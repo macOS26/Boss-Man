@@ -137,7 +137,9 @@ const ASSET_ROOT = CFG.assetRoot;
 class Runtime {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { alpha: false });
+    const tryCtx = canvas.getContext('2d', { alpha: false, colorSpace: 'display-p3' });
+    this.isP3 = !!(tryCtx && tryCtx.getContextAttributes && tryCtx.getContextAttributes().colorSpace === 'display-p3');
+    this.ctx = tryCtx || canvas.getContext('2d', { alpha: false });
 
     this.wasmMemory = null;
     this.exports = null;
@@ -605,7 +607,7 @@ class Runtime {
       rt_create: (w, h) => {
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
-        const cc = cv.getContext('2d');
+        const cc = this.ctx2d(cv);
         this.targets.push({ canvas: cv, ctx: cc });
         return this.targets.length - 1;
       },
@@ -1096,7 +1098,7 @@ class Runtime {
         const off = document.createElement('canvas');
         off.width  = Math.max(1, Math.round(w * dpr));
         off.height = Math.max(1, Math.round(h * dpr));
-        const oc = off.getContext('2d', { alpha: true });
+        const oc = this.ctx2d(off, { alpha: true });
         oc.scale(dpr, dpr);    // logical pixel space matches main canvas
         const handle = this.targets.length;
         this.targets.push({ canvas: off, ctx: oc, logical: { w, h }, savedTarget: this.curTarget });
@@ -1607,11 +1609,17 @@ void main() {
   }
 
 
+  ctx2d(canvas, opts = {}) {
+    if (this.isP3) opts = { ...opts, colorSpace: 'display-p3' };
+    return canvas.getContext('2d', opts);
+  }
+
   css(rgba) {
     const r = (rgba >>> 24) & 0xFF;
     const g = (rgba >>> 16) & 0xFF;
     const b = (rgba >>> 8) & 0xFF;
     const a = (rgba & 0xFF) / 255;
+    if (this.isP3) return `color(display-p3 ${(r/255).toFixed(4)} ${(g/255).toFixed(4)} ${(b/255).toFixed(4)} / ${a})`;
     return `rgba(${r},${g},${b},${a})`;
   }
 
