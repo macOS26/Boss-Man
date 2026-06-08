@@ -607,7 +607,7 @@ class Runtime {
       rt_create: (w, h) => {
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
-        const cc = this.ctx2d(cv);
+        const cc = this.makeCtx(cv);
         this.targets.push({ canvas: cv, ctx: cc });
         return this.targets.length - 1;
       },
@@ -1098,7 +1098,7 @@ class Runtime {
         const off = document.createElement('canvas');
         off.width  = Math.max(1, Math.round(w * dpr));
         off.height = Math.max(1, Math.round(h * dpr));
-        const oc = this.ctx2d(off, { alpha: true });
+        const oc = this.makeCtx(off, { alpha: true });
         oc.scale(dpr, dpr);    // logical pixel space matches main canvas
         const handle = this.targets.length;
         this.targets.push({ canvas: off, ctx: oc, logical: { w, h }, savedTarget: this.curTarget });
@@ -1609,7 +1609,7 @@ void main() {
   }
 
 
-  ctx2d(canvas, opts = {}) {
+  makeCtx(canvas, opts = {}) {
     if (this.isP3) opts = { ...opts, colorSpace: 'display-p3' };
     return canvas.getContext('2d', opts);
   }
