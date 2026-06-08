@@ -217,6 +217,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     override func willMove(from view: SKView) {
+        sound.stopAllAudio()
         #if os(macOS)
         (NSApplication.shared.delegate as? AppDelegate)?.setGameModeActive(false)
         #endif
