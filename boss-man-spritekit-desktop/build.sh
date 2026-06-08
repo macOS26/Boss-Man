@@ -13,9 +13,9 @@ if [[ ! -f "$WEB_SRC/bossman.wasm" ]]; then
   exit 1
 fi
 
-echo "==> swift build -c $CONFIG"
-swift build --package-path "$HERE" -c "$CONFIG"
-BIN="$(swift build --package-path "$HERE" -c "$CONFIG" --show-bin-path)/BossManDesktop"
+echo "==> swift build -c $CONFIG (universal)"
+swift build --package-path "$HERE" -c "$CONFIG" --arch arm64 --arch x86_64
+BIN="$HERE/.build/apple/Products/$([ "$CONFIG" = "release" ] && echo Release || echo Debug)/BossManDesktop"
 
 echo "==> assembling $APP"
 rm -rf "$APP"

@@ -16,7 +16,6 @@ jobs:
     runs-on: macos-15
     env:
       SWIFT_VERSION: 6.3.2
-      WASM_SDK: swift-6.3.2-RELEASE_wasm
 
     steps:
       - uses: actions/checkout@v4
@@ -65,8 +64,10 @@ jobs:
       matrix:
         include:
           - arch: x86_64
+            deb_arch: amd64
             runner: ubuntu-22.04
           - arch: arm64
+            deb_arch: arm64
             runner: ubuntu-22.04-arm
 
     steps:
@@ -91,7 +92,7 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j"$(nproc)"
 
-      - name: Bundle
+      - name: Bundle tar.gz
         run: |
           mkdir -p dist/play
           cp boss-man-linux-webview/build/BossMan dist/
@@ -101,8 +102,31 @@ jobs:
           cp -r swift-wasm-bundle/assets    dist/play/
           tar -czf Boss-Man-Linux-${{ matrix.arch }}.tar.gz -C dist .
 
+      - name: Build .deb
+        run: |
+          DEB="deb-pkg"
+          mkdir -p "$DEB/DEBIAN" \
+                   "$DEB/usr/bin" \
+                   "$DEB/usr/share/bossman/play/assets"
+          cp boss-man-linux-webview/build/BossMan "$DEB/usr/bin/bossman"
+          cp swift-wasm-bundle/server.html  "$DEB/usr/share/bossman/play/"
+          cp swift-wasm-bundle/runtime.js   "$DEB/usr/share/bossman/play/"
+          cp swift-wasm-bundle/bossman.wasm "$DEB/usr/share/bossman/play/"
+          cp -r swift-wasm-bundle/assets/.  "$DEB/usr/share/bossman/play/assets/"
+          cat > "$DEB/DEBIAN/control" <<EOF
+          Package: boss-man
+          Version: 1.0.6
+          Architecture: ${{ matrix.deb_arch }}
+          Maintainer: StarPlay RX <todd@starplayrx.com>
+          Depends: libgtk-3-0, libwebkit2gtk-4.1-0
+          Description: Boss-Man arcade game (Swift WebAssembly + WebKit2GTK)
+          EOF
+          dpkg-deb --build "$DEB" Boss-Man-Linux-${{ matrix.arch }}.deb
+
       - uses: actions/upload-artifact@v4
         with:
           name: boss-man-linux-webview-${{ matrix.arch }}
-          path: Boss-Man-Linux-${{ matrix.arch }}.tar.gz
+          path: |
+            Boss-Man-Linux-${{ matrix.arch }}.tar.gz
+            Boss-Man-Linux-${{ matrix.arch }}.deb
           if-no-files-found: error

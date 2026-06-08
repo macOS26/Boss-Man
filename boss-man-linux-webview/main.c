@@ -59,7 +59,11 @@ static void activate(GApplication *app, gpointer data)
     if (len > 0) exe[len] = '\0';
     char *dir = dirname(exe);
     char *html = g_build_filename(dir, "play", "server.html", NULL);
-    char *url  = g_filename_to_uri(html, NULL, NULL);
+    if (!g_file_test(html, G_FILE_TEST_EXISTS)) {
+        g_free(html);
+        html = g_strdup("/usr/share/bossman/play/server.html");
+    }
+    char *url = g_filename_to_uri(html, NULL, NULL);
     webkit_web_view_load_uri(wv, url);
     g_free(html);
     g_free(url);
