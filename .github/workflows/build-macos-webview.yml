@@ -8,7 +8,7 @@ on:
       - 'boss-man-spritekit-web/**'
       - 'wasm-web-kit/**'
       - '.github/workflows/build-macos-webview.yml'
-    tags: [ 'v*' ]
+    tags: ['pre-*']
   workflow_dispatch:
 
 permissions:
@@ -132,7 +132,6 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          PRE=""; [[ "$TAG" == *-* ]] && PRE="--prerelease"
           gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" --title "$TAG" --notes "" $PRE
+            gh release create "$TAG" --title "$TAG" --notes "" --prerelease
           gh release upload "$TAG" Boss-Man-macOS-WebView.zip --clobber

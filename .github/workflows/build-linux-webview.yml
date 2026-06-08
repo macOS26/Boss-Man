@@ -8,7 +8,11 @@ on:
       - 'boss-man-spritekit-web/**'
       - 'wasm-web-kit/**'
       - '.github/workflows/build-linux-webview.yml'
+    tags: ['pre-*']
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-wasm:
@@ -130,3 +134,17 @@ jobs:
             Boss-Man-Linux-${{ matrix.arch }}.tar.gz
             Boss-Man-Linux-${{ matrix.arch }}.deb
           if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "$TAG" --notes "" --prerelease
+          gh release upload "$TAG" \
+            Boss-Man-Linux-${{ matrix.arch }}.tar.gz \
+            Boss-Man-Linux-${{ matrix.arch }}.deb \
+            --clobber
