@@ -1337,13 +1337,18 @@ class Runtime {
       win_width: () => LOGICAL_W,
       win_height: () => LOGICAL_H,
       win_request_fullscreen: () => {
-        // Android + iPad + desktop use the real Fullscreen API. iPhone Safari has
-        // none (video only), so fall back to a CSS pseudo-fullscreen that covers
-        // the viewport (and asks an embedding page to expand its iframe).
+        // Gate on document.fullscreenEnabled, not el.webkitRequestFullscreen:
+        // iPhone Safari defines webkitRequestFullscreen on canvas but it is a
+        // no-op (works only for video), so checking the element method silently
+        // skips the pseudo-fullscreen path and the iframe never expands.
         const el = this.canvas;
-        if (el.requestFullscreen) el.requestFullscreen().catch(() => this._pseudoFullscreen(true));
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        else this._pseudoFullscreen(true);
+        if (document.fullscreenEnabled) {
+          el.requestFullscreen().catch(() => this._pseudoFullscreen(true));
+        } else if (document.webkitFullscreenEnabled) {
+          try { el.webkitRequestFullscreen(); } catch (_e) { this._pseudoFullscreen(true); }
+        } else {
+          this._pseudoFullscreen(true);
+        }
       },
       win_exit_fullscreen: () => {
         if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
