@@ -12,8 +12,8 @@ let package = Package(
         .executableTarget(
             name: "Hello",
             dependencies: [
-                .product(name: "SpriteKit",   package: "spritekit"),
-                .product(name: "Box2DBridge", package: "spritekit"),
+                .product(name: "SpriteKit",   package: "superbox64-spritekit"),
+                .product(name: "Box2DBridge", package: "superbox64-spritekit"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)],
             linkerSettings: [.unsafeFlags([
