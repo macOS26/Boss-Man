@@ -58,27 +58,43 @@ Physical gamepads and Apple Game Controller framework are also supported.
 
 ## Game Modes
 
-The title screen cycles through six rendering modes, each named after an *Office Space* character or cult classic film. Every mode runs the same game logic: boss AI, Blue Mode, TPS reports, gold discs, the water gun, tunnels, and lives are all shared. Only the camera and renderer change.
+Boss-Man ships **six distinct renderers**, unlocked by cycling the title screen. Each one is a love letter to a different era of game graphics, named after a character from *Office Space* or a cult classic film. Every mode runs the exact same game underneath: the same boss AI, Blue Mode, TPS report chain, gold discs, water gun, tunnels, travelers, and lives. Only the camera and renderer change. Collect dots, deliver reports, and avoid your bosses — whether you are doing it in flat 2D or walking the corridors in first person.
 
-### 2D Modes
+---
 
-| Mode | Label | Era | Description |
-|------|-------|-----|-------------|
-| **WIDE** | LUMBERGH | 1980 | The whole 37x17 office floor on screen at once, top-down at 1:1. The arcade-faithful view. |
-| **ZOOM** | TWO BOBS | 1982 | An `SKCameraNode` zooms 1.5x and scrolls to follow PETE through the aisles. Jr. Pac-Man style. |
-| **MACRO** | MILTON | 1983 | 2x zoom with a compact HUD panel. The biggest, closest, side-scrolling feel. |
+### 2D Modes — The Classic Era
 
-### 3D Bonus Modes
+Three top-down views of the full 37×17 cubicle grid, inspired by the golden age of maze arcade games.
 
-| Mode | Label | Era | Description |
-|------|-------|-----|-------------|
-| **ISO** | WONDERLAND | 1985 | Isometric 2.5D view. The maze is drawn in a classic isometric grid with billboarded bosses, pellets, pickups, and a live minimap. |
-| **RAY** | SEVERANCE | 1993 | Wolfenstein/DOOM-style raycaster. You walk the corridors behind PETE with wall-cast columns, a ceiling strip, and all game objects billboarded in 3D. |
-| **VOXEL** | LABYRINTH | 1994 | Comanche-style voxel painter's renderer. The maze is rendered column-by-column with a voxel sky dome, sun-glow light shafts, and a full-coverage depth buffer. |
+#### WIDE — LUMBERGH (1980)
 
-All three 3D modes drive the real `BossController`, `MazeBuilder`, `GoldDiscTimer`, `WaterGunState`, and `RoundState`. Only the renderer is mode-specific.
+The whole office floor, all at once. Every aisle, every dot, every boss in full view. This is the purest form of the game: a direct descendant of the original Pac-Man cabinet perspective, where situational awareness is total and decisions happen fast. The HUD sits outside the play area, nothing scrolls, and the layout reads instantly. If you have ever played a maze arcade game, this view is immediately familiar.
 
-Each 3D mode includes a **live top-down minimap** with a Pete arrow that throbs and points in his direction of travel.
+#### ZOOM — TWO BOBS (1982)
+
+A 1.5x zoom that locks onto PETE and scrolls smoothly as he moves. Inspired by **Jr. Pac-Man's** larger-than-screen mazes, ZOOM trades the full-map overview for a closer, more intimate view of the corridors. You can still read ahead a few tiles in every direction, but the bosses can sneak up from just off screen. The scrolling camera makes the office feel bigger and more threatening.
+
+#### MACRO — MILTON (1983)
+
+A 2x zoom with a compact strip HUD tucked above the play area. The biggest, most cinematic view of the office. The dots fill the screen, the cubicle walls tower over PETE, and the bosses are large enough to read their expressions. MACRO is the closest the 2D modes get to the experience of being inside the maze. Inspired by the close-focus style of late-arcade and early home-console maze games.
+
+---
+
+### 3D Bonus Modes — The Revolution Era
+
+Three fully realized 3D renderers that replay thirty years of graphics history, each built from scratch on top of the identical game logic. Every 3D mode includes a **live top-down minimap** (with a PETE arrow that throbs in his direction of travel) so you always know where you are. All three modes drive the real `BossController`, `RoundState`, `MazeBuilder`, `GoldDiscTimer`, and `WaterGunState` — nothing is hand-rolled for the bonus view.
+
+#### ISO — WONDERLAND (1985)
+
+The office reimagined as an isometric diorama. The maze is projected onto a classic 2:1 diamond grid, a technique popularized by games like **Zaxxon**, **Q*bert**, and the British home-computer adventure games of the mid-1980s. Cubicle walls are extruded as solid blocks, pellets and pickups float at their proper heights, and PETE and the bosses walk the isometric floor as billboarded pixel-person sprites. The perspective is fixed at a 30-degree angle, giving the office a clean architectural feel. It is the mode that answers the question: what if Boss-Man shipped in 1985?
+
+#### RAY — SEVERANCE (1993)
+
+First-person. You are Pete, walking through the office corridors. The walls are rendered with a **Wolfenstein / DOOM-style DDA raycaster**: each screen column is a ray shot into the 3D scene, the nearest wall face is found, and the column is filled with a perspective-scaled strip. RAY adds the full-face projection treatment from the Swift master: wall faces are projected as per-face trapezoid quads (not raw column strips), clipped at the near plane, depth-sorted, and fog-blended against the level's cubicle color. A distance-based fog darkens far walls and the gray cubicle-window insets add depth. Pellets, gold discs, bosses, and the traveler are all projected as depth-sorted billboards that interleave correctly with the wall faces. The ceiling is a tiled panel pattern; the floor is a perspective-correct checker. The era is unmistakable: 1993 was the year id Software changed everything.
+
+#### VOXEL — LABYRINTH (1994)
+
+Column-by-column voxel painting, the technique that powered **NovaLogic's Comanche** helicopter series. The world is not a polygon mesh and there is no raycaster: the renderer walks the camera frustum column by column, projecting each wall face as a depth-correct quad using the exact same face-corner projection math as the Swift master, then stacking voxel slabs from the floor up. A gradient sky dome and sun-glow light shafts fill the upper half of the screen. The floor checker uses perspective-correct distancing, giving the corridors a convincing sense of depth without a z-buffer. VOXEL is the mode that answers the question: what if the office maze was a combat zone rendered by a 1994 terrain engine? The Comanche inspiration is unmistakable in the earth-toned depth shading and the way solid geometry rises out of the floor.
 
 ## Lives
 
