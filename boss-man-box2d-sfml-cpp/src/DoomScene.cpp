@@ -1112,94 +1112,172 @@ void DoomScene::drawCeiling(sf::RenderTarget& target, double dirX, double dirY,
 
 void DoomScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
                             double planeX, double planeY) {
-    std::vector<float> cTop(columns_), cBot(columns_);
-    std::vector<double> cDist(columns_);
-    std::vector<int> cSide(columns_), cFace(columns_), cPar(columns_);
-    std::vector<bool> cOpen(columns_);
+    constexpr double wallFar = 40.0;
 
+    // Pass 1: DDA per column (Swift buildWallCells) — fill zbuf_ and collect
+    // every wall tile whose face is potentially visible from this camera position.
+    std::unordered_set<int> tops;
     for (int i = 0; i < columns_; ++i) {
         double cameraX = 2.0 * (i + 0.5) / columns_ - 1.0;
         double rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX;
         int mapX = (int)std::floor(camX_), mapY = (int)std::floor(camY_);
-        double ddx = rdx == 0 ? 1e30 : std::abs(1 / rdx);
-        double ddy = rdy == 0 ? 1e30 : std::abs(1 / rdy);
+        double ddx = rdx == 0.0 ? 1e30 : std::abs(1.0 / rdx);
+        double ddy = rdy == 0.0 ? 1e30 : std::abs(1.0 / rdy);
         int stepX, stepY; double sideX, sideY;
         if (rdx < 0) { stepX = -1; sideX = (camX_ - mapX) * ddx; }
-        else         { stepX = 1;  sideX = (mapX + 1 - camX_) * ddx; }
+        else         { stepX =  1; sideX = (mapX + 1 - camX_) * ddx; }
         if (rdy < 0) { stepY = -1; sideY = (camY_ - mapY) * ddy; }
-        else         { stepY = 1;  sideY = (mapY + 1 - camY_) * ddy; }
-        int side = 0, guardN = 0; bool hitWall = false;
-        while (guardN < 256) {
+        else         { stepY =  1; sideY = (mapY + 1 - camY_) * ddy; }
+        bool firstHit = true; int guardN = 0;
+        while (guardN < 300) {
             guardN++;
-            if (sideX < sideY) { sideX += ddx; mapX += stepX; side = 0; }
-            else               { sideY += ddy; mapY += stepY; side = 1; }
+            double dEntry;
+            if (sideX < sideY) { dEntry = sideX; sideX += ddx; mapX += stepX; }
+            else               { dEntry = sideY; sideY += ddy; mapY += stepY; }
             if (mapY < 0 || mapY >= rowsCount_ || mapX < 0 || mapX >= colsCount_) break;
-            if (map_[mapY][mapX] == Tile::wall) { hitWall = true; break; }
+            if (dEntry > wallFar) break;
+            if (map_[mapY][mapX] != Tile::wall) continue;
+            double dN = std::max(0.05, dEntry);
+            if (firstHit) { zbuf_[i] = dN; firstHit = false; }
+            tops.insert(mapY * colsCount_ + mapX);
         }
-        double perp = side == 0 ? (sideX - ddx) : (sideY - ddy);
-        double d = hitWall ? std::max(0.05, perp) : 1e9;
-        float lineH = std::min((float)viewH() * 4.f, (float)(viewH() / d));
-        cTop[i] = viewMidY() + lineH * (1.0f - eyeHeight_);
-        cBot[i] = viewMidY() - lineH * eyeHeight_;
-        cDist[i] = d; cSide[i] = side; cOpen[i] = !hitWall;
-        cFace[i] = hitWall ? (side == 0 ? (stepX > 0 ? mapX : mapX + 1) * 2
-                                        : (stepY > 0 ? mapY : mapY + 1) * 2 + 1) : -1;
-        cPar[i] = (mapX + mapY) & 1;   // wall-cell parity -> per-cell checker shade (aligns with the floor)
-        zbuf_[i] = d;
+        if (firstHit) zbuf_[i] = 1e9;
+    }
+    // Include tiles in Pete's immediate neighbourhood (matches Swift buildWallCells).
+    int pTileX = (int)std::floor(px_), pTileY = (int)std::floor(py_);
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            int tx = pTileX + dx, ty = pTileY + dy;
+            if (tx >= 0 && tx < colsCount_ && ty >= 0 && ty < rowsCount_ && map_[ty][tx] == Tile::wall)
+                tops.insert(ty * colsCount_ + tx);
+        }
+
+    // Pass 2: Build face quads (Swift buildFaceQuads, faceGrayRects=true).
+    // Each exposed face of a visible wall tile is projected as a perspective-correct
+    // trapezoid (two vertical screen edges, top/bot heights from depth), near-clipped
+    // at depth 0.1, fog-blended, depth-sorted, then painted with a gray cubicle-
+    // window inset.  Shading formula matches the Swift master verbatim.
+    const Color& cube = CUBICLE_COLORS[(state_.level - 1) % 12];
+    const double invDet = 1.0 / (planeX * dirY - dirX * planeY);
+    const double wallH = 1.0; // DoomScene.wallHeightScale
+    const double eyeH  = eyeHeight_;
+    const float  vH    = viewH();
+    const float  vMid  = viewMidY();
+    const float  hw    = viewW_ / 2.f;
+
+    struct GrayRect { float x0,y0, x1,y1, x2,y2, x3,y3; sf::Color color; };
+    struct VQuad    { float x0,y0, x1,y1, x2,y2, x3,y3; sf::Color color; double depth; GrayRect gray; };
+    std::vector<VQuad> quads;
+    quads.reserve(tops.size() * 2);
+
+    for (int key : tops) {
+        int tx = key % colsCount_, ty = key / colsCount_;
+        double dtx0 = tx, dtx1 = tx + 1, dty0 = ty, dty1 = ty + 1;
+
+        // 4 candidate faces; only those whose camera side is correct are checked.
+        struct FaceDesc { int side, faceV, adx, ady; bool enabled; };
+        FaceDesc faces[4] = {
+            {0, tx,     -1,  0, camX_ <= dtx0},
+            {0, tx + 1,  1,  0, camX_ >= dtx1},
+            {1, ty,      0, -1, camY_ <= dty0},
+            {1, ty + 1,  0,  1, camY_ >= dty1},
+        };
+        for (auto& f : faces) {
+            if (!f.enabled) continue;
+            int adjX = tx + f.adx, adjY = ty + f.ady;
+            bool exposed = adjX < 0 || adjX >= colsCount_ || adjY < 0 || adjY >= rowsCount_
+                        || map_[adjY][adjX] != Tile::wall;
+            if (!exposed) continue;
+
+            // Face world endpoints (side 0 = vertical wall face; side 1 = horizontal).
+            double wx0, wy0, wx1, wy1;
+            if (f.side == 0) { wx0 = f.faceV; wy0 = ty;     wx1 = f.faceV; wy1 = ty + 1; }
+            else             { wx0 = tx;       wy0 = f.faceV; wx1 = tx + 1; wy1 = f.faceV; }
+
+            // Perpendicular depth at each endpoint.
+            double rawA = invDet * (-planeY * (wx0 - camX_) + planeX * (wy0 - camY_));
+            double rawB = invDet * (-planeY * (wx1 - camX_) + planeX * (wy1 - camY_));
+            if (rawA < 0.1 && rawB < 0.1) continue;
+
+            // Near-clip each endpoint to depth 0.1.
+            double tA = rawA < 0.1 ? (0.1 - rawA) / (rawB - rawA) : 0.0;
+            double tB = rawB < 0.1 ? (0.1 - rawB) / (rawA - rawB) : 0.0;
+            double eX0 = rawA < 0.1 ? wx0 + tA * (wx1 - wx0) : wx0;
+            double eY0 = rawA < 0.1 ? wy0 + tA * (wy1 - wy0) : wy0;
+            double eX1 = rawB < 0.1 ? wx1 + tB * (wx0 - wx1) : wx1;
+            double eY1 = rawB < 0.1 ? wy1 + tB * (wy0 - wy1) : wy1;
+            double eRA = std::max(0.1, rawA), eRB = std::max(0.1, rawB);
+            double dAvg = (eRA + eRB) * 0.5;
+            if (dAvg > wallFar) continue;
+
+            // Camera-plane X (horizontal screen fraction) at each clipped endpoint.
+            double txA = invDet * (dirY * (eX0 - camX_) - dirX * (eY0 - camY_));
+            double txB = invDet * (dirY * (eX1 - camX_) - dirX * (eY1 - camY_));
+
+            // Screen corners in y-up coords (p0=floor-left, p1=top-left, p2=top-right, p3=floor-right).
+            float p0x = hw * (float)(1.0 + txA / eRA);
+            float p0y = vMid + vH * (float)(-eyeH / eRA);
+            float p1x = p0x;
+            float p1y = vMid + vH * (float)((wallH - eyeH) / eRA);
+            float p2x = hw * (float)(1.0 + txB / eRB);
+            float p2y = vMid + vH * (float)((wallH - eyeH) / eRB);
+            float p3x = p2x;
+            float p3y = vMid + vH * (float)(-eyeH / eRB);
+
+            // Shading: faceF (side + parity), fog (wallFar-based) — verbatim Swift formula.
+            int par = (f.side == 0) ? ((f.faceV + ty) & 1) : ((tx + f.faceV) & 1);
+            double faceF  = (f.side == 1 ? 0.62 : 1.0) * (par == 1 ? 1.0 : 0.82);
+            double fogT   = std::min(1.0, dAvg / wallFar) * 0.85;
+            double finalF = faceF * (1.0 - fogT);
+            sf::Color col((uint8_t)(cube.r * finalF * 255),
+                          (uint8_t)(cube.g * finalF * 255),
+                          (uint8_t)(cube.b * finalF * 255));
+
+            // Gray cubicle-window inset (topT=0.18, botT=0.32, hMarg=0.18).
+            // lT/lB = points on the left edge at topT/botT fraction from ceiling (y-up).
+            // rT/rB = same on the right edge.  gp0..gp3 are then lerped horizontally.
+            const float topT = 0.18f, botT = 0.32f, hMarg = 0.18f;
+            float lTy = p1y + (p0y - p1y) * topT;
+            float lBy = p1y + (p0y - p1y) * botT;
+            float rTy = p2y + (p3y - p2y) * topT;
+            float rBy = p2y + (p3y - p2y) * botT;
+            float gp0x = p1x + (p2x - p1x) * hMarg;
+            float gp0y = lBy + (rBy - lBy) * hMarg;
+            float gp1x = gp0x;
+            float gp1y = lTy + (rTy - lTy) * hMarg;
+            float gp2x = p1x + (p2x - p1x) * (1.0f - hMarg);
+            float gp2y = lTy + (rTy - lTy) * (1.0f - hMarg);
+            float gp3x = gp2x;
+            float gp3y = lBy + (rBy - lBy) * (1.0f - hMarg);
+            double grayF = 0.62 * (1.0 - fogT);
+            uint8_t gv = (uint8_t)(grayF * 255);
+            sf::Color grayC(gv, gv, gv);
+
+            quads.push_back({p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, col, dAvg,
+                             {gp0x,gp0y, gp1x,gp1y, gp2x,gp2y, gp3x,gp3y, grayC}});
+        }
     }
 
-    float w = viewW_ / (float)columns_;
-    // Cubicle/wall colour for this level, matching the 2D game (CUBICLE_COLORS by level);
-    // shaded per-quad by depth + side so it reads as the same wall in first person.
-    const Color cube = CUBICLE_COLORS[(state_.level - 1) % 12];
-    sf::VertexArray walls(sf::Quads);
-    int i = 0;
-    while (i < columns_) {
-        if (cOpen[i]) { i++; continue; }
-        int j = i;
-        while (j + 1 < columns_ && cFace[j + 1] == cFace[i] && cPar[j + 1] == cPar[i]) j++;
-        float xL = i * w, xR = (j + 1) * w + 1; // 1px overlap hides AA seams
-        float topL = cTop[i], topR = cTop[j], botL = cBot[i], botR = cBot[j];
-        if (j > i) {
-            float cxL = (i + 0.5f) * w, cxR = (j + 0.5f) * w;
-            float mT = (cTop[j] - cTop[i]) / (cxR - cxL);
-            float mB = (cBot[j] - cBot[i]) / (cxR - cxL);
-            topL = cTop[i] + mT * (xL - cxL); topR = cTop[i] + mT * (xR - cxL);
-            botL = cBot[i] + mB * (xL - cxL); botR = cBot[i] + mB * (xR - cxL);
-        }
-        int mid = (i + j) / 2;
-        float f = std::max(0.12f, std::min(1.0f, 1.0f - (float)cDist[mid] / 16.f))
-                  * (cSide[i] == 1 ? 0.62f : 1.0f)
-                  * (cPar[i] ? 1.0f : 0.82f);   // adjacent cells alternate shade for grid readability
-        sf::Color col((uint8_t)(cube.r * f * 255), (uint8_t)(cube.g * f * 255),
-                      (uint8_t)(cube.b * f * 255));
-        walls.append(sf::Vertex({xL, screenY(botL)}, col));
-        walls.append(sf::Vertex({xL, screenY(topL)}, col));
-        walls.append(sf::Vertex({xR, screenY(topR)}, col));
-        walls.append(sf::Vertex({xR, screenY(botR)}, col));
-        {
-            const float topT = 0.18f, botT = 0.32f, hMarg = 0.18f;
-            float topAtL = topL + (topR - topL) * hMarg;
-            float botAtL = botL + (botR - botL) * hMarg;
-            float topAtR = topL + (topR - topL) * (1.0f - hMarg);
-            float botAtR = botL + (botR - botL) * (1.0f - hMarg);
-            float gxL2 = xL + (xR - xL) * hMarg;
-            float gxR2 = xL + (xR - xL) * (1.0f - hMarg);
-            float grTL = topAtL + (botAtL - topAtL) * topT;
-            float grBL = topAtL + (botAtL - topAtL) * botT;
-            float grTR = topAtR + (botAtR - topAtR) * topT;
-            float grBR = topAtR + (botAtR - topAtR) * botT;
-            float gf = std::max(0.12f, std::min(1.0f, 1.0f - (float)cDist[mid] / 16.f)) * 0.62f;
-            uint8_t gv = (uint8_t)(gf * 255);
-            sf::Color grayC(gv, gv, gv);
-            walls.append(sf::Vertex({gxL2, screenY(grBL)}, grayC));
-            walls.append(sf::Vertex({gxL2, screenY(grTL)}, grayC));
-            walls.append(sf::Vertex({gxR2, screenY(grTR)}, grayC));
-            walls.append(sf::Vertex({gxR2, screenY(grBR)}, grayC));
-        }
-        i = j + 1;
+    // Pass 3: Sort far-first (painter's algorithm, mirrors Swift's quads.sort { $0.depth > $1.depth }).
+    std::sort(quads.begin(), quads.end(),
+              [](const VQuad& a, const VQuad& b) { return a.depth > b.depth; });
+
+    // Pass 4: Emit wall quad then gray inset (gray appended after = drawn on top).
+    sf::VertexArray verts(sf::Quads);
+    verts.resize(quads.size() * 8);
+    size_t vi = 0;
+    for (auto& q : quads) {
+        verts[vi++] = sf::Vertex({q.x0, screenY(q.y0)}, q.color);
+        verts[vi++] = sf::Vertex({q.x1, screenY(q.y1)}, q.color);
+        verts[vi++] = sf::Vertex({q.x2, screenY(q.y2)}, q.color);
+        verts[vi++] = sf::Vertex({q.x3, screenY(q.y3)}, q.color);
+        auto& g = q.gray;
+        verts[vi++] = sf::Vertex({g.x0, screenY(g.y0)}, g.color);
+        verts[vi++] = sf::Vertex({g.x1, screenY(g.y1)}, g.color);
+        verts[vi++] = sf::Vertex({g.x2, screenY(g.y2)}, g.color);
+        verts[vi++] = sf::Vertex({g.x3, screenY(g.y3)}, g.color);
     }
-    target.draw(walls);
+    target.draw(verts);
 }
 
 void DoomScene::projectSprites(double dirX, double dirY, double planeX, double planeY) {
