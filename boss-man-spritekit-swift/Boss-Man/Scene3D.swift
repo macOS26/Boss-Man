@@ -1198,7 +1198,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         mapPete.position = pPos
         mapPete.setFacing(facing(moveDir))
         if let arrow = mapPeteArrow {
-            let pad: CGFloat = 14
+            let pad: CGFloat = 17 / mapScale
             let ox: CGFloat = moveDir.x > 0 ? pad : moveDir.x < 0 ? -pad : 0
             let oy: CGFloat = moveDir.y > 0 ? -pad : moveDir.y < 0 ? pad : 0
             arrow.position = CGPoint(x: ox, y: oy)
