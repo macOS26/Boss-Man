@@ -117,12 +117,12 @@ jobs:
           xcrun stapler staple boss-man-spritekit-desktop/build/Boss-Man.app
 
       - name: Zip
-        run: ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man.app Boss-Man-macOS-WebView.zip
+        run: ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man.app Boss-Man-Mac-wk.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: boss-man-macos-webview
-          path: Boss-Man-macOS-WebView.zip
+          path: Boss-Man-Mac-wk.zip
           if-no-files-found: error
 
       - name: Attach to GitHub Release
@@ -134,4 +134,4 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           gh release view "$TAG" >/dev/null 2>&1 || \
             gh release create "$TAG" --title "$TAG" --notes "" --prerelease
-          gh release upload "$TAG" Boss-Man-macOS-WebView.zip --clobber
+          gh release upload "$TAG" Boss-Man-Mac-wk.zip --clobber
