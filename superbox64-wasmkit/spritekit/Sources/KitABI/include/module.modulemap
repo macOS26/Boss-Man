@@ -1,4 +1,0 @@
-module KitABI {
-    header "KitABI.h"
-    export *
-}

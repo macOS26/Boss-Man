@@ -3,12 +3,10 @@ name: SuperBox64 SpriteKit
 on:
   push:
     paths:
-      - 'superbox64-wasmkit/**'
       - 'boss-man-spritekit-web/**'
       - '.github/workflows/spritekit.yml'
   pull_request:
     paths:
-      - 'superbox64-wasmkit/**'
       - 'boss-man-spritekit-web/**'
       - '.github/workflows/spritekit.yml'
   workflow_dispatch: {}
@@ -20,16 +18,10 @@ jobs:
     env:
       SWIFT_VERSION: 6.3.2
       WASM_SDK: swift-6.3.2-RELEASE_wasm
-      TOOLCHAIN_ID: org.swift.632202510210a   # swiftorg toolchain identifier
 
     steps:
       - uses: actions/checkout@v4
 
-      # Install Swift 6.3.2 directly from swift.org via the official .pkg.
-      # The previous swiftly install URL went dead (returns an HTML 404), so
-      # we go straight to the signed Apple installer. The pkg drops the
-      # toolchain into ~/Library/Developer/Toolchains; TOOLCHAINS picks it
-      # up by bundle identifier.
       - name: Install Swift ${{ env.SWIFT_VERSION }} toolchain
         run: |
           set -euo pipefail
@@ -38,47 +30,22 @@ jobs:
           curl -fL --retry 3 -o "/tmp/${PKG}" "$URL"
           installer -pkg "/tmp/${PKG}" -target CurrentUserHomeDirectory
           ls ~/Library/Developer/Toolchains
-          # Resolve the actual bundle id from the installed Info.plist so we
-          # don't have to hardcode the dotted snapshot suffix.
           TC_DIR=$(ls -d ~/Library/Developer/Toolchains/swift-${SWIFT_VERSION}-RELEASE*.xctoolchain | head -1)
           TC_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$TC_DIR/Info.plist")
           echo "Resolved toolchain id: $TC_ID"
           echo "TOOLCHAINS=$TC_ID" >> $GITHUB_ENV
 
-      # The wasm SDK artifactbundle is hosted on download.swift.org alongside
-      # every release. swift sdk install fetches and unpacks it; the bundle
-      # name (swift-6.3.2-RELEASE_wasm) is what consumers pass to
-      # --swift-sdk on subsequent builds.
       - name: Install wasm SDK
         run: |
           set -euo pipefail
           BUNDLE="swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz"
           BASE="https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm-sdk/swift-${SWIFT_VERSION}-RELEASE"
-          # Fetch the bundle locally so we can compute its SHA-256 ourselves —
-          # swift.org doesn't publish a sidecar .sha256 file for the wasm
-          # artifactbundle, and `swift sdk install` from a remote URL now
-          # requires --checksum (it used to download + check silently).
           curl -fL --retry 3 -o "/tmp/${BUNDLE}" "${BASE}/${BUNDLE}"
           CHECKSUM=$(shasum -a 256 "/tmp/${BUNDLE}" | awk '{print $1}')
           echo "Computed checksum: ${CHECKSUM}"
           xcrun --toolchain "$TOOLCHAINS" swift sdk install \
             "/tmp/${BUNDLE}" --checksum "${CHECKSUM}"
           xcrun --toolchain "$TOOLCHAINS" swift sdk list
-
-      - name: Build SuperBox64 SpriteKit (debug + release)
-        working-directory: superbox64-wasmkit/spritekit
-        run: |
-          set -euo pipefail
-          SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh
-          SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
-
-      - name: Build Examples/Hello
-        working-directory: superbox64-wasmkit/spritekit/Examples/Hello
-        run: |
-          set -euo pipefail
-          TOOLCHAINS="$TOOLCHAINS" \
-            xcrun --toolchain "$TOOLCHAINS" swift build \
-            --swift-sdk "$WASM_SDK" -c release
 
       - name: Install wasm-opt (Binaryen)
         run: brew install binaryen --quiet
@@ -94,8 +61,6 @@ jobs:
         with:
           name: superbox64-spritekit-wasm
           path: |
-            superbox64-wasmkit/spritekit/.build/wasm32-unknown-wasip1/release/*.wasm
-            superbox64-wasmkit/spritekit/Examples/Hello/.build/wasm32-unknown-wasip1/release/Hello.wasm
             boss-man-spritekit-web/.build/wasm32-unknown-wasip1/release/BossMan.wasm
             boss-man-spritekit-web/web/bossman.wasm
           if-no-files-found: warn
