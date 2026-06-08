@@ -265,13 +265,13 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         // a touch brighter at the horizon) so the whole 3D environment matches the level.
         let cube = SpriteFactory.cubicleColor(forLevel: state.level)
         let tree = SKNode()
-        let skyBottom = viewMidY, skyTop = size.height
-        let n = max(1, Int(skyTop - skyBottom))
+        let skyBottomI = Int(viewMidY.rounded(.down)), skyTopI = Int(size.height.rounded(.up))
+        let n = max(1, skyTopI - skyBottomI)
         for i in 0..<n {
-            let t = CGFloat(i) / CGFloat(max(1, n - 1))      // 0 horizon .. 1 ceiling
-            let factor = 0.18 + (0.05 - 0.18) * t            // cube brightness: horizon -> ceiling
+            let t = CGFloat(i) / CGFloat(max(1, n - 1))
+            let factor = 0.18 + (0.05 - 0.18) * t
             let col = cube.blended(withFraction: 1 - factor, of: .black) ?? cube
-            let band = SKShapeNode(rect: CGRect(x: 0, y: skyBottom + CGFloat(i), width: size.width, height: 2))
+            let band = SKShapeNode(rect: CGRect(x: 0, y: CGFloat(skyBottomI + i), width: size.width, height: 1))
             band.fillColor = col
             band.strokeColor = .clear
             tree.addChild(band)
@@ -330,7 +330,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
-        let W = size.width, rowH: CGFloat = 0.25
+        let W = size.width, rowH: CGFloat = 1.0
         let pathA = CGMutablePath(), pathB = CGMutablePath(), pathFar = CGMutablePath()
         var yu = radarH
         while yu < viewMidY - 0.5 {
@@ -372,7 +372,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
-        let W = size.width, rowH: CGFloat = 0.25
+        let W = size.width, rowH: CGFloat = 1.0
         let ceilH = 1.0 - Double(eyeHeight)
         let ceilPath = CGMutablePath()
         var ys = viewMidY + rowH
