@@ -18,6 +18,7 @@ final class RoundState {
     var currentReportScore = 0
     private(set) var highScore = Persistence.int(forKey: RoundState.highScoreKey)
     var practiceMode = false
+    static var demoMode = false
 
     func bumpScore(by points: Int) {
         score += points
@@ -52,7 +53,7 @@ final class RoundState {
     }
 
     var pickupsComplete: Bool {
-        collectedDots >= dotCount
+        (RoundState.demoMode || collectedDots >= dotCount)
             && collectedGoldDiscs >= goldDiscCount
             && collectedWaterGuns >= waterGunCount
             && collectedWaterPellets >= waterPelletCount
