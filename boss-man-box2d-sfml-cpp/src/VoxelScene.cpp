@@ -1188,6 +1188,18 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         }
         double dAvg = r.depthSum / r.n;
         quads.push_back({xL, yLoL, xL, yHiL, xR, yHiR, xR, yLoR, shade(dAvg, r.side, r.par), dAvg, false});
+        const float topT = 0.18f, botT = 0.32f, hMarg = 0.18f;
+        float lTx = xL, lTy = yHiL + (yLoL - yHiL) * topT;
+        float lBx = xL, lBy = yHiL + (yLoL - yHiL) * botT;
+        float rTx = xR, rTy = yHiR + (yLoR - yHiR) * topT;
+        float rBx = xR, rBy = yHiR + (yLoR - yHiR) * botT;
+        float gp0x = lBx + (rBx - lBx) * hMarg,       gp0y = lBy + (rBy - lBy) * hMarg;
+        float gp1x = lTx + (rTx - lTx) * hMarg,       gp1y = lTy + (rTy - lTy) * hMarg;
+        float gp2x = lTx + (rTx - lTx) * (1.f - hMarg), gp2y = lTy + (rTy - lTy) * (1.f - hMarg);
+        float gp3x = lBx + (rBx - lBx) * (1.f - hMarg), gp3y = lBy + (rBy - lBy) * (1.f - hMarg);
+        float gv = (float)std::max(0.10, std::min(1.0, 1.0 - dAvg / maxD)) * 0.62f;
+        sf::Color grayC((uint8_t)(gv*255), (uint8_t)(gv*255), (uint8_t)(gv*255));
+        quads.push_back({gp0x,gp0y, gp1x,gp1y, gp2x,gp2y, gp3x,gp3y, grayC, dAvg - 0.001, false});
     };
     auto addFront = [&](int key, int col, float yLo, float yHi, double d, int side, int par) {
         auto it = openF.find(key);
@@ -1273,14 +1285,6 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         br *= (1.0f - capFogT); bg *= (1.0f - capFogT); bb *= (1.0f - capFogT);
         sf::Color col((uint8_t)(br * 255), (uint8_t)(bg * 255), (uint8_t)(bb * 255));
         quads.push_back({qx[0],qy[0], qx[1],qy[1], qx[2],qy[2], qx[3],qy[3], col, dAvg, true});
-        const float hMarg = 0.18f;
-        float gx0 = qx[0] + (qx[3] - qx[0]) * hMarg, gy0 = qy[0] + (qy[3] - qy[0]) * hMarg;
-        float gx1 = qx[1] + (qx[2] - qx[1]) * hMarg, gy1 = qy[1] + (qy[2] - qy[1]) * hMarg;
-        float gx2 = qx[1] + (qx[2] - qx[1]) * (1.0f - hMarg), gy2 = qy[1] + (qy[2] - qy[1]) * (1.0f - hMarg);
-        float gx3 = qx[0] + (qx[3] - qx[0]) * (1.0f - hMarg), gy3 = qy[0] + (qy[3] - qy[0]) * (1.0f - hMarg);
-        float gv = (float)std::max(0.10, std::min(1.0, 1.0 - dAvg / wallFar)) * 0.62f;
-        sf::Color grayC((uint8_t)(gv*255), (uint8_t)(gv*255), (uint8_t)(gv*255));
-        quads.push_back({gx0,gy0, gx1,gy1, gx2,gy2, gx3,gy3, grayC, dAvg - 0.001, true});
     }
 
     std::sort(quads.begin(), quads.end(), [](const VQuad& a, const VQuad& b) {
