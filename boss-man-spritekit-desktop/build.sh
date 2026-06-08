@@ -4,7 +4,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WEB_SRC="$HERE/../boss-man-spritekit-web/web"
 CONFIG="${1:-release}"
-APP_NAME="Boss-Man"
+APP_NAME="Boss-Man-wk"
 APP="$HERE/build/$APP_NAME.app"
 
 if [[ ! -f "$WEB_SRC/bossman.wasm" ]]; then
@@ -29,7 +29,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key><string>$APP_NAME</string>
-  <key>CFBundleDisplayName</key><string>Boss-Man</string>
+  <key>CFBundleDisplayName</key><string>Boss-Man-wk</string>
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleIdentifier</key><string>com.starplayrx.bossman.desktop</string>
   <key>CFBundlePackageType</key><string>APPL</string>

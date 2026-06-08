@@ -98,7 +98,7 @@ jobs:
           IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
           codesign --deep --force --options runtime \
             --sign "$IDENTITY" \
-            boss-man-spritekit-desktop/build/Boss-Man.app
+            boss-man-spritekit-desktop/build/Boss-Man-wk.app
 
       - name: Notarize + staple
         env:
@@ -108,16 +108,16 @@ jobs:
         run: |
           set -euo pipefail
           echo "$NOTARY_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
-          ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man.app /tmp/Boss-Man-submit.zip
-          xcrun notarytool submit /tmp/Boss-Man-submit.zip \
+          ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man-wk.app /tmp/Boss-Man-wk-submit.zip
+          xcrun notarytool submit /tmp/Boss-Man-wk-submit.zip \
             --key "$RUNNER_TEMP/AuthKey.p8" \
             --key-id "$NOTARY_KEY_ID" \
             --issuer "$NOTARY_ISSUER" \
             --wait
-          xcrun stapler staple boss-man-spritekit-desktop/build/Boss-Man.app
+          xcrun stapler staple boss-man-spritekit-desktop/build/Boss-Man-wk.app
 
       - name: Zip
-        run: ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man.app Boss-Man-Mac-wk.zip
+        run: ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man-wk.app Boss-Man-Mac-wk.zip
 
       - uses: actions/upload-artifact@v4
         with:
