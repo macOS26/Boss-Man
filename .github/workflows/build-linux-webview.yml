@@ -111,12 +111,16 @@ jobs:
           DEB="deb-pkg"
           mkdir -p "$DEB/DEBIAN" \
                    "$DEB/usr/bin" \
-                   "$DEB/usr/share/bossman/play/assets"
+                   "$DEB/usr/share/bossman/play/assets" \
+                   "$DEB/usr/share/icons/hicolor/512x512/apps" \
+                   "$DEB/usr/share/applications"
           cp boss-man-linux-webview/build/BossMan "$DEB/usr/bin/bossman"
           cp swift-wasm-bundle/server.html  "$DEB/usr/share/bossman/play/"
           cp swift-wasm-bundle/runtime.js   "$DEB/usr/share/bossman/play/"
           cp swift-wasm-bundle/bossman.wasm "$DEB/usr/share/bossman/play/"
           cp -r swift-wasm-bundle/assets/.  "$DEB/usr/share/bossman/play/assets/"
+          cp boss-man-linux-webview/bossman.png "$DEB/usr/share/icons/hicolor/512x512/apps/bossman.png"
+          cp boss-man-linux-webview/bossman.desktop "$DEB/usr/share/applications/bossman.desktop"
           cat > "$DEB/DEBIAN/control" <<EOF
           Package: boss-man
           Version: 1.0.6
