@@ -21,18 +21,8 @@ final class VoxelScene: Scene3D {
             band.strokeColor = .clear
             tree.addChild(band)
         }
-        let shaftCount = 5
-        for s in 0..<shaftCount {
-            let fx = CGFloat(s) / CGFloat(shaftCount - 1)
-            let cx = fx * size.width * 0.8 + size.width * 0.1
-            let shaftW: CGFloat = size.width * 0.045
-            let shaftH: CGFloat = glowH * 0.85
-            let shaft = SKShapeNode(rect: CGRect(x: cx - shaftW / 2, y: glowBottom + 4, width: shaftW, height: shaftH))
-            shaft.fillColor = SKColor(red: 1.0, green: 0.92, blue: 0.6, alpha: 0.18)
-            shaft.strokeColor = .clear
-            tree.addChild(shaft)
-        }
-        addBaked(tree, to: self, z: -2)
+        tree.zPosition = -2
+        addChild(tree)
     }
 
     override func render(dt: Double) {
