@@ -68,7 +68,7 @@ Three top-down views of the full 37×17 cubicle grid, inspired by the golden age
 
 #### WIDE — LUMBERGH (1980)
 
-The whole office floor, all at once. Every aisle, every dot, every boss in full view. This is the purest form of the game: a direct descendant of the original Pac-Man cabinet perspective, where situational awareness is total and decisions happen fast. The HUD sits outside the play area, nothing scrolls, and the layout reads instantly. If you have ever played a maze arcade game, this view is immediately familiar.
+The whole office floor, all at once. Every aisle, every dot, every boss in full view. This is the purest form of the game: a direct descendant of the original Ms. Pac-Man cabinet perspective, where situational awareness is total and decisions happen fast. The HUD sits outside the play area, nothing scrolls, and the layout reads instantly. If you have ever played a maze arcade game, this view is immediately familiar.
 
 #### ZOOM — TWO BOBS (1982)
 
