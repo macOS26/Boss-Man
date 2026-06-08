@@ -1024,8 +1024,8 @@ void VoxelScene::drawSky(sf::RenderTarget& target) {
         target.draw(glow);
 
         const float glowH = (float)glowN;
-        const float shaftW = viewW_ * 0.045f;
-        const float shaftH = glowH * 0.85f;
+        const float shaftW = viewW_ * 0.07f;
+        const float shaftH = glowH * 0.35f + 15.f;
         sf::Color shaftCol(255, (uint8_t)(0.92f * 255), (uint8_t)(0.60f * 255), (uint8_t)(0.18f * 255));
         for (int s = 0; s < 5; ++s) {
             float cx = viewW_ * 0.1f + s * (viewW_ * 0.8f / 4.f);
