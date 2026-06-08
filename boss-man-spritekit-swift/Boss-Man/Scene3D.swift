@@ -1243,7 +1243,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         var da = targetAngle - angle
         while da > .pi { da -= 2 * .pi }
         while da < -.pi { da += 2 * .pi }
-        angle += max(-0.14, min(0.14, da)) * dt * 60.0
+        angle += max(-0.14, min(0.14, da * dt * 60.0))
 
         let speed = dt / 0.14
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
