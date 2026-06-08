@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(BossMan C)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(WEBKIT REQUIRED webkit2gtk-4.1)
+add_executable(BossMan main.c)
+target_include_directories(BossMan PRIVATE ${WEBKIT_INCLUDE_DIRS})
+target_link_libraries(BossMan ${WEBKIT_LIBRARIES})
+target_compile_options(BossMan PRIVATE ${WEBKIT_CFLAGS_OTHER})
