@@ -119,7 +119,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
     var shots: [Shot] = []
     var gameOver = false
-    var gameOverScreen: GameOverScreen?
     var dying = false
     var deathFramesLeft = 0
     let deathFrames = 90   // 1.5s at 60fps: hold the catcher on screen
@@ -1620,45 +1619,28 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         view?.presentScene(TitleScene(size: size), transition: .fade(withDuration: 0.5))
     }
 
-    // Same game-over screen as the 2D levels, with name entry when the score qualifies.
     func showGameOver() {
         sound.stopAllAudio()
-        let screen = GameOverScreen(
-            size: size, font: Strings.Font.menloBold,
-            score: state.score, highScore: state.highScore,
-            defaultName: LocalHighScores.savedUsername ?? "", allowEntry: !state.practiceMode,
-            onPlay: { [weak self] in self?.restartDoom() },
-            onEsc:  { [weak self] in self?.exit() })
-        screen.zPosition = 2000
-        addChild(screen)
-        gameOverScreen = screen
+        guard let view else { return }
+        let sm = scaleMode, pm = practiceMode, lvl = startingLevel
+        let nextScene = makeRestartScene()
+        nextScene.scaleMode = sm
+        nextScene.practiceMode = pm
+        nextScene.startingLevel = lvl
+        let goScene = GameOverScene(
+            size: size, score: state.score, highScore: state.highScore,
+            allowEntry: !pm, defaultName: LocalHighScores.savedUsername ?? "",
+            isPractice: pm, practiceLevel: lvl,
+            makeRestartScene: { nextScene })
+        view.presentScene(goScene, transition: .fade(withDuration: 0.5))
     }
 
     func makeRestartScene() -> Scene3D { Scene3D(size: size) }
-    func restartDoom() {
-        gameOverScreen?.removeFromParent()
-        gameOverScreen = nil
-        let bonus = makeRestartScene()
-        bonus.scaleMode = scaleMode
-        bonus.practiceMode = practiceMode
-        bonus.startingLevel = startingLevel
-        view?.presentScene(bonus, transition: .fade(withDuration: 0.5))
-    }
-
-    func handleGameOverKey(_ event: NSEvent, code: Int) -> Bool {
-        guard let s = gameOverScreen else { return false }
-        #if os(macOS)
-        s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
-        #else
-        s.handleKey(code, shift: false)
-        #endif
-        return true
-    }
 
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if handleGameOverKey(event, code: code) { return }
+        if gameOver { return }
         switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
@@ -1722,10 +1704,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     // Once any true touch arrives, ignore this synthetic pointer so we don't
     // double-drive the D-pad on a phone (the host emits BOTH for finger 0).
     override func mouseDown(with event: NSEvent) {
-        if let s = gameOverScreen {
-            s.handleTap(at: s.convert(event.location(in: self), from: self))
-            return
-        }
         if usingTouch { return }
         pointerBegan(finger: 0, at: event.location(in: self))
     }
@@ -1744,7 +1722,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     // MARK: - Multi-touch D-pad (phone). Each finger lights at most one wedge, so
     // forward + a turn happen only when two fingers are physically down at once.
     func touchBegan(finger: Int, at p: CGPoint) {
-        if gameOverScreen != nil { return }   // game-over menu rides the synthetic mouse pointer (no double-fire)
         usingTouch = true
         pointerBegan(finger: finger, at: p)
     }

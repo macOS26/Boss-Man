@@ -976,7 +976,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     // MARK: - Input (steer at junctions, relative to facing)
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if handleGameOverKey(event, code: code) { return }
+        if gameOver { return }
         switch code {
         case KeyCode.esc:                       exit()
         case KeyCode.keyP:                      togglePause()
@@ -1080,10 +1080,6 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if let s = gameOverScreen {
-            s.handleTap(at: s.convert(event.location(in: self), from: self))
-            return
-        }
         if usingTouch { return }
         joyBegin(event.location(in: self))
     }
@@ -1097,7 +1093,6 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     override func touchBegan(finger: Int, at p: CGPoint) {
-        if gameOverScreen != nil { return }
         usingTouch = true
         if joyBegin(p), joyFinger == nil { joyFinger = finger }
     }

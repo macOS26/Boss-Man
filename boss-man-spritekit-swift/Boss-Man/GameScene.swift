@@ -35,8 +35,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var travelerSpawner: TravelerSpawner!
     private var workerController: WorkerController!
     private var bossController: BossController!
-    private var gameOverScreen: GameOverScreen?
-
     private(set) var isGameOver = false
     var lastUpdateTime: TimeInterval = 0
     var practiceMode: Bool {
@@ -207,22 +205,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     override func keyDown(with event: NSEvent) {
         let code = Int(event.keyCode)
-        if let s = gameOverScreen {
-            #if os(macOS)
-            s.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
-            #else
-            s.handleKey(code, shift: false)
-            #endif
-            return
-        }
-        if isGameOver {
-            switch code {
-            case KeyCode.keyP: restartGame()
-            case KeyCode.esc:  returnToTitleScene()
-            default: break
-            }
-            return
-        }
+        if isGameOver { return }
         if code == KeyCode.keyP {
             togglePause()
             return
@@ -241,11 +224,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     override func mouseDown(with event: NSEvent) {
-        let scenePoint = event.location(in: self)
-        if let s = gameOverScreen {
-            s.handleTap(at: s.convert(scenePoint, from: self))
-            return
-        }
         guard !isUserPaused, !isGameOver else { return }
         let p = event.location(in: uiLayer)
         if !joystickHidden, joystickCenter.distance(to: p) <= joystickRadius {
@@ -698,14 +676,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         buildLevel()
     }
 
-    private func restartGame() {
-        hud.hideGameOver()
-        isGameOver = false
-        state.resetForNewGame()
-        resetSceneAndBuild()
-        hud.showMessage(Strings.Message.newGame, duration: 3)
-    }
-
     private func returnToTitleScene() {
         guard let view else { return }
         hud.hideGameOver()
@@ -738,36 +708,23 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             GameCenterClient.submitScore(state.score, to: LeaderboardPanel.leaderboardID)
         }
         if GKLocalPlayer.local.isAuthenticated {
-            // Game Center owns the cloud identity, but the board shown here is the
-            // local one — still let the player enter a name (pre-filled with the
-            // GC name) so a qualifying score lands on the local leaderboard.
             defaultName = LocalHighScores.savedUsername ?? GameCenterClient.currentPlayerName()
         }
         #endif
-        presentGameOverScreen(defaultName: defaultName, allowEntry: allowEntry)
-    }
 
-    private func presentGameOverScreen(defaultName: String, allowEntry: Bool) {
-        let screen = GameOverScreen(
-            size: size,
-            font: Strings.Font.menloBold,
-            score: state.score,
-            highScore: state.highScore,
-            defaultName: defaultName,
-            allowEntry: allowEntry,
-            onPlay: { [weak self] in self?.dismissGameOverScreen()
-            self?.restartGame() },
-            onEsc:  { [weak self] in self?.dismissGameOverScreen()
-            self?.returnToTitleScene() }
-        )
-        screen.position = .zero
-        uiLayer.addChild(screen)
-        gameOverScreen = screen
-    }
-
-    private func dismissGameOverScreen() {
-        gameOverScreen?.removeFromParent()
-        gameOverScreen = nil
+        guard let view else { return }
+        let sz = size, sm = scaleMode, pm = state.practiceMode, lvl = state.level
+        let goScene = GameOverScene(
+            size: sz, score: state.score, highScore: state.highScore,
+            allowEntry: allowEntry, defaultName: defaultName,
+            isPractice: pm, practiceLevel: lvl,
+            makeRestartScene: {
+                let g = GameScene(size: sz)
+                g.scaleMode = sm
+                if pm { g.startingLevel = lvl }
+                return g
+            })
+        view.presentScene(goScene, transition: .fade(withDuration: 0.5))
     }
 
     private func togglePause() {
