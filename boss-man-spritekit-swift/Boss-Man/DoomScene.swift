@@ -6,8 +6,8 @@ final class DoomScene: Scene3D {
     override var eyeHeight: CGFloat { 0.333 }
     override var wallHeightScale: CGFloat { 1.0 }
 
-    override func render() {
-        throbClock += 1.0 / 60.0
+    override func render(dt: Double) {
+        throbClock += dt
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         var back = camBack

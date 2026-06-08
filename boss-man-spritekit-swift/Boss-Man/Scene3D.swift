@@ -151,6 +151,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var peteBaseY: CGFloat = 0
     var bob = 0.0
     var throbClock = 0.0
+    var lastUpdateTime: TimeInterval = 0
     let planeScale = 1.2
     let wallFar = 40.0
     var wallQuads: [SKShapeNode] = []
@@ -860,8 +861,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         deathFramesLeft = deathFrames
     }
 
-    func updateDeath() {
-        deathFramesLeft -= 1                          // hold the catcher on screen, still, then respawn
+    func updateDeath(dt: Double) {
+        deathFramesLeft -= Int(dt * 60.0)
         if deathFramesLeft <= 0 { finishDeath() }
     }
 
@@ -1164,18 +1165,21 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
 
     // MARK: - Per-frame
     override func update(_ currentTime: TimeInterval) {
+        if lastUpdateTime == 0 { lastUpdateTime = currentTime }
+        let dt = min(currentTime - lastUpdateTime, 1.0 / 20.0)
+        lastUpdateTime = currentTime
         if isUserPaused || gameOver { return }
         if dying {
-            updateDeath()
+            updateDeath(dt: dt)
             return
         }
-        step()
-        if dying { return }   // step() just caught Pete: startDeath pinned the catcher — don't let render re-project it past Pete
-        render()
+        step(dt: dt)
+        if dying { return }
+        render(dt: dt)
     }
 
     // All-3-differ. Empty default, every scene overrides with its own renderer.
-    func render() { }
+    func render(dt: Double = 1.0 / 60.0) { }
 
     func bossNameplate(for node: SKNode, text: String) -> SKLabelNode {
         let id = ObjectIdentifier(node)
@@ -1235,13 +1239,13 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     }
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
-    func step() {
+    func step(dt: Double) {
         var da = targetAngle - angle
         while da > .pi { da -= 2 * .pi }
         while da < -.pi { da += 2 * .pi }
-        angle += max(-0.14, min(0.14, da))
+        angle += max(-0.14, min(0.14, da)) * dt * 60.0
 
-        let speed = 1.0 / (0.14 * 60.0)   // match 100% mode: WorkerController moveDuration 0.14s/tile at 60fps
+        let speed = dt / 0.14
         let col = Int(px.rounded(.down)), row = Int(py.rounded(.down))
         let ccx = Double(col) + 0.5, ccy = Double(row) + 0.5
         // Hold ↑ = forward along facing, release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
@@ -1315,10 +1319,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             }
         }
         collectStationary()
-        moveShots()
+        moveShots(dt: dt)
         let pgx = Int(px.rounded(.down))
         let pgy = rowsCount - 1 - Int(py.rounded(.down))
-        bossController.advance(1.0 / 60.0) { e in
+        bossController.advance(dt) { e in
             let bg = e.mover?.grid ?? e.ai.grid
             return max(abs(Int(bg.x) - pgx), abs(Int(bg.y) - pgy)) > 3
         }
@@ -1343,14 +1347,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
             hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
         }
         if frightenSecondsLeft > 0 {                      // loop-driven (no Task.sleep on wasm)
-            frightenSecondsLeft -= 1.0 / 60.0
+            frightenSecondsLeft -= dt
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
         let moving = tdir != nil
         if moving {
             pete.startWalking()
             mapPete.startWalking()
-            bob += 0.22
+            bob += 0.22 * dt * 60.0
         } else {
             pete.stopWalking()
             mapPete.stopWalking()
@@ -1358,8 +1362,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY + CGFloat(sin(bob) * 4))
     }
 
-    func moveShots() {
-        let speed = 0.22
+    func moveShots(dt: Double = 1.0 / 60.0) {
+        let speed = 0.22 * dt * 60.0
         for i in shots.indices where shots[i].alive {
             shots[i].x += Double(shots[i].dir.x) * speed
             shots[i].y += Double(shots[i].dir.y) * speed

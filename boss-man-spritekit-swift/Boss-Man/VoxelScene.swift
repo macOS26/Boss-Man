@@ -35,8 +35,8 @@ final class VoxelScene: Scene3D {
         addBaked(tree, to: self, z: -2)
     }
 
-    override func render() {
-        throbClock += 1.0 / 60.0
+    override func render(dt: Double) {
+        throbClock += dt
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         var back = camBack

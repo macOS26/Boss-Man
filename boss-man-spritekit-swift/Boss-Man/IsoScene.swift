@@ -389,7 +389,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     // MARK: - Per-frame
-    override func render() { renderIso() }
+    override func render(dt: Double = 1.0 / 60.0) { renderIso(dt: dt) }
 
     private var isoNativeH: [ObjectIdentifier: CGFloat] = [:]
     private var isoFeet: [ObjectIdentifier: CGFloat] = [:]
@@ -415,8 +415,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         node.position = CGPoint(x: pt.x, y: pt.y - bottom * s)
     }
 
-    private func renderIso() {
-        throbClock += 1.0 / 60.0
+    private func renderIso(dt: Double) {
+        throbClock += dt
         let anchorY = radarH + (size.height - radarH) * 0.50
         let foot = proj(Double(px), Double(py), 0)
         isoWorld.position = CGPoint(x: size.width / 2 - foot.x, y: anchorY - foot.y)
@@ -501,8 +501,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         }
     }
 
-    private func render_unused_firstperson() {
-        throbClock += 1.0 / 60.0
+    private func render_unused_firstperson(dt: Double) {
+        throbClock += dt
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         var back = camBack
@@ -733,8 +733,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
     }
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
-    override func step() {
-        workerController.advance(1.0 / 60.0)
+    override func step(dt: Double) {
+        workerController.advance(dt)
         let wp = workerController.worldPosition
         px = Double(wp.x) / 32.0
         py = Double(rowsCount) - Double(wp.y) / 32.0
@@ -747,7 +747,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             travRow = nr
             travActive = true
         } else { travActive = false }
-        bossController.advance(1.0 / 60.0)
+        bossController.advance(dt)
         syncBossNodes()
         bossGrid.removeAll(keepingCapacity: true)
         for e in bossController.entities {
@@ -773,11 +773,11 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             hud.showMessage(Strings.Message.travelerCaught(emoji: caught.traveler.emoji, points: caught.traveler.points), duration: 2)
         }
         if frightenSecondsLeft > 0 {
-            frightenSecondsLeft -= 1.0 / 60.0
+            frightenSecondsLeft -= dt
             if frightenSecondsLeft <= 0 { endGoldDiscMode() }
         }
         if workerController.direction != nil { pete.startWalking() } else { pete.stopWalking() }
-        moveShots()
+        moveShots(dt: dt)
         updateMap()
     }
 
@@ -909,8 +909,8 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         isoPickups[mapKey(col, row)]
     }
 
-    override func moveShots() {
-        let speed = 0.22
+    override func moveShots(dt: Double = 1.0 / 60.0) {
+        let speed = 0.22 * dt * 60.0
         for i in shots.indices where shots[i].alive {
             shots[i].x += Double(shots[i].dir.x) * speed
             shots[i].y += Double(shots[i].dir.y) * speed

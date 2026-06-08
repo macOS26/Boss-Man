@@ -38,6 +38,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     private var gameOverScreen: GameOverScreen?
 
     private(set) var isGameOver = false
+    var lastUpdateTime: TimeInterval = 0
     var practiceMode: Bool {
         get { state.practiceMode }
         set { state.practiceMode = newValue }
@@ -580,7 +581,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // Follow Pete, clamped so the (zoomed) viewport never scrolls past the scene
     // edges — it stays inside the maze area of the 100% view, scrolling x/y with
     // the player.
-    private func updateMazeCamera() {
+    private func updateMazeCamera(dt: CGFloat) {
         guard let cam = cameraNode else { return }
         let p = workerController.node.position
         guard var c = camPos else {
@@ -594,7 +595,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             c = p
             camVel = .zero
         } else {
-            let dt: CGFloat = 1.0 / 60.0
             let smoothTime: CGFloat = 0.22
             c.x = GameScene.smoothDamp(c.x, p.x, &camVel.x, smoothTime, dt)
             c.y = GameScene.smoothDamp(c.y, p.y, &camVel.y, smoothTime, dt)
@@ -623,7 +623,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     // MARK: - Update loop
     override func update(_ currentTime: TimeInterval) {
         guard workerController != nil else { return }
-        let dt: TimeInterval = 1.0 / 60.0
+        if lastUpdateTime == 0 { lastUpdateTime = currentTime }
+        let dt = min(currentTime - lastUpdateTime, 1.0 / 20.0)
+        lastUpdateTime = currentTime
         if let caughtBy = pendingCatch {
             pendingCatch = nil
             #if os(macOS)
@@ -650,7 +652,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         // grace ends for worker and boss at the same instant. No standalone timer.
         workerController.setShielded(bossController.isAnyBossSpawning)
         checkBossCatch()
-        updateMazeCamera()
+        updateMazeCamera(dt: CGFloat(dt))
         stepWaterDroplets(dt: dt)
 
         if frightenSecondsLeft > 0 {
