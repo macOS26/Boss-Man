@@ -1,4 +1,4 @@
-# Native SFML Backend for SuperBox64 SpriteKit
+# Native Rendering Backends for SuperBox64 SpriteKit
 
 ## The goal
 
@@ -109,9 +109,66 @@ The WebView wrappers remain the right answer for web and Android. SFML native is
 
 ---
 
+---
+
+## Alternative backends to consider
+
+All of these share the same integration pattern: C API callable from Swift via standard C interop, compile-time backend switch, same game source untouched.
+
+### SDL3 (strongest alternative to SFML)
+
+SDL3 is the most actively maintained cross-platform layer. Its C API requires no bridge (unlike SFML which needs CSFML). Valve-backed, used in AAA Linux/Steam ports. The key advantage over SFML: **Android support is production-grade**, which is where SFML falls short. SDL3 also added a GPU API with Metal, Vulkan, and D3D12 backends, so rendering can go beyond OpenGL.
+
+| | SFML/CSFML | SDL3 |
+|---|---|---|
+| API language | C (via CSFML bridge) | C (native) |
+| Android | Experimental | Production |
+| GPU API | OpenGL only | Metal / Vulkan / D3D12 / OpenGL |
+| Audio | Built-in | SDL_mixer or SDL3 audio |
+| Maintenance | Community | Valve-backed |
+| Existing reference | `boss-man-box2d-sfml-cpp/` | None yet |
+
+If Android native (non-WebView) ever becomes a goal, SDL3 is the better foundation than SFML.
+
+### sokol (lightest option, unifies WASM too)
+
+sokol is a set of single-header C libraries: `sokol_gfx` (GPU), `sokol_app` (window/input), `sokol_audio`. No build system, no dependencies — drop headers in and compile. The killer property for this project: **sokol has a WebGL/WebGPU backend**, so it could replace the Canvas 2D renderer in the WASM build too. One renderer for both native and web.
+
+```
+SuperBox64 SpriteKit
+    |-- sokol backend  -->  Metal (macOS) / D3D11 (Windows) / OpenGL (Linux) / WebGL (WASM)
+```
+
+This would be the most ambitious unification but also the highest payoff: a single GPU-accelerated renderer across all targets, retiring Canvas 2D entirely.
+
+Tradeoff: sokol is lower-level than SFML or SDL. Implementing SKSpriteNode, SKShapeNode, etc. requires writing more rendering code (vertex buffers, shaders) vs SFML's higher-level draw calls.
+
+### Raylib (easiest to start with)
+
+Raylib is a C API designed for simplicity. Single compilation unit, no external dependencies, supports Windows/Linux/macOS/Web/Android. The API maps almost 1:1 to what SpriteKit needs (DrawTexture, DrawRectangle, DrawText). Lowest implementation effort of any option here.
+
+Tradeoff: less production-hardened than SDL3, WebAssembly support exists but is secondary. Good for prototyping a native backend before committing to SDL3 or sokol.
+
+### Skia (overkill for a 2D game)
+
+Google's 2D graphics library (Chrome, Flutter, Android). Extremely capable, Metal/Vulkan/OpenGL backends, perfect 2D rendering. But it is a heavy C++ dependency requiring a C bridge, large binary size, and complex build. Not the right fit here unless the game's visual demands grow significantly.
+
+---
+
+## Recommended path
+
+1. **Now**: WebView wrappers (current). Covers all platforms, zero new renderer work.
+2. **Next**: SFML backend for Windows + Linux native (the C++ port is the reference; `Box2DBridge` is the proven pattern).
+3. **Later**: Evaluate SDL3 if Android native becomes a goal. Evaluate sokol if Canvas 2D performance becomes the bottleneck on web.
+
+---
+
 ## Reference
 
 - CSFML: https://www.sfml-dev.org/download/csfml/
+- SDL3: https://wiki.libsdl.org/SDL3/FrontPage
+- sokol: https://github.com/floooh/sokol
+- Raylib: https://www.raylib.com
 - `boss-man-box2d-sfml-cpp/` — working C++ reference implementation
 - `wasm-web-kit/spritekit/` — Canvas 2D backend (the API contract to match)
 - `Box2DBridge` — existing C interop pattern to follow
