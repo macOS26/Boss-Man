@@ -1,0 +1,138 @@
+name: Build macOS WebView (Swift WASM)
+
+on:
+  push:
+    branches: [swift-wasm]
+    paths:
+      - 'boss-man-spritekit-desktop/**'
+      - 'boss-man-spritekit-web/**'
+      - 'wasm-web-kit/**'
+      - '.github/workflows/build-macos-webview.yml'
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-wasm:
+    name: Build Swift WASM
+    runs-on: macos-15
+    env:
+      SWIFT_VERSION: 6.3.2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift ${{ env.SWIFT_VERSION }} toolchain
+        run: |
+          set -euo pipefail
+          PKG="swift-${SWIFT_VERSION}-RELEASE-osx.pkg"
+          URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/xcode/swift-${SWIFT_VERSION}-RELEASE/${PKG}"
+          curl -fL --retry 3 -o "/tmp/${PKG}" "$URL"
+          installer -pkg "/tmp/${PKG}" -target CurrentUserHomeDirectory
+          TC_DIR=$(ls -d ~/Library/Developer/Toolchains/swift-${SWIFT_VERSION}-RELEASE*.xctoolchain | head -1)
+          TC_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$TC_DIR/Info.plist")
+          echo "TOOLCHAINS=$TC_ID" >> $GITHUB_ENV
+
+      - name: Install wasm SDK
+        run: |
+          set -euo pipefail
+          BUNDLE="swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz"
+          BASE="https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm-sdk/swift-${SWIFT_VERSION}-RELEASE"
+          curl -fL --retry 3 -o "/tmp/${BUNDLE}" "${BASE}/${BUNDLE}"
+          CHECKSUM=$(shasum -a 256 "/tmp/${BUNDLE}" | awk '{print $1}')
+          xcrun --toolchain "$TOOLCHAINS" swift sdk install "/tmp/${BUNDLE}" --checksum "${CHECKSUM}"
+
+      - name: Build boss-man-spritekit-web
+        working-directory: boss-man-spritekit-web
+        run: SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swift-wasm-bundle-macos
+          path: |
+            boss-man-spritekit-web/web/bossman.wasm
+            boss-man-spritekit-web/web/runtime.js
+            boss-man-spritekit-web/web/server.html
+            boss-man-spritekit-web/web/assets/
+          if-no-files-found: error
+          retention-days: 1
+
+  build-macos:
+    name: macOS signed + notarized
+    needs: build-wasm
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: swift-wasm-bundle-macos
+          path: boss-man-spritekit-web/web
+
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT="$RUNNER_TEMP/devid.p12"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$CERT"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -P "$CERT_PASSWORD" -f pkcs12 -k "$KEYCHAIN" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+      - name: Build Boss-Man.app
+        run: boss-man-spritekit-desktop/build.sh release
+
+      - name: Sign
+        run: |
+          set -euo pipefail
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          codesign --deep --force --options runtime \
+            --sign "$IDENTITY" \
+            boss-man-spritekit-desktop/build/Boss-Man.app
+
+      - name: Notarize + staple
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$NOTARY_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man.app /tmp/Boss-Man-submit.zip
+          xcrun notarytool submit /tmp/Boss-Man-submit.zip \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER" \
+            --wait
+          xcrun stapler staple boss-man-spritekit-desktop/build/Boss-Man.app
+
+      - name: Zip
+        run: ditto -c -k --keepParent boss-man-spritekit-desktop/build/Boss-Man.app Boss-Man-macOS-WebView.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boss-man-macos-webview
+          path: Boss-Man-macOS-WebView.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          PRE=""; [[ "$TAG" == *-* ]] && PRE="--prerelease"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "$TAG" --notes "" $PRE
+          gh release upload "$TAG" Boss-Man-macOS-WebView.zip --clobber
