@@ -120,7 +120,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
     var shots: [Shot] = []
     var gameOver = false
     var dying = false
-    var deathFramesLeft = 0
+    var deathTimeLeft = 0.0
     let deathFrames = 90   // 1.5s at 60fps: hold the catcher on screen
     var pressed = Set<Int>()
     var collected = Set<Int>()
@@ -857,12 +857,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         for e in bossController.entities where e.node !== node { e.node.isHidden = true }
         for (_, l) in bossNames { l.isHidden = true }
         for s in shots { s.node.isHidden = true }
-        deathFramesLeft = deathFrames
+        deathTimeLeft = Double(deathFrames) / 60.0
     }
 
     func updateDeath(dt: Double) {
-        deathFramesLeft -= Int(dt * 60.0)
-        if deathFramesLeft <= 0 { finishDeath() }
+        deathTimeLeft -= dt
+        if deathTimeLeft <= 0 { finishDeath() }
     }
 
     func finishDeath() {
@@ -891,7 +891,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder {
         pete.alpha = 1
         pete.startWalking()
         pete.removeAction(forKey: "shield")
-        pete.run(SpriteFactory.shieldBlinkAction(count: 3), withKey: "shield")
+        pete.run(SpriteFactory.shieldBlinkAction(count: 1), withKey: "shield")
     }
 
     // Grid-space catch (DoomScene has no physics worker body, so same-tile is the

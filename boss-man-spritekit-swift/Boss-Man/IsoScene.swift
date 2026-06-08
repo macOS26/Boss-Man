@@ -311,10 +311,16 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         if goldDisc.isActive { endGoldDiscMode() }
         pete.stopWalking()
         node.stopWalking()
-        let fadeDuration = TimeInterval(deathFrames) / 60.0
-        pete.run(.fadeOut(withDuration: fadeDuration))
-        peteName.run(.fadeOut(withDuration: fadeDuration))
-        deathFramesLeft = deathFrames
+        pete.run(.fadeOut(withDuration: TimeInterval(deathFrames) / 60.0))
+        deathTimeLeft = Double(deathFrames) / 60.0
+    }
+
+    override func updateDeath(dt: Double) {
+        let totalDuration = Double(deathFrames) / 60.0
+        super.updateDeath(dt: dt)
+        if dying {
+            peteName.alpha = CGFloat(max(0, deathTimeLeft / totalDuration))
+        }
     }
 
     override func finishDeath() {
@@ -339,7 +345,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         peteName.alpha = 1
         pete.startWalking()
         pete.removeAction(forKey: "shield")
-        pete.run(SpriteFactory.shieldBlinkAction(count: 3), withKey: "shield")
+        pete.run(SpriteFactory.shieldBlinkAction(count: 1), withKey: "shield")
     }
 
     override func togglePause() {
