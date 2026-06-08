@@ -214,16 +214,22 @@ A fully simulated 2D/3D game engine built on SuperBox64 SpriteKit is in developm
 
 ### wasm-web-kit
 
-`wasm-web-kit/` runs a native game in the browser as WebAssembly **without Emscripten**. The game is compiled with the WASI SDK clang (`--target=wasm32-wasip1`, WASI Preview 1) and driven by a small hand-written JavaScript runtime (`runtime.js`) that implements graphics on Canvas2D, audio on Web Audio, input on DOM events plus the Web Gamepad API, and persistence on localStorage. No Emscripten, no third-party engine, no branding. You ship your own `index.html`.
+`wasm-web-kit/` is a hand-built WASM runtime that ships your game with zero third-party baggage. No Emscripten loading screens, no spinning gear logo, no watermarks, no injected ads, no forced branding on your title screen. Emscripten was built to port C code to the web in a hurry — it solves that problem by pulling in an entire POSIX runtime, a custom linker, and a runtime shell that announces itself. wasm-web-kit solves a different problem: shipping a polished commercial game that looks like it belongs on the platform.
 
-The wasm module is a WASI reactor that exports three functions the runtime calls: `_initialize` (libc and C++ constructors), `boot()` (after assets preload), and `frame(dtMs)` (once per `requestAnimationFrame`). Everything else the game imports from a single `env` ABI (`include/abi.h`). Two consumer layers sit on that one ABI:
+The game is compiled with the WASI SDK (`--target=wasm32-wasip1`, WASI Preview 1) and driven by a lean hand-written JavaScript runtime (`runtime.js`) that implements exactly what a game needs and nothing more: graphics on Canvas2D, audio on Web Audio, input on DOM events and the Web Gamepad API, persistence on localStorage. You get a single `runtime.js`, a single `bossman.wasm`, and your own `index.html`. No black box. No phone home. No logo that is not yours.
 
-- **C++ SFML shim.** A header-only `sf::` compatibility layer (shapes, `Sprite`/`Texture`, `Font`/`Text`, `RenderWindow`, `Event`/`Keyboard`/`Mouse`, sound). Point `-I include` at it and an SFML game compiles mostly unchanged. This is how the C++ port reaches the web.
+The wasm module is a WASI reactor exporting three functions: `_initialize` (libc init), `boot()` (after assets preload), and `frame(dtMs)` (once per `requestAnimationFrame`). Everything else the game imports from a single clean ABI (`include/abi.h`). Two consumer layers sit on top:
+
+- **C++ SFML shim.** A header-only `sf::` compatibility layer (`Sprite`/`Texture`, `Font`/`Text`, `RenderWindow`, `Event`/`Keyboard`/`Mouse`, sound, shapes). Point `-I include` at it and an SFML game compiles mostly unchanged with no Emscripten dependency.
 - **SuperBox64 SpriteKit.** See below.
 
 ### SuperBox64 SpriteKit
 
-`wasm-web-kit/spritekit/` is a from-scratch Swift reimplementation of Apple's closed SpriteKit (`SKScene`, `SKNode`, `SKSpriteNode`, `SKLabelNode`, `SKShapeNode`, `SKAction`, `SKPhysicsBody`, `SKPhysicsWorld`, `SKView`, `SKCameraNode`, and more), running on the wasm-web-kit runtime with physics provided by Box2D 2.4.1 (the `Box2DBridge` target, the "Box" in SuperBox64). It is a SwiftPM package that vends a module literally named `SpriteKit`, so a game's `import SpriteKit` binds to this reimplementation instead of Apple's framework, with no edits at the call site. It ships matching drop-in shims for `AppKit`, `UIKit`, `Cocoa`, `GameKit`, `GameplayKit`, `GameController`, and `AVFoundation`. That is what lets the macOS Swift game compile to wasm unchanged.
+Most cross-platform solutions for Apple games ask you to rewrite your game, swap your framework, learn a new API, or accept a lowest-common-denominator engine with its own rendering model and its own opinions about your code. SuperBox64 SpriteKit does none of that.
+
+`wasm-web-kit/spritekit/` is a from-scratch open source Swift reimplementation of Apple's closed SpriteKit API (`SKScene`, `SKNode`, `SKSpriteNode`, `SKLabelNode`, `SKShapeNode`, `SKAction`, `SKPhysicsBody`, `SKPhysicsWorld`, `SKView`, `SKCameraNode`, and more), running on the wasm-web-kit runtime. Physics is provided by Box2D 2.4.1 (the "Box" in SuperBox64). It ships as a SwiftPM package that vends a module literally named `SpriteKit`, so a game's `import SpriteKit` resolves to this implementation instead of Apple's, with zero changes at the call site. Drop-in shims for `AppKit`, `UIKit`, `Cocoa`, `GameKit`, `GameplayKit`, `GameController`, and `AVFoundation` round out the surface area.
+
+The result: the exact same Swift source that runs as a signed notarized macOS app compiles to a WASI Preview 1 wasm binary that runs in any modern browser and inside native WebViews on Windows, Linux, and Android. No rewrites. No forks. No Emscripten watermarks. No logo you did not design. Your game, your brand, everywhere.
 
 ## What We're Building Now
 
@@ -235,13 +241,13 @@ The wasm module is a WASI reactor that exports three functions the runtime calls
 
 ## Run Everywhere on Anything
 
-Apple's SpriteKit is a walled-garden framework. A game written with `import SpriteKit` normally runs only on Apple platforms, because it leans on Apple's closed frameworks and toolchain. Boss-Man is the proving ground for breaking that lock-in without rewriting the game.
+Apple's SpriteKit is a walled-garden framework. A game written with `import SpriteKit` normally runs only on Apple platforms. Boss-Man is the proving ground for breaking that lock-in without rewriting the game, without switching engines, and without shipping someone else's branding on your title screen.
 
-The mechanism is SuperBox64 SpriteKit. Because it vends a module named `SpriteKit`, the exact same Swift source compiles two ways: against Apple's frameworks it is a native macOS app; against SuperBox64 it is a WASI Preview 1 wasm binary that runs in any browser, with the runtime adapting the lifecycle (`boot`/`frame`), persistence (localStorage), input (SF key codes), and audio (Web Audio). Thirty-two of thirty-three game files are already one shared source between the two builds, so this is not a theory, it is the current build.
+The conventional answer is Emscripten: compile your C/C++ with a toolchain that wraps your game in its own runtime shell, injects a loading screen with its own logo, and ships a black-box environment you did not write. SuperBox64 SpriteKit takes the opposite approach. Because it vends a Swift module literally named `SpriteKit`, the exact same Swift source that builds a signed notarized macOS app also compiles to a clean WASI Preview 1 wasm binary. No watermarks. No loading gear. No ads. No branding that is not yours. Just your game, running in any modern browser or native WebView, with a runtime you can read and own.
 
-Alongside the Swift path, the C++ port over the same framework's SFML shim extends the reach further: desktop (a universal signed and notarized macOS app, a static Windows .exe, a Linux .deb), the browser again, and native Android. One title, authored once against the Apple master, kept in lockstep everywhere.
+Thirty-two of thirty-three game files are already one shared source between the macOS and wasm builds — this is not a theory, it is the current shipping build. The runtime adapts the lifecycle (`boot`/`frame`), persistence (localStorage), input (SF key codes), and audio (Web Audio) so the game never has to.
 
-The bigger payoff, and the project's north star, is a repeatable path to lift any existing SpriteKit game out of the Apple walled garden and run it cross-platform from a single codebase. Write once for Apple, run everywhere on anything.
+The bigger payoff is a repeatable path to lift any existing SpriteKit game out of the Apple walled garden and ship it cross-platform from a single codebase, cleanly, with no third-party engine in the critical path. Write once for Apple, run everywhere on anything.
 
 ## Building from Source
 
