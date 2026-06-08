@@ -148,6 +148,10 @@ private:
     bool wantsNextLevel_ = false;
     int nextLevel_ = 0;
 
+    // Caught-traveler emoji overlay (font can't render emoji; draw via drawEmoji).
+    std::string caughtEmoji_;
+    float caughtEmojiTimer_ = 0.f;
+
     // MARK: - Gold disc / report / pickup bookkeeping
     WaterGunState waterGun_;
     bool waterGunPickedUp_ = false;

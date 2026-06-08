@@ -147,6 +147,8 @@ private:
     double frightenSecondsLeft_ = 0.0;
     static constexpr double goldDiscDuration_ = 20.0;
     bool goldDiscActive_ = false;
+    std::string caughtEmoji_;
+    float caughtEmojiTimer_ = 0.f;
     bool onBrownBox_ = false;
     std::unordered_set<int> collected_; // mapKey of one-time stationary items taken
 

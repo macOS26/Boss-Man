@@ -359,6 +359,7 @@ void VoxelScene::update(float dt) {
 
     animTime_ += dt; // pickup throb clock (independent of motion)
     hud_.update(dt);
+    if (caughtEmojiTimer_ > 0.f) caughtEmojiTimer_ -= dt;
     for (auto& b : billboards_) {
         if (b.cooldownTimer > 0.f) {
             b.cooldownTimer -= dt;
@@ -500,7 +501,9 @@ void VoxelScene::step() {
             std::string caughtEmoji = tr.emoji;
             travelerSpawner_.catchTraveler(tr);
             state_.bumpScore(tr.points); sound_.playFishOrTreat(); popPoints(tr.points); refreshHUD();
-            hud_.showMessage("Caught " + caughtEmoji + "!", 2.f);
+            caughtEmoji_ = caughtEmoji;
+            caughtEmojiTimer_ = 2.f;
+            hud_.showMessage("CAUGHT!", 2.f);
         }
     }
 
@@ -908,11 +911,7 @@ void VoxelScene::render(sf::RenderTarget& target) {
             double tY = invDet * (-planeY * relX + planeX * relY); // depth
             if (tY <= 0.15 || tY > 18) continue;
             int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
-            if (col >= 0 && col < columns_) {
-                double wallZ = zbuf_[col];
-                for (int c = std::max(0, col - 1); c <= std::min(columns_ - 1, col + 1); ++c) wallZ = std::min(wallZ, zbuf_[c]);
-                if (tY > wallZ + 0.3) continue; // wall occludes the traveler
-            }
+            if (col >= 0 && col < columns_ && tY > zbuf_[col] + 0.3) continue;
             float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);
             if (screenX <= -60 || screenX >= viewW_ + 60) continue;
             float targetH = (float)(viewH() / tY * 0.42);
@@ -970,6 +969,12 @@ void VoxelScene::render(sf::RenderTarget& target) {
         uint8_t a = (uint8_t)(std::clamp(m.timer / 0.7f, 0.f, 1.f) * 255);
         drawCenteredText(target, m.text, m.fontSize, sf::Color(255, 231, 0, a),
                          m.pos.x, m.pos.y);
+    }
+
+    if (caughtEmojiTimer_ > 0.f && !caughtEmoji_.empty()) {
+        float a = std::clamp(caughtEmojiTimer_ / 2.f, 0.f, 1.f);
+        drawEmoji(target, caughtEmoji_, {viewW_ / 2.f, screenY(radarH_ + viewH() * 0.35f)},
+                  64.f, sf::Color(255, 255, 255, (uint8_t)(a * 255)));
     }
 
     drawMap(target);
@@ -1317,13 +1322,8 @@ void VoxelScene::projectSprites(double dirX, double dirY, double planeX, double 
         double tX = invDet * (dirY * relX - dirX * relY);
         double tY = invDet * (-planeY * relX + planeX * relY); // depth
         if (tY <= 0.15) return;
-        int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
-        if (col >= 0 && col < columns_) {
-            double wallZ = zbuf_[col];
-            for (int c = std::max(0, col - 4); c <= std::min(columns_ - 1, col + 4); ++c)
-                wallZ = std::min(wallZ, zbuf_[c]);
-            if (tY > wallZ + 0.3) return; // wall occludes
-        }
+        // Painter's algorithm (walls + sprites interleaved by depth) handles all
+        // occlusion — closer wall quads overdraw farther sprites. No z-buffer check.
         if (tY > 18) return; // far cull
         float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);
         if (screenX <= -60 || screenX >= viewW_ + 60) return;

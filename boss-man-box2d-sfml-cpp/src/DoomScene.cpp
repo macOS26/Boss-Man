@@ -359,6 +359,7 @@ void DoomScene::update(float dt) {
 
     animTime_ += dt; // pickup throb clock (independent of motion)
     hud_.update(dt);
+    if (caughtEmojiTimer_ > 0.f) caughtEmojiTimer_ -= dt;
     for (auto& b : billboards_) {
         if (b.cooldownTimer > 0.f) {
             b.cooldownTimer -= dt;
@@ -506,7 +507,9 @@ void DoomScene::step() {
             int pts = tr.points;
             travelerSpawner_.catchTraveler(tr);
             state_.bumpScore(pts); sound_.playFishOrTreat(); popPoints(pts); refreshHUD();
-            hud_.showMessage(caughtEmoji + " caught! +" + std::to_string(pts), 2.f);
+            caughtEmoji_ = caughtEmoji;
+            caughtEmojiTimer_ = 2.f;
+            hud_.showMessage("CAUGHT! +" + std::to_string(pts), 2.f);
         }
     }
 
@@ -903,11 +906,13 @@ void DoomScene::render(sf::RenderTarget& target) {
             if (tY <= 0.15 || tY > 18) continue;
             int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
             if (col >= 0 && col < columns_) {
+                int colC = std::max(0, std::min(columns_ - 1, col));
                 double colWidth = viewW_ / (double)columns_;
                 int footHalf = std::max(1, std::min(5, (int)((viewH() / tY * 0.42) / colWidth * 0.5)));
-                double wallZ = zbuf_[col];
-                for (int c = std::max(0, col - footHalf); c <= std::min(columns_ - 1, col + footHalf); ++c) wallZ = std::min(wallZ, zbuf_[c]);
-                if (tY > wallZ + 0.3) continue; // wall occludes the traveler
+                double wallZ = zbuf_[colC];
+                for (int c = std::max(0, colC - footHalf); c <= std::min(columns_ - 1, colC + footHalf); ++c)
+                    wallZ = std::min(wallZ, zbuf_[c]);
+                if (tY > wallZ + 0.3) continue;
             }
             float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);
             if (screenX <= -60 || screenX >= viewW_ + 60) continue;
@@ -966,6 +971,12 @@ void DoomScene::render(sf::RenderTarget& target) {
         uint8_t a = (uint8_t)(std::clamp(m.timer / 0.7f, 0.f, 1.f) * 255);
         drawCenteredText(target, m.text, m.fontSize, sf::Color(255, 231, 0, a),
                          m.pos.x, m.pos.y);
+    }
+
+    if (caughtEmojiTimer_ > 0.f && !caughtEmoji_.empty()) {
+        float a = std::clamp(caughtEmojiTimer_ / 2.f, 0.f, 1.f);
+        drawEmoji(target, caughtEmoji_, {viewW_ / 2.f, screenY(radarH_ + viewH() * 0.35f)},
+                  64.f, sf::Color(255, 255, 255, (uint8_t)(a * 255)));
     }
 
     drawMap(target);
@@ -1203,14 +1214,14 @@ void DoomScene::projectSprites(double dirX, double dirY, double planeX, double p
         double tY = invDet * (-planeY * relX + planeX * relY); // depth
         if (tY <= 0.15) return;
         int col = (int)((viewW_ / 2.f) * (float)(1 + tX / tY) / (viewW_ / columns_));
-        {
+        if (col >= 0 && col < columns_) {
             int colC = std::max(0, std::min(columns_ - 1, col));
             double colWidth = viewW_ / (double)columns_;
             int footHalf = std::max(1, std::min(5, (int)((viewH() / tY * worldH) / colWidth * 0.5)));
             double wallZ = zbuf_[colC];
             for (int c = std::max(0, colC - footHalf); c <= std::min(columns_ - 1, colC + footHalf); ++c)
                 wallZ = std::min(wallZ, zbuf_[c]);
-            if (tY > wallZ + 0.3) return; // wall occludes
+            if (tY > wallZ + 0.3) return;
         }
         if (tY > 18) return; // far cull
         float screenX = (viewW_ / 2.f) * (float)(1 + tX / tY);

@@ -425,6 +425,7 @@ void IsoScene::update(float dt) {
     }
     animTime_ += dt;
     hud_.update(dt);
+    if (caughtEmojiTimer_ > 0.f) caughtEmojiTimer_ -= dt;
     for (auto& p : pickups_) {
         if (p.cooldownTimer > 0.f) {
             p.cooldownTimer -= dt;
@@ -486,7 +487,9 @@ void IsoScene::step() {
             int pts = tr.points;
             travelerSpawner_.catchTraveler(tr);
             state_.bumpScore(pts); sound_.playFishOrTreat(); popPoints(pts); refreshHUD();
-            hud_.showMessage(caughtEmoji + " caught! +" + std::to_string(pts), 2.f);
+            caughtEmoji_ = caughtEmoji;
+            caughtEmojiTimer_ = 2.f;
+            hud_.showMessage("CAUGHT! +" + std::to_string(pts), 2.f);
         }
     }
 
@@ -827,6 +830,13 @@ void IsoScene::render(sf::RenderTarget& target) {
     for (auto& m : bigPops_) {
         uint8_t a = (uint8_t)(std::clamp(m.timer / 0.7f, 0.f, 1.f) * 255);
         drawCenteredText(target, m.text, m.fontSize, sf::Color(255, 231, 0, a), m.pos.x, m.pos.y);
+    }
+
+    if (caughtEmojiTimer_ > 0.f && !caughtEmoji_.empty()) {
+        float a = std::clamp(caughtEmojiTimer_ / 2.f, 0.f, 1.f);
+        float cy = radarH_ + viewArea() * 0.35f;
+        drawEmoji(target, caughtEmoji_, {viewW_ / 2.f, viewHeight_ - cy},
+                  64.f, sf::Color(255, 255, 255, (uint8_t)(a * 255)));
     }
 
     drawMap(target);
