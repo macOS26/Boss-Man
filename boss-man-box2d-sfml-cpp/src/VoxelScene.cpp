@@ -859,27 +859,41 @@ void VoxelScene::render(sf::RenderTarget& target) {
     camX_ = px_ - dirX * back; camY_ = py_ - dirY * back;
 
     drawFloor(target, dirX, dirY, planeX, planeY);
-    renderVoxelWalls(target, dirX, dirY, planeX, planeY);
+    auto wallQuads = renderVoxelWalls(dirX, dirY, planeX, planeY);
     projectSprites(dirX, dirY, planeX, planeY);
 
-    // Depth-sorted sprite draw: farther first (smaller depthZ -> drawn later == in
-    // front in SpriteKit's zPosition; here we paint near-last so it sits on top).
-    struct Drawable { float depth; int kind; int idx; }; // kind 0 billboard,1 shot,2 boss,3 pete
+    // Interleave wall quads and sprites by depth (farthest first) so closer walls
+    // correctly occlude farther sprites. Wall quads use dAvg (perp distance);
+    // sprites use tY (also perp distance). Sort descending: largest distance first.
+    struct Drawable { double depth; int kind; int idx; };
+    // kind 0=wallQuad, 1=billboard, 2=shot, 3=boss
     std::vector<Drawable> order;
+    order.reserve(wallQuads.size() + billboards_.size() + shots_.size() + bossProj_.size());
+    for (size_t i = 0; i < wallQuads.size(); ++i)
+        order.push_back({wallQuads[i].depth, 0, (int)i});
     for (size_t i = 0; i < billboards_.size(); ++i)
-        if (billboards_[i].visible) order.push_back({billboards_[i].depthZ, 0, (int)i});
-    if (!dying_)   // death close-up hides all shots (matches Swift startDeath)
+        if (billboards_[i].visible) order.push_back({billboards_[i].rawDepth, 1, (int)i});
+    if (!dying_)
         for (size_t i = 0; i < shots_.size(); ++i)
-            if (shots_[i].visible) order.push_back({shots_[i].depthZ, 1, (int)i});
+            if (shots_[i].visible) order.push_back({shots_[i].rawDepth, 2, (int)i});
     for (size_t i = 0; i < bossProj_.size(); ++i)
-        if (bossProj_[i].visible) order.push_back({bossProj_[i].depthZ, 2, (int)i});
-    // Paint farther (smaller zPosition) first so nearer sprites overdraw them.
+        if (bossProj_[i].visible) order.push_back({bossProj_[i].rawDepth, 3, (int)i});
     std::sort(order.begin(), order.end(),
-              [](const Drawable& a, const Drawable& b) { return a.depth < b.depth; });
+              [](const Drawable& a, const Drawable& b) { return a.depth > b.depth; });
     for (auto& d : order) {
-        if (d.kind == 0) drawBillboardSprite(target, billboards_[d.idx]);
-        else if (d.kind == 1) drawShotSprite(target, shots_[d.idx]);
-        else if (d.kind == 2) drawBossBillboard(target, d.idx);
+        if (d.kind == 0) {
+            auto& q = wallQuads[d.idx];
+            sf::ConvexShape quad(4);
+            quad.setPoint(0, {q.x0, screenY(q.y0)});
+            quad.setPoint(1, {q.x1, screenY(q.y1)});
+            quad.setPoint(2, {q.x2, screenY(q.y2)});
+            quad.setPoint(3, {q.x3, screenY(q.y3)});
+            quad.setFillColor(q.color);
+            quad.setOutlineThickness(0);
+            target.draw(quad);
+        } else if (d.kind == 1) drawBillboardSprite(target, billboards_[d.idx]);
+        else if (d.kind == 2) drawShotSprite(target, shots_[d.idx]);
+        else if (d.kind == 3) drawBossBillboard(target, d.idx);
     }
 
     // Traveler emoji billboard (fish/treat): project its grid tile and draw it like the 2D modes,
@@ -1154,14 +1168,13 @@ void VoxelScene::renderWalls(sf::RenderTarget& target, double dirX, double dirY,
     target.draw(walls);
 }
 
-void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double dirY,
-                                  double planeX, double planeY) {
+auto VoxelScene::renderVoxelWalls(double dirX, double dirY,
+                                  double planeX, double planeY) -> std::vector<VQuad> {
     const Color cube = CUBICLE_COLORS[(state_.level - 1) % 12];
     const float vMid = viewMidY(), vH = viewH();
     const double wallH = wallHeightScale_;
     const double wallFar = maxVoxelDist_;
 
-    struct VQuad { float x0,y0,x1,y1,x2,y2,x3,y3; sf::Color color; double depth; bool isCap; };
     std::vector<VQuad> quads;
 
     std::unordered_set<int> tops;
@@ -1290,14 +1303,7 @@ void VoxelScene::renderVoxelWalls(sf::RenderTarget& target, double dirX, double 
         if (a.isCap != b.isCap) return !a.isCap;
         return a.depth > b.depth;
     });
-    sf::VertexArray va(sf::Quads);
-    for (auto& q : quads) {
-        va.append(sf::Vertex({q.x0, screenY(q.y0)}, q.color));
-        va.append(sf::Vertex({q.x1, screenY(q.y1)}, q.color));
-        va.append(sf::Vertex({q.x2, screenY(q.y2)}, q.color));
-        va.append(sf::Vertex({q.x3, screenY(q.y3)}, q.color));
-    }
-    target.draw(va);
+    return quads;
 }
 
 void VoxelScene::projectSprites(double dirX, double dirY, double planeX, double planeY) {
@@ -1305,7 +1311,7 @@ void VoxelScene::projectSprites(double dirX, double dirY, double planeX, double 
 
     auto project = [&](double x, double y, double worldH,
                        bool& visible, float& screenXOut, float& scaleOut,
-                       float& floorYOut, float& depthOut, float nativeH) {
+                       float& floorYOut, float& depthOut, double& rawDepthOut, float nativeH) {
         visible = false;
         double relX = x - camX_, relY = y - camY_;
         double tX = invDet * (dirY * relX - dirX * relY);
@@ -1327,36 +1333,33 @@ void VoxelScene::projectSprites(double dirX, double dirY, double planeX, double 
         scaleOut = targetH / nativeH;
         floorYOut = viewMidY() - (float)(viewH() / tY) * (float)eyeHeight_;
         depthOut = std::min(40.f, (float)(2 + 30 / tY));
+        rawDepthOut = tY;
     };
 
     // Pellets / gold / water / machines / brown box.
     for (auto& b : billboards_) {
         if (!b.alive) { b.visible = false; continue; }
-        // Native height = the SpriteKit node's accumulated frame height, so the
-        // projected scale reads like the master. pelletCube(size 8) is size*1.24
-        // tall; goldDisc/waterPellet visuals (radius 10) reach the halo at r*1.35,
-        // so their frame is 2*10*1.35 = 27; emoji billboards are 128 pt.
         float nativeH = (b.kind == Tile::dot || b.kind == Tile::hideout) ? 8.f * 1.24f
                        : (b.kind == Tile::goldDisc || b.kind == Tile::waterPellet) ? 27.f
                        : 128.f;
-        project(b.x, b.y, b.worldH, b.visible, b.screenX, b.scale, b.floorY, b.depthZ, nativeH);
+        project(b.x, b.y, b.worldH, b.visible, b.screenX, b.scale, b.floorY, b.depthZ, b.rawDepth, nativeH);
     }
     // Shots (water pellets, waterPelletVisual radius 9 -> halo r*1.35 -> frame 24.3).
     for (auto& s : shots_) {
         if (!s.alive) { s.visible = false; continue; }
-        project(s.x, s.y, 0.32, s.visible, s.screenX, s.scale, s.floorY, s.depthZ, 9.f * 2.f * 1.35f);
+        project(s.x, s.y, 0.32, s.visible, s.screenX, s.scale, s.floorY, s.depthZ, s.rawDepth, 9.f * 2.f * 1.35f);
     }
 
     // Bosses: worldH 0.3 (no size cap), feet on the floor via the LOCAL feet offset.
-    bossProj_.assign(bossController_.entities.size(), BossProj{false, 0, 0, 0, 0, 0});
+    bossProj_.assign(bossController_.entities.size(), BossProj{false, 0, 0, 0, 0, 0, 0.0});
     for (size_t i = 0; i < bossController_.entities.size(); ++i) {
         auto& e = bossController_.entities[i];
         if (!e.isActive && !e.isCaptured && !e.captureReturning) continue;
         if (i >= bossGrid_.size()) continue;
         float nativeH = std::max(1.f, e.renderer.metrics().height);
-        BossProj bp{false, 0, 0, 0, 0, 0};
+        BossProj bp{false, 0, 0, 0, 0, 0, 0.0};
         project(bossGrid_[i].first, bossGrid_[i].second, 0.3,
-                bp.visible, bp.screenX, bp.scale, bp.floorY, bp.depthZ, nativeH);
+                bp.visible, bp.screenX, bp.scale, bp.floorY, bp.depthZ, bp.rawDepth, nativeH);
         bp.targetH = bp.scale * nativeH;
         bossProj_[i] = bp;
     }

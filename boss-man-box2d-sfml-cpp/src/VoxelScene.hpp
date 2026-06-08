@@ -113,6 +113,7 @@ private:
         // Per-frame projection output (filled by projectSprites).
         bool visible = false;
         float screenX = 0.f, scale = 1.f, floorY = 0.f, depthZ = 0.f;
+        double rawDepth = 0.0;  // perpendicular distance (tY) for depth-sorted draw
     };
     std::vector<Billboard> billboards_;
 
@@ -133,6 +134,7 @@ private:
         // Per-frame projection output (3D view).
         bool visible = false;
         float screenX = 0.f, scale = 1.f, floorY = 0.f, depthZ = 0.f;
+        double rawDepth = 0.0;  // perpendicular distance (tY) for depth-sorted draw
     };
     std::vector<Shot> shots_;
 
@@ -234,9 +236,9 @@ private:
     // MARK: - Rendering helpers
     void renderWalls(sf::RenderTarget& target, double dirX, double dirY,
                      double planeX, double planeY);
+    struct VQuad { float x0,y0,x1,y1,x2,y2,x3,y3; sf::Color color; double depth; bool isCap; };
     // Painter's voxel walls (boxy 3D): coalesced front faces + per-cell flat tops, sorted far->near.
-    void renderVoxelWalls(sf::RenderTarget& target, double dirX, double dirY,
-                          double planeX, double planeY);
+    auto renderVoxelWalls(double dirX, double dirY, double planeX, double planeY) -> std::vector<VQuad>;
     void projectSprites(double dirX, double dirY, double planeX, double planeY);
     void drawBillboardSprite(sf::RenderTarget& target, const Billboard& b);
     void drawShotSprite(sf::RenderTarget& target, const Shot& s);
@@ -253,7 +255,7 @@ private:
 
     // Per-frame boss billboard projection (filled by projectSprites, consumed by the
     // depth-sorted draw + drawBossBillboard).
-    struct BossProj { bool visible; float screenX, scale, floorY, targetH, depthZ; };
+    struct BossProj { bool visible; float screenX, scale, floorY, targetH, depthZ; double rawDepth; };
     std::vector<BossProj> bossProj_;
 
     // Convert a SpriteKit-style (y-up, 0 at bottom) screen Y to the SFML target Y.
