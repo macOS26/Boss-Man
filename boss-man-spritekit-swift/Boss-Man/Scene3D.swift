@@ -1319,7 +1319,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 state.bumpScore(by: 1)
                 }
                 refreshHUD()
+                let lvl = state.level
                 checkLevelComplete()
+                if state.level != lvl { return }
             }
         }
         collectStationary()
