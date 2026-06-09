@@ -366,12 +366,20 @@ final class MazeBuilder {
         grayedMachines.insert(k)
         m.node.alpha = 0.55
         m.node.removeAction(forKey: Strings.ActionKey.machineCooldown)
+        #if hasFeature(Embedded)
+        let machineRestore = SKAction.run { [unowned(unsafe) self, unowned(unsafe) n = m.node] in
+            n.alpha = 1
+            self.grayedMachines.remove(k)
+        }
+        #else
+        let machineRestore = SKAction.run { [weak self, weak n = m.node] in
+            n?.alpha = 1
+            self?.grayedMachines.remove(k)
+        }
+        #endif
         m.node.run(.sequence([
             .wait(forDuration: cooldown),
-            .run { [weak self, weak n = m.node] in
-                n?.alpha = 1
-                self?.grayedMachines.remove(k)
-            }
+            machineRestore
         ]), withKey: Strings.ActionKey.machineCooldown)
         return (m.name, m.node.position)
     }
@@ -404,12 +412,20 @@ final class MazeBuilder {
         grayedBrownBoxes.insert(k)
         n.alpha = 0.55
         n.removeAction(forKey: Strings.ActionKey.machineCooldown)
+        #if hasFeature(Embedded)
+        let brownBoxRestore = SKAction.run { [unowned(unsafe) self, unowned(unsafe) nn = n] in
+            nn.alpha = 1
+            self.grayedBrownBoxes.remove(k)
+        }
+        #else
+        let brownBoxRestore = SKAction.run { [weak self, weak nn = n] in
+            nn?.alpha = 1
+            self?.grayedBrownBoxes.remove(k)
+        }
+        #endif
         n.run(.sequence([
             .wait(forDuration: cooldown),
-            .run { [weak self, weak nn = n] in
-                nn?.alpha = 1
-                self?.grayedBrownBoxes.remove(k)
-            }
+            brownBoxRestore
         ]), withKey: Strings.ActionKey.machineCooldown)
         return n.position
     }

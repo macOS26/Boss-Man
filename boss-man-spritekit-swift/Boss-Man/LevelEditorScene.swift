@@ -223,9 +223,14 @@ final class LevelEditorScene: SKScene {
 
     private func scheduleAutosave() {
         removeAction(forKey: "autosave")
+        #if hasFeature(Embedded)
+        let autosaveStep = SKAction.run { [unowned(unsafe) self] in self.performAutosave() }
+        #else
+        let autosaveStep = SKAction.run { [weak self] in self?.performAutosave() }
+        #endif
         let tick = SKAction.sequence([
             .wait(forDuration: autosaveInterval),
-            .run { [weak self] in self?.performAutosave() }
+            autosaveStep
         ])
         run(.repeatForever(tick), withKey: "autosave")
     }
@@ -234,13 +239,21 @@ final class LevelEditorScene: SKScene {
         saveCurrentLevel()
         saveButtonLabel?.text = Strings.Editor.autosaveToast
         statusLabel?.text = Strings.Editor.autosaveToast
+        #if hasFeature(Embedded)
+        let autosaveRevertStep = SKAction.run { [unowned(unsafe) self] in
+            self.saveButtonLabel?.text = Strings.Editor.save
+            self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
+        }
+        #else
+        let autosaveRevertStep = SKAction.run { [weak self] in
+            guard let self else { return }
+            self.saveButtonLabel?.text = Strings.Editor.save
+            self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
+        }
+        #endif
         run(.sequence([
             .wait(forDuration: 3),
-            .run { [weak self] in
-                guard let self else { return }
-                self.saveButtonLabel?.text = Strings.Editor.save
-                self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
-            }
+            autosaveRevertStep
         ]), withKey: "autosaveRevert")
     }
 
@@ -703,9 +716,14 @@ final class LevelEditorScene: SKScene {
     private func flashButton(named name: String) {
         guard let btn = buttonNodes[name], let base = buttonBaseColors[name] else { return }
         btn.fillColor = brightened(base)
+        #if hasFeature(Embedded)
+        let btnFlashStep = SKAction.run { [unowned(unsafe) self, unowned(unsafe) btn] in btn.fillColor = self.buttonBaseColors[name] ?? base }
+        #else
+        let btnFlashStep = SKAction.run { [weak self, weak btn] in btn?.fillColor = self?.buttonBaseColors[name] ?? base }
+        #endif
         btn.run(.sequence([
             .wait(forDuration: 0.5),
-            .run { [weak self, weak btn] in btn?.fillColor = self?.buttonBaseColors[name] ?? base }
+            btnFlashStep
         ]), withKey: "btnflash")
     }
 
@@ -902,17 +920,29 @@ final class LevelEditorScene: SKScene {
         LevelStore.saveLevel(index: currentLevelIndex, rows: mapRows)
         lastSavedHash = mapHash()
         saveButton?.fillColor = .green
+        #if hasFeature(Embedded)
+        let saveGreenStep = SKAction.run { [unowned(unsafe) self] in self.saveButton?.fillColor = SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0) }
+        #else
+        let saveGreenStep = SKAction.run { [weak self] in self?.saveButton?.fillColor = SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0) }
+        #endif
         saveButton?.run(.sequence([
             .wait(forDuration: 0.5),
-            .run { [weak self] in self?.saveButton?.fillColor = SKColor(red: 0.15, green: 0.45, blue: 0.15, alpha: 1.0) }
+            saveGreenStep
         ]), withKey: "savegreen")
         statusLabel?.text = Strings.Editor.savedToast
+        #if hasFeature(Embedded)
+        let saveToastStep = SKAction.run { [unowned(unsafe) self] in
+            self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
+        }
+        #else
+        let saveToastStep = SKAction.run { [weak self] in
+            guard let self else { return }
+            self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
+        }
+        #endif
         run(.sequence([
             .wait(forDuration: 1.0),
-            .run { [weak self] in
-                guard let self else { return }
-                self.statusLabel?.text = Strings.Editor.tilePrefix(self.selectedTile.displayName)
-            }
+            saveToastStep
         ]), withKey: "savetoast")
     }
 }

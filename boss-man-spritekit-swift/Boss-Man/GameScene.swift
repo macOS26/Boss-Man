@@ -149,17 +149,30 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         installJoystick()
         let bossSpawnSeconds = nextBossSpawnSeconds
         nextBossSpawnSeconds = 0
+        #if hasFeature(Embedded)
+        delayBossSpawn(after: bossSpawnSeconds) { [unowned(unsafe) self] in
+            self.bossController.spawn(forLevel: self.state.level,
+                                      spawnOverrides: self.mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
+        }
+        #else
         delayBossSpawn(after: bossSpawnSeconds) { [weak self] in
             guard let self else { return }
             self.bossController.spawn(forLevel: self.state.level,
                                       spawnOverrides: self.mazeBuilder.bossSpawns.map { (blueprintIndex: $0.index, position: $0.position) })
         }
+        #endif
         refreshHUD()
         let scheduledLevel = state.level
+        #if hasFeature(Embedded)
+        travelerSpawner.scheduleVisits(of: currentTraveler()) { [unowned(unsafe) self] in
+            return self.state.level == scheduledLevel && !self.isGameOver && !self.isUserPaused
+        }
+        #else
         travelerSpawner.scheduleVisits(of: currentTraveler()) { [weak self] in
             guard let self else { return false }
             return self.state.level == scheduledLevel && !self.isGameOver && !self.isUserPaused
         }
+        #endif
     }
 
     private var clampedLevelIndex: Int { max(0, min(state.level - 1, Levels.levelNames.count - 1)) }
@@ -453,7 +466,11 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if state.lives <= 0 {
             triggerGameOver()
         } else {
+            #if hasFeature(Embedded)
+            delayBossSpawn(after: caughtSpeech) { [unowned(unsafe) self] in self.bossController.teleportAllToSpawn() }
+            #else
             delayBossSpawn(after: caughtSpeech) { [weak self] in self?.bossController.teleportAllToSpawn() }
+            #endif
             hud.showMessage(Strings.Message.bossCaughtYou(state.lives), duration: 3)
         }
     }
@@ -677,7 +694,19 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         cover.name = "levelFadeCover"
         cover.alpha = 0
         uiLayer.addChild(cover)
-        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), .run { [weak self] in
+        #if hasFeature(Embedded)
+        let advanceStep = SKAction.run { [unowned(unsafe) self] in
+            self.state.advanceLevel()
+            self.nextBossSpawnSeconds = self.sound.playLevelStart()
+            self.resetSceneAndBuild()
+            let cover2 = self.makeLevelFadeCover()
+            cover2.alpha = 1
+            self.uiLayer.addChild(cover2)
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent()]))
+            self.hud.showMessage(Strings.Message.levelLoaded(self.state.level), duration: 3)
+        }
+        #else
+        let advanceStep = SKAction.run { [weak self] in
             guard let self else { return }
             self.state.advanceLevel()
             self.nextBossSpawnSeconds = self.sound.playLevelStart()
@@ -687,7 +716,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             self.uiLayer.addChild(cover2)
             cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent()]))
             self.hud.showMessage(Strings.Message.levelLoaded(self.state.level), duration: 3)
-        }]))
+        }
+        #endif
+        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), advanceStep]))
     }
 
     private func resetSceneAndBuild() {

@@ -388,10 +388,17 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
         bossController.spawn(forLevel: 1, spawnOverrides: overrides)
         syncBossNodes()
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound, containerOriginX: 0)
-        travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count]) { [weak self] in
+        #if hasFeature(Embedded)
+        let visitGate: () -> Bool = { [unowned(unsafe) self] in
+            return !self.gameOver && !self.isUserPaused && !self.dying
+        }
+        #else
+        let visitGate: () -> Bool = { [weak self] in
             guard let self else { return false }
             return !self.gameOver && !self.isUserPaused && !self.dying
         }
+        #endif
+        travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count], whileActive: visitGate)
     }
 
     // MARK: - Per-frame

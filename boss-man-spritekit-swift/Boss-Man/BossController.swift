@@ -59,8 +59,16 @@ final class BossController {
     static let baseSkinColor: NSColor = SpriteFactory.bossSkinColor
     static var bossShoeGoldColor: NSColor { SpriteFactory.bossShoeGoldColor }
 
+    #if hasFeature(Embedded)
+    unowned(unsafe) var delegate: BossControllerDelegate?
+    #else
     weak var delegate: BossControllerDelegate?
+    #endif
+    #if hasFeature(Embedded)
+    private unowned(unsafe) var scene: SKScene?
+    #else
     private weak var scene: SKScene?
+    #endif
     private let gridMap: GridMap
     private let pathfinder: Pathfinder
     private let sound: SoundManager
@@ -328,14 +336,23 @@ final class BossController {
             entities[i].isImmobilized = true
             let node = entities[i].node
             node.removeAction(forKey: Strings.ActionKey.fleeThaw)
+            #if hasFeature(Embedded)
+            let thawStep = SKAction.run { [unowned(unsafe) self, unowned(unsafe) node] in
+                guard let idx = self.entities.firstIndex(where: { $0.node === node }) else { return }
+                self.entities[idx].isImmobilized = false
+                node.alpha = 1
+            }
+            #else
+            let thawStep = SKAction.run { [weak self, weak node] in
+                guard let self, let node,
+                      let idx = self.entities.firstIndex(where: { $0.node === node }) else { return }
+                self.entities[idx].isImmobilized = false
+                node.alpha = 1
+            }
+            #endif
             node.run(.sequence([
                 .repeat(blink, count: 5),
-                .run { [weak self, weak node] in
-                    guard let self, let node,
-                          let idx = self.entities.firstIndex(where: { $0.node === node }) else { return }
-                    self.entities[idx].isImmobilized = false
-                    node.alpha = 1
-                }
+                thawStep
             ]), withKey: Strings.ActionKey.fleeThaw)
         }
     }
@@ -447,22 +464,34 @@ final class BossController {
             delegate?.bossDidGetCaptured(name: boss.name, points: points, at: homePoint)
             return
         } else {
+            #if hasFeature(Embedded)
+            let teleportStep = SKAction.run { [unowned(unsafe) bossNode] in bossNode.position = homePoint }
+            #else
+            let teleportStep = SKAction.run { [weak bossNode] in bossNode?.position = homePoint }
+            #endif
             var seq: [SKAction] = [
                 .group([
                     .scale(to: 1.6, duration: 0.25),
                     .fadeOut(withDuration: 0.25)
                 ]),
-                .run { [weak bossNode] in bossNode?.position = homePoint },
+                teleportStep,
                 .group([
                     .scale(to: 1.0, duration: 0.2),
                     .fadeIn(withDuration: 0.2)
                 ])
             ]
+            #if hasFeature(Embedded)
+            seq.append(.run { [unowned(unsafe) self, unowned(unsafe) bossNode] in
+                guard let i = self.entities.firstIndex(where: { $0.node === bossNode }) else { return }
+                self.entities[i].isImmobilized = false
+            })
+            #else
             seq.append(.run { [weak self, weak bossNode] in
                 guard let self, let bossNode,
                       let i = self.entities.firstIndex(where: { $0.node === bossNode }) else { return }
                 self.entities[i].isImmobilized = false
             })
+            #endif
             bossNode.run(.sequence(seq))
             boss.node.setFleePalette(powerActive, bodyRestore: boss.baseColor, tieRestore: boss.tieColor, skinRestore: Self.baseSkinColor)
         }

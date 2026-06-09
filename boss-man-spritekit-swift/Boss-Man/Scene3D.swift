@@ -1126,10 +1126,17 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         // The traveler (fish/treat) walks the maze and is caught for points, exactly as in 2D —
         // the spawner drives the tile walk, the 3D view projects it as a billboard (see projectSprites).
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound, containerOriginX: 0)
-        travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count]) { [weak self] in
+        #if hasFeature(Embedded)
+        let visitGate: () -> Bool = { [unowned(unsafe) self] in
+            return !self.gameOver && !self.isUserPaused && !self.dying
+        }
+        #else
+        let visitGate: () -> Bool = { [weak self] in
             guard let self else { return false }
             return !self.gameOver && !self.isUserPaused && !self.dying
         }
+        #endif
+        travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count], whileActive: visitGate)
     }
 
     // Re-parent controller boss nodes into the 3D sprite layer (driven as billboards,
@@ -1570,16 +1577,31 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let cover = makeLevelFadeCover()
         cover.alpha = 0
         uiLayer.addChild(cover)
-        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), .run { [weak self] in
+        #if hasFeature(Embedded)
+        let fadeStep = SKAction.run { [unowned(unsafe) self] in
+            self.performNextLevel()
+            let cover2 = self.makeLevelFadeCover()
+            cover2.alpha = 1
+            self.uiLayer.addChild(cover2)
+            let relockStep = SKAction.run { [unowned(unsafe) self] in
+                self.isUserPaused = false
+            }
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), relockStep]))
+        }
+        #else
+        let fadeStep = SKAction.run { [weak self] in
             guard let self else { return }
             self.performNextLevel()
             let cover2 = self.makeLevelFadeCover()
             cover2.alpha = 1
             self.uiLayer.addChild(cover2)
-            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), .run { [weak self] in
+            let relockStep = SKAction.run { [weak self] in
                 self?.isUserPaused = false
-            }]))
-        }]))
+            }
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), relockStep]))
+        }
+        #endif
+        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), fadeStep]))
     }
 
     func performNextLevel() {
@@ -1686,9 +1708,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         guard n.action(forKey: Strings.ActionKey.machineCooldown) == nil else { return }
         n.alpha = 0.55
         mapPickups[mk]?.alpha = 0.55
-        n.run(.sequence([.wait(forDuration: cooldown), .run { [weak self] in
+        #if hasFeature(Embedded)
+        let restoreStep = SKAction.run { [unowned(unsafe) self] in
             n.alpha = 1
-            self?.mapPickups[mk]?.alpha = 1 }]), withKey: Strings.ActionKey.machineCooldown)
+            self.mapPickups[mk]?.alpha = 1 }
+        #else
+        let restoreStep = SKAction.run { [weak self] in
+            n.alpha = 1
+            self?.mapPickups[mk]?.alpha = 1 }
+        #endif
+        n.run(.sequence([.wait(forDuration: cooldown), restoreStep]), withKey: Strings.ActionKey.machineCooldown)
     }
 
     // MARK: - Pickup hooks (IsoScene overrides for isoPickups)

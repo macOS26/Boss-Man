@@ -9,7 +9,11 @@ import AVFoundation
 // Shared by both ports, the only platform branch is loading the traveler image.
 @MainActor
 final class TravelerSpawner {
+    #if hasFeature(Embedded)
+    private unowned(unsafe) var scene: SKScene?
+    #else
     private weak var scene: SKScene?
+    #endif
     private let gridMap: GridMap
     private let sound: SoundManager
     private let containerOriginX: CGFloat
@@ -83,13 +87,22 @@ final class TravelerSpawner {
     private func scheduleNextSpawn(after delay: TimeInterval) {
         guard let scene else { return }
         scene.removeAction(forKey: Strings.ActionKey.travelerVisit1)
+        #if hasFeature(Embedded)
+        let spawnStep = SKAction.run { [unowned(unsafe) self] in
+            guard let traveler = self.pendingTraveler, self.node == nil else { return }
+            if self.keepSpawning?() == true { self.spawn(traveler) }
+            else { self.scheduleNextSpawn(after: 1.0) }   // blocked (paused/dying): retry, don't give up forever
+        }
+        #else
+        let spawnStep = SKAction.run { [weak self] in
+            guard let self, let traveler = self.pendingTraveler, self.node == nil else { return }
+            if self.keepSpawning?() == true { self.spawn(traveler) }
+            else { self.scheduleNextSpawn(after: 1.0) }   // blocked (paused/dying): retry, don't give up forever
+        }
+        #endif
         scene.run(.sequence([
             .wait(forDuration: delay),
-            .run { [weak self] in
-                guard let self, let traveler = self.pendingTraveler, self.node == nil else { return }
-                if self.keepSpawning?() == true { self.spawn(traveler) }
-                else { self.scheduleNextSpawn(after: 1.0) }   // blocked (paused/dying): retry, don't give up forever
-            }
+            spawnStep
         ]), withKey: Strings.ActionKey.travelerVisit1)
     }
 
@@ -265,9 +278,14 @@ final class TravelerSpawner {
         }
         previousGrid = grid
         grid = next
+        #if hasFeature(Embedded)
+        let walkStep = SKAction.run { [unowned(unsafe) self] in self.stepNode() }
+        #else
+        let walkStep = SKAction.run { [weak self] in self?.stepNode() }
+        #endif
         fish.run(.sequence([
             .move(to: sceneCoord(forGrid: next), duration: moveInterval),
-            .run { [weak self] in self?.stepNode() },
+            walkStep,
         ]))
     }
 }

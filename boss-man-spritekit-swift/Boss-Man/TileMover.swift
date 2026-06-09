@@ -54,7 +54,11 @@ public final class TileMover<D: TileDirection> {
     private var stepKind: StepKind = .normal
     private var holding = false
     private var holdT: TimeInterval = 0
+    #if hasFeature(Embedded)
+    public unowned(unsafe) var map: TileMap?
+    #else
     public weak var map: TileMap?
+    #endif
     public var containerOriginX: CGFloat
 
     public init(node: SKNode, spawn: CGPoint, map: TileMap, step: TimeInterval,

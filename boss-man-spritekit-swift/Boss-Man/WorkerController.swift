@@ -9,7 +9,11 @@ protocol WorkerControllerDelegate: AnyObject {
 
 @MainActor
 final class WorkerController {
+    #if hasFeature(Embedded)
+    unowned(unsafe) var delegate: WorkerControllerDelegate?
+    #else
     weak var delegate: WorkerControllerDelegate?
+    #endif
     let node: PixelPerson
     private(set) var grid: CGPoint
     private(set) var direction: MoveDirection?
@@ -60,6 +64,18 @@ final class WorkerController {
     }
 
     func advance(_ dt: TimeInterval) {
+        #if hasFeature(Embedded)
+        mover.advance(dt, decide: { [unowned(unsafe) self] e in
+            if let q = self.queuedDirection, e.canStep(q) { return q }
+            if let d = self.direction,       e.canStep(d) { return d }
+            return nil
+        }, onArrive: { [unowned(unsafe) self] e in
+            self.grid = e.grid
+            if let d = e.dir { self.node.setFacing(d) }
+            self.sound.playFootstep()
+            self.delegate?.workerDidEnterTile(e.grid)
+        })
+        #else
         mover.advance(dt, decide: { [weak self] e in
             guard let self else { return nil }
             if let q = self.queuedDirection, e.canStep(q) { return q }
@@ -72,6 +88,7 @@ final class WorkerController {
             self.sound.playFootstep()
             self.delegate?.workerDidEnterTile(e.grid)
         })
+        #endif
         self.grid = mover.grid
         self.direction = mover.dir
     }
