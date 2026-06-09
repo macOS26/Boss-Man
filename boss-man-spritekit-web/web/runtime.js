@@ -1828,11 +1828,16 @@ void main() {
   async preload() {
     const manifest = await this.discoverAssets();
 
-    // fonts: FontFace per ttf, family name = filename without extension
+    // fonts: FontFace per ttf, family name = filename without extension.
+    // Fetch the bytes (so the bundle.js fetch shim can serve inlined data URLs
+    // for file:// playback) and build the face from the buffer; a FontFace
+    // url() loads outside window.fetch and is blocked on file://.
     await Promise.all(manifest.fonts.map(async (path) => {
       const family = this.basename(path);
       try {
-        const ff = new FontFace(family, `url(${ASSET_ROOT}/${path})`);
+        const resp = await fetch(`${ASSET_ROOT}/${path}`);
+        const buf = await resp.arrayBuffer();
+        const ff = new FontFace(family, buf);
         await ff.load();
         document.fonts.add(ff);
         this.fonts.push(family);
