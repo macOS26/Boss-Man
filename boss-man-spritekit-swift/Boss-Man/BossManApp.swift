@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         alert.addButton(withTitle: Strings.App.cancelButton)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         LocalHighScores.clear()
-        UserDefaults.standard.removeObject(forKey: RoundState.highScoreKey)
+        UserDefaults.standard.removeObject(forKey: GameState.highScoreKey)
     }
 
     @objc private func toggleWindowFullscreen(_ sender: Any?) {

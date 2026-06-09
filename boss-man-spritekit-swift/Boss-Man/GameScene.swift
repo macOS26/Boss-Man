@@ -28,7 +28,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     var hud: HUD!
     private let sound = SoundManager()
 
-    let state = RoundState()
+    let state = GameState()
     private let goldDisc = GoldDiscTimer()
     private let waterGun = WaterGunState()
     private var waterGunPickedUp = false

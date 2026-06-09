@@ -165,7 +165,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
 
     var hud: HUD!
     let uiLayer = SKNode()
-    let state = RoundState()
+    let state = GameState()
     let waterGun = WaterGunState()
     var waterGunPickedUp = false
     let goldDisc = GoldDiscTimer()
@@ -729,7 +729,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 var worldH: CGFloat = 0.6
                 switch ch {
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
-                    if RoundState.demoMode { continue }
+                    if GameState.demoMode { continue }
                     let inner = SpriteFactory.pelletCube(size: 8)
                     let nh = max(1, inner.calculateAccumulatedFrame().height)
                     inner.yScale = 0.8
@@ -792,7 +792,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         addChild(uiLayer)
         hud = HUD(requiredItems: Strings.Machine.required)
         hud.install(in: uiLayer, size: size, extraRow: false)   // compact 150/200-style HUD, never the extended row
-        state.dotCount = RoundState.demoMode ? 0 : map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
+        state.dotCount = GameState.demoMode ? 0 : map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.dotChar || $0 == Strings.Tile.hideoutChar }.count }
         state.goldDiscCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.goldDiscChar }.count }
         state.waterGunCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.waterGunChar }.count }
         state.waterPelletCount = map.reduce(0) { $0 + $1.filter { $0 == Strings.Tile.waterPelletChar }.count }
@@ -1420,7 +1420,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     }
 
     // Tile-based pickup of the stationary items (water-gun power-up + TPS machines),
-    // mirroring the 100% game's collect rules through the shared RoundState/WaterGunState.
+    // mirroring the 100% game's collect rules through the shared GameState/WaterGunState.
     func collectStationary() {
         let pcol = Int(px.rounded(.down)), prow = Int(py.rounded(.down))
         guard prow >= 0, prow < rowsCount, pcol >= 0, pcol < map[prow].count else { return }

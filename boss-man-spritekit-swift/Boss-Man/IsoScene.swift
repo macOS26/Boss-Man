@@ -180,7 +180,7 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 t.zPosition = z + 0.40
                 isoMaze.addChild(t)
             }
-            if !dotCols.isEmpty, !RoundState.demoMode {
+            if !dotCols.isEmpty, !GameState.demoMode {
                 isoDotRowCells[r] = dotCols
                 let pF = CGMutablePath(), pS = CGMutablePath(), pT = CGMutablePath()
                 for c in dotCols { appendDotFaces(pF, pS, pT, c, r, map[r][c] == Strings.Tile.goldDiscChar) }

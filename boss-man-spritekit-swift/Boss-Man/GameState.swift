@@ -1,5 +1,5 @@
 @MainActor
-final class RoundState {
+final class GameState {
     static let highScoreKey = Strings.DefaultsKey.highScore
 
     var level = 1
@@ -16,7 +16,7 @@ final class RoundState {
     var tpsReportsDelivered = 0
     var reportItems: Set<String> = []
     var currentReportScore = 0
-    private(set) var highScore = Persistence.int(forKey: RoundState.highScoreKey)
+    private(set) var highScore = Persistence.int(forKey: GameState.highScoreKey)
     var practiceMode = false
     static var demoMode = true
 
@@ -53,7 +53,7 @@ final class RoundState {
     }
 
     var pickupsComplete: Bool {
-        (RoundState.demoMode || collectedDots >= dotCount)
+        (GameState.demoMode || collectedDots >= dotCount)
             && collectedGoldDiscs >= goldDiscCount
             && collectedWaterGuns >= waterGunCount
             && collectedWaterPellets >= waterPelletCount
@@ -64,7 +64,7 @@ final class RoundState {
 
 @MainActor
 protocol LevelCompletionHost: AnyObject {
-    var state: RoundState { get }
+    var state: GameState { get }
     var hud: HUD! { get }
     func startNextLevel()
 }
