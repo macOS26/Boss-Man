@@ -18,7 +18,7 @@ final class RoundState {
     var currentReportScore = 0
     private(set) var highScore = Persistence.int(forKey: RoundState.highScoreKey)
     var practiceMode = false
-    static var demoMode = false
+    static var demoMode = true
 
     func bumpScore(by points: Int) {
         score += points
