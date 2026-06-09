@@ -2,11 +2,10 @@ name: Build Android WebView (Swift WASM)
 
 on:
   push:
-    branches: [swift-wasm]
+    branches: [main]
     paths:
       - 'boss-man-android-webview/**'
       - 'boss-man-spritekit-web/**'
-      - 'superbox64-wasmkit/**'
       - '.github/workflows/build-android-webview.yml'
     tags: ['pre-*']
   workflow_dispatch:

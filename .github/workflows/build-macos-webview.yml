@@ -2,11 +2,10 @@ name: Build macOS WebView (Swift WASM)
 
 on:
   push:
-    branches: [swift-wasm]
+    branches: [main]
     paths:
       - 'boss-man-spritekit-desktop/**'
       - 'boss-man-spritekit-web/**'
-      - 'superbox64-wasmkit/**'
       - '.github/workflows/build-macos-webview.yml'
     tags: ['pre-*']
   workflow_dispatch:
