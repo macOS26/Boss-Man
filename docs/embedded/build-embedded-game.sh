@@ -12,12 +12,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-FW="$(cd "$ROOT/../superbox64-spritekit" && pwd)"
+# Framework: local sibling checkout (dev) or the SwiftPM checkout (CI).
+FW="$(cd "$ROOT/../superbox64-spritekit" 2>/dev/null && pwd || true)"
+[ -d "$FW/Sources/SpriteKit" ] || FW="$(find "$ROOT/boss-man-spritekit-web/.build" -maxdepth 3 -type d -name superbox64-spritekit 2>/dev/null | head -1)"
 GAMESRC="$ROOT/boss-man-spritekit-web/Sources/BossMan"
-TC="$HOME/Library/Developer/Toolchains/swift-6.3.2-RELEASE.xctoolchain"
-SDK="$HOME/Library/org.swift.swiftpm/swift-sdks/swift-6.3.2-RELEASE_wasm.artifactbundle/swift-6.3.2-RELEASE_wasm/wasm32-unknown-wasip1"
+# Derive the toolchain + wasm SDK locations (portable: works locally and in CI).
+TC="$(dirname "$(dirname "$(xcrun --toolchain swift -f swiftc)")")"   # .../usr/bin/swiftc -> .../usr -> toolchain/usr
+TC="${TC%/usr}"                                                        # -> .../<toolchain>.xctoolchain
+SDK="$(dirname "$(find "$HOME/Library/org.swift.swiftpm/swift-sdks" -type d -name "wasm32-unknown-wasip1" 2>/dev/null | head -1)")/wasm32-unknown-wasip1"
 SYSLIB="$SDK/WASI.sdk/lib/wasm32-wasip1"
-UNI="$TC/usr/lib/swift/embedded/wasm32-unknown-none-wasm/libswiftUnicodeDataTables.a"
+UNI="$(find "$TC/usr/lib/swift/embedded/wasm32-unknown-none-wasm" -name libswiftUnicodeDataTables.a | head -1)"
 WASMLD="$TC/usr/bin/wasm-ld"
 CLANG="$(find "$TC" -name clang | head -1)"
 B="$(mktemp -d)"; mkdir -p "$B/src" "$B/mod"
@@ -70,9 +74,13 @@ SHIM="$ROOT/boss-man-spritekit-web/.build/wasm32-unknown-wasip1/release/KitABI.b
 wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
   --enable-mutable-globals --enable-multivalue "$B/bossman-embedded.wasm" -o "$B/bossman-embedded-oz.wasm"
 
-raw=$(stat -f%z "$B/bossman-embedded-oz.wasm"); gz=$(gzip -c -9 "$B/bossman-embedded-oz.wasm" | wc -c | tr -d ' ')
+# Publish next to the normal web payload so CI (and the website deploy) can grab it.
+OUT="$ROOT/boss-man-spritekit-web/web/bossman-embedded.wasm"
+cp "$B/bossman-embedded-oz.wasm" "$OUT"
+
+raw=$(stat -f%z "$OUT"); gz=$(gzip -c -9 "$OUT" | wc -c | tr -d ' ')
 echo
 echo "✓ Embedded Boss-Man wasm: $raw bytes (-Oz), $gz gzip"
 echo "  Normal full-game baseline: 5138028 raw / 1883322 gzip"
-echo "  out: $B/bossman-embedded-oz.wasm"
+echo "  out: $OUT"
 echo "  Boot: copy it as bossman.wasm next to runtime-embedded.js + assets, serve over HTTP."
