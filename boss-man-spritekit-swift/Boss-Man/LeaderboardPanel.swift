@@ -167,31 +167,22 @@ final class LeaderboardPanel: SKNode {
     }
     #endif
 
-    #if !hasFeature(Embedded)   // Task/async Game Center fetch; called only from the os(macOS) path
     private func fetchEntries() {
-        Task { @MainActor in
-            do {
-                let leaderboards = try await GKLeaderboard.loadLeaderboards(IDs: [Self.leaderboardID])
-                guard let board = leaderboards.first else {
-                    renderLocalFallback()
-                    return
-                }
-                let (_, entries, _) = try await board.loadEntries(
-                    for: .global,
-                    timeScope: .allTime,
-                    range: NSRange(location: 1, length: 10)
-                )
-                if entries.isEmpty {
-                    renderLocalFallback()
+        GKLeaderboard.loadLeaderboards(IDs: [Self.leaderboardID]) { boards, _ in
+            guard let board = boards?.first else {
+                self.renderLocalFallback()
+                return
+            }
+            board.loadEntries(for: .global, timeScope: .allTime, range: NSRange(location: 1, length: 10)) { _, entries, _, _ in
+                let es = entries ?? []
+                if es.isEmpty {
+                    self.renderLocalFallback()
                 } else {
-                    render(entries: entries)
+                    self.render(entries: es)
                 }
-            } catch {
-                renderLocalFallback()
             }
         }
     }
-    #endif
 
     private func renderLocalFallback() {
         let locals = LocalHighScores.load()
@@ -218,7 +209,7 @@ final class LeaderboardPanel: SKNode {
         }
     }
 
-    private func render(entries: [GKLeaderboard.Entry]) {
+    private func render(entries: [GKLeaderboardEntry]) {
         titleLabel.fontColor = .black
         entriesNode.removeAllChildren()
         let rowHeight: CGFloat = 28
@@ -228,7 +219,7 @@ final class LeaderboardPanel: SKNode {
             let y = -CGFloat(index) * rowHeight
             entriesNode.addChild(row(
                 rank: entry.rank,
-                name: entry.player.displayName,
+                name: entry.player?.displayName ?? "",
                 score: entry.score,
                 y: y,
                 left: leftEdge,

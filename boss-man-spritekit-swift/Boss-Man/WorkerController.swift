@@ -106,19 +106,6 @@ final class WorkerController {
         mover.reset(to: grid)
     }
 
-    #if !hasFeature(Embedded)
-    // Unused (no callers); the Task.sleep restore never fires on wasm anyway.
-    // Excluded from Embedded, which has no concurrency runtime.
-    func flashColor(_ color: NSColor, restoringTo restoreColor: NSColor, after seconds: TimeInterval) {
-        node.setBodyColor(color)
-        let restore = restoreColor
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            self?.node.setBodyColor(restore)
-        }
-    }
-    #endif
-
     private(set) var isShielded = false
 
     // Pete's shield is driven by GameScene from the boss-flashing state (a boss is

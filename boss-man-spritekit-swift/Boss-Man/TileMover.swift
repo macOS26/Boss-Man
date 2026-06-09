@@ -157,16 +157,16 @@ public final class TileMover<D: TileDirection> {
             if !moving {
                 guard let d = decide(self) else {
                     dir = nil
-                    (node as? TileWalkAnimating)?.stopWalking()
+                    (node as? PixelPerson)?.stopWalking()
                     return
                 }
                 dir = d
                 let next = tileAfter(from: grid, in: d)
                 guard map.isWalkable(next) else {
-                    (node as? TileWalkAnimating)?.stopWalking()
+                    (node as? PixelPerson)?.stopWalking()
                     return
                 }
-                (node as? TileWalkAnimating)?.startWalking()
+                (node as? PixelPerson)?.startWalking()
                 // Tunnel wrap: jump to the far mouth instead of interpolating.
                 if abs(Int(next.x - grid.x)) > 1 || abs(Int(next.y - grid.y)) > 1 {
                     grid = next
@@ -206,7 +206,7 @@ public final class TileMover<D: TileDirection> {
                 if holdTime > 0 {
                     holding = true
                     holdT = holdTime
-                    (node as? TileWalkAnimating)?.stopWalking()   // idle pose during the beat
+                    (node as? PixelPerson)?.stopWalking()   // idle pose during the beat
                 }
             }
         }
