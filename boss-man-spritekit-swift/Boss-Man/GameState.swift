@@ -18,7 +18,7 @@ final class GameState {
     var currentReportScore = 0
     private(set) var highScore = Persistence.int(forKey: GameState.highScoreKey)
     var practiceMode = false
-    static var demoMode = true
+    static var demoMode = false
 
     func bumpScore(by points: Int) {
         score += points
