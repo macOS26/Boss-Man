@@ -49,6 +49,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     var moveDir = (x: 1, y: 0)       // current lane direction (cardinal)
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
     var pendingSecondTurn = false
+    var backing = false
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
     let camBack = 0.65               // how far the camera trails behind Pete
 
@@ -1270,7 +1271,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 peteName.text = dirName
             }
         }
-        let tdir: (x: Int, y: Int)? = fwd ? moveDir : nil
+        let backDir = backing ? (x: -moveDir.x, y: -moveDir.y) : nil
+        let tdir: (x: Int, y: Int)? = fwd ? moveDir : backDir
         if let d = tdir {
             let atCenter = abs(px - ccx) < 0.06 && abs(py - ccy) < 0.06
             if atCenter, !open(col + d.x, row + d.y),
@@ -1579,6 +1581,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         waterGunPickedUp = false
         onBrownBox = false
         isUserPaused = false
+        backing = false
         frightenSecondsLeft = 0
         bob = 0
         throbClock = 0
@@ -1760,9 +1763,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
         case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
-        case KeyCode.arrowDown,  KeyCode.keyS:
-            wantDir = (x: -moveDir.y, y: moveDir.x)
-            pendingSecondTurn = true
+        case KeyCode.arrowDown,  KeyCode.keyS:  backing = !backing
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
         }
@@ -1903,10 +1904,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         if w != prev {
             if w.contains("left"),  !prev.contains("left")  { wantDir = (x: moveDir.y, y: -moveDir.x) }
             if w.contains("right"), !prev.contains("right") { wantDir = (x: -moveDir.y, y: moveDir.x) }
-            if w == "down", prev != "down" {
-                wantDir = (x: -moveDir.y, y: moveDir.x)
-                pendingSecondTurn = true
-            }
+            if w == "down", prev != "down" { backing = true }
+            if w != "down", prev == "down" { backing = false }
         }
         applyDpad()
     }
