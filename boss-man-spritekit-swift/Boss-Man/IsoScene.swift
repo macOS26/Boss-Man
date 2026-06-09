@@ -938,7 +938,15 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 sound.playWaterGunSplash()
                 let points = goldDisc.isActive && bossController.isInFleeMode(boss: e.node) ? bossController.nextCapturePoints : 50
                 state.bumpScore(by: points)
-                popPoints(points)
+                popPointsInWorld(points)
+                let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
+                mini.text = Strings.Score.popup(points)
+                mini.fontSize = 40
+                mini.fontColor = .white
+                mini.position = CGPoint(x: hitPt.x + 20, y: hitPt.y + 20)
+                mini.zPosition = CGFloat(hitRow) * 4 + 3
+                spriteLayer.addChild(mini)
+                mini.run(.sequence([.group([.moveBy(x: 0, y: 42, duration: 0.7), .fadeOut(withDuration: 0.7)]), .removeFromParent()]))
                 refreshHUD()
                 splash.position = CGPoint(x: hitPt.x, y: hitPt.y + 15)
                 splash.zPosition = CGFloat(hitRow) * 4 + 2

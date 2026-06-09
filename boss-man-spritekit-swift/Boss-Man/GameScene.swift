@@ -472,7 +472,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             state.bumpScore(by: points)
             spawnWaterSplash(at: pos)
             ScorePopup.show(points, at: pos, in: self,
-                            color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
+                            color: .white)
             hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
             if let idx = waterDroplets.firstIndex(where: { $0 === dropletNode }) { waterDroplets.remove(at: idx) }
             refreshHUD()

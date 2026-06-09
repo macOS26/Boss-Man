@@ -1403,7 +1403,15 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                     sound.playWaterGunSplash()
                     let points = goldDisc.isActive && bossController.isInFleeMode(boss: e.node) ? bossController.nextCapturePoints : 50
                     state.bumpScore(by: points)
-                    popPoints(points)
+                    popPointsInWorld(points)
+                    let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
+                    mini.text = Strings.Score.popup(points)
+                    mini.fontSize = 40
+                    mini.fontColor = .white
+                    mini.position = hitAt
+                    mini.zPosition = hitZ + 2
+                    mapLayer.addChild(mini)
+                    mini.run(.sequence([.group([.moveBy(x: 0, y: 42, duration: 0.7), .fadeOut(withDuration: 0.7)]), .removeFromParent()]))
                     refreshHUD()
                     splash.position = hitAt
                     splash.zPosition = hitZ + 1
