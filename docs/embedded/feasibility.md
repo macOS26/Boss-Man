@@ -127,7 +127,25 @@ errors 8→0. Files: SKNode, SKScene, SKPhysics, SKEmitterNode, SKAction.
     `JSONValue`). This is cross-repo (framework `embedded` + a game branch) and
     must be verified by parsing a real level and diffing behavior.
 
-Remaining order: (P2.2) `#if`-exclude the 3 dead subsystems; (P2.3) the
-`JSONValue` enum across MiniJSON + UserDefaults + game `Levels.swift`, tested
-against the live wasm game. Then P3: Embedded build target (drop `@MainActor`
-default isolation, handle ICU `String` ops) and flip the flag.
+**Layer 2 progress (framework `embedded` branch):**
+- **P2.2 dead-code existentials — DONE.** Guarded the subsystems Boss-Man never
+  uses. Each verified: Embedded errors drop, normal wasm SpriteKit build unchanged.
+  - `any SKAudioURL` → store `String` (lastPathComponent; never read), unused
+    existential `init(url:)` behind `#if !hasFeature(Embedded)` (SKAudioNode, SKStubs).
+    Note: Embedded also forbids **generic `init` on classes**, so the URL init is
+    excluded rather than made generic.
+  - `SKKeyframeSequence` init/`sample`/`lerp` (`[Any]`/`NSNumberLike`/casts) and the
+    `SKEmitterNode` `.sample` call sites guarded `#if !hasFeature(Embedded)` (the
+    `.sks` particle editor is unused; sequences are always nil → identical behavior).
+  - **Embedded blocker sites: 40 → 12.** All remaining are LIVE, cross-repo (P2.3).
+
+**P2.3 — remaining 12 sites (live, cross-repo, needs game runtime verification):**
+- `JSONValue` enum: `MiniJSON.parseJSON` (3) + `SKSceneLoader` build/helpers (6) +
+  `UserDefaults` (2), with game `Levels.swift` switched off the enum. (`SKSceneLoader`'s
+  `loadAssetText` is LIVE and already clean — only its `.sks` `build`/`readX` casts.)
+- `CIFilter(name:parameters:)`: the game passes `[inputRadiusKey: 12.5]` (a
+  `[String: Any]`) for the leaderboard blur — change to a typed `inputRadius:`
+  parameter in framework `CIFilter` + game `LeaderboardPanel` call site.
+
+Then P3: Embedded build target (drop `@MainActor` default isolation, handle ICU
+`String` ops) and flip the flag.
