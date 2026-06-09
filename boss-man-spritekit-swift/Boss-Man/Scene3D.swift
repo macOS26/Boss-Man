@@ -120,7 +120,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     var shots: [Shot] = []
     var gameOver = false
     var dying = false
-    var pendingLevelComplete = false
     var deathTimeLeft = 0.0
     let deathFrames = 90   // 1.5s at 60fps: hold the catcher on screen
     var pressed = Set<Int>()
@@ -1174,10 +1173,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let dt = min(currentTime - lastUpdateTime, 1.0 / 20.0)
         lastUpdateTime = currentTime
         if isUserPaused || gameOver { return }
-        if pendingLevelComplete {
-            performNextLevel()
-            return
-        }
         if dying {
             updateDeath(dt: dt)
             return
@@ -1516,11 +1511,25 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         checkLevelComplete()
     }
     func startNextLevel() {
-        pendingLevelComplete = true
+        guard !isUserPaused else { return }
+        isUserPaused = true
+        let tune = sound.playLevelComplete(forLevel: state.level)
+        let cover = makeLevelFadeCover()
+        cover.alpha = 0
+        uiLayer.addChild(cover)
+        cover.run(.sequence([.fadeIn(withDuration: tune), .run { [weak self] in
+            guard let self else { return }
+            self.performNextLevel()
+            let cover2 = self.makeLevelFadeCover()
+            cover2.alpha = 1
+            self.uiLayer.addChild(cover2)
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), .run { [weak self] in
+                self?.isUserPaused = false
+            }]))
+        }]))
     }
 
     func performNextLevel() {
-        pendingLevelComplete = false
         state.advanceLevel()
         resetSceneAndBuild()
         hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
@@ -1530,7 +1539,6 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         sound.stopAllAudio()
         gameOver = false
         dying = false
-        pendingLevelComplete = false
         deathTimeLeft = 0
         peteShielded = false
         waterGunPickedUp = false
@@ -1874,6 +1882,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     }
     func highlightDPad(up: Bool, down: Bool, left: Bool, right: Bool) {
         lightDpadFace(dpadWedges, up: up, down: down, left: left, right: right)
+    }
+}
+
+extension SKScene {
+    func makeLevelFadeCover() -> SKShapeNode {
+        let cover = SKShapeNode(rect: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        cover.fillColor = .black
+        cover.strokeColor = .clear
+        cover.zPosition = 99999
+        return cover
     }
 }
 

@@ -651,10 +651,25 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // MARK: - Level / game flow
     func startNextLevel() {
-        state.advanceLevel()
-        nextBossSpawnSeconds = sound.playLevelStart()
-        resetSceneAndBuild()
-        hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
+        guard !isUserPaused else { return }
+        isUserPaused = true
+        let tune = sound.playLevelComplete(forLevel: state.level)
+        let cover = makeLevelFadeCover()
+        cover.alpha = 0
+        uiLayer.addChild(cover)
+        cover.run(.sequence([.fadeIn(withDuration: tune), .run { [weak self] in
+            guard let self else { return }
+            self.state.advanceLevel()
+            self.nextBossSpawnSeconds = self.sound.playLevelStart()
+            self.resetSceneAndBuild()
+            let cover2 = self.makeLevelFadeCover()
+            cover2.alpha = 1
+            self.uiLayer.addChild(cover2)
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), .run { [weak self] in
+                self?.isUserPaused = false
+            }]))
+            self.hud.showMessage(Strings.Message.levelLoaded(self.state.level), duration: 3)
+        }]))
     }
 
     private func resetSceneAndBuild() {

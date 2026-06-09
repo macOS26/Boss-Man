@@ -192,6 +192,7 @@ enum Strings {
         static let tpsDeliver    = "tpsDeliver"
         static let gameOver      = "gameOver"
         static let levelStart    = "levelStart"
+        static let levelComplete = "levelComplete"
         static let teleport      = "teleport"
         static let printer       = "printer"
         static let fax           = "fax"

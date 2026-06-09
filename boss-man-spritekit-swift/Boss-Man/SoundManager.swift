@@ -323,6 +323,18 @@ final class SoundManager {
     }
 
     @discardableResult
+    func playLevelComplete(forLevel level: Int) -> TimeInterval {
+        let idx = (level - 1) % SpriteFactory.cubicleColors.count
+        let root = 261.63 * pow(2, Float(idx) / 12)
+        let perNote = 0.13
+        let notes: [Float] = [root, root * 1.25, root * 1.5, root * 2.0]
+        play(buffer: cached("\(Strings.SoundCache.levelComplete)\(idx)") {
+            self.sequence(notes: notes, perNote: perNote, volume: 0.34)
+        })
+        return perNote * Double(notes.count)
+    }
+
+    @discardableResult
     func playLevelStart() -> TimeInterval {
         play(buffer: cached(Strings.SoundCache.levelStart) { self.sequence(notes: [523, 659, 784, 1046], perNote: 0.12, volume: 0.3) })
         return speak(levelStartLines.randomElement(using: &GameRandom.shared) ?? Strings.Speech.fallback, priority: false)
