@@ -1858,7 +1858,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
             if !joyFingers.isEmpty {
                 let newDir = dpadWedgeAt(p)
                 let hasUp = dpadFinger.values.contains { $0.contains("up") }
-                guard hasUp && (newDir == "left" || newDir == "right") else { return }
+                let hasLeftRight = dpadFinger.values.contains { $0.contains("left") || $0.contains("right") }
+                let newIsLeftRight = newDir.contains("left") || newDir.contains("right")
+                guard (hasUp && newIsLeftRight) || (hasLeftRight && newDir == "up") else { return }
             }
             #endif
             joyFingers.insert(finger)
