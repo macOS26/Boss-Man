@@ -7,8 +7,6 @@
 
 The office maze arcade game, runs on Mac, Windows, Linux, Web (mobile friendly), and Android. An *Office Space* inspired maze game built in Swift using **SuperBox64 SpriteKit** — an open source reimplementation of Apple's SpriteKit, compiled to WebAssembly via WASI Preview 1 and wrapped in a native WebView on every platform.
 
-The C++ port is legacy. The future is Swift: one shared Swift codebase, one open source SpriteKit engine, six platforms. A 2D/3D simulated game engine is coming soon. See [The Tech](#the-tech-one-game-three-ports-one-framework) below.
-
 ## Download the DMG
 
 Grab the latest macOS build, signed, notarized, and ready to play:
