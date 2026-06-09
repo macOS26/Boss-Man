@@ -107,7 +107,11 @@ jobs:
           Compress-Archive -Path boss-man-windows-webview/dist/* `
             -DestinationPath "Boss-Man-Windows-${{ matrix.arch }}.zip"
 
+      # Sigstore signing needs a prebuilt cryptography wheel; only x64 Windows
+      # runners have one. arm64 falls back to a Rust source build that has no
+      # OpenSSL/cargo and fails, so sign x64 only and ship arm64 unsigned.
       - uses: sigstore/gh-action-sigstore-python@v3.3.0
+        if: matrix.arch == 'x64'
         with:
           inputs: Boss-Man-Windows-${{ matrix.arch }}.zip
 
@@ -129,7 +133,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           gh release view "$TAG" >/dev/null 2>&1 || \
             gh release create "$TAG" --title "$TAG" --notes "" --prerelease
-          gh release upload "$TAG" \
-            "Boss-Man-Windows-${{ matrix.arch }}.zip" \
-            "Boss-Man-Windows-${{ matrix.arch }}.zip.sigstore.json" \
-            --clobber
+          files=("Boss-Man-Windows-${{ matrix.arch }}.zip")
+          [ -f "Boss-Man-Windows-${{ matrix.arch }}.zip.sigstore.json" ] && \
+            files+=("Boss-Man-Windows-${{ matrix.arch }}.zip.sigstore.json")
+          gh release upload "$TAG" "${files[@]}" --clobber
