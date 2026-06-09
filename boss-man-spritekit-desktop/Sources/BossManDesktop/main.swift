@@ -121,6 +121,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: function () { return fsElement; } });
       Object.defineProperty(document, 'webkitFullscreenElement', { configurable: true, get: function () { return fsElement; } });
 
+      // WKWebView reports fullscreenEnabled === false, so the runtime's
+      // win_request_fullscreen gate skips the (bridged) requestFullscreen and
+      // takes the dead pseudo-fullscreen path. Report true so the in-game
+      // FULLSCREEN/WINDOW buttons route through the native NSWindow toggle.
+      Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: function () { return true; } });
+      Object.defineProperty(document, 'webkitFullscreenEnabled', { configurable: true, get: function () { return true; } });
+
       function fire(type) {
         var ev;
         try { ev = new Event(type); } catch (e) { ev = document.createEvent('Event'); ev.initEvent(type, true, false); }
