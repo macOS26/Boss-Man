@@ -1774,10 +1774,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:
             heldTurnLeft = true
-            wantDir = (x: moveDir.y, y: -moveDir.x)
+            if wantDir == nil { wantDir = (x: moveDir.y, y: -moveDir.x) }
         case KeyCode.arrowRight, KeyCode.keyD:
             heldTurnRight = true
-            wantDir = (x: -moveDir.y, y: moveDir.x)
+            if wantDir == nil { wantDir = (x: -moveDir.y, y: moveDir.x) }
         case KeyCode.arrowDown,  KeyCode.keyS:  backing = !backing
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
@@ -1924,11 +1924,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         if w != prev {
             if w.contains("left"),  !prev.contains("left")  {
                 heldTurnLeft = true
-                wantDir = (x: moveDir.y, y: -moveDir.x)
+                if wantDir == nil { wantDir = (x: moveDir.y, y: -moveDir.x) }
             }
             if w.contains("right"), !prev.contains("right") {
                 heldTurnRight = true
-                wantDir = (x: -moveDir.y, y: moveDir.x)
+                if wantDir == nil { wantDir = (x: -moveDir.y, y: moveDir.x) }
             }
             if !w.contains("left") && prev.contains("left") { heldTurnLeft = false }
             if !w.contains("right") && prev.contains("right") { heldTurnRight = false }
