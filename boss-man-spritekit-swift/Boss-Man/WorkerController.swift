@@ -89,6 +89,9 @@ final class WorkerController {
         mover.reset(to: grid)
     }
 
+    #if !hasFeature(Embedded)
+    // Unused (no callers); the Task.sleep restore never fires on wasm anyway.
+    // Excluded from Embedded, which has no concurrency runtime.
     func flashColor(_ color: NSColor, restoringTo restoreColor: NSColor, after seconds: TimeInterval) {
         node.setBodyColor(color)
         let restore = restoreColor
@@ -97,6 +100,7 @@ final class WorkerController {
             self?.node.setBodyColor(restore)
         }
     }
+    #endif
 
     private(set) var isShielded = false
 
