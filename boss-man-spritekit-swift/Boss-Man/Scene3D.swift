@@ -50,7 +50,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
     var pendingSecondTurn = false
     var backing = false
-    var heldTurnDir: (x: Int, y: Int)? = nil   // which direction is being held (left/right)
+    var heldTurnLeft = false, heldTurnRight = false   // continuous turn while held
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
     let camBack = 0.65               // how far the camera trails behind Pete
 
@@ -1265,8 +1265,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 moveDir = t
                 if pendingSecondTurn {
                     wantDir = (x: -moveDir.y, y: moveDir.x)
-                } else if let held = heldTurnDir {
-                    wantDir = held
+                } else if heldTurnLeft {
+                    wantDir = (x: moveDir.y, y: -moveDir.x)
+                } else if heldTurnRight {
+                    wantDir = (x: -moveDir.y, y: moveDir.x)
                 } else {
                     wantDir = nil
                 }
@@ -1589,7 +1591,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         onBrownBox = false
         isUserPaused = false
         backing = false
-        heldTurnDir = nil
+        heldTurnLeft = false
+        heldTurnRight = false
         frightenSecondsLeft = 0
         bob = 0
         throbClock = 0
@@ -1770,11 +1773,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
 
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:
-            heldTurnDir = (x: moveDir.y, y: -moveDir.x)
-            wantDir = heldTurnDir
+            heldTurnLeft = true
+            wantDir = (x: moveDir.y, y: -moveDir.x)
         case KeyCode.arrowRight, KeyCode.keyD:
-            heldTurnDir = (x: -moveDir.y, y: moveDir.x)
-            wantDir = heldTurnDir
+            heldTurnRight = true
+            wantDir = (x: -moveDir.y, y: moveDir.x)
         case KeyCode.arrowDown,  KeyCode.keyS:  backing = !backing
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
@@ -1783,10 +1786,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     override func keyUp(with event: NSEvent) {
         pressed.remove(Int(event.keyCode))
         let code = Int(event.keyCode)
-        if code == KeyCode.arrowLeft || code == KeyCode.keyA ||
-           code == KeyCode.arrowRight || code == KeyCode.keyD {
-            heldTurnDir = nil
-        }
+        if code == KeyCode.arrowLeft || code == KeyCode.keyA { heldTurnLeft = false }
+        if code == KeyCode.arrowRight || code == KeyCode.keyD { heldTurnRight = false }
     }
 
     // MARK: - On-screen joystick + fire button (drive the same tank input)
@@ -1922,15 +1923,15 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         // this finger: left/right = 90° (combinable with forward), down = 180° about-face.
         if w != prev {
             if w.contains("left"),  !prev.contains("left")  {
-                heldTurnDir = (x: moveDir.y, y: -moveDir.x)
-                wantDir = heldTurnDir
+                heldTurnLeft = true
+                wantDir = (x: moveDir.y, y: -moveDir.x)
             }
             if w.contains("right"), !prev.contains("right") {
-                heldTurnDir = (x: -moveDir.y, y: moveDir.x)
-                wantDir = heldTurnDir
+                heldTurnRight = true
+                wantDir = (x: -moveDir.y, y: moveDir.x)
             }
-            if !w.contains("left") && prev.contains("left") { heldTurnDir = nil }
-            if !w.contains("right") && prev.contains("right") { heldTurnDir = nil }
+            if !w.contains("left") && prev.contains("left") { heldTurnLeft = false }
+            if !w.contains("right") && prev.contains("right") { heldTurnRight = false }
             if w == "down", prev != "down" { backing = true }
             if w != "down", prev == "down" { backing = false }
         }
