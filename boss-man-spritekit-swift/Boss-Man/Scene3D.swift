@@ -1259,8 +1259,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         // Hold ↑ = forward along facing, release = stop in tracks. ↓ is an about-face (wantDir), not reverse.
         let fwd = pressed.contains(KeyCode.arrowUp) || pressed.contains(KeyCode.keyW)
         let angleDone = abs(da) < 0.15
+        let atCenter = abs(px - ccx) < 0.4 && abs(py - ccy) < 0.4
+        if wantDir == nil && atCenter && (heldTurnLeft || heldTurnRight) {
+            if heldTurnLeft { wantDir = (x: moveDir.y, y: -moveDir.x) }
+            else if heldTurnRight { wantDir = (x: -moveDir.y, y: moveDir.x) }
+        }
         if let t = wantDir {
-            let atCenter = abs(px - ccx) < 0.4 && abs(py - ccy) < 0.4
             if (!fwd && angleDone) || (fwd && atCenter && open(col + t.x, row + t.y)) {
                 px = ccx
                 py = ccy
