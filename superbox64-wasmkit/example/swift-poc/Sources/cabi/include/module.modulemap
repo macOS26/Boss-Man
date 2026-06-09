@@ -1,4 +1,0 @@
-module cabi {
-    header "cabi.h"
-    export *
-}
