@@ -2,13 +2,13 @@
 # Build the FULL Boss-Man game as an Embedded-Swift wasm and (optionally) boot it.
 #
 # Proven pipeline: every framework module + the 48-file game compile under
-# -enable-experimental-feature Embedded, link with Box2D (C++) + the embedded
-# stdlib + WASI libc/libc++, and boot in the stock runtime.js (rendering the
-# title screen identically to the normal build).
+# -enable-experimental-feature Embedded, link with Box2D v3 (pure C) + the
+# embedded stdlib + WASI libc, and boot in the stock runtime.js (rendering the
+# title screen identically to the normal build). No C++ anywhere in the link.
 #
 # Prereqgs: swift 6.3.2 toolchain, the swift-6.3.2-RELEASE_wasm SDK, wasm-opt.
-# Run a normal `./build.sh release` in boss-man-spritekit-web first so the C/C++
-# objects (KitABI shim.c, Box2DBridge) are already compiled for wasm.
+# Run a normal `./build.sh release` in boss-man-spritekit-web first so the C
+# objects (KitABI shim.c) are already compiled for wasm.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -31,10 +31,15 @@ B="$(mktemp -d)"; mkdir -p "$B/src" "$B/mod"
 # .defaultIsolation(MainActor.self) by building with raw swiftc (no SwiftPM).
 strip() { sed -e 's/{ @MainActor in/{/g' -e 's/@MainActor //g' -e 's/@MainActor//g' "$1"; }
 
+# CBox2D's public headers pull libc headers (math.h/stdint.h); the bare-metal
+# Embedded target has no sysroot, so point the ClangImporter at wasi-libc's.
+SYSINC="$SDK/WASI.sdk/include/wasm32-wasip1"
 EMB=(-enable-experimental-feature Embedded -wmo -Osize -parse-as-library
      -target wasm32-unknown-none-wasm
      -Xcc -fmodule-map-file="$FW/Sources/KitABI/include/module.modulemap"
-     -I "$FW/Sources/KitABI/include" -I "$B/mod")
+     -Xcc -fmodule-map-file="$FW/Sources/CBox2D/include/module.modulemap"
+     -Xcc -isystem -Xcc "$SYSINC"
+     -I "$FW/Sources/KitABI/include" -I "$FW/Sources/CBox2D/include" -I "$B/mod")
 
 build_mod() {            # module name (deps already in $B/mod)
   local m="$1"; mkdir -p "$B/src/$m"
@@ -54,22 +59,18 @@ xcrun --toolchain swift swiftc "${EMB[@]}" -module-name BossMan -c "$B/src/game"
 echo "→ embedded runtime stubs (sb64 strtod / _initialize ctors / conformance)"
 "$CLANG" --target=wasm32-wasi -Os -c "$FW/embedded/embedded-stubs.c" -o "$B/stubs.o"
 
-echo "→ Box2D with -ffunction-sections (so --gc-sections strips unused joints/ropes/etc)"
-CLANGXX="$(find "$TC" -name clang++ | head -1)"
-mkdir -p "$B/box2d"; B2D="$FW/Sources/Box2DBridge"
-B2INC=(-I "$B2D/include" -I "$B2D/box2d-src" -I "$B2D/box2d-src/dynamics" -I "$B2D/box2d-src/collision"
-       -I "$B2D/box2d-src/common" -I "$B2D/box2d-src/rope" -I "$FW/Sources/KitABI/include")
-( cd "$B2D"
-  for f in cbox2d.cpp $(find box2d-src -name "*.cpp"); do
-    "$CLANGXX" --target=wasm32-unknown-wasip1 --sysroot="$SDK/WASI.sdk" -std=c++17 -Os -fno-exceptions -fno-rtti \
-      -ffunction-sections -fdata-sections "${B2INC[@]}" -c "$f" -o "$B/box2d/$(echo "$f"|tr '/' '_').o"
-  done )
+echo "→ Box2D v3 (pure C) with -ffunction-sections (so --gc-sections strips unused joints/etc)"
+mkdir -p "$B/box2d"; B2D="$FW/Sources/CBox2D"
+for f in "$B2D"/src/*.c; do
+  "$CLANG" --target=wasm32-unknown-wasip1 --sysroot="$SDK/WASI.sdk" -std=c17 -Os \
+    -ffunction-sections -fdata-sections -I "$B2D/include" -c "$f" -o "$B/box2d/$(basename "$f").o"
+done
 
-echo "→ link (Swift + KitABI shim + Box2D + embedded stdlib + WASI libc/libc++), --gc-sections"
+echo "→ link (Swift + KitABI shim + Box2D v3 + embedded stdlib + WASI libc), --gc-sections"
 SHIM="$ROOT/boss-man-spritekit-web/.build/wasm32-unknown-wasip1/release/KitABI.build/shim.c.o"
 "$WASMLD" --no-entry --gc-sections --export=boot --export=frame --export=_initialize --export=memory --allow-undefined \
   -L "$SYSLIB" -o "$B/bossman-embedded.wasm" \
-  "$B"/mod/*.o "$SHIM" "$B"/box2d/*.o "$B/stubs.o" "$UNI" -lc -lm -lc++ -lc++abi
+  "$B"/mod/*.o "$SHIM" "$B"/box2d/*.o "$B/stubs.o" "$UNI" -lc -lm
 
 wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
   --enable-mutable-globals --enable-multivalue "$B/bossman-embedded.wasm" -o "$B/bossman-embedded-oz.wasm"

@@ -1,8 +1,8 @@
 name: Build Embedded Swift WASM
 
 # Builds the FULL Boss-Man game with -enable-experimental-feature Embedded:
-# every framework module + the game compile to Embedded Swift, link with Box2D
-# (function-sections + --gc-sections, so only the physics the game uses is kept),
+# every framework module + the game compile to Embedded Swift, link with Box2D v3
+# (pure C; function-sections + --gc-sections, so only the physics the game uses is kept),
 # the embedded stdlib, and WASI libc/libc++. Produces a ~782 KB wasm (vs 4.9 MB
 # normal). Runs on the embedded branch — the game's web Package.swift there points
 # at the framework's `embedded` branch. See docs/embedded/build-embedded-game.sh.
@@ -54,7 +54,7 @@ jobs:
         run: brew install binaryen --quiet
 
       # Normal build first: fetches the framework (embedded branch, per the web
-      # Package.swift) and compiles the C/C++ objects (KitABI shim.c, Box2DBridge)
+      # Package.swift) and compiles the C objects (KitABI shim.c)
       # the Embedded link reuses.
       - name: Normal build (produces C/C++ objects + framework checkout)
         working-directory: boss-man-spritekit-web
