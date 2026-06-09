@@ -75,9 +75,9 @@ at launch and again during gameplay:
 | Process | At launch | In game |
 |---|---|---|
 | bossman://app (WKWebView content) | 168.1 MB | 233.8 MB |
-| Boss-Man-wk Graphics and Media | 90.4 MB | 114.1 MB |
-| Boss-Man-wk (host app) | 26.1 MB | 26.0 MB |
-| Boss-Man-wk Networking | 6.0 MB | 5.9 MB |
+| Graphics and Media | 90.4 MB | 114.1 MB |
+| Host app | 26.1 MB | 26.0 MB |
+| Networking | 6.0 MB | 5.9 MB |
 | **Total** | **~290 MB** | **~380 MB** |
 
 ## Run
