@@ -17,7 +17,7 @@ enum Levels {
 
     private static func loadFromAsset() -> [[String]]? {
         guard let text = SKSceneLoader.loadAssetText("levels.json"),
-              let obj = parseJSON(text)?.objectValue else { return nil }
+              let obj = parseJSON(text) else { return nil }
         return levelNames.map { name in
             guard let rows = obj[name]?.arrayValue else { return emptyLevelRows() }
             return rows.compactMap { $0.stringValue }

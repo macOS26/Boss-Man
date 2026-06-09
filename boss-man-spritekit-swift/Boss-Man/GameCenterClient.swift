@@ -1,6 +1,5 @@
 import GameKit
 
-@MainActor
 enum GameCenterClient {
     static var authenticationResolved = false
 

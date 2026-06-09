@@ -1,4 +1,3 @@
-@MainActor
 final class GoldDiscTimer {
     private(set) var isActive = false
 

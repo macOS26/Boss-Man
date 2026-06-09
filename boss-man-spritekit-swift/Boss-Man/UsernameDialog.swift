@@ -14,7 +14,6 @@ import SpriteKit
 //
 // The dialog absorbs all input while open, GameScene checks the active
 // dialog before routing keys to the gameplay handler.
-@MainActor
 final class UsernameDialog: SKNode {
 
     static let nodeName = "usernameDialog"

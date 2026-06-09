@@ -7,7 +7,6 @@ import AVFoundation
 // toward the exit. After firstVisitDelay (or respawnDelay after one exits/is
 // caught) the next traveler from the level table walks across the floor.
 // Shared by both ports, the only platform branch is loading the traveler image.
-@MainActor
 final class TravelerSpawner {
     #if hasFeature(Embedded)
     private unowned(unsafe) var scene: SKScene?

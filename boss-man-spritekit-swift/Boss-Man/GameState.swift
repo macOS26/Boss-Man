@@ -1,4 +1,3 @@
-@MainActor
 final class GameState {
     static let highScoreKey = Strings.DefaultsKey.highScore
 
@@ -62,7 +61,6 @@ final class GameState {
 
 // MARK: - Shared level completion (one path for every game mode)
 
-@MainActor
 protocol LevelCompletionHost: AnyObject {
     var state: GameState { get }
     var hud: HUD! { get }

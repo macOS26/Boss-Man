@@ -807,7 +807,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                          dots: state.collectedDots, total: state.dotCount,
                          reports: state.tpsReportsDelivered, items: state.reportItems)
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1, blueMode: false)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
         hud.updateLevelEmojis(Array(levelTravelers.prefix(1)))
     }
 

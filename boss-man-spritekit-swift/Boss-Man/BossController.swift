@@ -1,7 +1,6 @@
 import AppKit
 import SpriteKit
 
-@MainActor
 protocol BossControllerDelegate: AnyObject {
     var workerGrid: CGPoint { get }
     var workerDirection: MoveDirection? { get }
@@ -14,7 +13,6 @@ protocol BossControllerDelegate: AnyObject {
     func dropletAxisThreatening(_ grid: CGPoint) -> MoveDirection?
 }
 
-@MainActor
 final class BossController {
     struct Entity {
         let name: String

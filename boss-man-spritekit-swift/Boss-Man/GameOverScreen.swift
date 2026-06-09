@@ -12,7 +12,6 @@ import SpriteKit
 // Laid out in scene coordinates (the node sits at the origin), so the stored hit
 // rects compare directly against tap points. Input is routed here by GameScene
 // while the screen is shown.
-@MainActor
 final class GameOverScreen: SKNode {
 
     static let nodeName = "gameOverScreen"

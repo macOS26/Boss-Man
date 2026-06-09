@@ -1,7 +1,6 @@
 import AppKit
 import SpriteKit
 
-@MainActor
 final class GameOverScene: SKScene {
 
     private let score: Int

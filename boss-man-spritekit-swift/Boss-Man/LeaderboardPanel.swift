@@ -2,7 +2,6 @@ import AppKit
 import GameKit
 import SpriteKit
 
-@MainActor
 final class LeaderboardPanel: SKNode {
     static let leaderboardID = Strings.GameCenter.leaderboardID
 
@@ -165,24 +164,26 @@ final class LeaderboardPanel: SKNode {
             showStatus(Strings.App.loading)
         }
     }
-    #endif
 
     private func fetchEntries() {
         GKLeaderboard.loadLeaderboards(IDs: [Self.leaderboardID]) { boards, _ in
             guard let board = boards?.first else {
-                self.renderLocalFallback()
+                runOnMain { self.renderLocalFallback() }
                 return
             }
             board.loadEntries(for: .global, timeScope: .allTime, range: NSRange(location: 1, length: 10)) { _, entries, _, _ in
                 let es = entries ?? []
-                if es.isEmpty {
-                    self.renderLocalFallback()
-                } else {
-                    self.render(entries: es)
+                runOnMain {
+                    if es.isEmpty {
+                        self.renderLocalFallback()
+                    } else {
+                        self.render(entries: es)
+                    }
                 }
             }
         }
     }
+    #endif
 
     private func renderLocalFallback() {
         let locals = LocalHighScores.load()
@@ -209,7 +210,7 @@ final class LeaderboardPanel: SKNode {
         }
     }
 
-    private func render(entries: [GKLeaderboardEntry]) {
+    private func render(entries: [GKLeaderboard.Entry]) {
         titleLabel.fontColor = .black
         entriesNode.removeAllChildren()
         let rowHeight: CGFloat = 28

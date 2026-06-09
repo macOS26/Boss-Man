@@ -1,13 +1,11 @@
 import AppKit
 import SpriteKit
 
-@MainActor
 protocol WorkerControllerDelegate: AnyObject {
     var isGameOver: Bool { get }
     func workerDidEnterTile(_ grid: CGPoint)
 }
 
-@MainActor
 final class WorkerController {
     #if hasFeature(Embedded)
     unowned(unsafe) var delegate: WorkerControllerDelegate?

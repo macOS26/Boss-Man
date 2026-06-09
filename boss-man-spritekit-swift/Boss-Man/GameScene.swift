@@ -963,7 +963,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             reports: state.tpsReportsDelivered, items: state.reportItems
         )
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1, blueMode: goldDisc.isActive)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
         let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1
         hud.updateLevelEmojis(Array(levelTravelers.prefix(cyclePosition)))
     }
