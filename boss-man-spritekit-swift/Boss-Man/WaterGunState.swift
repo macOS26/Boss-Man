@@ -15,8 +15,9 @@ final class WaterGunState {
     }
 
     func consumePellet() -> Bool {
-        if !isActive || pelletsRemaining == 0 { activate() }
+        guard isActive, pelletsRemaining > 0 else { return false }
         pelletsRemaining -= 1
+        if pelletsRemaining == 0 { deactivate() }
         return true
     }
 

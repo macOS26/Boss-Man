@@ -805,7 +805,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                          dots: state.collectedDots, total: state.dotCount,
                          reports: state.tpsReportsDelivered, items: state.reportItems)
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining, blueMode: false)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1, blueMode: false)
         hud.updateLevelEmojis(Array(levelTravelers.prefix(1)))
     }
 
@@ -1533,14 +1533,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         pendingLevelComplete = false
         deathTimeLeft = 0
         peteShielded = false
-        waterGunPickedUp = true
+        waterGunPickedUp = false
         onBrownBox = false
         isUserPaused = false
         frightenSecondsLeft = 0
         bob = 0
         throbClock = 0
         lastUpdateTime = 0
-        waterGun.activate()
+        waterGun.deactivate()
         goldDisc.deactivate()
         pressed.removeAll()
         collected.removeAll()
