@@ -61,10 +61,6 @@ else
   echo "✓ Debug artifact published: web/bossman.wasm"
 fi
 
-# runtime.js comes from wasmkit - try to copy it if available
-if [ -f "../superbox64-wasmkit/runtime.js" ]; then
-  cp ../superbox64-wasmkit/runtime.js web/
-elif [ ! -f "web/runtime.js" ]; then
-  echo "ERROR: runtime.js not found in wasmkit or web/" >&2
-  exit 1
-fi
+source ../superbox64-wasmkit/build.sh
+wasmweb_manifest web/assets web/manifest.json
+cp ../superbox64-wasmkit/runtime.js web/
