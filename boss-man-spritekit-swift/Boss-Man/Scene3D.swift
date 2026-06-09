@@ -1913,7 +1913,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
             return
         }
         if radius(p, joystickCenter) <= joystickRadius {
-            #if os(WASI)
+            #if os(WASI) || hasFeature(Embedded)
             if !joyFingers.isEmpty {
                 let newDir = dpadWedgeAt(p)
                 let hasUp = dpadFinger.values.contains { $0.contains("up") }
