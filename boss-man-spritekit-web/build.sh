@@ -62,4 +62,3 @@ else
 fi
 
 cp ../superbox64-wasmkit/runtime.js web/
-cp ../superbox64-wasmkit/shell.html web/server.html
