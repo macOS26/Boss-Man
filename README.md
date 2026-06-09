@@ -21,14 +21,14 @@ Grab the latest macOS build, signed, notarized, and ready to play:
 
 ### Code Signing & Verification
 
-All releases are cryptographically signed:
-- **macOS**: Signed and notarized by Apple (Developer ID certificate)
-- **Windows / Linux / Android**: Signed with [Sigstore](https://www.sigstore.dev/) (free, open-source code signing)
+**macOS**: Signed and notarized by Apple (Developer ID certificate)
 
-**Verify a Windows release** with Sigstore:
+**Windows**: Signed with [Sigstore](https://www.sigstore.dev/) (free, open-source code signing)
 ```bash
 sigstore verify github --certificate Boss-Man-Windows-x64.zip.crt Boss-Man-Windows-x64.zip
 ```
+
+**Linux & Android**: Distributed unsigned (standard practice for these platforms)
 
 ## Official Website
 
