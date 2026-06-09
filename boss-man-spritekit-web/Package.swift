@@ -14,7 +14,7 @@ import PackageDescription
 let package = Package(
     name: "BossManSpriteKit",
     dependencies: [
-        .package(url: "https://github.com/macOS26/superbox64-spritekit", branch: "main"),
+        .package(url: "https://github.com/macOS26/superbox64-spritekit", branch: "embedded"),
     ],
     targets: [
         .executableTarget(
