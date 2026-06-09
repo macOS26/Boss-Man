@@ -103,7 +103,7 @@ First-person. You are Pete, walking through the office corridors. The walls are 
 
 #### VOXEL — LABYRINTH (1994)
 
-Column-by-column voxel painting, the technique that powered **NovaLogic's Comanche** helicopter series. The world is not a polygon mesh and there is no raycaster: the renderer walks the camera frustum column by column, projecting each wall face as a depth-correct quad using the exact same face-corner projection math as the Swift master, then stacking voxel slabs from the floor up. A gradient sky dome and sun-glow light shafts fill the upper half of the screen. The floor checker uses perspective-correct distancing, giving the corridors a convincing sense of depth without a z-buffer. VOXEL is the mode that answers the question: what if the office maze was a combat zone rendered by a 1994 terrain engine? The Comanche inspiration is unmistakable in the earth-toned depth shading and the way solid geometry rises out of the floor.
+Column-by-column voxel painting, the technique that powered **NovaLogic's Comanche** helicopter series. The world is not a polygon mesh and there is no raycaster: the renderer walks the camera frustum column by column, projecting each wall face as a depth-correct quad using the exact same face-corner projection math as the Swift master, then stacking voxel slabs from the floor up. A gradient sky dome and sun-glow light shafts fill the upper half of the screen. The floor checker uses perspective-correct distancing, giving the corridors a convincing sense of depth without a z-buffer. VOXEL is the mode feels like a mouse trapped in an endless maze.
 
 ## Lives
 
