@@ -174,3 +174,37 @@ embedded framework branch; the `JSONValue` parser reproduces `levels.json` exact
 
 When merging back: framework `embedded` → framework `main`, then flip the game's web
 `Package.swift` dependency from `branch: "embedded"` back to `branch: "main"`.
+
+## P3 results — first Embedded wasm + size, and the full-game scope
+
+**Size (the payoff).** Built a real Embedded wasm: the whole Embedded-clean
+SpriteKit framework + a scene/sprite/label reactor (`docs/embedded/build-embedded-wasm.sh`).
+
+| Build | raw | gzip-9 |
+|-------|-----|--------|
+| Normal full-game wasm (baseline) | 4.90 MB | 1.80 MB |
+| Embedded SpriteKit core (wasm-opt -Oz) | **60.3 KB** | **23.8 KB** |
+| Embedded floor (trivial reactor) | 548 B | — |
+
+The normal build's bulk is the Swift stdlib runtime + reflection metadata + ICU,
+which Embedded drops entirely.
+
+**All 10 framework modules are Embedded-clean.** Compiling SpriteKit + AppKit +
+UIKit + GameKit + GameController + AVFoundation + Combine + SwiftUI + AudioToolbox
++ GameplayKit under Embedded produced 0 restriction errors (the lone diagnostic was
+a cross-module `import` artifact of the single-WMO probe).
+
+**Box2D (correction).** Box2D IS the physics engine and the game uses it heavily:
+game `physicsBody` → `SKPhysics.swift` (31 `cb_*` calls) → C ABI in `KitABI.h` →
+`Box2DBridge/cbox2d.cpp` + `box2d-src` (C++, `libcbox2d.a`). It is NOT an Embedded
+blocker because the Swift↔Box2D boundary is a **plain C ABI** (Embedded Swift fully
+supports calling C), and the C++ is compiled separately by clang and linked at the
+wasm level exactly as in the normal build — Embedded Swift never sees the C++.
+
+**Remaining for a full Embedded game build (P3 wrap):**
+1. `@MainActor`: drop `.defaultIsolation(MainActor.self)` for the Embedded variant
+   (single-threaded wasm). Build-setting/Package change, not source. 27 game annotations.
+2. ICU `String` ops (~10 symbols) — gate the few Unicode-heavy calls.
+3. Per-module Embedded build graph (emit each module's Embedded `.swiftmodule`, then
+   the game) + link the clang-compiled C/C++ (`KitABI` shim, `libcbox2d.a`) — wired
+   like the normal build but with the Embedded flag and `wasm32-unknown-none-wasm`.
