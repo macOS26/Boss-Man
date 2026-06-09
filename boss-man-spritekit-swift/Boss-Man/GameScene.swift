@@ -468,9 +468,10 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             let pos = bossNode.position
             bossController.splash(boss: bossNode)
             sound.playWaterGunSplash()
-            state.bumpScore(by: waterHitPoints)
+            let points = isGoldDiscMode && bossController.isInFleeMode(boss: bossNode) ? bossController.nextCapturePoints : waterHitPoints
+            state.bumpScore(by: points)
             spawnWaterSplash(at: pos)
-            ScorePopup.show(waterHitPoints, at: pos, in: self,
+            ScorePopup.show(points, at: pos, in: self,
                             color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
             hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
             if let idx = waterDroplets.firstIndex(where: { $0 === dropletNode }) { waterDroplets.remove(at: idx) }
