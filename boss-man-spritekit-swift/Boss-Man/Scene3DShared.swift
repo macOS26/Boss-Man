@@ -27,16 +27,7 @@ func dpadCardinal(_ p: CGPoint, center: CGPoint, deadzone: CGFloat, radius: CGFl
     let dx = p.x - center.x, dy = p.y - center.y
     let mag = (dx * dx + dy * dy).squareRoot()
     if mag < deadzone || mag > radius { return "" }
-    let absDx = abs(dx), absDy = abs(dy)
-    let maxAxis = max(absDx, absDy)
-    let isDiagonal = absDx > 0 && absDy > 0 && min(absDx, absDy) > maxAxis * 0.4
-
-    if isDiagonal {
-        var result = dy > 0 ? "up" : "down"
-        result += dx > 0 ? "right" : "left"
-        return result
-    }
-    if absDx >= absDy { return dx > 0 ? "right" : "left" }
+    if abs(dx) >= abs(dy) { return dx > 0 ? "right" : "left" }
     return dy > 0 ? "up" : "down"
 }
 
@@ -67,6 +58,18 @@ func buildDpadFace(in parent: SKNode, center: CGPoint, inner: CGFloat, outer: CG
         arrow.position = CGPoint(x: center.x + cos(ang) * r, y: center.y + sin(ang) * r)
         arrow.zPosition = z + 1
         parent.addChild(arrow)
+    }
+    let comboWedges: [(String, CGFloat)] = [("upright", .pi / 4), ("upleft", 3 * .pi / 4),
+                                            ("downleft", 5 * .pi / 4), ("downright", 7 * .pi / 4)]
+    for (name, ang) in comboWedges {
+        let w = SKShapeNode(path: dpadWedgePath(centerAngle: ang, inner: inner, outer: outer))
+        w.position = center
+        w.fillColor = SKColor(white: 1, alpha: 0)
+        w.strokeColor = .clear
+        w.lineWidth = 0
+        w.zPosition = z
+        parent.addChild(w)
+        wedges[name] = w
     }
     let xPath = CGMutablePath()
     for k in 0..<4 {
