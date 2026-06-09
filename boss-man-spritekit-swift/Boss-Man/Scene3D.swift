@@ -120,6 +120,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     var shots: [Shot] = []
     var gameOver = false
     var dying = false
+    var pendingLevelComplete = false
     var deathTimeLeft = 0.0
     let deathFrames = 90   // 1.5s at 60fps: hold the catcher on screen
     var pressed = Set<Int>()
@@ -1173,6 +1174,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let dt = min(currentTime - lastUpdateTime, 1.0 / 20.0)
         lastUpdateTime = currentTime
         if isUserPaused || gameOver { return }
+        if pendingLevelComplete {
+            performNextLevel()
+            return
+        }
         if dying {
             updateDeath(dt: dt)
             return
@@ -1511,6 +1516,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         checkLevelComplete()
     }
     func startNextLevel() {
+        pendingLevelComplete = true
+    }
+
+    func performNextLevel() {
+        pendingLevelComplete = false
         state.advanceLevel()
         resetSceneAndBuild()
         hud.showMessage(Strings.Message.levelLoaded(state.level), duration: 3)
@@ -1520,6 +1530,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         sound.stopAllAudio()
         gameOver = false
         dying = false
+        pendingLevelComplete = false
         deathTimeLeft = 0
         peteShielded = false
         waterGunPickedUp = true
