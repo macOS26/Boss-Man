@@ -1581,6 +1581,8 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         placeStart()
         buildSky()
         buildColumns()
+        spriteLayer.removeFromParent()
+        nameLayer.removeFromParent()
         spriteLayer.zPosition = 1
         addChild(spriteLayer)
         nameLayer.zPosition = 150

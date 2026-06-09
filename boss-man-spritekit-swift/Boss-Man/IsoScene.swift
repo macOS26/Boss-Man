@@ -1006,6 +1006,11 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
 
     override func rebuildLevel() {
         placeStart()
+        isoWorld.removeFromParent()
+        isoMaze.removeFromParent()
+        spriteLayer.removeFromParent()
+        nameLayer.removeFromParent()
+        workerHost.removeFromParent()
         isoWorld.zPosition = 0
         addChild(isoWorld)
         isoWorld.addChild(isoMaze)
