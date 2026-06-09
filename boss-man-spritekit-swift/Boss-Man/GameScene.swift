@@ -669,10 +669,12 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
 
     // MARK: - Level / game flow
     func startNextLevel() {
-        guard !isUserPaused else { return }
-        isUserPaused = true
+        guard uiLayer.childNode(withName: "levelFadeCover") == nil else { return }
         let tune = sound.playLevelComplete(forLevel: state.level)
+        bossController.freezeAll()
+        workerController.resetMotion()
         let cover = makeLevelFadeCover()
+        cover.name = "levelFadeCover"
         cover.alpha = 0
         uiLayer.addChild(cover)
         cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), .run { [weak self] in
@@ -683,9 +685,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             let cover2 = self.makeLevelFadeCover()
             cover2.alpha = 1
             self.uiLayer.addChild(cover2)
-            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), .run { [weak self] in
-                self?.isUserPaused = false
-            }]))
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent()]))
             self.hud.showMessage(Strings.Message.levelLoaded(self.state.level), duration: 3)
         }]))
     }

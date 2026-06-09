@@ -298,6 +298,13 @@ final class BossController {
         }
     }
 
+    func freezeAll() {
+        for i in entities.indices {
+            entities[i].isImmobilized = true
+            entities[i].node.stopWalking()
+        }
+    }
+
     // MARK: - Gold disc
     func setGoldDiscActive(_ active: Bool) {
         captureStreak = 0
