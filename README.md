@@ -19,6 +19,17 @@ Grab the latest macOS build, signed, notarized, and ready to play:
 
 [github.com/macOS26/Boss-Man/releases](https://github.com/macOS26/Boss-Man/releases)
 
+### Code Signing & Verification
+
+All releases are cryptographically signed:
+- **macOS**: Signed and notarized by Apple (Developer ID certificate)
+- **Windows / Linux / Android**: Signed with [Sigstore](https://www.sigstore.dev/) (free, open-source code signing)
+
+**Verify a Windows release** with Sigstore:
+```bash
+sigstore verify github --certificate Boss-Man-Windows-x64.zip.crt Boss-Man-Windows-x64.zip
+```
+
 ## Official Website
 
 Screenshots, trailers, leaderboards, web and desktop version and more:
