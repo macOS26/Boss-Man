@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var webView: WKWebView!
 
     private static let nativeWindowMessage = "nativeWindow"
+    private static let nativeDownloadMessage = "nativeDownload"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
@@ -26,7 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         let controller = WKUserContentController()
         controller.add(self, name: Self.nativeWindowMessage)
+        controller.add(self, name: Self.nativeDownloadMessage)
         controller.addUserScript(WKUserScript(source: Self.fullscreenBridgeJS, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        controller.addUserScript(WKUserScript(source: Self.downloadBridgeJS, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         controller.addUserScript(WKUserScript(source: Self.chromelessCSS, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         configuration.userContentController = controller
 
@@ -73,8 +76,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     // MARK: - Fullscreen bridge (in-game button -> native window)
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.name == Self.nativeWindowMessage,
-              let body = message.body as? [String: Any],
+        switch message.name {
+        case Self.nativeWindowMessage:   handleWindowMessage(message)
+        case Self.nativeDownloadMessage: handleDownloadMessage(message)
+        default: break
+        }
+    }
+
+    private func handleWindowMessage(_ message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
               let action = body["action"] as? String,
               let window else { return }
 
@@ -84,6 +94,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         case "exit":   if isFullscreen { window.toggleFullScreen(nil) }
         case "toggle": window.toggleFullScreen(nil)
         default: break
+        }
+    }
+
+    // The editor's SHOW button triggers a blob <a download> the WKWebView ignores.
+    // The download bridge posts the file here; write it to ~/Downloads and reveal
+    // it in Finder, matching the native macOS "Reveal File" behavior.
+    private func handleDownloadMessage(_ message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
+              let name = body["name"] as? String,
+              let data = body["data"] as? String else { return }
+        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
+        let dest = downloads.appendingPathComponent(name.isEmpty ? "levels.json" : name)
+        do {
+            try data.write(to: dest, atomically: true, encoding: .utf8)
+            NSWorkspace.shared.activateFileViewerSelecting([dest])
+        } catch {
+            NSLog("Boss-Man: download save failed for \(dest.path): \(error)")
         }
     }
 
@@ -150,6 +178,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         }
         fire('fullscreenchange');
         fire('webkitfullscreenchange');
+      };
+    })();
+    """
+
+    // The runtime downloads files (levels.json from the editor's SHOW button) by
+    // clicking a blob <a download>, which a WKWebView drops on the floor. Catch
+    // that click, read the blob text, and hand it to the native side to save +
+    // reveal. Only download anchors are intercepted; normal links are untouched.
+    private static let downloadBridgeJS = """
+    (function () {
+      var mh = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeDownload;
+      if (!mh) return;
+      var origClick = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () {
+        try {
+          if (this.download && this.href && this.href.indexOf('blob:') === 0) {
+            var name = this.download;
+            fetch(this.href).then(function (r) { return r.text(); }).then(function (text) {
+              try { mh.postMessage({ name: name, data: text }); } catch (e) {}
+            });
+            return;
+          }
+        } catch (e) {}
+        return origClick.apply(this, arguments);
       };
     })();
     """
