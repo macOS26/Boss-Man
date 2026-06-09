@@ -62,7 +62,7 @@ echo "→ embedded runtime stubs (sb64 strtod / _initialize ctors / conformance)
 echo "→ Box2D v3 (pure C) with -ffunction-sections (so --gc-sections strips unused joints/etc)"
 mkdir -p "$B/box2d"; B2D="$FW/Sources/CBox2D"
 for f in "$B2D"/src/*.c; do
-  "$CLANG" --target=wasm32-unknown-wasip1 --sysroot="$SDK/WASI.sdk" -std=c17 -Os \
+  "$CLANG" --target=wasm32-unknown-wasip1 --sysroot="$SDK/WASI.sdk" -std=c17 -Os -DNDEBUG \
     -ffunction-sections -fdata-sections -I "$B2D/include" -c "$f" -o "$B/box2d/$(basename "$f").o"
 done
 
