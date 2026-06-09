@@ -1,0 +1,83 @@
+name: Build Swift WASM (Local Browser Bundle)
+
+# Builds the Swift SpriteKit WASM, runs the wasm-web-kit bundler (bundle.py) to
+# inline the wasm + every asset into bundle.js, and ships a self-contained web/
+# folder that plays from file:/// in any browser by double-clicking index.html.
+# index.html is the iframe launcher (autoplay + fullscreen) that loads local.html.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'boss-man-spritekit-web/**'
+      - '.github/workflows/build-swift-wasm.yml'
+    tags: ['pre-*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Self-contained file:// bundle
+    runs-on: macos-15
+    env:
+      SWIFT_VERSION: 6.3.2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift ${{ env.SWIFT_VERSION }} toolchain
+        run: |
+          set -euo pipefail
+          PKG="swift-${SWIFT_VERSION}-RELEASE-osx.pkg"
+          URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/xcode/swift-${SWIFT_VERSION}-RELEASE/${PKG}"
+          curl -fL --retry 3 -o "/tmp/${PKG}" "$URL"
+          installer -pkg "/tmp/${PKG}" -target CurrentUserHomeDirectory
+          TC_DIR=$(ls -d ~/Library/Developer/Toolchains/swift-${SWIFT_VERSION}-RELEASE*.xctoolchain | head -1)
+          TC_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$TC_DIR/Info.plist")
+          echo "TOOLCHAINS=$TC_ID" >> $GITHUB_ENV
+
+      - name: Install wasm SDK
+        run: |
+          set -euo pipefail
+          BUNDLE="swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz"
+          BASE="https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm-sdk/swift-${SWIFT_VERSION}-RELEASE"
+          curl -fL --retry 3 -o "/tmp/${BUNDLE}" "${BASE}/${BUNDLE}"
+          CHECKSUM=$(shasum -a 256 "/tmp/${BUNDLE}" | awk '{print $1}')
+          xcrun --toolchain "$TOOLCHAINS" swift sdk install "/tmp/${BUNDLE}" --checksum "${CHECKSUM}"
+
+      - name: Install wasm-opt (Binaryen)
+        run: brew install binaryen --quiet
+
+      - name: Build boss-man-spritekit-web
+        working-directory: boss-man-spritekit-web
+        run: SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
+
+      - name: Bundle assets for file:// playability
+        working-directory: boss-man-spritekit-web
+        run: python3 ../superbox64-wasmkit/scripts/bundle.py web bossman.wasm
+
+      - name: Package self-contained bundle
+        working-directory: boss-man-spritekit-web/web
+        run: |
+          set -euo pipefail
+          zip -r ../../Boss-Man-Web.zip \
+            index.html local.html bundle.js runtime.js
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boss-man-web-bundle
+          path: Boss-Man-Web.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "$TAG" --notes "" --prerelease
+          gh release upload "$TAG" Boss-Man-Web.zip --clobber

@@ -107,18 +107,16 @@ jobs:
           Compress-Archive -Path boss-man-windows-webview/dist/* `
             -DestinationPath "Boss-Man-Windows-${{ matrix.arch }}.zip"
 
-      - uses: sigstore/gh-action-sigstore-python@v2
+      - uses: sigstore/gh-action-sigstore-python@v3.3.0
         with:
           inputs: Boss-Man-Windows-${{ matrix.arch }}.zip
-          release: true
 
       - uses: actions/upload-artifact@v4
         with:
           name: boss-man-windows-webview-${{ matrix.arch }}
           path: |
             Boss-Man-Windows-${{ matrix.arch }}.zip
-            Boss-Man-Windows-${{ matrix.arch }}.zip.sig
-            Boss-Man-Windows-${{ matrix.arch }}.zip.crt
+            Boss-Man-Windows-${{ matrix.arch }}.zip.sigstore.json
           if-no-files-found: error
 
       - name: Attach to GitHub Release
@@ -133,6 +131,5 @@ jobs:
             gh release create "$TAG" --title "$TAG" --notes "" --prerelease
           gh release upload "$TAG" \
             "Boss-Man-Windows-${{ matrix.arch }}.zip" \
-            "Boss-Man-Windows-${{ matrix.arch }}.zip.sig" \
-            "Boss-Man-Windows-${{ matrix.arch }}.zip.crt" \
+            "Boss-Man-Windows-${{ matrix.arch }}.zip.sigstore.json" \
             --clobber
