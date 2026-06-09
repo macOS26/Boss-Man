@@ -936,8 +936,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 bossController.splash(boss: e.node)
                 shots[i].alive = false
                 sound.playWaterGunSplash()
-                state.bumpScore(by: 50)
-                popPoints(50)
+                let points = goldDisc.isActive && bossController.isInFleeMode(boss: e.node) ? bossController.nextCapturePoints : 50
+                state.bumpScore(by: points)
+                popPoints(points)
                 refreshHUD()
                 splash.position = CGPoint(x: hitPt.x, y: hitPt.y + 15)
                 splash.zPosition = CGFloat(hitRow) * 4 + 2

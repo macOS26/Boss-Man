@@ -1401,8 +1401,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                     bossController.splash(boss: e.node)   // real splash + loop-driven 5s respawn
                     shots[i].alive = false
                     sound.playWaterGunSplash()
-                    state.bumpScore(by: 50)
-                    popPoints(50)
+                    let points = goldDisc.isActive && bossController.isInFleeMode(boss: e.node) ? bossController.nextCapturePoints : 50
+                    state.bumpScore(by: points)
+                    popPoints(points)
                     refreshHUD()
                     splash.position = hitAt
                     splash.zPosition = hitZ + 1
