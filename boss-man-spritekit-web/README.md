@@ -69,15 +69,16 @@ The current deploy (v56) brings:
 
 ### Memory footprint (macOS WebView app, pre-1.0.8-embedded)
 
-Activity Monitor on the notarized Boss-Man-wk.app running the Embedded wasm:
+Activity Monitor on the notarized Boss-Man-wk.app running the Embedded wasm,
+at launch and again during gameplay:
 
-| Process | RAM |
-|---|---|
-| bossman://app (WKWebView content) | 168.1 MB |
-| Boss-Man-wk Graphics and Media | 90.4 MB |
-| Boss-Man-wk (host app) | 26.1 MB |
-| Boss-Man-wk Networking | 6.0 MB |
-| **Total** | **~290 MB** |
+| Process | At launch | In game |
+|---|---|---|
+| bossman://app (WKWebView content) | 168.1 MB | 233.8 MB |
+| Boss-Man-wk Graphics and Media | 90.4 MB | 114.1 MB |
+| Boss-Man-wk (host app) | 26.1 MB | 26.0 MB |
+| Boss-Man-wk Networking | 6.0 MB | 5.9 MB |
+| **Total** | **~290 MB** | **~380 MB** |
 
 ## Run
 
