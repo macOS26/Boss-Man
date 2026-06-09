@@ -67,6 +67,18 @@ The current deploy (v56) brings:
 - Box2D built with `-DNDEBUG`, so its assert machinery and message strings
   are gone
 
+### Memory footprint (macOS WebView app, pre-1.0.8-embedded)
+
+Activity Monitor on the notarized Boss-Man-wk.app running the Embedded wasm:
+
+| Process | RAM |
+|---|---|
+| bossman://app (WKWebView content) | 168.1 MB |
+| Boss-Man-wk Graphics and Media | 90.4 MB |
+| Boss-Man-wk (host app) | 26.1 MB |
+| Boss-Man-wk Networking | 6.0 MB |
+| **Total** | **~290 MB** |
+
 ## Run
 
 The `web/` folder ships three host pages:
