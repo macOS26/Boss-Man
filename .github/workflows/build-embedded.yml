@@ -66,5 +66,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: bossman-embedded-wasm
-          path: boss-man-spritekit-web/web/bossman-embedded.wasm
+          path: |
+            boss-man-spritekit-web/web/bossman-embedded.wasm
+            boss-man-spritekit-web/web/runtime-embedded-min.js
           if-no-files-found: error

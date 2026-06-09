@@ -15,6 +15,8 @@ set -eo pipefail
 if [ ! -d "../superbox64-wasmkit" ]; then
   echo "→ Cloning superbox64-wasmkit..."
   git clone https://github.com/macOS26/superbox64-wasmkit ../superbox64-wasmkit
+else
+  git -C ../superbox64-wasmkit pull --ff-only -q 2>/dev/null || true   # keep the runtime clone fresh
 fi
 
 SWIFT_TOOLCHAIN="${SWIFT_TOOLCHAIN:-org.swift.6.3.2-release}"
@@ -63,5 +65,7 @@ fi
 
 source ../superbox64-wasmkit/build.sh
 wasmweb_manifest web/assets web/manifest.json
-rm -f web/runtime.js
+rm -f web/runtime.js web/runtime-embedded-min.js
 cp ../superbox64-wasmkit/runtime.js web/runtime.js
+# Minified runtime used by the Embedded build + the website (smaller, same behavior).
+cp ../superbox64-wasmkit/runtime-embedded-min.js web/runtime-embedded-min.js
