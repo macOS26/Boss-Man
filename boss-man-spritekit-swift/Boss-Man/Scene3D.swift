@@ -1892,14 +1892,29 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
 
     // MARK: - Multi-touch D-pad (phone). Each finger lights at most one wedge, so
     // forward + a turn happen only when two fingers are physically down at once.
-    func touchBegan(finger: Int, at p: CGPoint) {
+    #if os(macOS)
+    func touchBegan(finger: Int, at p: CGPoint) { touchBeganImpl(finger: finger, at: p) }
+    #else
+    override func touchBegan(finger: Int, at p: CGPoint) { touchBeganImpl(finger: finger, at: p) }
+    #endif
+    private func touchBeganImpl(finger: Int, at p: CGPoint) {
         usingTouch = true
         pointerBegan(finger: finger, at: p)
     }
-    func touchMoved(finger: Int, at p: CGPoint) {
+    #if os(macOS)
+    func touchMoved(finger: Int, at p: CGPoint) { touchMovedImpl(finger: finger, at: p) }
+    #else
+    override func touchMoved(finger: Int, at p: CGPoint) { touchMovedImpl(finger: finger, at: p) }
+    #endif
+    private func touchMovedImpl(finger: Int, at p: CGPoint) {
         if joyFingers.contains(finger) { dpadSet(finger: finger, phase: 1, at: p) }
     }
-    func touchEnded(finger: Int, at p: CGPoint) {
+    #if os(macOS)
+    func touchEnded(finger: Int, at p: CGPoint) { touchEndedImpl(finger: finger, at: p) }
+    #else
+    override func touchEnded(finger: Int, at p: CGPoint) { touchEndedImpl(finger: finger, at: p) }
+    #endif
+    private func touchEndedImpl(finger: Int, at p: CGPoint) {
         if joyFingers.contains(finger) {
             dpadSet(finger: finger, phase: 2, at: p)
             joyFingers.remove(finger)
