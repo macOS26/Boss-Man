@@ -242,3 +242,40 @@ and bounded:**
 Steps 1 is mechanical; 2–4 are build-pipeline integration (no remaining source
 unknowns). The 60.3 KB Embedded SpriteKit-core measurement already shows the
 magnitude of the win.
+
+## P3 — IT BOOTS. The full Embedded game runs in the browser.
+
+The entire game + all 6 framework modules compile under Embedded Swift, link with
+Box2D (C++) + the embedded stdlib + WASI libc/libc++, and **boot in the stock
+runtime.js, rendering the title screen identically to the normal build** (fonts,
+sprites, leaderboard, all of it). Reproduce: `docs/embedded/build-embedded-game.sh`.
+
+What it took beyond the source fixes (all committed):
+- Per-module Embedded build graph (each module → `.swiftmodule`, KitABI C module
+  via `-Xcc -fmodule-map-file`), then the game module + `@_cdecl` boot/frame.
+- `@MainActor` dropped at build time (single-threaded wasm) by preprocessing the
+  sources (strip the attribute + the `{ @MainActor in` closure form) and building
+  with raw swiftc (no SwiftPM `.defaultIsolation`).
+- `os(WASI) || hasFeature(Embedded)` so the WASI code paths fire on the Embedded
+  `wasm32-unknown-none-wasm` target (where `os` = none).
+- One `@usableFromInline` (`SKNode.teardownPhysics`) for cross-module serialization.
+- A tiny `embedded-stubs.c` (`superbox64-spritekit/embedded/`): `_initialize` →
+  `__wasm_call_ctors` (C++ global ctors), locale-free `strtod`, and a
+  `swift_conformsToProtocol` stub (class-bound `as?` → nil; title screen doesn't
+  need it).
+- Link the embedded `libswiftUnicodeDataTables.a`; export memory (not import it);
+  Box2D compiled with `-ffunction-sections` + `--gc-sections` to drop the
+  joints/ropes/fields the game never uses.
+
+### Final size — the payoff
+| Build | raw (wasm-opt -Oz) | gzip |
+|-------|--------------------|------|
+| Normal full game (baseline) | 4.90 MB | 1.80 MB |
+| Embedded — Swift only (no Box2D) | 599 KB | 222 KB |
+| Embedded — full Box2D | 1.62 MB | 521 KB |
+| **Embedded — gc'd Box2D (only what's used)** | **0.76 MB** | **310 KB** |
+
+**~6.4× smaller raw, ~5.8× smaller gzipped** — the entire Swift stdlib runtime,
+reflection metadata, and ICU eliminated. The Embedded build's runtime is
+`superbox64-wasmkit/runtime-embedded.js` (currently identical to stock — it boots
+unmodified; reserved for Embedded-specific tweaks).
