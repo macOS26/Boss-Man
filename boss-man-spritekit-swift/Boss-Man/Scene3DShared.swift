@@ -27,7 +27,16 @@ func dpadCardinal(_ p: CGPoint, center: CGPoint, deadzone: CGFloat, radius: CGFl
     let dx = p.x - center.x, dy = p.y - center.y
     let mag = (dx * dx + dy * dy).squareRoot()
     if mag < deadzone || mag > radius { return "" }
-    if abs(dx) >= abs(dy) { return dx > 0 ? "right" : "left" }
+    let absDx = abs(dx), absDy = abs(dy)
+    let maxAxis = max(absDx, absDy)
+    let isDiagonal = absDx > 0 && absDy > 0 && min(absDx, absDy) > maxAxis * 0.4
+
+    if isDiagonal {
+        var result = dy > 0 ? "up" : "down"
+        result += dx > 0 ? "right" : "left"
+        return result
+    }
+    if absDx >= absDy { return dx > 0 ? "right" : "left" }
     return dy > 0 ? "up" : "down"
 }
 
