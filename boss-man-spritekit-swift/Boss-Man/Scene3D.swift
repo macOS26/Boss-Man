@@ -50,6 +50,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
     var pendingSecondTurn = false
     var backing = false
+    var heldTurnDir: (x: Int, y: Int)? = nil   // which direction is being held (left/right)
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
     let camBack = 0.65               // how far the camera trails behind Pete
 
@@ -1262,7 +1263,13 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 px = ccx
                 py = ccy
                 moveDir = t
-                wantDir = pendingSecondTurn ? (x: -moveDir.y, y: moveDir.x) : nil
+                if pendingSecondTurn {
+                    wantDir = (x: -moveDir.y, y: moveDir.x)
+                } else if let held = heldTurnDir {
+                    wantDir = held
+                } else {
+                    wantDir = nil
+                }
                 pendingSecondTurn = false
                 targetAngle = cardinal(moveDir)
                 let dirName: String
@@ -1582,6 +1589,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         onBrownBox = false
         isUserPaused = false
         backing = false
+        heldTurnDir = nil
         frightenSecondsLeft = 0
         bob = 0
         throbClock = 0
@@ -1761,14 +1769,25 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         case KeyCode.keyP:                      togglePause()
 
         case KeyCode.space:                     if !event.isARepeat { fire() }
-        case KeyCode.arrowLeft,  KeyCode.keyA:  wantDir = (x: moveDir.y, y: -moveDir.x)
-        case KeyCode.arrowRight, KeyCode.keyD:  wantDir = (x: -moveDir.y, y: moveDir.x)
+        case KeyCode.arrowLeft,  KeyCode.keyA:
+            heldTurnDir = (x: moveDir.y, y: -moveDir.x)
+            wantDir = heldTurnDir
+        case KeyCode.arrowRight, KeyCode.keyD:
+            heldTurnDir = (x: -moveDir.y, y: moveDir.x)
+            wantDir = heldTurnDir
         case KeyCode.arrowDown,  KeyCode.keyS:  backing = !backing
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
         }
     }
-    override func keyUp(with event: NSEvent) { pressed.remove(Int(event.keyCode)) }
+    override func keyUp(with event: NSEvent) {
+        pressed.remove(Int(event.keyCode))
+        let code = Int(event.keyCode)
+        if code == KeyCode.arrowLeft || code == KeyCode.keyA ||
+           code == KeyCode.arrowRight || code == KeyCode.keyD {
+            heldTurnDir = nil
+        }
+    }
 
     // MARK: - On-screen joystick + fire button (drive the same tank input)
     func buildControls() {
@@ -1902,8 +1921,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         // One-shot turn the moment a lateral / about-face component newly appears under
         // this finger: left/right = 90° (combinable with forward), down = 180° about-face.
         if w != prev {
-            if w.contains("left"),  !prev.contains("left")  { wantDir = (x: moveDir.y, y: -moveDir.x) }
-            if w.contains("right"), !prev.contains("right") { wantDir = (x: -moveDir.y, y: moveDir.x) }
+            if w.contains("left"),  !prev.contains("left")  {
+                heldTurnDir = (x: moveDir.y, y: -moveDir.x)
+                wantDir = heldTurnDir
+            }
+            if w.contains("right"), !prev.contains("right") {
+                heldTurnDir = (x: -moveDir.y, y: moveDir.x)
+                wantDir = heldTurnDir
+            }
+            if !w.contains("left") && prev.contains("left") { heldTurnDir = nil }
+            if !w.contains("right") && prev.contains("right") { heldTurnDir = nil }
             if w == "down", prev != "down" { backing = true }
             if w != "down", prev == "down" { backing = false }
         }
