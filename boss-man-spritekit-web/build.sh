@@ -61,6 +61,8 @@ else
   echo "✓ Debug artifact published: web/bossman.wasm"
 fi
 
+echo "pwd: $(pwd)"
+ls -la ../superbox64-wasmkit/ | grep runtime
 source ../superbox64-wasmkit/build.sh
 wasmweb_manifest web/assets web/manifest.json
 cp ../superbox64-wasmkit/runtime.js web/
