@@ -185,8 +185,7 @@ final class MazeBuilder {
 
                 case Strings.Tile.workerChar:
                     workerSpawn = grid
-                    // Worker tile is walkable + has a dot underneath.
-                    if let dot = addDot(at: position, in: scene) {
+                    if !RoundState.demoMode, let dot = addDot(at: position, in: scene) {
                         dotNodes[tileKey(grid)] = dot
                         dotCount += 1
                     }

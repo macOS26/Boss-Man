@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
     private var fullscreenMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        RoundState.demoMode = true
         buildMainMenu()
         let sceneSize = CGSize(width: 1184, height: 666)
         let skView = SKView(frame: CGRect(origin: .zero, size: sceneSize))
