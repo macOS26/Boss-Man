@@ -12,6 +12,11 @@
 
 set -eo pipefail
 
+if [ ! -d "../superbox64-wasmkit" ]; then
+  echo "→ Cloning superbox64-wasmkit..."
+  git clone https://github.com/macOS26/superbox64-wasmkit ../superbox64-wasmkit
+fi
+
 SWIFT_TOOLCHAIN="${SWIFT_TOOLCHAIN:-org.swift.6.3.2-release}"
 WASM_SDK="${WASM_SDK:-swift-6.3.2-RELEASE_wasm}"
 
