@@ -51,6 +51,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     var pendingSecondTurn = false
     var backing = false
     var heldTurnLeft = false, heldTurnRight = false   // continuous turn while held
+    var justTurned = false   // prevent immediately queueing next turn
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
     let camBack = 0.65               // how far the camera trails behind Pete
 
@@ -1245,6 +1246,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
 
     // MARK: - Lane movement (Pac-Man style: auto-forward, turn at junctions)
     func step(dt: Double) {
+        justTurned = false
         var da = targetAngle - angle
         while da > .pi { da -= 2 * .pi }
         while da < -.pi { da += 2 * .pi }
@@ -1265,14 +1267,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 moveDir = t
                 if pendingSecondTurn {
                     wantDir = (x: -moveDir.y, y: moveDir.x)
-                } else if heldTurnLeft {
-                    wantDir = (x: moveDir.y, y: -moveDir.x)
-                } else if heldTurnRight {
-                    wantDir = (x: -moveDir.y, y: moveDir.x)
+                    pendingSecondTurn = false
                 } else {
                     wantDir = nil
+                    justTurned = true
                 }
-                pendingSecondTurn = false
                 targetAngle = cardinal(moveDir)
                 let dirName: String
                 if t.x > 0 { dirName = "EAST" } else if t.x < 0 { dirName = "WEST" }
@@ -1593,6 +1592,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         backing = false
         heldTurnLeft = false
         heldTurnRight = false
+        justTurned = false
         frightenSecondsLeft = 0
         bob = 0
         throbClock = 0
@@ -1774,10 +1774,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         case KeyCode.space:                     if !event.isARepeat { fire() }
         case KeyCode.arrowLeft,  KeyCode.keyA:
             heldTurnLeft = true
-            if wantDir == nil { wantDir = (x: moveDir.y, y: -moveDir.x) }
+            if wantDir == nil && !justTurned { wantDir = (x: moveDir.y, y: -moveDir.x) }
         case KeyCode.arrowRight, KeyCode.keyD:
             heldTurnRight = true
-            if wantDir == nil { wantDir = (x: -moveDir.y, y: moveDir.x) }
+            if wantDir == nil && !justTurned { wantDir = (x: -moveDir.y, y: moveDir.x) }
         case KeyCode.arrowDown,  KeyCode.keyS:  backing = !backing
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
@@ -1924,11 +1924,11 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         if w != prev {
             if w.contains("left"),  !prev.contains("left")  {
                 heldTurnLeft = true
-                if wantDir == nil { wantDir = (x: moveDir.y, y: -moveDir.x) }
+                if wantDir == nil && !justTurned { wantDir = (x: moveDir.y, y: -moveDir.x) }
             }
             if w.contains("right"), !prev.contains("right") {
                 heldTurnRight = true
-                if wantDir == nil { wantDir = (x: -moveDir.y, y: moveDir.x) }
+                if wantDir == nil && !justTurned { wantDir = (x: -moveDir.y, y: moveDir.x) }
             }
             if !w.contains("left") && prev.contains("left") { heldTurnLeft = false }
             if !w.contains("right") && prev.contains("right") { heldTurnRight = false }
