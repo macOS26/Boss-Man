@@ -61,6 +61,8 @@ else
   echo "✓ Debug artifact published: web/bossman.wasm"
 fi
 
+cp ../superbox64-wasmkit/runtime.js web/ 2>/dev/null || true
+
 # Regenerate the file:/// bundle so opening web/local.html directly works
 # without a local server. Includes bossman.wasm + every manifest asset as
 # inline data: URLs (~25 MiB base64). server.html ships the bare wasm+assets
