@@ -31,3 +31,6 @@ bundle.js
 
 # Compiled WebAssembly artifact (rebuilt by build.sh; not tracked)
 *.wasm
+# Build-artifact clones made by build.sh (the runtime/framework repos; fetched, not vendored)
+/superbox64-wasmkit/
+/superbox64-spritekit/
