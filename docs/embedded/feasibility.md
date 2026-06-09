@@ -208,3 +208,37 @@ wasm level exactly as in the normal build — Embedded Swift never sees the C++.
 3. Per-module Embedded build graph (emit each module's Embedded `.swiftmodule`, then
    the game) + link the clang-compiled C/C++ (`KitABI` shim, `libcbox2d.a`) — wired
    like the normal build but with the Embedded flag and `wasm32-unknown-none-wasm`.
+
+## P3 — concurrency wall cleared; remaining is build-pipeline + game weak refs
+
+**Concurrency is NOT a wall.** Embedded Swift 6.3.2 has no `@MainActor`/`Task`/
+`async` (no `_Concurrency`), but almost all of the game's concurrency is
+**macOS-gated** (`LeaderboardPanel`, `SoundManager+Speech`, `MainQueueCompat` — not
+in the WASI build). The only WASI-compiled site was `WorkerController.flashColor`,
+which has **zero callers** and whose `Task.sleep` never fired on wasm anyway — now
+`#if !hasFeature(Embedded)`-guarded. So no concurrency *logic* migration is needed;
+`@MainActor` is handled by dropping `.defaultIsolation(MainActor.self)` and stripping
+the annotations in the Embedded build (build-time, single-threaded wasm).
+
+**Full-game Embedded compile (combined-module probe of all 10 framework modules +
+the 48 WASI game files).** After stripping `@MainActor`/imports: the only real
+errors are the game's **38 `weak` refs** (`attribute 'weak' cannot be used`) — the
+identical mechanical `#if hasFeature(Embedded)` → `unowned(unsafe)` guard the
+framework Layer-1 used. Everything else was single-module-hack noise (`KeyCode`
+member resolution that a real per-module build resolves). **No existentials, casts,
+or other restriction errors in the game.**
+
+**So: can the Embedded game run yet? Not yet — but every source blocker is now known
+and bounded:**
+1. Guard the game's 38 `weak` refs (mechanical, production-safe via `#if`).
+2. Stand up the per-module Embedded build graph: emit each framework module's
+   Embedded `.swiftmodule` in dependency order, compile the 48 game files + the
+   `@_cdecl` boot/frame `main.swift` against them, with `@MainActor` stripped and
+   `.defaultIsolation` dropped.
+3. Link the clang-compiled C/C++ (`KitABI` shim, `libcbox2d.a` Box2D) + the Embedded
+   Swift objects with `wasm-ld` (reactor model, export boot/frame), then `wasm-opt -Oz`.
+4. Boot it in the runtime and compare size to the 4.90 MB / 1.80 MB baseline.
+
+Steps 1 is mechanical; 2–4 are build-pipeline integration (no remaining source
+unknowns). The 60.3 KB Embedded SpriteKit-core measurement already shows the
+magnitude of the win.
