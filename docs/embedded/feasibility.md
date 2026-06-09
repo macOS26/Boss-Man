@@ -147,5 +147,30 @@ errors 8→0. Files: SKNode, SKScene, SKPhysics, SKEmitterNode, SKAction.
   `[String: Any]`) for the leaderboard blur — change to a typed `inputRadius:`
   parameter in framework `CIFilter` + game `LeaderboardPanel` call site.
 
-Then P3: Embedded build target (drop `@MainActor` default isolation, handle ICU
-`String` ops) and flip the flag.
+**P2.3 — DONE & verified.** `JSONValue` enum landed; framework SpriteKit now has
+**0 Embedded errors** (modulo `@MainActor`, which is P3).
+- `MiniJSON.parseJSON` returns `JSONValue` (typed enum + `.stringValue`/`.arrayValue`/
+  `.objectValue` accessors) instead of `Any`; parser rewritten, `MiniJSONNull` dropped.
+- `SKSceneLoader` build/helpers consume `JSONValue` (`loadAssetText` unchanged).
+- `UserDefaults` Foundation-mirror `Any` methods guarded `#if !hasFeature(Embedded)`.
+- `CIFilter(name:parameters:)` `[String:Any]?` → `[String:Double]?` (game passes 12.5).
+- Game `Levels.swift` switched to `parseJSON(text)?.objectValue` / `.arrayValue` /
+  `.stringValue`; web `Package.swift` points at framework `embedded` branch.
+
+Verification: framework normal wasm build green; full game wasm builds against the
+embedded framework branch; the `JSONValue` parser reproduces `levels.json` exactly
+(24/24 levels, 408 rows = 24×17, Level 1 = 37×17 with the tunnel top row).
+
+**Status: every Layer-1/Layer-2 source blocker is resolved.** Only P3 remains.
+
+## P3 — flip the flag (remaining)
+- `@MainActor`: the framework targets use `.defaultIsolation(MainActor.self)`, which
+  the Embedded stdlib doesn't vend. Need an Embedded build variant that drops the
+  global-actor default (single-threaded wasm) — a Package/build-setting change, not
+  source.
+- ICU `String` ops (~10 symbols) — gate the few Unicode-heavy calls.
+- Add an Embedded wasm build target (`wasm32-unknown-none-wasm`, `-wmo`,
+  `-enable-experimental-feature Embedded`) and measure the size vs the 4.90 MB baseline.
+
+When merging back: framework `embedded` → framework `main`, then flip the game's web
+`Package.swift` dependency from `branch: "embedded"` back to `branch: "main"`.
