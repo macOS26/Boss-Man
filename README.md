@@ -319,7 +319,8 @@ All five build the one Swift WASM, then wrap it per platform.
 - Original music, graphics, art, sound effects, and game design, all by Todd Bruss.
 
 ## Honest Licensing
-- Source code is **MIT**. Fork it, learn from it, build with it.
+- Source code is **Apache License 2.0**. Fork it, learn from it, build with it. Apache 2.0 adds an explicit patent grant and a patent-retaliation clause that MIT lacks, so contributors and users are protected from patent ambush.
+- The two engines ([superbox64-spritekit](https://github.com/macOS26/superbox64-spritekit), [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit)) are also Apache 2.0.
 - Binaries remain the property of Todd Bruss.
 
 ---
