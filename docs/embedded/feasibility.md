@@ -104,6 +104,30 @@ marshalling files** (weak refs + `Any`/protocol-existential JSON/keyframe/audio
 code) — a days-to-weeks effort in `superbox64-spritekit`, done behavior-
 preservingly against the live web build. Game-side risk is ~zero (P0).
 
-Next decision: proceed to **P2** and start fixing Layer 1 (`weak`→`unowned`, 8
-sites) then Layer 2 (the `JSONValue` enum across MiniJSON/SKSceneLoader/
-UserDefaults), each landing on the normal build first and verified identical.
+## P2 progress (framework branch `superbox64-spritekit@embedded`)
+
+**Layer 1 — DONE & verified.** All 8 `weak` sites guarded with
+`#if hasFeature(Embedded)` → `unowned(unsafe)` (else `weak`). Normal wasm
+SpriteKit build still compiles unchanged (production untouched); Embedded weak
+errors 8→0. Files: SKNode, SKScene, SKPhysics, SKEmitterNode, SKAction.
+
+**Layer 2 — scoped, remaining (32 errors).** Split by whether Boss-Man uses it:
+- **Dead code for the game** (`SKEmitterNode`, `SKKeyframeSequence`, `SKAudioNode`
+  are UNUSED): ~12 errors (`any NSNumberLike` ×2, `any SKAudioURL` ×4, keyframe
+  `Any`/casts). Fix: `#if !hasFeature(Embedded)` exclude the `Any`-based members
+  on the Embedded build (never called). Low risk.
+- **Live code** (level parsing + persistence): the real refactor.
+  - `MiniJSON.parseJSON` returns `Any?` → introduce
+    `enum JSONValue { case object([String:JSONValue]); case array([JSONValue]);
+    case string(String); case number(Double); case bool(Bool); case null }`
+    and return `JSONValue?`. Consumers switch instead of `as?`.
+  - Consumers to migrate together: framework `SKSceneLoader` (6 casts; dead for
+    the game, can `#if`-exclude on Embedded), framework `UserDefaults` (1 `Any`
+    + 1 cast), and **game `Levels.swift`** (`obj[name] as? [Any]` → switch on
+    `JSONValue`). This is cross-repo (framework `embedded` + a game branch) and
+    must be verified by parsing a real level and diffing behavior.
+
+Remaining order: (P2.2) `#if`-exclude the 3 dead subsystems; (P2.3) the
+`JSONValue` enum across MiniJSON + UserDefaults + game `Levels.swift`, tested
+against the live wasm game. Then P3: Embedded build target (drop `@MainActor`
+default isolation, handle ICU `String` ops) and flip the flag.
