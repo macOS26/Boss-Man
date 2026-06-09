@@ -661,9 +661,9 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         bossController.clear()
         travelerSpawner.reset()
         goldDisc.deactivate()
-        waterGun.deactivate()
+        waterGun.activate()
         waterDroplets.removeAll()
-        waterGunPickedUp = false
+        waterGunPickedUp = true
         sound.stopGoldDiscBass()
         frightenSecondsLeft = 0
         removeAllActions()
@@ -778,13 +778,8 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
     }
 
     private func fireWaterGun() {
-        guard waterGun.isActive else { return }
-        if goldDisc.isActive {
-            hud.showMessage(Strings.Message.waterGunBlueMode, duration: 2)
-            return
-        }
         guard let direction = workerController.direction ?? workerController.queuedDirection else { return }
-        guard waterGun.consumePellet() else { return }
+        waterGun.consumePellet()
         let drop = WaterDroplet(direction: direction, speed: waterDropletSpeed)
         drop.position = workerController.node.position
         drop.zPosition = 6
@@ -792,7 +787,6 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         waterDroplets.append(drop)
         sound.playWaterGunShoot()
         refreshHUD()
-        if waterGun.pelletsRemaining == 0 { endWaterGunMode() }
     }
 
     private func spawnWaterSplash(at center: CGPoint) {
@@ -903,7 +897,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             reports: state.tpsReportsDelivered, items: state.reportItems
         )
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1, blueMode: goldDisc.isActive)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGun.pelletsRemaining, blueMode: goldDisc.isActive)
         let cyclePosition = ((state.level - 1) % levelTravelers.count) + 1
         hud.updateLevelEmojis(Array(levelTravelers.prefix(cyclePosition)))
     }
