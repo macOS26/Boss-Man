@@ -1398,16 +1398,18 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 if Int(bg.x) == sgx, Int(bg.y) == sgy {
                     let hitAt = e.node.position, hitZ = e.node.zPosition
                     let splash = SpriteFactory.waterSplash(spread: min(2.2, max(0.5, e.node.calculateAccumulatedFrame().height / 60)))
+                    let isFleeMode = goldDisc.isActive && bossController.isInFleeMode(boss: e.node)
+                    let points = isFleeMode ? bossController.nextCapturePoints : 50
+                    let pointColor: SKColor = isFleeMode ? .white : .systemYellow
                     bossController.splash(boss: e.node)   // real splash + loop-driven 5s respawn
                     shots[i].alive = false
                     sound.playWaterGunSplash()
-                    let points = goldDisc.isActive && bossController.isInFleeMode(boss: e.node) ? bossController.nextCapturePoints : 50
                     state.bumpScore(by: points)
                     popPointsInWorld(points)
                     let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
                     mini.text = Strings.Score.popup(points)
                     mini.fontSize = 40
-                    mini.fontColor = .white
+                    mini.fontColor = pointColor
                     mini.position = hitAt
                     mini.zPosition = hitZ + 2
                     mapLayer.addChild(mini)

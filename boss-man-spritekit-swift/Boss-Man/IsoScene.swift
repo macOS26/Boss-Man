@@ -933,16 +933,18 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 let hitCol = shots[i].x, hitRow = shots[i].y
                 let hitPt = proj(hitCol, hitRow, 0)
                 let splash = SpriteFactory.waterSplash(spread: 1.0)
+                let isFleeMode = goldDisc.isActive && bossController.isInFleeMode(boss: e.node)
+                let points = isFleeMode ? bossController.nextCapturePoints : 50
+                let pointColor: SKColor = isFleeMode ? .white : .systemYellow
                 bossController.splash(boss: e.node)
                 shots[i].alive = false
                 sound.playWaterGunSplash()
-                let points = goldDisc.isActive && bossController.isInFleeMode(boss: e.node) ? bossController.nextCapturePoints : 50
                 state.bumpScore(by: points)
                 popPointsInWorld(points)
                 let mini = SKLabelNode(fontNamed: Strings.Font.menloBold)
                 mini.text = Strings.Score.popup(points)
                 mini.fontSize = 40
-                mini.fontColor = .white
+                mini.fontColor = pointColor
                 mini.position = CGPoint(x: hitPt.x + 20, y: hitPt.y + 20)
                 mini.zPosition = CGFloat(hitRow) * 4 + 3
                 spriteLayer.addChild(mini)

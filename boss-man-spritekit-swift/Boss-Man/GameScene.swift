@@ -466,13 +466,14 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         if let dropletNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet })?.node,
            let bossNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.boss })?.node as? PixelPerson {
             let pos = bossNode.position
+            let isFleeMode = isGoldDiscMode && bossController.isInFleeMode(boss: bossNode)
+            let points = isFleeMode ? bossController.nextCapturePoints : waterHitPoints
+            let color: NSColor = isFleeMode ? .white : .systemYellow
             bossController.splash(boss: bossNode)
             sound.playWaterGunSplash()
-            let points = isGoldDiscMode && bossController.isInFleeMode(boss: bossNode) ? bossController.nextCapturePoints : waterHitPoints
             state.bumpScore(by: points)
             spawnWaterSplash(at: pos)
-            ScorePopup.show(points, at: pos, in: self,
-                            color: .white)
+            ScorePopup.show(points, at: pos, in: self, color: color)
             hud.showMessage(Strings.Message.bossSplashed, duration: 1.5)
             if let idx = waterDroplets.firstIndex(where: { $0 === dropletNode }) { waterDroplets.remove(at: idx) }
             refreshHUD()
