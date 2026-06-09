@@ -22,8 +22,9 @@ live in the framework, not the game.
 
 `build.sh`:
 
-1. Clones [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit)
-   to `../superbox64-wasmkit` if not already present.
+1. Uses the [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit)
+   sibling checkout at `../../superbox64-wasmkit` (its own repo, next to this
+   one), cloning it there if not already present.
 2. Runs `swift build` with `TOOLCHAINS=org.swift.6.3.2-release` and
    `xcrun --toolchain swift` so SwiftPM picks the swift.org clang the WASI SDK
    was built against (Xcode's bundled clang has no wasm backend). The
@@ -32,6 +33,22 @@ live in the framework, not the game.
 4. Sources the kit's `build.sh` and calls `wasmweb_manifest` to regenerate
    `web/manifest.json` from `web/assets`.
 5. Copies the kit's `runtime.js` into `web/`.
+
+## Build sizes
+
+Physics is Box2D v3 (pure C, vendored in superbox64-spritekit as `CBox2D`,
+called directly from Swift, no C++ in any link). Box2D compiles with
+function/data sections so `--gc-sections` keeps only the physics the game
+calls, and with `-DNDEBUG` so its assert machinery and message strings drop
+out of the shipped wasm:
+
+| Build | Before `-DNDEBUG` | With `-DNDEBUG` | Saved |
+|---|---|---|---|
+| Normal wasm (`build.sh release`) | 4,431,558 | **4,385,075** | 45 KB |
+| Embedded Swift wasm (`docs/embedded/build-embedded-game.sh`) | 917,088 | **865,854** (344 KB gz) | 51 KB |
+
+Both builds were verified by scripted gameplay (same input run produces the
+identical score on the normal and Embedded wasm).
 
 ## Run
 
