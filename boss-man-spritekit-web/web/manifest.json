@@ -1,17 +1,1 @@
-{
-  "images": [
-    "images/red-stapler.png",
-    "images/shinyredstapler-emoji.png"
-  ],
-  "sounds": [],
-  "fonts": [
-    "fonts/JetBrainsMono-Bold.ttf",
-    "fonts/MarkerFelt-Thin.ttf",
-    "fonts/MarkerFelt-Wide.ttf",
-    "fonts/Menlo-Regular.ttf",
-    "fonts/Menlo-Bold.ttf"
-  ],
-  "text": [
-    "levels.json"
-  ]
-}
+{"fonts": ["fonts/JetBrainsMono-Bold.ttf", "fonts/MarkerFelt-Thin.ttf", "fonts/MarkerFelt-Wide.ttf", "fonts/Menlo-Bold.ttf", "fonts/Menlo-Regular.ttf"], "images": ["images/red-stapler.png", "images/shinyredstapler-emoji.png"], "sounds": [], "texts": ["levels.json"]}
