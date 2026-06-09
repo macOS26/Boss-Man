@@ -675,7 +675,7 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
         let cover = makeLevelFadeCover()
         cover.alpha = 0
         uiLayer.addChild(cover)
-        cover.run(.sequence([.fadeIn(withDuration: tune), .run { [weak self] in
+        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), .run { [weak self] in
             guard let self else { return }
             self.state.advanceLevel()
             self.nextBossSpawnSeconds = self.sound.playLevelStart()

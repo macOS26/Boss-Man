@@ -1552,7 +1552,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let cover = makeLevelFadeCover()
         cover.alpha = 0
         uiLayer.addChild(cover)
-        cover.run(.sequence([.fadeIn(withDuration: tune), .run { [weak self] in
+        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), .run { [weak self] in
             guard let self else { return }
             self.performNextLevel()
             let cover2 = self.makeLevelFadeCover()
