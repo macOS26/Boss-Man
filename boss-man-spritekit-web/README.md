@@ -50,6 +50,23 @@ out of the shipped wasm:
 Both builds were verified by scripted gameplay (same input run produces the
 identical score on the normal and Embedded wasm).
 
+## What ships at boss-man.us
+
+The website serves the Embedded Swift wasm (865,854 bytes, ~6x smaller than
+the 4.9 MB pre-Embedded build) plus the minified runtime
+(`runtime-embedded-min.js`, 42 KB), loaded directly in the homepage iframe.
+The current deploy (v56) brings:
+
+- Box2D v3 physics, pure C, with no C++ or libc++ anywhere in the binary
+- full 32-bit physics category/collision masks (earlier builds truncated
+  them to 16 bits)
+- the traveler walk-animation fix (Embedded has no runtime
+  protocol-conformance lookup, so an `as? Protocol` cast silently returned
+  nil and the leg animation never ran; the cast is now a concrete class
+  downcast)
+- Box2D built with `-DNDEBUG`, so its assert machinery and message strings
+  are gone
+
 ## Run
 
 The `web/` folder ships three host pages:
@@ -71,7 +88,7 @@ first; `bundle.py` inlines `bossman.wasm` and every asset as `data:` URLs into
 `bundle.js` and shims `fetch()` so no server is needed:
 
 ```sh
-python3 ../superbox64-wasmkit/scripts/bundle.py web bossman.wasm
+python3 ../../superbox64-wasmkit/scripts/bundle.py web bossman.wasm
 ```
 
 The CI workflow `build-swift-wasm.yml` does exactly this and publishes
