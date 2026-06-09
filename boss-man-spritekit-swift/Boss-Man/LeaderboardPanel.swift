@@ -219,7 +219,7 @@ final class LeaderboardPanel: SKNode {
             let y = -CGFloat(index) * rowHeight
             entriesNode.addChild(row(
                 rank: entry.rank,
-                name: entry.player?.displayName ?? "",
+                name: entry.player.displayName,
                 score: entry.score,
                 y: y,
                 left: leftEdge,
