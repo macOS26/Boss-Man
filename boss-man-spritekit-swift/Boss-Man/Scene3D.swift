@@ -1877,9 +1877,25 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         dpadCardinal(p, center: joystickCenter, deadzone: joystickDeadzone, radius: joystickRadius)
     }
 
+    func dpadWedgeAtWithDiagonal(_ p: CGPoint) -> String {
+        let dx = p.x - joystickCenter.x, dy = p.y - joystickCenter.y
+        let mag = (dx * dx + dy * dy).squareRoot()
+        if mag < joystickDeadzone || mag > joystickRadius { return "" }
+        let absDx = abs(dx), absDy = abs(dy)
+        let maxAxis = max(absDx, absDy)
+        let minAxis = min(absDx, absDy)
+        if minAxis > maxAxis * 0.5 {
+            var result = dy > 0 ? "up" : "down"
+            result += dx > 0 ? "right" : "left"
+            return result
+        }
+        if absDx >= absDy { return dx > 0 ? "right" : "left" }
+        return dy > 0 ? "up" : "down"
+    }
+
     func dpadSet(finger: Int, phase: Int, at p: CGPoint) {
         let prev = dpadFinger[finger] ?? ""
-        let w = phase == 2 ? "" : dpadWedgeAt(p)
+        let w = phase == 2 ? "" : dpadWedgeAtWithDiagonal(p)
         if w.isEmpty { dpadFinger[finger] = nil } else { dpadFinger[finger] = w }
         moveStickThumb(to: p, release: phase == 2)
         // One-shot turn the moment a lateral / about-face component newly appears under
