@@ -1916,9 +1916,9 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
             #if os(WASI) || hasFeature(Embedded)
             if !joyFingers.isEmpty {
                 let newDir = dpadWedgeAt(p)
-                let hasUp = dpadFinger.values.contains { $0.contains("up") }
-                let hasLeftRight = dpadFinger.values.contains { $0.contains("left") || $0.contains("right") }
-                let newIsLeftRight = newDir.contains("left") || newDir.contains("right")
+                let hasUp = dpadFinger.values.contains { dpadHas($0, "up") }
+                let hasLeftRight = dpadFinger.values.contains { dpadHas($0, "left") || dpadHas($0, "right") }
+                let newIsLeftRight = dpadHas(newDir, "left") || dpadHas(newDir, "right")
                 guard (hasUp && newIsLeftRight) || (hasLeftRight && newDir == "up") else { return }
             }
             #endif
@@ -1960,16 +1960,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         // One-shot turn the moment a lateral / about-face component newly appears under
         // this finger: left/right = 90° (combinable with forward), down = 180° about-face.
         if w != prev {
-            if w.contains("left"),  !prev.contains("left")  {
+            if dpadHas(w, "left"),  !dpadHas(prev, "left")  {
                 heldTurnLeft = true
                 if wantDir == nil { wantDir = (x: moveDir.y, y: -moveDir.x) }
             }
-            if w.contains("right"), !prev.contains("right") {
+            if dpadHas(w, "right"), !dpadHas(prev, "right") {
                 heldTurnRight = true
                 if wantDir == nil { wantDir = (x: -moveDir.y, y: moveDir.x) }
             }
-            if !w.contains("left") && prev.contains("left") { heldTurnLeft = false }
-            if !w.contains("right") && prev.contains("right") { heldTurnRight = false }
+            if !dpadHas(w, "left") && dpadHas(prev, "left") { heldTurnLeft = false }
+            if !dpadHas(w, "right") && dpadHas(prev, "right") { heldTurnRight = false }
             if w == "down", prev != "down" { backing = true }
             if w != "down", prev == "down" { backing = false }
         }
@@ -1979,10 +1979,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     func applyDpad() {
         var up = false, down = false, left = false, right = false
         for (_, w) in dpadFinger {
-            if w.contains("up")    { up = true }
-            if w.contains("down")  { down = true }
-            if w.contains("left")  { left = true }
-            if w.contains("right") { right = true }
+            if dpadHas(w, "up")    { up = true }
+            if dpadHas(w, "down")  { down = true }
+            if dpadHas(w, "left")  { left = true }
+            if dpadHas(w, "right") { right = true }
         }
         if left && right {
             left = false
@@ -2014,3 +2014,19 @@ extension SKScene {
 }
 
 
+
+// Substring containment using only the core stdlib. Embedded Swift lacks the
+// _StringProcessing `String.contains(_ other: some StringProtocol)` overload
+// the d-pad direction tests ("up"/"left"/...) relied on. ASCII labels, so UTF-8
+// byte compare is correct and allocation-light.
+private func dpadHas(_ s: String, _ sub: String) -> Bool {
+    let h = Array(s.utf8), n = Array(sub.utf8)
+    if n.isEmpty { return true }
+    if h.count < n.count { return false }
+    for i in 0...(h.count - n.count) {
+        var m = true
+        for j in 0..<n.count where h[i + j] != n[j] { m = false; break }
+        if m { return true }
+    }
+    return false
+}

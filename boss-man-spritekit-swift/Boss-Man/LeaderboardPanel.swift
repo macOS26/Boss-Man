@@ -167,6 +167,7 @@ final class LeaderboardPanel: SKNode {
     }
     #endif
 
+    #if !hasFeature(Embedded)   // Task/async Game Center fetch; called only from the os(macOS) path
     private func fetchEntries() {
         Task { @MainActor in
             do {
@@ -190,6 +191,7 @@ final class LeaderboardPanel: SKNode {
             }
         }
     }
+    #endif
 
     private func renderLocalFallback() {
         let locals = LocalHighScores.load()
