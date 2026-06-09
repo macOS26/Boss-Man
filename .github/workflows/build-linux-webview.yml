@@ -50,6 +50,16 @@ jobs:
         working-directory: boss-man-spritekit-web
         run: SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
 
+      # pre-1.0.8-embedded: webview payloads ship the Embedded Swift wasm and
+      # the minified embedded runtime under the canonical names, so the pages
+      # and app loaders need no changes.
+      - name: Swap in Embedded wasm + minified runtime
+        run: |
+          set -euo pipefail
+          TOOLCHAINS="$TOOLCHAINS" bash docs/embedded/build-embedded-game.sh
+          cp boss-man-spritekit-web/web/bossman-embedded.wasm boss-man-spritekit-web/web/bossman.wasm
+          cp boss-man-spritekit-web/web/runtime-embedded-min.js boss-man-spritekit-web/web/runtime.js
+
       - uses: actions/upload-artifact@v4
         with:
           name: swift-wasm-bundle-linux

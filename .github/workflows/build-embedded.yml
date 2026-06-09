@@ -1,0 +1,72 @@
+name: Build Embedded Swift WASM
+
+# Builds the FULL Boss-Man game with -enable-experimental-feature Embedded:
+# every framework module + the game compile to Embedded Swift, link with Box2D v3
+# (pure C; function-sections + --gc-sections, so only the physics the game uses is kept),
+# the embedded stdlib, and WASI libc/libc++. Produces a ~782 KB wasm (vs 4.9 MB
+# normal). Runs on the embedded branch — the game's web Package.swift there points
+# at the framework's `embedded` branch. See docs/embedded/build-embedded-game.sh.
+
+on:
+  push:
+    branches: [embedded-swift-no-foundation]
+    paths:
+      - 'boss-man-spritekit-web/**'
+      - 'boss-man-spritekit-swift/**'
+      - 'docs/embedded/**'
+      - '.github/workflows/build-embedded.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Embedded Swift wasm
+    runs-on: macos-15
+    env:
+      SWIFT_VERSION: 6.3.2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift ${{ env.SWIFT_VERSION }} toolchain
+        run: |
+          set -euo pipefail
+          PKG="swift-${SWIFT_VERSION}-RELEASE-osx.pkg"
+          URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/xcode/swift-${SWIFT_VERSION}-RELEASE/${PKG}"
+          curl -fL --retry 3 -o "/tmp/${PKG}" "$URL"
+          installer -pkg "/tmp/${PKG}" -target CurrentUserHomeDirectory
+          TC_DIR=$(ls -d ~/Library/Developer/Toolchains/swift-${SWIFT_VERSION}-RELEASE*.xctoolchain | head -1)
+          TC_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$TC_DIR/Info.plist")
+          echo "TOOLCHAINS=$TC_ID" >> $GITHUB_ENV
+
+      - name: Install wasm SDK
+        run: |
+          set -euo pipefail
+          BUNDLE="swift-${SWIFT_VERSION}-RELEASE_wasm.artifactbundle.tar.gz"
+          BASE="https://download.swift.org/swift-${SWIFT_VERSION}-release/wasm-sdk/swift-${SWIFT_VERSION}-RELEASE"
+          curl -fL --retry 3 -o "/tmp/${BUNDLE}" "${BASE}/${BUNDLE}"
+          CHECKSUM=$(shasum -a 256 "/tmp/${BUNDLE}" | awk '{print $1}')
+          xcrun --toolchain "$TOOLCHAINS" swift sdk install "/tmp/${BUNDLE}" --checksum "${CHECKSUM}"
+
+      - name: Install wasm-opt (Binaryen)
+        run: brew install binaryen --quiet
+
+      # Normal build first: fetches the framework (embedded branch, per the web
+      # Package.swift) and compiles the C objects (KitABI shim.c)
+      # the Embedded link reuses.
+      - name: Normal build (produces C/C++ objects + framework checkout)
+        working-directory: boss-man-spritekit-web
+        run: SWIFT_TOOLCHAIN="$TOOLCHAINS" ./build.sh release
+
+      - name: Build Embedded Swift wasm
+        run: TOOLCHAINS="$TOOLCHAINS" bash docs/embedded/build-embedded-game.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bossman-embedded-wasm
+          path: |
+            boss-man-spritekit-web/web/bossman-embedded.wasm
+            boss-man-spritekit-web/web/runtime-embedded-min.js
+          if-no-files-found: error

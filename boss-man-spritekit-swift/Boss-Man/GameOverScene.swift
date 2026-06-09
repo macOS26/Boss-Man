@@ -1,7 +1,6 @@
 import AppKit
 import SpriteKit
 
-@MainActor
 final class GameOverScene: SKScene {
 
     private let score: Int
@@ -34,12 +33,19 @@ final class GameOverScene: SKScene {
         view.preferredFramesPerSecond = 20
         backgroundColor = .black
         anchorPoint = .zero
+        #if hasFeature(Embedded)
+        let onPlayCB: () -> Void = { [unowned(unsafe) self] in self.play() }
+        let onEscCB: () -> Void = { [unowned(unsafe) self] in self.esc() }
+        #else
+        let onPlayCB: () -> Void = { [weak self] in self?.play() }
+        let onEscCB: () -> Void = { [weak self] in self?.esc() }
+        #endif
         let s = GameOverScreen(
             size: size, font: Strings.Font.menloBold,
             score: score, highScore: highScore,
             defaultName: defaultName, allowEntry: allowEntry,
-            onPlay: { [weak self] in self?.play() },
-            onEsc:  { [weak self] in self?.esc() })
+            onPlay: onPlayCB,
+            onEsc:  onEscCB)
         s.position = .zero
         addChild(s)
         screen = s

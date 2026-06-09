@@ -57,7 +57,7 @@ enum KeyCode {
     static let digit6 = 22
     static let digit7 = 26
     static let digit8 = 28
-#elseif os(WASI)
+#elseif os(WASI) || hasFeature(Embedded)
     static let arrowLeft  = 71
     static let arrowRight = 72
     static let arrowDown  = 74

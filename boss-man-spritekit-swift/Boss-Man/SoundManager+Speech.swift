@@ -7,13 +7,13 @@ import AVFoundation
 final class SpeechDuckDelegate: NSObject, AVSpeechSynthesizerDelegate {
     weak var owner: SoundManager?
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        Task { @MainActor in owner?.setDucked(true) }
+        runOnMain { [weak self] in self?.owner?.setDucked(true) }
     }
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in owner?.setDucked(false) }
+        runOnMain { [weak self] in self?.owner?.setDucked(false) }
     }
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in owner?.setDucked(false) }
+        runOnMain { [weak self] in self?.owner?.setDucked(false) }
     }
 }
 

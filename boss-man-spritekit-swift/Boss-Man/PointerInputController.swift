@@ -1,13 +1,11 @@
 import AppKit
 import GameController
 
-@MainActor
 protocol PointerInputControllerDelegate: AnyObject {
     var isGameOverForInput: Bool { get }
     func inputControllerDidRequest(_ direction: MoveDirection)
 }
 
-@MainActor
 final class PointerInputController: NSObject {
     weak var delegate: PointerInputControllerDelegate?
 

@@ -1,4 +1,3 @@
-@MainActor
 final class WaterGunState {
     private(set) var isActive = false
     private(set) var pelletsRemaining: Int = 0

@@ -17,25 +17,37 @@ import KitABI
 
 nonisolated(unsafe) var view: SKView? = nil
 
+private func bootBody() {
+    let size = CGSize(width: 1184, height: 666)
+    let v = SKView()
+    v.showsFPS = true
+    v.shouldCullNonVisibleNodes = true
+    v.preferredFramesPerSecond = 60
+    v.ignoresSiblingOrder = true
+    v.allowsTransparency = true
+
+    let title = TitleScene(size: size)
+    title.scaleMode = .aspectFit
+    v.presentScene(title)
+    view = v
+}
+
+// Embedded Swift has no concurrency runtime (no MainActor); single-threaded wasm
+// runs the body directly. The normal build keeps MainActor.assumeIsolated.
+#if hasFeature(Embedded)
+@_cdecl("boot")
+public func boot() { bootBody() }
+
+@_cdecl("frame")
+public func frame(_ dtMs: Double) { view?.tick(dtMs) }
+#else
 @_cdecl("boot")
 public nonisolated func boot() {
-    MainActor.assumeIsolated {
-        let size = CGSize(width: 1184, height: 666)
-        let v = SKView()
-        v.showsFPS = true
-        v.shouldCullNonVisibleNodes = true
-        v.preferredFramesPerSecond = 60
-        v.ignoresSiblingOrder = true
-        v.allowsTransparency = true
-
-        let title = TitleScene(size: size)
-        title.scaleMode = .aspectFit
-        v.presentScene(title)
-        view = v
-    }
+    MainActor.assumeIsolated { bootBody() }
 }
 
 @_cdecl("frame")
 public nonisolated func frame(_ dtMs: Double) {
     MainActor.assumeIsolated { view?.tick(dtMs) }
 }
+#endif

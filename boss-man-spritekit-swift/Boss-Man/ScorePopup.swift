@@ -1,7 +1,6 @@
 import AppKit
 import SpriteKit
 
-@MainActor
 enum ScorePopup {
     static func show(_ points: Int, at position: CGPoint, in scene: SKScene, color: NSColor = .systemYellow, fontSize: CGFloat = 18) {
         let popup = SKLabelNode(fontNamed: Strings.Font.menloBold)

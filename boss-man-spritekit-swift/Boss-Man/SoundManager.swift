@@ -5,7 +5,6 @@ enum MusicTheme {
     case mib
 }
 
-@MainActor
 final class SoundManager {
     private let engine = AVAudioEngine()
     // A pool of effect voices, round-robined per SFX. One shared node queues

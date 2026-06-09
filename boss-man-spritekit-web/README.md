@@ -22,8 +22,9 @@ live in the framework, not the game.
 
 `build.sh`:
 
-1. Clones [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit)
-   to `../superbox64-wasmkit` if not already present.
+1. Uses the [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit)
+   sibling checkout at `../../superbox64-wasmkit` (its own repo, next to this
+   one), cloning it there if not already present.
 2. Runs `swift build` with `TOOLCHAINS=org.swift.6.3.2-release` and
    `xcrun --toolchain swift` so SwiftPM picks the swift.org clang the WASI SDK
    was built against (Xcode's bundled clang has no wasm backend). The
@@ -32,6 +33,52 @@ live in the framework, not the game.
 4. Sources the kit's `build.sh` and calls `wasmweb_manifest` to regenerate
    `web/manifest.json` from `web/assets`.
 5. Copies the kit's `runtime.js` into `web/`.
+
+## Build sizes
+
+Physics is Box2D v3 (pure C, vendored in superbox64-spritekit as `CBox2D`,
+called directly from Swift, no C++ in any link). Box2D compiles with
+function/data sections so `--gc-sections` keeps only the physics the game
+calls, and with `-DNDEBUG` so its assert machinery and message strings drop
+out of the shipped wasm:
+
+| Build | Before `-DNDEBUG` | With `-DNDEBUG` | Saved |
+|---|---|---|---|
+| Normal wasm (`build.sh release`) | 4,431,558 | **4,385,075** | 45 KB |
+| Embedded Swift wasm (`docs/embedded/build-embedded-game.sh`) | 917,088 | **865,854** (344 KB gz) | 51 KB |
+
+Both builds were verified by scripted gameplay (same input run produces the
+identical score on the normal and Embedded wasm).
+
+## What ships at boss-man.us
+
+The website serves the Embedded Swift wasm (865,854 bytes, ~6x smaller than
+the 4.9 MB pre-Embedded build) plus the minified runtime
+(`runtime-embedded-min.js`, 42 KB), loaded directly in the homepage iframe.
+The current deploy (v56) brings:
+
+- Box2D v3 physics, pure C, with no C++ or libc++ anywhere in the binary
+- full 32-bit physics category/collision masks (earlier builds truncated
+  them to 16 bits)
+- the traveler walk-animation fix (Embedded has no runtime
+  protocol-conformance lookup, so an `as? Protocol` cast silently returned
+  nil and the leg animation never ran; the cast is now a concrete class
+  downcast)
+- Box2D built with `-DNDEBUG`, so its assert machinery and message strings
+  are gone
+
+### Memory footprint (macOS WebView app, pre-1.0.8-embedded)
+
+Activity Monitor on the notarized Boss-Man-wk.app running the Embedded wasm,
+at launch and again during gameplay:
+
+| Process | At launch | In game |
+|---|---|---|
+| bossman://app (WKWebView content) | 168.1 MB | 233.8 MB |
+| Graphics and Media | 90.4 MB | 114.1 MB |
+| Host app | 26.1 MB | 26.0 MB |
+| Networking | 6.0 MB | 5.9 MB |
+| **Total** | **~290 MB** | **~380 MB** |
 
 ## Run
 
@@ -54,7 +101,7 @@ first; `bundle.py` inlines `bossman.wasm` and every asset as `data:` URLs into
 `bundle.js` and shims `fetch()` so no server is needed:
 
 ```sh
-python3 ../superbox64-wasmkit/scripts/bundle.py web bossman.wasm
+python3 ../../superbox64-wasmkit/scripts/bundle.py web bossman.wasm
 ```
 
 The CI workflow `build-swift-wasm.yml` does exactly this and publishes

@@ -1,7 +1,6 @@
 import AppKit
 import SpriteKit
 
-@MainActor
 final class HUD {
     static let startingLives = 3
     static let maxLives = 5
@@ -31,7 +30,6 @@ final class HUD {
     private var lastLivesCount: Int = -1
     private var lastWaterGunPellets: Int = -1
     private var lastWaterGunActive: Bool = false
-    private var lastWaterGunBlueMode: Bool = false
     private var panelRowY: CGFloat = 0
     private var bottomRowY: CGFloat = 0
     private var showExtraRow = false
@@ -131,7 +129,6 @@ final class HUD {
         lastLevelEmojisText = nil
         lastWaterGunPellets = -1
         lastWaterGunActive = false
-        lastWaterGunBlueMode = false
         lastHighScore = -1
         lastDotsCounter = nil
 
@@ -327,19 +324,16 @@ final class HUD {
         }
     }
 
-    func updateWaterGun(active: Bool, pellets: Int, blueMode: Bool = false) {
-        if active == lastWaterGunActive && pellets == lastWaterGunPellets && blueMode == lastWaterGunBlueMode { return }
+    func updateWaterGun(active: Bool, pellets: Int) {
+        if active == lastWaterGunActive && pellets == lastWaterGunPellets { return }
         lastWaterGunActive = active
         lastWaterGunPellets = pellets
-        lastWaterGunBlueMode = blueMode
         let neverPickedUp = !active && pellets < 0
         ammoContainer.isHidden = neverPickedUp
         gunLabel.isHidden = neverPickedUp
         guard !neverPickedUp else { return }
         let empty = !active || pellets == 0
-        let color: NSColor = blueMode
-            ? NSColor.systemBlue.withAlphaComponent(0.5)
-            : (empty ? .systemRed : .systemBlue)
+        let color: NSColor = empty ? .systemRed : .systemBlue
         for (i, d) in ammoDots.enumerated() {
             d.text = i < pellets ? "\u{25CF}" : "\u{25CB}"
             d.fontColor = color

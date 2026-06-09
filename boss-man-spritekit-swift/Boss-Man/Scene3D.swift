@@ -807,7 +807,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                          dots: state.collectedDots, total: state.dotCount,
                          reports: state.tpsReportsDelivered, items: state.reportItems)
         hud.updateLives(state.lives)
-        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1, blueMode: false)
+        hud.updateWaterGun(active: waterGun.isActive, pellets: waterGunPickedUp ? waterGun.pelletsRemaining : -1)
         hud.updateLevelEmojis(Array(levelTravelers.prefix(1)))
     }
 
@@ -1126,10 +1126,17 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         // The traveler (fish/treat) walks the maze and is caught for points, exactly as in 2D —
         // the spawner drives the tile walk, the 3D view projects it as a billboard (see projectSprites).
         travelerSpawner = TravelerSpawner(scene: self, gridMap: gridMap, sound: sound, containerOriginX: 0)
-        travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count]) { [weak self] in
+        #if hasFeature(Embedded)
+        let visitGate: () -> Bool = { [unowned(unsafe) self] in
+            return !self.gameOver && !self.isUserPaused && !self.dying
+        }
+        #else
+        let visitGate: () -> Bool = { [weak self] in
             guard let self else { return false }
             return !self.gameOver && !self.isUserPaused && !self.dying
         }
+        #endif
+        travelerSpawner.scheduleVisits(of: levelTravelers[(state.level - 1) % levelTravelers.count], whileActive: visitGate)
     }
 
     // Re-parent controller boss nodes into the 3D sprite layer (driven as billboards,
@@ -1570,16 +1577,31 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let cover = makeLevelFadeCover()
         cover.alpha = 0
         uiLayer.addChild(cover)
-        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), .run { [weak self] in
+        #if hasFeature(Embedded)
+        let fadeStep = SKAction.run { [unowned(unsafe) self] in
+            self.performNextLevel()
+            let cover2 = self.makeLevelFadeCover()
+            cover2.alpha = 1
+            self.uiLayer.addChild(cover2)
+            let relockStep = SKAction.run { [unowned(unsafe) self] in
+                self.isUserPaused = false
+            }
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), relockStep]))
+        }
+        #else
+        let fadeStep = SKAction.run { [weak self] in
             guard let self else { return }
             self.performNextLevel()
             let cover2 = self.makeLevelFadeCover()
             cover2.alpha = 1
             self.uiLayer.addChild(cover2)
-            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), .run { [weak self] in
+            let relockStep = SKAction.run { [weak self] in
                 self?.isUserPaused = false
-            }]))
-        }]))
+            }
+            cover2.run(.sequence([.fadeOut(withDuration: 0.4), .removeFromParent(), relockStep]))
+        }
+        #endif
+        cover.run(.sequence([.wait(forDuration: tune + 1.0), .fadeIn(withDuration: 0.4), fadeStep]))
     }
 
     func performNextLevel() {
@@ -1686,9 +1708,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         guard n.action(forKey: Strings.ActionKey.machineCooldown) == nil else { return }
         n.alpha = 0.55
         mapPickups[mk]?.alpha = 0.55
-        n.run(.sequence([.wait(forDuration: cooldown), .run { [weak self] in
+        #if hasFeature(Embedded)
+        let restoreStep = SKAction.run { [unowned(unsafe) self] in
             n.alpha = 1
-            self?.mapPickups[mk]?.alpha = 1 }]), withKey: Strings.ActionKey.machineCooldown)
+            self.mapPickups[mk]?.alpha = 1 }
+        #else
+        let restoreStep = SKAction.run { [weak self] in
+            n.alpha = 1
+            self?.mapPickups[mk]?.alpha = 1 }
+        #endif
+        n.run(.sequence([.wait(forDuration: cooldown), restoreStep]), withKey: Strings.ActionKey.machineCooldown)
     }
 
     // MARK: - Pickup hooks (IsoScene overrides for isoPickups)
@@ -1863,14 +1892,29 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
 
     // MARK: - Multi-touch D-pad (phone). Each finger lights at most one wedge, so
     // forward + a turn happen only when two fingers are physically down at once.
-    func touchBegan(finger: Int, at p: CGPoint) {
+    #if os(macOS)
+    func touchBegan(finger: Int, at p: CGPoint) { touchBeganImpl(finger: finger, at: p) }
+    #else
+    override func touchBegan(finger: Int, at p: CGPoint) { touchBeganImpl(finger: finger, at: p) }
+    #endif
+    private func touchBeganImpl(finger: Int, at p: CGPoint) {
         usingTouch = true
         pointerBegan(finger: finger, at: p)
     }
-    func touchMoved(finger: Int, at p: CGPoint) {
+    #if os(macOS)
+    func touchMoved(finger: Int, at p: CGPoint) { touchMovedImpl(finger: finger, at: p) }
+    #else
+    override func touchMoved(finger: Int, at p: CGPoint) { touchMovedImpl(finger: finger, at: p) }
+    #endif
+    private func touchMovedImpl(finger: Int, at p: CGPoint) {
         if joyFingers.contains(finger) { dpadSet(finger: finger, phase: 1, at: p) }
     }
-    func touchEnded(finger: Int, at p: CGPoint) {
+    #if os(macOS)
+    func touchEnded(finger: Int, at p: CGPoint) { touchEndedImpl(finger: finger, at: p) }
+    #else
+    override func touchEnded(finger: Int, at p: CGPoint) { touchEndedImpl(finger: finger, at: p) }
+    #endif
+    private func touchEndedImpl(finger: Int, at p: CGPoint) {
         if joyFingers.contains(finger) {
             dpadSet(finger: finger, phase: 2, at: p)
             joyFingers.remove(finger)
@@ -1884,12 +1928,12 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
             return
         }
         if radius(p, joystickCenter) <= joystickRadius {
-            #if os(WASI)
+            #if os(WASI) || hasFeature(Embedded)
             if !joyFingers.isEmpty {
                 let newDir = dpadWedgeAt(p)
-                let hasUp = dpadFinger.values.contains { $0.contains("up") }
-                let hasLeftRight = dpadFinger.values.contains { $0.contains("left") || $0.contains("right") }
-                let newIsLeftRight = newDir.contains("left") || newDir.contains("right")
+                let hasUp = dpadFinger.values.contains { dpadHas($0, "up") }
+                let hasLeftRight = dpadFinger.values.contains { dpadHas($0, "left") || dpadHas($0, "right") }
+                let newIsLeftRight = dpadHas(newDir, "left") || dpadHas(newDir, "right")
                 guard (hasUp && newIsLeftRight) || (hasLeftRight && newDir == "up") else { return }
             }
             #endif
@@ -1931,16 +1975,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         // One-shot turn the moment a lateral / about-face component newly appears under
         // this finger: left/right = 90° (combinable with forward), down = 180° about-face.
         if w != prev {
-            if w.contains("left"),  !prev.contains("left")  {
+            if dpadHas(w, "left"),  !dpadHas(prev, "left")  {
                 heldTurnLeft = true
                 if wantDir == nil { wantDir = (x: moveDir.y, y: -moveDir.x) }
             }
-            if w.contains("right"), !prev.contains("right") {
+            if dpadHas(w, "right"), !dpadHas(prev, "right") {
                 heldTurnRight = true
                 if wantDir == nil { wantDir = (x: -moveDir.y, y: moveDir.x) }
             }
-            if !w.contains("left") && prev.contains("left") { heldTurnLeft = false }
-            if !w.contains("right") && prev.contains("right") { heldTurnRight = false }
+            if !dpadHas(w, "left") && dpadHas(prev, "left") { heldTurnLeft = false }
+            if !dpadHas(w, "right") && dpadHas(prev, "right") { heldTurnRight = false }
             if w == "down", prev != "down" { backing = true }
             if w != "down", prev == "down" { backing = false }
         }
@@ -1950,10 +1994,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     func applyDpad() {
         var up = false, down = false, left = false, right = false
         for (_, w) in dpadFinger {
-            if w.contains("up")    { up = true }
-            if w.contains("down")  { down = true }
-            if w.contains("left")  { left = true }
-            if w.contains("right") { right = true }
+            if dpadHas(w, "up")    { up = true }
+            if dpadHas(w, "down")  { down = true }
+            if dpadHas(w, "left")  { left = true }
+            if dpadHas(w, "right") { right = true }
         }
         if left && right {
             left = false
@@ -1985,3 +2029,19 @@ extension SKScene {
 }
 
 
+
+// Substring containment using only the core stdlib. Embedded Swift lacks the
+// _StringProcessing `String.contains(_ other: some StringProtocol)` overload
+// the d-pad direction tests ("up"/"left"/...) relied on. ASCII labels, so UTF-8
+// byte compare is correct and allocation-light.
+private func dpadHas(_ s: String, _ sub: String) -> Bool {
+    let h = Array(s.utf8), n = Array(sub.utf8)
+    if n.isEmpty { return true }
+    if h.count < n.count { return false }
+    for i in 0...(h.count - n.count) {
+        var m = true
+        for j in 0..<n.count where h[i + j] != n[j] { m = false; break }
+        if m { return true }
+    }
+    return false
+}

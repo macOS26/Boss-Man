@@ -3,7 +3,6 @@ import Darwin
 import GameKit
 import SpriteKit
 
-@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterControllerDelegate {
     static let startFullscreenKey = Strings.DefaultsKey.startFullscreen
 
@@ -230,7 +229,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
 }
 
 @main
-@MainActor
 enum BossManApp {
     static func main() {
         setenv(Strings.System.osActivityModeKey, Strings.System.osActivityDisable, 1)

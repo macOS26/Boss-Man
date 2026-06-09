@@ -12,9 +12,16 @@
 
 set -eo pipefail
 
-if [ ! -d "../superbox64-wasmkit" ]; then
+# The runtime lives in its OWN repo, a sibling of the BossMan repo (never a
+# nested clone inside it). Dev: ../../superbox64-wasmkit is the working
+# checkout and is used as-is. CI: cloned to that same spot, outside the repo.
+# Resolved from the script's location so the clone target never depends on
+# the caller's working directory.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WASMKIT="$SCRIPT_DIR/../../superbox64-wasmkit"
+if [ ! -d "$WASMKIT" ]; then
   echo "→ Cloning superbox64-wasmkit..."
-  git clone https://github.com/macOS26/superbox64-wasmkit ../superbox64-wasmkit
+  git clone https://github.com/macOS26/superbox64-wasmkit "$WASMKIT"
 fi
 
 SWIFT_TOOLCHAIN="${SWIFT_TOOLCHAIN:-org.swift.6.3.2-release}"
@@ -61,7 +68,9 @@ else
   echo "✓ Debug artifact published: web/bossman.wasm"
 fi
 
-source ../superbox64-wasmkit/build.sh
+source "$WASMKIT/build.sh"
 wasmweb_manifest web/assets web/manifest.json
-rm -f web/runtime.js
-cp ../superbox64-wasmkit/runtime.js web/runtime.js
+rm -f web/runtime.js web/runtime-embedded-min.js
+cp "$WASMKIT/runtime.js" web/runtime.js
+# Minified runtime used by the Embedded build + the website (smaller, same behavior).
+cp "$WASMKIT/runtime-embedded-min.js" web/runtime-embedded-min.js
