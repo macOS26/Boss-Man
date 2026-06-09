@@ -1369,6 +1369,20 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         pete.position = CGPoint(x: size.width / 2, y: peteBaseY + CGFloat(sin(bob) * 4))
     }
 
+    func travelerGridMatches(_ sgx: Int, _ sgy: Int) -> Bool {
+        guard let s = travelerSpawner, s.node != nil, s.activeTraveler != nil else { return false }
+        return Int(s.grid.x) == sgx && Int(s.grid.y) == sgy
+    }
+    @discardableResult
+    func catchTravelerByShot() -> Bool {
+        guard let caught = travelerSpawner?.tryCatch(travelerSpawner?.node) else { return false }
+        sound.playWaterGunSplash()
+        state.bumpScore(by: caught.traveler.points)
+        popPoints(caught.traveler.points)
+        refreshHUD()
+        return true
+    }
+
     func moveShots(dt: Double = 1.0 / 60.0) {
         let speed = 0.22 * dt * 60.0
         for i in shots.indices where shots[i].alive {
@@ -1395,6 +1409,16 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                     spriteLayer.addChild(splash)
                     break
                 }
+            }
+            if shots[i].alive, travelerGridMatches(sgx, sgy) {
+                let hitAt = travelerMirror?.position ?? CGPoint(x: size.width / 2, y: peteBaseY)
+                let hitZ = (travelerMirror?.zPosition ?? 5) + 1
+                shots[i].alive = false
+                catchTravelerByShot()
+                let splash = SpriteFactory.waterSplash(spread: 1.0)
+                splash.position = hitAt
+                splash.zPosition = hitZ
+                spriteLayer.addChild(splash)
             }
         }
         for s in shots where !s.alive {

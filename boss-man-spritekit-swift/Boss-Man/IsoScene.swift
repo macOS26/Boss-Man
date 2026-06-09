@@ -944,6 +944,15 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
                 spriteLayer.addChild(splash)
                 break
             }
+            if shots[i].alive, travelerGridMatches(sgx, sgy) {
+                let hitPt = proj(shots[i].x, shots[i].y, 0)
+                shots[i].alive = false
+                catchTravelerByShot()
+                let splash = SpriteFactory.waterSplash(spread: 1.0)
+                splash.position = CGPoint(x: hitPt.x, y: hitPt.y + 15)
+                splash.zPosition = CGFloat(shots[i].y) * 4 + 2
+                spriteLayer.addChild(splash)
+            }
         }
         for s in shots where !s.alive {
             s.node.removeFromParent()

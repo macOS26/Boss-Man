@@ -479,6 +479,22 @@ final class GameScene: SKScene, WorkerControllerDelegate, BossControllerDelegate
             return
         }
 
+        if let dropletNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.waterDroplet })?.node,
+           let fishNode = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish })?.node {
+            let pos = fishNode.position
+            if let caught = travelerSpawner.tryCatch(fishNode) {
+                spawnWaterSplash(at: pos)
+                sound.playWaterGunSplash()
+                state.bumpScore(by: caught.traveler.points)
+                ScorePopup.show(caught.traveler.points, at: pos, in: self,
+                                color: SKColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1))
+                refreshHUD()
+            }
+            if let idx = waterDroplets.firstIndex(where: { $0 === dropletNode }) { waterDroplets.remove(at: idx) }
+            dropletNode.removeFromParent()
+            return
+        }
+
         guard bodies.contains(where: { $0.categoryBitMask == PhysicsCategory.worker }) else { return }
         if let fishBody = bodies.first(where: { $0.categoryBitMask == PhysicsCategory.fish }),
            fishBody.node != nil {

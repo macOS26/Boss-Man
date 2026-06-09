@@ -45,7 +45,7 @@ final class WaterDroplet: SKNode {
         body.isDynamic = true
         body.affectedByGravity = false
         body.categoryBitMask = PhysicsCategory.waterDroplet
-        body.contactTestBitMask = PhysicsCategory.boss
+        body.contactTestBitMask = PhysicsCategory.boss | PhysicsCategory.fish
         body.collisionBitMask = 0
         physicsBody = body
     }
