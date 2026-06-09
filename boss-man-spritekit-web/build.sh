@@ -63,4 +63,4 @@ fi
 
 source ../superbox64-wasmkit/build.sh
 wasmweb_manifest web/assets web/manifest.json
-cp ../superbox64-wasmkit/runtime.js web/
+cp ../superbox64-wasmkit/web/runtime.js web/
