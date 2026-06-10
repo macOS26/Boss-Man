@@ -152,8 +152,8 @@ Each boss has its own color, AI personality, and speed, modeled after Ms. Pac-Ma
 | Boss | Shirt | Tie | Behavior | Speed |
 |------|-------|-----|----------|-------|
 | **BILL** | Red | Black | Direct chase (Blinky) | 1.00x |
-| **DOM** | Pink (75% alpha over white) | Purple + 40% black | Ambush 4 tiles ahead (Pinky) | 0.85x |
-| **BOB** | Teal | Blue + 20% black | Flanker, pivots 2 tiles off PETE's path (Inky) | 0.78x |
+| **MILT** | Pink (75% alpha over white) | Purple + 40% black | Ambush 4 tiles ahead (Pinky) | 0.85x |
+| **BOBS** | Teal | Blue + 20% black | Flanker, pivots 2 tiles off PETE's path (Inky) | 0.78x |
 | **STAN** | Orange | Red + 10% black | Timid scatter, backs to corner when too close (Sue) | 0.70x |
 
 On every 12th level (12, 24, ...) the entire roster turns **all-black** (MIB theme) and wears sunglasses.
