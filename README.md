@@ -77,8 +77,8 @@ Boss-Man ships **six distinct renderers**, unlocked by cycling the title screen.
 | **ZOOM** — Two Bobs | 1982 | 1.5x, locks on Pete, smooth scroll | Flat 2D sprites | A few tiles of read-ahead; bosses can ambush from off screen | Jr. Pac-Man scrolling mazes |
 | **MACRO** — Milton | 1983 | 2x, follows Pete, strip HUD | Flat 2D sprites | Towering walls, readable boss faces, the most cinematic 2D | Late-arcade close-focus maze games |
 | **ISO** — Wonderland | 1985 | Fixed 30° isometric | 2:1 diamond projection, extruded walls, billboard people | An architectural diorama of the office | Zaxxon, Q*bert, 80s British micros |
-| **RAY** — Severance | 1993 | First person, Pete's eyes | DDA raycaster + per-face trapezoid quads, fog, depth-sorted billboards | Fluorescent corridors, drop-panel ceiling, checker floor | Wolfenstein / DOOM |
-| **VOXEL** — Labyrinth | 1994 | First person, Pete's eyes | Column-by-column voxel painter (no raycast, no z-buffer), sky dome | Slab walls rising from the floor, earth-toned depth shading | NovaLogic's Comanche |
+| **RAY** — Severance | 1993 | First person, Pete's eyes | Raycaster adaptation of the VOXEL renderer (reverse engineered): DDA rays + per-face trapezoid quads, depth-sorted billboards | Fluorescent corridors, drop-panel ceiling, checker floor | Wolfenstein / DOOM |
+| **VOXEL** — Labyrinth | 1994 | First person, Pete's eyes | Column-by-column voxel painter (no raycast, no z-buffer), sky dome | Slab walls rising from the floor, sun-glow light shafts | NovaLogic's Comanche |
 
 **Same game in every row.** All six modes play the identical levels (the same
 37×17 grids, including everything built in the level editor) with the same
@@ -115,7 +115,7 @@ The office reimagined as an isometric diorama. The maze is projected onto a clas
 
 #### RAY — SEVERANCE (1993)
 
-First-person. You are Pete, walking through the office corridors. The walls are rendered with a **Wolfenstein / DOOM-style DDA raycaster**: each screen column is a ray shot into the 3D scene, the nearest wall face is found, and the column is filled with a perspective-scaled strip. RAY adds the full-face projection treatment from the Swift master: wall faces are projected as per-face trapezoid quads (not raw column strips), clipped at the near plane, depth-sorted, and fog-blended against the level's cubicle color. A distance-based fog darkens far walls and the gray cubicle-window insets add depth. Pellets, gold discs, bosses, and the traveler are all projected as depth-sorted billboards that interleave correctly with the wall faces. The ceiling is a tiled drop-panel pattern lit by flickering fluorescent tubes — the unmistakable office overhead that makes every hallway feel like a Initech floor. The floor is a perspective-correct checker. The era is unmistakable: 1993 was the year id Software changed everything.
+First-person. You are Pete, walking through the office corridors. The walls are rendered with a **Wolfenstein / DOOM-style DDA raycaster**: each screen column is a ray shot into the 3D scene, the nearest wall face is found, and the column is filled with a perspective-scaled strip. RAY is a raycaster adaptation of the VOXEL renderer, reverse engineered from it: wall faces are projected as per-face trapezoid quads (not raw column strips), clipped at the near plane and depth-sorted, and the gray cubicle-window insets add depth. Pellets, gold discs, bosses, and the traveler are all projected as depth-sorted billboards that interleave correctly with the wall faces. The ceiling is a tiled drop-panel pattern lit by flickering fluorescent tubes — the unmistakable office overhead that makes every hallway feel like a Initech floor. The floor is a perspective-correct checker. The era is unmistakable: 1993 was the year id Software changed everything.
 
 #### VOXEL — LABYRINTH (1994)
 
