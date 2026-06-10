@@ -1816,7 +1816,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         case KeyCode.arrowRight, KeyCode.keyD:
             heldTurnRight = true
             if wantDir == nil { wantDir = (x: -moveDir.y, y: moveDir.x) }
-        case KeyCode.arrowDown,  KeyCode.keyS:  backing = !backing
+        case KeyCode.arrowDown,  KeyCode.keyS:  backing = true
         case KeyCode.arrowUp,    KeyCode.keyW:  pressed.insert(code)
         default:                                break
         }
@@ -1826,6 +1826,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let code = Int(event.keyCode)
         if code == KeyCode.arrowLeft || code == KeyCode.keyA { heldTurnLeft = false }
         if code == KeyCode.arrowRight || code == KeyCode.keyD { heldTurnRight = false }
+        if code == KeyCode.arrowDown || code == KeyCode.keyS { backing = false }
     }
 
     // MARK: - On-screen joystick + fire button (drive the same tank input)
