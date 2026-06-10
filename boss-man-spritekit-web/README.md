@@ -27,6 +27,42 @@ through a 101-function C ABI to the
 The goal: 100% common game source, every platform difference pushed down into
 the framework instead of forked into the game.
 
+## Why we dropped C++ (SFML 2.6 + Box2D 2.4)
+
+Boss-Man's first cross-platform edition was a hand-written C++ port: SFML 2.6
+for windowing/rendering/audio, Box2D 2.4 for physics, built natively for
+macOS, Windows and Linux (it lives on in the `legacy-cpp` branch as
+`boss-man-box2d-sfml-cpp`). It worked, but it meant maintaining **two
+games**: every feature, level tweak and bug fix shipped twice, once in the
+Swift master and again as a C++ translation, and the port always trailed.
+
+The replacement splits the job by what each platform does best:
+
+- **Apple platforms get the real thing**: the native SpriteKit + Swift app
+  (Metal rendering, Game Center, TestFlight), which is also the master
+  source of truth for all behavior.
+- **Everywhere else (and even the Mac again) gets the same source**:
+  SuperBox64 SpriteKit + WasmKit compile the unmodified Swift game to one
+  866 KB Embedded wasm that runs in any browser and ships as WebView apps
+  for macOS, Windows, Linux and Android.
+
+What that bought:
+
+- **One codebase.** The C++ port is retired, not because C++ was slow, but
+  because a second implementation of the same game is a permanent tax. Fixes
+  land once and ship everywhere.
+- **The port can't drift.** The wasm builds compile the master's files
+  directly; there is nothing to forget to translate.
+- **Per-platform native quirks vanished.** SFML windowing, audio backends,
+  and per-OS packaging gave way to one browser runtime plus thin WebView
+  shells; the binary the Mac, Windows, Linux and Android apps run is
+  byte-identical.
+- **The size argument died with Embedded Swift.** The honest C++ advantage
+  was binary size; at 866 KB (344 KB gzipped) the Embedded wasm is in native
+  C++ territory.
+- **Physics stayed in the family**: Box2D 2.4 C++ was frozen upstream; the
+  framework now vendors Box2D v3, pure C, called directly from Swift.
+
 ## Build
 
 ```sh
