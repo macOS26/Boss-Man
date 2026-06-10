@@ -147,7 +147,7 @@ Once all four are checked off, walk over the **TPS Delivery Box** (📦) to deli
 
 ## Bosses
 
-Each boss has its own color, AI personality, and speed, modeled after Ms. Pac-Man's ghosts (Blinky / Pinky / Inky / Sue). Bosses only hunt when within 3 tiles of PETE (Chebyshev distance), so the maze always has safe zones.
+Each boss has its own color, AI personality, and speed, modeled after Ms. Pac-Man's ghosts (Blinky / Pinky / Inky / Sue). Bosses only hunt when within 3 tiles of PETE (Chebyshev distance), so the maze always has safe zones. Due to the difficulty of first-person play, bosses keep that 3-square distance in the 3D levels (RAY and VOXEL); we may make them more aggressive down the road.
 
 | Boss | Shirt | Tie | Behavior | Speed |
 |------|-------|-----|----------|-------|
