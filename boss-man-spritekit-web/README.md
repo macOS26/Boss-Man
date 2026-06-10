@@ -201,6 +201,74 @@ destroy bodies.
   in embedded/embedded-stubs.c), plus a `_initialize` reactor entry that runs
   wasi-libc's constructors.
 
+## How graphics, sound and the 3D scenes work
+
+### Graphics (SuperBox64 SpriteKit)
+
+The framework is a reimplementation of Apple's SpriteKit API that renders
+through a small C ABI instead of Metal. Each frame, `SKView.render` walks the
+scene tree exactly like Apple's compositor would (transforms, anchor points,
+z-order, alpha and color blending) and emits flat draw calls:
+
+- `SKSpriteNode` becomes `gfx_draw_image(handle, srcRect, dstRect, tint)`;
+  textures are images the runtime decoded once, addressed by handle, and
+  `SKTexture(rect:in:)` sub-rects give atlas sampling for free.
+- Color sprites and `SKShapeNode` become `gfx_fill_rect` / `gfx_fill_poly` /
+  `gfx_stroke_*` calls; `SKLabelNode` becomes `gfx_draw_text` with real font
+  metrics from `txt_width`.
+- `SKView.texture(from:)`, `SKCropNode` and `SKEffectNode` render through
+  offscreen canvases (`gfx_offscreen_begin/end`), so bake-to-texture and
+  masking work like on macOS.
+- `SKShader`, `SKLightNode` and `SKWarpGeometry` compile real GLSL on a hidden
+  WebGL2 canvas (`gfx_shader_*`) and blit the result back into the 2D scene.
+
+### Sound
+
+`SKAudioNode`, `SoundManager` and `AVFoundation` calls land on the `snd_*` and
+`eng_*` ABI: decoded Web Audio buffers addressed by handle, per-voice volume,
+pan and playback rate, generated PCM via `snd_create_pcm`, and an
+`AVAudioEngine`-shaped node graph (`eng_player/mixer/connect`) on the Web
+Audio graph. Speech (the TPS report announcements) is the browser's own
+speech synthesis through `tts_*`.
+
+### The 3D scenes (ISO, DOOM, VOXEL)
+
+There is no 3D API underneath; all three bonus renderers are software
+renderers written against the same SpriteKit primitives as the 2D game:
+
+- **DOOM** raycasts 220 screen columns per frame against the live maze grid
+  and draws each wall slice as a textured vertical strip, a one-column
+  sub-rect of the wall texture stretched to the projected height, with a
+  z-buffer so travelers and pickups (billboard sprites) clip correctly.
+- **VOXEL** is a painter's-algorithm heightfield renderer drawing back to
+  front; **ISO** projects the grid to isometric billboards.
+- Static node trees are baked once with `view.texture(from:)` into a single
+  sprite, so the per-frame cost stays at the slice/billboard draws.
+- All three drive the real game systems (BossController, RoundState,
+  MazeBuilder pickups); only the projection differs per scene.
+
+## What SuperBox64-WasmKit does
+
+WasmKit is the from-scratch browser runtime on the other side of the C ABI,
+built with **zero Emscripten, no ads, and no fugly logo overlays**, just a
+single hand-written `runtime.js` (and its 42 KB minified embedded variant):
+
+- Instantiates the wasm (WASI or Embedded reactor), provides every `env`
+  import (`gfx_* snd_* img_* eng_* tts_* win_* store_*`), and drives the game
+  loop with `requestAnimationFrame` calling the wasm's `frame(dt)` export.
+- Loads assets from `manifest.json` (images decoded to handles, audio to Web
+  Audio buffers, fonts via FontFace), serving them over http or from a single
+  inlined `bundle.js` for file:// play.
+- Translates browser input (keyboard, mouse, multi-touch, gamepads via the
+  Web Gamepad API) into the event queue the game polls, and handles
+  fullscreen, pause-on-hidden-tab, and localStorage persistence.
+- Ships the build helpers: `wasmweb_manifest` regenerates the asset manifest,
+  `bundle.py` produces the self-contained All-in-One Web zip.
+
+The split keeps the contract honest: the game and framework compile from one
+Swift codebase for macOS and wasm, and everything browser-specific lives in
+WasmKit behind the same 101-function ABI.
+
 ## Run
 
 The `web/` folder ships three host pages:
