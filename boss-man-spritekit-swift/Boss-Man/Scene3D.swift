@@ -50,6 +50,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
     var wantDir: (x: Int, y: Int)? = nil   // queued turn (taken at the next junction)
     var pendingSecondTurn = false
     var backing = false
+    var tpsEmojiWorldH: CGFloat { 0.48 }
     var heldTurnLeft = false, heldTurnRight = false   // continuous turn while held
     var lastJunctionCol = -1, lastJunctionRow = -1   // track last junction location
     var tcx = 1.5, tcy = 1.5, targetAngle = 0.0
@@ -87,6 +88,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let worldH: CGFloat
         let x, y: Double
         var alive: Bool
+        var bottom: CGFloat = 0
     }
     var billboards: [Billboard] = []
     struct VQuad {
@@ -608,14 +610,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
         var all: [(node: SKNode, nativeH: CGFloat, worldH: CGFloat, x: Double, y: Double, maxH: CGFloat, name: String?, bottom: CGFloat)] = []
         for b in billboards where b.alive {
-            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil, -b.nativeH / 2))
+            all.append((b.node, b.nativeH, b.worldH, b.x, b.y, .greatestFiniteMagnitude, nil, b.bottom))
         }
         for e in bossController.entities {
             guard let g = bossGrid[ObjectIdentifier(e.node)] else { continue }
             let id = ObjectIdentifier(e.node)
             let bx = g.0 + 0.5, by = Double(rowsCount) - 0.5 - g.1
             let nh = bossNativeH[id] ?? 36
-            all.append((e.node, nh, 0.3, bx, by, .greatestFiniteMagnitude, e.name, bossFeet[id] ?? -nh / 2))
+            all.append((e.node, nh, 0.42, bx, by, viewH * 0.42, e.name, bossFeet[id] ?? -nh / 2))
         }
         for s in shots where s.alive {
             all.append((s.node, s.nativeH, 0.32, s.x, s.y, .greatestFiniteMagnitude, nil, -s.nativeH / 2))
@@ -734,13 +736,14 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 case Strings.Tile.dotChar, Strings.Tile.hideoutChar:
                     if GameState.demoMode { continue }
                     let inner = SpriteFactory.pelletCube(size: 8)
-                    let nh = max(1, inner.calculateAccumulatedFrame().height)
                     inner.yScale = 0.8
+                    let frame = inner.calculateAccumulatedFrame()
+                    let nh = max(1, frame.height)
                     let wrap = SKNode()
                     wrap.addChild(inner)
                     wrap.isHidden = true
                     spriteLayer.addChild(wrap)
-                    billboards.append(Billboard(node: wrap, nativeH: nh, worldH: pelletWorldH, x: x, y: y, alive: true))
+                    billboards.append(Billboard(node: wrap, nativeH: nh, worldH: pelletWorldH, x: x, y: y, alive: true, bottom: frame.minY))
                     continue
                 case Strings.Tile.goldDiscChar:
                     node = throbbing(SpriteFactory.goldDiscVisual(radius: 10), 1.25, 0.35)
@@ -753,14 +756,15 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
                 case Strings.Tile.printerChar, Strings.Tile.faxChar, Strings.Tile.coverSheetChar,
                      Strings.Tile.bookBinderChar, Strings.Tile.brownBoxChar:
                     node = emojiBillboard(SpriteFactory.machineEmoji(for: ch)!, 128)
-                    worldH = 0.6
+                    worldH = tpsEmojiWorldH
                 default: continue
                 }
                 guard let n = node else { continue }
                 n.isHidden = true
                 spriteLayer.addChild(n)
-                let nh = max(1, n.calculateAccumulatedFrame().height)
-                billboards.append(Billboard(node: n, nativeH: nh, worldH: worldH, x: x, y: y, alive: true))
+                let bframe = n.calculateAccumulatedFrame()
+                let nh = max(1, bframe.height)
+                billboards.append(Billboard(node: n, nativeH: nh, worldH: worldH, x: x, y: y, alive: true, bottom: bframe.minY))
             }
         }
     }

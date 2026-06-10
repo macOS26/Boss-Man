@@ -3,7 +3,8 @@ const fs = require('fs');
 
 const url = process.argv[2];
 const outDir = process.argv[3] || '.';
-const MODES = [
+const ONLY = process.env.ONLY ? process.env.ONLY.split(',') : null;
+const MODES_ALL = [
   { n: 0, name: 'wide',  label: 'LUMBERGH',   kind: '2d' },
   { n: 1, name: 'zoom',  label: 'TWO BOBS',   kind: '2d' },
   { n: 2, name: 'macro', label: 'MILTON',     kind: '2d' },
@@ -12,6 +13,7 @@ const MODES = [
   { n: 5, name: 'voxel', label: 'LABYRINTH',  kind: 'fps' },
 ];
 
+const MODES = ONLY ? MODES_ALL.filter(m => ONLY.includes(m.name)) : MODES_ALL;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function play2d(page) {

@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<title>Boss-Man headless test host</title>
+<style>html,body{margin:0;height:100%;background:#0b0b0f;display:flex;align-items:center;justify-content:center}
+#game{width:min(96vw,calc(96vh*1184/666));aspect-ratio:1184/666;background:#000}</style></head>
+<body><canvas id="game" width="1184" height="666"></canvas>
+<script>window.WASMWEB={logicalWidth:1184,logicalHeight:666,
+  wasmUrl:'/boss-man-spritekit-web/web/bossman-embedded.wasm',
+  assetRoot:'/boss-man-spritekit-web/web/assets',title:'BossMan-Test'};</script>
+<script src="/boss-man-spritekit-web/web/runtime.js"></script>
+</body></html>
