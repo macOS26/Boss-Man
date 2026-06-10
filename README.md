@@ -69,6 +69,22 @@ Physical gamepads and Apple Game Controller framework are also supported.
 
 Boss-Man ships **six distinct renderers**, unlocked by cycling the title screen. Each one is a love letter to a different era of game graphics, named after a character from *Office Space* or a cult classic film. Every mode runs the exact same game underneath: the same boss AI, Blue Mode, TPS report chain, gold discs, water gun, tunnels, travelers, and lives. Only the camera and renderer change. Collect dots, deliver reports, and avoid your bosses — whether you are doing it in flat 2D or walking the corridors in first person.
 
+### The Six Modes at a Glance
+
+| Mode | Era | Camera | Renderer | What you see | Inspired by |
+|---|---|---|---|---|---|
+| **WIDE** — Lumbergh | 1980 | Fixed, whole board | Flat 2D sprites | The full 37×17 floor at once, HUD outside the maze | Ms. Pac-Man cabinet |
+| **ZOOM** — Two Bobs | 1982 | 1.5x, locks on Pete, smooth scroll | Flat 2D sprites | A few tiles of read-ahead; bosses can ambush from off screen | Jr. Pac-Man scrolling mazes |
+| **MACRO** — Milton | 1983 | 2x, follows Pete, strip HUD | Flat 2D sprites | Towering walls, readable boss faces, the most cinematic 2D | Late-arcade close-focus maze games |
+| **ISO** — Wonderland | 1985 | Fixed 30° isometric | 2:1 diamond projection, extruded walls, billboard people | An architectural diorama of the office | Zaxxon, Q*bert, 80s British micros |
+| **RAY** — Severance | 1993 | First person, Pete's eyes | DDA raycaster + per-face trapezoid quads, fog, depth-sorted billboards | Fluorescent corridors, drop-panel ceiling, checker floor | Wolfenstein / DOOM |
+| **VOXEL** — Labyrinth | 1994 | First person, Pete's eyes | Column-by-column voxel painter (no raycast, no z-buffer), sky dome | Slab walls rising from the floor, earth-toned depth shading | NovaLogic's Comanche |
+
+**Same game in every row.** All six modes play the identical levels (the same
+37×17 grids, including everything built in the level editor) with the same
+boss AI, Blue Mode, TPS chain, gold discs, water gun, tunnels, travelers,
+scoring and lives. A level you master in WIDE is the level you walk in RAY.
+
 ---
 
 ### 2D Modes — The Classic Era
