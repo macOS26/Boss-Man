@@ -72,11 +72,7 @@ final class GameOverScene: SKScene {
     }
 
     override func keyDown(with event: NSEvent) {
-        #if os(macOS)
         screen?.handleKey(usernameKeyCode(for: event), shift: event.modifierFlags.contains(.shift))
-        #else
-        screen?.handleKey(Int(event.keyCode), shift: false)
-        #endif
     }
 
     override func mouseDown(with event: NSEvent) {

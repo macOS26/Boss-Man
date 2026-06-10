@@ -24,10 +24,9 @@ enum MoveDirection: CaseIterable {
     }
 }
 
-// Physical movement key codes. Values are platform-specific, the names are
-// common so the key-to-direction logic lives in one place.
+// Physical movement key codes (macOS virtual codes; the wasm framework
+// translates the runtime's codes to these, so one table serves every platform).
 enum KeyCode {
-#if os(macOS)
     static let arrowLeft  = 123
     static let arrowRight = 124
     static let arrowDown  = 125
@@ -57,35 +56,4 @@ enum KeyCode {
     static let digit6 = 22
     static let digit7 = 26
     static let digit8 = 28
-#elseif os(WASI) || hasFeature(Embedded)
-    static let arrowLeft  = 71
-    static let arrowRight = 72
-    static let arrowDown  = 74
-    static let arrowUp    = 73
-    static let keyA = 0
-    static let keyD = 3
-    static let keyS = 18
-    static let keyW = 22
-    static let keyP = 15
-    static let keyB = 1
-    static let keyE = 4
-    static let keyF = 5
-    static let esc = 36
-    static let space = 57
-    static let keyC = 2
-    static let keyV = 21
-    static let keyZ = 25
-    static let keyY = 24
-    static let keyR = 17
-    static let delete = 59
-    static let digit0 = 26
-    static let digit1 = 27
-    static let digit2 = 28
-    static let digit3 = 29
-    static let digit4 = 30
-    static let digit5 = 31
-    static let digit6 = 32
-    static let digit7 = 33
-    static let digit8 = 34
-#endif
 }
