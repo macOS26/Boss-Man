@@ -1,6 +1,6 @@
 # Embedded Swift Feasibility — Boss-Man WASM (Phase 0 probe)
 
-Branch: `embedded-swift-no-foundation`. Reproduce with `docs/embedded/probe.sh`.
+Branch: `embedded` (merged to `main`). Reproduce with `docs/embedded/probe.sh`.
 Goal: eliminate Foundation and the Swift stdlib surface so the WASM build can one
 day compile with `-enable-experimental-feature Embedded`.
 

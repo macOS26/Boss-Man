@@ -5,11 +5,11 @@ name: Build Embedded Swift WASM
 # (pure C; function-sections + --gc-sections, so only the physics the game uses is kept),
 # the embedded stdlib, and WASI libc/libc++. Produces a ~782 KB wasm (vs 4.9 MB
 # normal). Runs on the embedded branch — the game's web Package.swift there points
-# at the framework's `embedded` branch. See docs/embedded/build-embedded-game.sh.
+# at the framework embedded branch. See docs/embedded/build-embedded-game.sh.
 
 on:
   push:
-    branches: [embedded-swift-no-foundation]
+    branches: [embedded, main]
     paths:
       - 'boss-man-spritekit-web/**'
       - 'boss-man-spritekit-swift/**'
