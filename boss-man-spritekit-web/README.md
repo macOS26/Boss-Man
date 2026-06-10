@@ -13,6 +13,20 @@ The same Swift source drives the macOS app and this wasm build; the platform
 differences (boot/frame lifecycle, `localStorage` persistence, SF key codes)
 live in the framework, not the game.
 
+## What is SuperBox64 SpriteKit
+
+[SuperBox64 SpriteKit](https://github.com/macOS26/superbox64-spritekit) is a
+Swift reimplementation of Apple's SpriteKit that compiles to WebAssembly. A
+macOS or iOS SpriteKit game adds the package, keeps every `import SpriteKit`
+(and `AppKit`, `UIKit`, `GameKit`, `GameController`, `AVFoundation`,
+`GameplayKit`, `Combine`, `SwiftUI`) line unchanged, and runs in any modern
+browser. No Emscripten, no loading screens, no watermarks. Physics is Box2D
+v3 behind Apple's `SKPhysicsBody` API; rendering, audio and input flow
+through a 101-function C ABI to the
+[superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit) runtime.
+The goal: 100% common game source, every platform difference pushed down into
+the framework instead of forked into the game.
+
 ## Build
 
 ```sh
@@ -79,6 +93,88 @@ at launch and again during gameplay:
 | Host app | 26.1 MB | 26.0 MB |
 | Networking | 6.0 MB | 5.9 MB |
 | **Total** | **~290 MB** | **~380 MB** |
+
+## Compiling the Swift wasm from scratch
+
+The wasm needs the swift.org toolchain (Xcode's clang has no wasm backend),
+the wasm Swift SDK, and Binaryen's `wasm-opt`.
+
+### macOS
+
+```sh
+# 1. Toolchain + wasm SDK + Binaryen
+curl -fLO https://download.swift.org/swift-6.3.2-release/xcode/swift-6.3.2-RELEASE/swift-6.3.2-RELEASE-osx.pkg
+installer -pkg swift-6.3.2-RELEASE-osx.pkg -target CurrentUserHomeDirectory
+TOOLCHAINS=org.swift.6.3.2-release xcrun --toolchain swift swift sdk install \
+  https://download.swift.org/swift-6.3.2-release/wasm-sdk/swift-6.3.2-RELEASE/swift-6.3.2-RELEASE_wasm.artifactbundle.tar.gz
+brew install binaryen
+
+# 2. Build (the helper wraps the raw command below)
+cd boss-man-spritekit-web && ./build.sh release
+```
+
+### Linux
+
+`build.sh` is macOS-only (`xcrun`); on Linux run the raw commands.
+
+```sh
+# 1. Toolchain via swiftly (or the swift.org tarball) + wasm SDK + Binaryen
+swiftly install 6.3.2 && swiftly use 6.3.2
+swift sdk install \
+  https://download.swift.org/swift-6.3.2-release/wasm-sdk/swift-6.3.2-RELEASE/swift-6.3.2-RELEASE_wasm.artifactbundle.tar.gz
+sudo apt install binaryen
+
+# 2. The raw build (what build.sh runs)
+cd boss-man-spritekit-web
+swift build -c release --swift-sdk swift-6.3.2-RELEASE_wasm \
+  -Xswiftc -Osize -Xlinker -s \
+  -Xswiftc -Xfrontend -Xswiftc -disable-reflection-metadata
+wasm-opt -Oz .build/wasm32-unknown-wasip1/release/BossMan.wasm -o web/bossman.wasm
+
+# 3. Runtime + manifest from the sibling wasmkit checkout
+git clone https://github.com/macOS26/superbox64-wasmkit ../../superbox64-wasmkit
+cp ../../superbox64-wasmkit/runtime.js web/
+```
+
+### Windows
+
+Use WSL2 (Ubuntu) and follow the Linux steps; the toolchain, wasm SDK and
+Binaryen all install the same way inside WSL. The produced
+`web/` folder serves from any host. (A native Windows toolchain exists, but
+the wasm Swift SDK path is only exercised here through WSL.)
+
+## What it takes to write Embedded Swift
+
+Embedded is a subset of Swift; code written for it still compiles and runs
+normally everywhere else. The rules this codebase follows:
+
+- **No `weak` or `unowned` references.** Use `unowned(unsafe)` behind
+  `#if hasFeature(Embedded)` where Apple's API contract needs a non-owning
+  reference (`node`, `delegate`, `camera`).
+- **No `Any`, no non-class existentials, no metatypes.** APIs take typed
+  enums or generics (`SKKeyframeValue` instead of `[Any]`); `type(of:)`,
+  `.self` parameters and `Mirror` do not exist.
+- **No runtime protocol casts.** `as? SomeProtocol` can never succeed; use a
+  concrete class downcast (`as? PixelPerson`) or put the method on a base
+  class and override it. Class-to-class casts work fine.
+- **No `async`/`await`/`Task`, no `@MainActor`.** Completion handlers and
+  the game loop replace them; timers and cooldowns are driven from
+  `update(_:)` or `SKAction`, never `Task.sleep`.
+- **Mind the strings.** `Double(String)` needs a C `strtod` shim;
+  ICU-backed APIs (`lowercased()`, localized compares, `CharacterSet`) either
+  do not exist or would drag megabytes of tables; the code uses plain
+  ASCII-level helpers instead.
+- **Classes, generics, closures, enums, structs, optionals, arrays,
+  dictionaries and sets all work normally.** Inheritance and vtable dispatch
+  are fully supported; generics monomorphize at compile time.
+- **Failures are loud.** Anything outside the subset is a compile error or a
+  link error (undefined symbol), never silent misbehavior at runtime, as
+  long as no stub papers over a missing runtime hook.
+
+The practical loop: write normal Swift, build both ways (the SwiftPM wasm
+build and `docs/embedded/build-embedded-game.sh`), and let the Embedded
+compiler errors point at the handful of places that need a typed API or a
+concrete cast.
 
 ## Embedded Swift
 
