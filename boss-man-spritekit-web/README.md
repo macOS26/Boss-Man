@@ -80,6 +80,127 @@ at launch and again during gameplay:
 | Networking | 6.0 MB | 5.9 MB |
 | **Total** | **~290 MB** | **~380 MB** |
 
+## Embedded Swift
+
+The Embedded build compiles the entire game (the SuperBox64 SpriteKit framework
+plus all 48 game files) with Swift's Embedded mode: no Foundation, no Swift
+runtime metadata, no reflection, and a stdlib reduced to what the code actually
+instantiates. The result boots the same title screen, plays the same game, and
+produces the same scores as the normal build at roughly one sixth the size.
+
+### Compile flags
+
+Every Swift module (SpriteKit, AppKit, UIKit, GameController, AVFoundation,
+GameKit, then the game) is compiled with:
+
+```
+swiftc -enable-experimental-feature Embedded \
+       -wmo -Osize -parse-as-library \
+       -target wasm32-unknown-none-wasm \
+       -Xcc -fmodule-map-file=<KitABI module.modulemap> \
+       -Xcc -fmodule-map-file=<CBox2D module.modulemap> \
+       -Xcc -isystem <WASI.sdk>/include/wasm32-wasip1 \
+       -I <KitABI include> -I <CBox2D include> -I <built modules> \
+       -emit-module -c
+```
+
+- `-enable-experimental-feature Embedded` selects the embedded compilation
+  model (monomorphized generics, no runtime type metadata).
+- `-wmo` is required by Embedded (whole-module optimization).
+- `-target wasm32-unknown-none-wasm` is the bare-metal wasm triple (os=none,
+  not WASI), which is the only target the embedded stdlib ships for.
+- The `-isystem` line points the ClangImporter at wasi-libc headers because the
+  bare-metal target has no sysroot of its own (Box2D's public headers include
+  math.h and stdint.h).
+- `@MainActor` does not exist in the embedded stdlib; the build strips it from
+  the sources at preprocess time (single-threaded wasm has nothing to isolate).
+
+Box2D v3 compiles as plain C:
+
+```
+clang --target=wasm32-unknown-wasip1 --sysroot=<WASI.sdk> \
+      -std=c17 -Os -DNDEBUG -ffunction-sections -fdata-sections -c
+```
+
+The link pulls it all together with dead-code stripping:
+
+```
+wasm-ld --no-entry --gc-sections \
+        --export=boot --export=frame --export=_initialize --export=memory \
+        --allow-undefined -L <WASI.sdk>/lib/wasm32-wasip1 \
+        <modules>.o shim.c.o <box2d>.o embedded-stubs.o \
+        libswiftUnicodeDataTables.a -lc -lm
+```
+
+No `-lc++`, no `-lc++abi`: there is no C++ in the link. `--allow-undefined`
+leaves the `gfx_*`/`snd_*`/`eng_*` imports open for the JS runtime to provide.
+A final `wasm-opt -Oz` pass (bulk-memory, nontrapping-float-to-int, sign-ext,
+mutable-globals, multivalue) squeezes the binary to its shipped size.
+
+### Building it by hand
+
+Prereqs: the swift.org 6.3.2 toolchain, the `swift-6.3.2-RELEASE_wasm` SDK
+(`swift sdk install`), and Binaryen (`brew install binaryen`).
+
+```sh
+# 1. Normal build first: fetches the framework checkout and compiles the
+#    C objects (KitABI shim.c) the embedded link reuses.
+cd boss-man-spritekit-web
+./build.sh release
+
+# 2. The embedded pipeline: builds every framework module in dependency
+#    order, the game, Box2D v3, the runtime stubs, links and optimizes.
+cd ..
+bash docs/embedded/build-embedded-game.sh
+# -> boss-man-spritekit-web/web/bossman-embedded.wasm
+
+# 3. Serve it under the canonical name next to the embedded runtime.
+cp boss-man-spritekit-web/web/bossman-embedded.wasm <site>/bossman.wasm
+cp ../superbox64-wasmkit/runtime-embedded-min.js    <site>/
+```
+
+The script (docs/embedded/build-embedded-game.sh) is the executable form of
+those flags: it derives the toolchain and SDK paths, preprocesses the
+`@MainActor` strip, builds each module with `-emit-module` so the next module
+imports it, and prints the final sizes.
+
+### Why Box2D v3, and why Box2D at all
+
+Apple's SpriteKit physics engine is closed source and only exists on Apple
+platforms; a wasm port has to bring its own. SuperBox64 SpriteKit implements
+the `SKPhysicsBody` / `SKPhysicsWorld` / `contactTest` API surface on Box2D,
+so game code written against Apple's API runs unchanged.
+
+The engine moved from C++ Box2D 2.4 (behind a hand-written C bridge) to
+vendored Box2D v3.1.1 because v3 is pure C:
+
+- Embedded Swift imports the C API directly through a module map. The bridge
+  layer (and its maintenance) is gone; Swift calls `b2World_Step` itself.
+- No C++ means no libc++/libc++abi in the link and no C++ runtime stubs.
+- Compiled with function/data sections, `--gc-sections` keeps only the physics
+  the game calls; `-DNDEBUG` drops Box2D's assert machinery and strings.
+- v3 is the actively maintained line (2.4 is frozen).
+
+The port preserves 2.4-era behaviors games depend on: SpriteKit's separate
+collision/contactTest masks map to a union filter plus sensor shapes, bodies
+wake on teleport so contacts keep firing for node-driven movement, chains are
+built from two-sided segments (v3 chains are one-sided), and begin-touch
+events are snapshotted before delivery so a `didBegin` handler can safely
+destroy bodies.
+
+### Embedded restrictions the code respects
+
+- No `weak`/`unowned` references (`unowned(unsafe)` under a feature check).
+- No `Any` or non-class existentials; APIs use typed enums and generics.
+- No runtime protocol conformance lookup: `as? SomeProtocol` can never
+  succeed, so the code uses concrete class downcasts or base-class dispatch
+  (and the link fails loudly if a new protocol cast sneaks in).
+- No metatypes, no reflection, no `Task`/`async` (completion handlers
+  instead), no `@MainActor`.
+- `Double(String)` parsing needs a tiny C shim (`_swift_stdlib_strtod_clocale`
+  in embedded/embedded-stubs.c), plus a `_initialize` reactor entry that runs
+  wasi-libc's constructors.
+
 ## Run
 
 The `web/` folder ships three host pages:
