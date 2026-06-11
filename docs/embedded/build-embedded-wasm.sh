@@ -5,10 +5,10 @@
 # This is a P3 size demonstrator, not the full game (which additionally needs the
 # @MainActor default-isolation dropped and a per-module Embedded build graph).
 #
-# Usage:  FW=../../../superbox64-spritekit docs/embedded/build-embedded-wasm.sh
+# Usage:  FW=../../../SuperBox64Kit docs/embedded/build-embedded-wasm.sh
 set -euo pipefail
 
-FW="${FW:-$(cd "$(dirname "$0")/../../../superbox64-spritekit" && pwd)}"
+FW="${FW:-$(cd "$(dirname "$0")/../../../SuperBox64Kit" && pwd)}"
 TC="swift"
 WASMLD="$(find "$HOME/Library/Developer/Toolchains" -name wasm-ld 2>/dev/null | head -1)"
 OUT="$(mktemp -d)"

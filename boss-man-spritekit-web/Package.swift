@@ -14,18 +14,18 @@ import PackageDescription
 let package = Package(
     name: "BossManSpriteKit",
     dependencies: [
-        .package(url: "https://github.com/macOS26/superbox64-spritekit", branch: "embedded"),
+        .package(url: "https://github.com/SuperBox64/SuperBox64Kit", branch: "embedded"),
     ],
     targets: [
         .executableTarget(
             name: "BossMan",
             dependencies: [
-                .product(name: "SpriteKit",      package: "superbox64-spritekit"),
-                .product(name: "KitABI",         package: "superbox64-spritekit"),
-                .product(name: "AppKit",         package: "superbox64-spritekit"),
-                .product(name: "GameKit",        package: "superbox64-spritekit"),
-                .product(name: "GameController", package: "superbox64-spritekit"),
-                .product(name: "AVFoundation",   package: "superbox64-spritekit"),
+                .product(name: "SpriteKit",      package: "SuperBox64Kit"),
+                .product(name: "KitABI",         package: "SuperBox64Kit"),
+                .product(name: "AppKit",         package: "SuperBox64Kit"),
+                .product(name: "GameKit",        package: "SuperBox64Kit"),
+                .product(name: "GameController", package: "SuperBox64Kit"),
+                .product(name: "AVFoundation",   package: "SuperBox64Kit"),
             ],
             swiftSettings: [
                 // Match Apple's implicit model: the game is @MainActor by

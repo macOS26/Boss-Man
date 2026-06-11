@@ -41,7 +41,7 @@ echo
 echo "Verdict: pure game logic has no stdlib-level Embedded blockers (modulo @MainActor)."
 
 # Tier 3: the SpriteKit framework itself. Point FW at the local checkout.
-FW="${FW:-$(cd "$(dirname "$0")/../../../superbox64-spritekit" 2>/dev/null && pwd)}"
+FW="${FW:-$(cd "$(dirname "$0")/../../../SuperBox64Kit" 2>/dev/null && pwd)}"
 if [ -n "$FW" ] && [ -d "$FW/Sources/SpriteKit" ]; then
   echo "→ Tier 3: SpriteKit framework under Embedded ($FW)"
   mkdir -p "$OUT/sk"; cp "$FW"/Sources/SpriteKit/*.swift "$OUT/sk/"

@@ -27,7 +27,7 @@ day compile with `-enable-experimental-feature Embedded`.
    framework-importing files — not an Embedded incompatibility.
 
 3. **The entire Embedded barrier is the SpriteKit framework**
-   (`../superbox64-spritekit`). The game can't go Embedded while it links a
+   (`../SuperBox64Kit`). The game can't go Embedded while it links a
    non-Embedded `SpriteKit`.
 
 ## Residual non-Foundation footprint
@@ -36,7 +36,7 @@ day compile with `-enable-experimental-feature Embedded`.
 
 ## P1 framework spike — ACTUAL Embedded errors (overrides the survey)
 
-Compiled all 30 `superbox64-spritekit/Sources/SpriteKit/*.swift` under
+Compiled all 30 `SuperBox64Kit/Sources/SpriteKit/*.swift` under
 `-enable-experimental-feature Embedded -target wasm32-unknown-none-wasm` with
 KitABI on the include path. The static survey above assumed **early**-Embedded
 rules and was wrong: current Embedded Swift (6.3.2) **accepts class inheritance,
@@ -101,10 +101,10 @@ The static survey guessed 3–6 months assuming early-Embedded rules. The actual
 compiler disagrees: the node graph (open classes, overrides, polymorphic arrays,
 class downcasts) compiles Embedded as-is. The real work is **~40 sites in ~8
 marshalling files** (weak refs + `Any`/protocol-existential JSON/keyframe/audio
-code) — a days-to-weeks effort in `superbox64-spritekit`, done behavior-
+code) — a days-to-weeks effort in `SuperBox64Kit`, done behavior-
 preservingly against the live web build. Game-side risk is ~zero (P0).
 
-## P2 progress (framework branch `superbox64-spritekit@embedded`)
+## P2 progress (framework branch `SuperBox64Kit@embedded`)
 
 **Layer 1 — DONE & verified.** All 8 `weak` sites guarded with
 `#if hasFeature(Embedded)` → `unowned(unsafe)` (else `weak`). Normal wasm
@@ -259,7 +259,7 @@ What it took beyond the source fixes (all committed):
 - `os(WASI) || hasFeature(Embedded)` so the WASI code paths fire on the Embedded
   `wasm32-unknown-none-wasm` target (where `os` = none).
 - One `@usableFromInline` (`SKNode.teardownPhysics`) for cross-module serialization.
-- A tiny `embedded-stubs.c` (`superbox64-spritekit/embedded/`): `_initialize` →
+- A tiny `embedded-stubs.c` (`SuperBox64Kit/embedded/`): `_initialize` →
   `__wasm_call_ctors` (C++ global ctors), locale-free `strtod`, and a
   `swift_conformsToProtocol` stub (class-bound `as?` → nil; title screen doesn't
   need it).
@@ -277,5 +277,5 @@ What it took beyond the source fixes (all committed):
 
 **~6.4× smaller raw, ~5.8× smaller gzipped** — the entire Swift stdlib runtime,
 reflection metadata, and ICU eliminated. The Embedded build's runtime is
-`superbox64-wasmkit/runtime-embedded.js` (currently identical to stock — it boots
+`WasmKit/runtime-embedded.js` (currently identical to stock — it boots
 unmodified; reserved for Embedded-specific tweaks).

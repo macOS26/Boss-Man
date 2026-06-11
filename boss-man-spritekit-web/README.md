@@ -1,13 +1,13 @@
 # Boss-Man · SpriteKit edition on WebAssembly
 
 The macOS [Boss-Man](../boss-man-spritekit-swift) SpriteKit game compiled to
-WebAssembly via [SuperBox64 SpriteKit](https://github.com/macOS26/superbox64-spritekit),
+WebAssembly via [SuperBox64 SpriteKit](https://github.com/SuperBox64/SuperBox64Kit),
 Apple's SpriteKit reimplemented in Swift, no Emscripten, no Apple frameworks.
 The game's `import SpriteKit` lines work unchanged here because SuperBox64
 SpriteKit vends a module named `SpriteKit` that the Swift compiler binds to
 in place of Apple's framework. The runtime (Canvas2D renderer, Web Audio mixer,
 DOM input, asset preloader) ships from
-[superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit).
+[WasmKit](https://github.com/SuperBox64/WasmKit).
 
 The same Swift source drives the macOS app and this wasm build; the platform
 differences (boot/frame lifecycle, `localStorage` persistence, SF key codes)
@@ -15,7 +15,7 @@ live in the framework, not the game.
 
 ## What is SuperBox64 SpriteKit
 
-[SuperBox64 SpriteKit](https://github.com/macOS26/superbox64-spritekit) is a
+[SuperBox64 SpriteKit](https://github.com/SuperBox64/SuperBox64Kit) is a
 Swift reimplementation of Apple's SpriteKit that compiles to WebAssembly. A
 macOS or iOS SpriteKit game adds the package, keeps every `import SpriteKit`
 (and `AppKit`, `UIKit`, `GameKit`, `GameController`, `AVFoundation`,
@@ -23,7 +23,7 @@ macOS or iOS SpriteKit game adds the package, keeps every `import SpriteKit`
 browser. No Emscripten, no loading screens, no watermarks. Physics is Box2D
 v3 behind Apple's `SKPhysicsBody` API; rendering, audio and input flow
 through a 101-function C ABI to the
-[superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit) runtime.
+[WasmKit](https://github.com/SuperBox64/WasmKit) runtime.
 The goal: 100% common game source, every platform difference pushed down into
 the framework instead of forked into the game.
 
@@ -72,13 +72,13 @@ What that bought:
 
 `build.sh`:
 
-1. Uses the [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit)
-   sibling checkout at `../../superbox64-wasmkit` (its own repo, next to this
+1. Uses the [WasmKit](https://github.com/SuperBox64/WasmKit)
+   sibling checkout at `../../WasmKit` (its own repo, next to this
    one), cloning it there if not already present.
 2. Runs `swift build` with `TOOLCHAINS=org.swift.6.3.2-release` and
    `xcrun --toolchain swift` so SwiftPM picks the swift.org clang the WASI SDK
    was built against (Xcode's bundled clang has no wasm backend). The
-   superbox64-spritekit dependency is fetched from GitHub by SwiftPM.
+   SuperBox64Kit dependency is fetched from GitHub by SwiftPM.
 3. Optimizes the release binary with `wasm-opt -Oz` into `web/bossman.wasm`.
 4. Sources the kit's `build.sh` and calls `wasmweb_manifest` to regenerate
    `web/manifest.json` from `web/assets`.
@@ -86,7 +86,7 @@ What that bought:
 
 ## Build sizes
 
-Physics is Box2D v3 (pure C, vendored in superbox64-spritekit as `CBox2D`,
+Physics is Box2D v3 (pure C, vendored in SuperBox64Kit as `CBox2D`,
 called directly from Swift, no C++ in any link). Box2D compiles with
 function/data sections so `--gc-sections` keeps only the physics the game
 calls, and with `-DNDEBUG` so its assert machinery and message strings drop
@@ -168,8 +168,8 @@ swift build -c release --swift-sdk swift-6.3.2-RELEASE_wasm \
 wasm-opt -Oz .build/wasm32-unknown-wasip1/release/BossMan.wasm -o web/bossman.wasm
 
 # 3. Runtime + manifest from the sibling wasmkit checkout
-git clone https://github.com/macOS26/superbox64-wasmkit ../../superbox64-wasmkit
-cp ../../superbox64-wasmkit/runtime.js web/
+git clone https://github.com/SuperBox64/WasmKit ../../WasmKit
+cp ../../WasmKit/runtime.js web/
 ```
 
 ### Windows
@@ -288,7 +288,7 @@ bash docs/embedded/build-embedded-game.sh
 
 # 3. Serve it under the canonical name next to the embedded runtime.
 cp boss-man-spritekit-web/web/bossman-embedded.wasm <site>/bossman.wasm
-cp ../superbox64-wasmkit/runtime-embedded-min.js    <site>/
+cp ../WasmKit/runtime-embedded-min.js    <site>/
 ```
 
 The script (docs/embedded/build-embedded-game.sh) is the executable form of
@@ -422,7 +422,7 @@ first; `bundle.py` inlines `bossman.wasm` and every asset as `data:` URLs into
 `bundle.js` and shims `fetch()` so no server is needed:
 
 ```sh
-python3 ../../superbox64-wasmkit/scripts/bundle.py web bossman.wasm
+python3 ../../WasmKit/scripts/bundle.py web bossman.wasm
 ```
 
 The CI workflow `build-swift-wasm.yml` does exactly this and publishes
@@ -438,7 +438,7 @@ assets, runs `_initialize` + `boot`, then drives `frame(dtMs)` once per
 
 ```
 boss-man-spritekit-web/
-├── Package.swift            SwiftPM manifest. Fetches superbox64-spritekit
+├── Package.swift            SwiftPM manifest. Fetches SuperBox64Kit
 │                            from GitHub; pulls SpriteKit + Box2DBridge +
 │                            AppKit + GameKit + GameController + AVFoundation.
 ├── Sources/BossMan/         @_cdecl boot/frame entrypoints + symlinks to the

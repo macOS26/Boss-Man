@@ -66,7 +66,7 @@ jobs:
 
       - name: Bundle assets for file:// playability
         working-directory: boss-man-spritekit-web
-        run: python3 ../../superbox64-wasmkit/scripts/bundle.py web bossman.wasm
+        run: python3 ../../WasmKit/scripts/bundle.py web bossman.wasm
 
       - name: Package self-contained bundle
         working-directory: boss-man-spritekit-web/web

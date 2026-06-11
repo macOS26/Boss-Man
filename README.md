@@ -235,9 +235,9 @@ The Swift macOS project is the single source of truth. The Swift WASM port does 
 
 A fully simulated 2D/3D game engine built on SuperBox64 SpriteKit is in development.
 
-### superbox64-wasmkit
+### WasmKit
 
-[superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit) is a hand-built WASM runtime that ships your game with zero third-party baggage. No Emscripten loading screens, no spinning gear logo, no watermarks, no injected ads, no forced branding on your title screen. Emscripten was built to port C code to the web in a hurry, solving that problem by pulling in an entire POSIX runtime, a custom linker, and a runtime shell that announces itself. superbox64-wasmkit solves a different problem: shipping a polished commercial game that looks like it belongs on the platform. It lives in its own repo and the Swift WASM build fetches it automatically.
+[WasmKit](https://github.com/SuperBox64/WasmKit) is a hand-built WASM runtime that ships your game with zero third-party baggage. No Emscripten loading screens, no spinning gear logo, no watermarks, no injected ads, no forced branding on your title screen. Emscripten was built to port C code to the web in a hurry, solving that problem by pulling in an entire POSIX runtime, a custom linker, and a runtime shell that announces itself. WasmKit solves a different problem: shipping a polished commercial game that looks like it belongs on the platform. It lives in its own repo and the Swift WASM build fetches it automatically.
 
 The game is compiled with the WASI SDK (`--target=wasm32-wasip1`, WASI Preview 1) and driven by a lean hand-written JavaScript runtime (`runtime.js`) that implements exactly what a game needs and nothing more: graphics on Canvas2D, audio on Web Audio, input on DOM events and the Web Gamepad API, persistence on localStorage. You get a single `runtime.js`, a single `bossman.wasm`, and your own `index.html`. No black box. No phone home. No logo that is not yours.
 
@@ -250,7 +250,7 @@ The wasm module is a WASI reactor exporting three functions: `_initialize` (libc
 
 Most cross-platform solutions for Apple games ask you to rewrite your game, swap your framework, learn a new API, or accept a lowest-common-denominator engine with its own rendering model and its own opinions about your code. SuperBox64 SpriteKit does none of that.
 
-[superbox64-spritekit](https://github.com/macOS26/superbox64-spritekit) is a from-scratch open source Swift reimplementation of Apple's closed SpriteKit API (`SKScene`, `SKNode`, `SKSpriteNode`, `SKLabelNode`, `SKShapeNode`, `SKAction`, `SKPhysicsBody`, `SKPhysicsWorld`, `SKView`, `SKCameraNode`, and more), running on the superbox64-wasmkit runtime. Physics is provided by Box2D v3.1.1, pure C, called directly from Swift. (SuperBox64 is an arcade box company.) It ships as a SwiftPM package that vends a module literally named `SpriteKit`, so a game's `import SpriteKit` resolves to this implementation instead of Apple's, with zero changes at the call site. Drop-in shims for `AppKit`, `UIKit`, `Cocoa`, `GameKit`, `GameplayKit`, `GameController`, and `AVFoundation` round out the surface area.
+[SuperBox64Kit](https://github.com/SuperBox64/SuperBox64Kit) is a from-scratch open source Swift reimplementation of Apple's closed SpriteKit API (`SKScene`, `SKNode`, `SKSpriteNode`, `SKLabelNode`, `SKShapeNode`, `SKAction`, `SKPhysicsBody`, `SKPhysicsWorld`, `SKView`, `SKCameraNode`, and more), running on the WasmKit runtime. Physics is provided by Box2D v3.1.1, pure C, called directly from Swift. (SuperBox64 is an arcade box company.) It ships as a SwiftPM package that vends a module literally named `SpriteKit`, so a game's `import SpriteKit` resolves to this implementation instead of Apple's, with zero changes at the call site. Drop-in shims for `AppKit`, `UIKit`, `Cocoa`, `GameKit`, `GameplayKit`, `GameController`, and `AVFoundation` round out the surface area.
 
 The result: the exact same Swift source that runs as a signed notarized macOS app compiles to a WASI Preview 1 wasm binary that runs in any modern browser and inside native WebViews on Windows, Linux, and Android. No rewrites. No forks. No Emscripten watermarks. No logo you did not design. Your game, your brand, everywhere.
 
@@ -259,7 +259,7 @@ The result: the exact same Swift source that runs as a signed notarized macOS ap
 - **SuperBox64 SpriteKit as a standalone open source engine.** The same Swift SpriteKit reimplementation that ships Boss-Man on six platforms is being hardened into a general-purpose engine any SpriteKit game can drop in.
 - **2D/3D simulated game engine.** A full simulated rendering pipeline — 2D and 3D — built on top of SuperBox64 SpriteKit. Coming soon.
 - **100% common Swift source.** 32 of 33 game files are already symlinked between macOS and wasm. The remaining work is pushing the last platform seam into the framework.
-- **Framework-first fixes.** When a port is missing something, the fix lands in superbox64-wasmkit (the SpriteKit reimplementation), not in a per-game workaround, so the next game inherits it.
+- **Framework-first fixes.** When a port is missing something, the fix lands in WasmKit (the SpriteKit reimplementation), not in a per-game workaround, so the next game inherits it.
 - **Voxel far-field fidelity.** The VOXEL mode has a known far-field flaw (jittery blocks and see-through gaps at distance). Live iteration needed.
 
 ## Run Everywhere on Anything
@@ -303,7 +303,7 @@ cd web && python3 -m http.server 8080
 # open http://localhost:8080/server.html
 ```
 
-`build.sh` clones [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit) if needed, wraps `swift build` with `TOOLCHAINS=org.swift.6.3.2-release` and the `swift-6.3.2-RELEASE_wasm` SDK (via `xcrun --toolchain swift`, because Xcode's bundled clang has no wasm backend), optimizes with `wasm-opt -Oz` into `web/bossman.wasm`, regenerates `web/manifest.json` from the assets, and copies the kit's `runtime.js`. The [superbox64-spritekit](https://github.com/macOS26/superbox64-spritekit) engine is fetched from GitHub by SwiftPM. See [boss-man-spritekit-web/README.md](boss-man-spritekit-web/README.md) for the host pages and the offline `file://` bundle.
+`build.sh` clones [WasmKit](https://github.com/SuperBox64/WasmKit) if needed, wraps `swift build` with `TOOLCHAINS=org.swift.6.3.2-release` and the `swift-6.3.2-RELEASE_wasm` SDK (via `xcrun --toolchain swift`, because Xcode's bundled clang has no wasm backend), optimizes with `wasm-opt -Oz` into `web/bossman.wasm`, regenerates `web/manifest.json` from the assets, and copies the kit's `runtime.js`. The [SuperBox64Kit](https://github.com/SuperBox64/SuperBox64Kit) engine is fetched from GitHub by SwiftPM. See [boss-man-spritekit-web/README.md](boss-man-spritekit-web/README.md) for the host pages and the offline `file://` bundle.
 
 ### Web build artifacts
 
@@ -324,13 +324,13 @@ All five build the one Swift WASM, then wrap it per platform.
 
 ## Built from Scratch
 - **SuperBox64 SpriteKit** — an open source Apple-SpriteKit reimplementation in Swift, compiled to WASM via WASI Preview 1, built from the ground up with no Emscripten.
-- **superbox64-wasmkit** — the WASM runtime and native WebView wrappers that ship the Swift engine to every platform.
+- **WasmKit** — the WASM runtime and native WebView wrappers that ship the Swift engine to every platform.
 - Legacy **Box2D + SFML + C++** port, written by Todd Bruss.
 - Original music, graphics, art, sound effects, and game design, all by Todd Bruss.
 
 ## Honest Licensing
 - Source code is **Apache License 2.0**. Fork it, learn from it, build with it. Apache 2.0 adds an explicit patent grant and a patent-retaliation clause that MIT lacks, so contributors and users are protected from patent ambush.
-- The two engines ([superbox64-spritekit](https://github.com/macOS26/superbox64-spritekit), [superbox64-wasmkit](https://github.com/macOS26/superbox64-wasmkit)) are also Apache 2.0.
+- The two engines ([SuperBox64Kit](https://github.com/SuperBox64/SuperBox64Kit), [WasmKit](https://github.com/SuperBox64/WasmKit)) are also Apache 2.0.
 - Binaries remain the property of Todd Bruss.
 
 ---

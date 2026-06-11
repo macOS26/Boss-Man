@@ -16,9 +16,9 @@ jobs:
           path: AsteroidZ
       - uses: actions/checkout@v4
         with:
-          repository: SuperBox64/superbox64-spritekit
+          repository: SuperBox64/SuperBox64Kit
           ref: embedded
-          path: superbox64-spritekit
+          path: SuperBox64Kit
 
       - name: Swift 6.3.2 toolchain
         run: |
@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           export SWIFT_TOOLCHAIN=org.swift.6.3.2-release
-          superbox64-spritekit/native/build-sdl3-static.sh
+          SuperBox64Kit/native/build-sdl3-static.sh
           IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
           cd AsteroidZ
           SIGN_ID="$IDENTITY" native-direct/release/build-macos.sh
