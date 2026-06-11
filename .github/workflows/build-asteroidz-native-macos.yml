@@ -1,0 +1,76 @@
+# AsteroidZ NATIVE macOS (no wasm, no webview), signed + notarized.
+# Lives in Boss-Man because the signing secrets live here - no secret
+# duplication. Checks out the AsteroidZ and framework repos and runs
+# AsteroidZ's own release script.
+name: build-asteroidz-native-macos
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: macOS26/AsteroidZ
+          path: AsteroidZ
+      - uses: actions/checkout@v4
+        with:
+          repository: macOS26/superbox64-spritekit
+          ref: embedded
+          path: superbox64-spritekit
+
+      - name: Swift 6.3.2 toolchain
+        run: |
+          curl -sL https://download.swift.org/swift-6.3.2-release/xcode/swift-6.3.2-RELEASE/swift-6.3.2-RELEASE-osx.pkg -o /tmp/swift.pkg
+          sudo installer -pkg /tmp/swift.pkg -target /
+
+      - name: Import signing certificate
+        env:
+          CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT="$RUNNER_TEMP/devid.p12"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$CERT"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -P "$CERT_PASSWORD" -f pkcs12 -k "$KEYCHAIN" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+      - name: Build static SDL3 + signed AsteroidZ.app
+        run: |
+          set -euo pipefail
+          export SWIFT_TOOLCHAIN=org.swift.6.3.2-release
+          superbox64-spritekit/native/build-sdl3-static.sh
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          cd AsteroidZ
+          SIGN_ID="$IDENTITY" native-direct/release/build-macos.sh
+
+      - name: Notarize + staple
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$NOTARY_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          xcrun notarytool submit AsteroidZ/native-direct/release/out/AsteroidZ-macos.zip \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER" \
+            --wait
+          xcrun stapler staple AsteroidZ/native-direct/release/out/AsteroidZ.app
+          rm -f AsteroidZ/native-direct/release/out/AsteroidZ-macos.zip
+          ditto -c -k --keepParent AsteroidZ/native-direct/release/out/AsteroidZ.app AsteroidZ-Mac-native.zip
+          spctl --assess --type execute AsteroidZ/native-direct/release/out/AsteroidZ.app && echo "GATEKEEPER PASS"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asteroidz-macos-native
+          path: AsteroidZ-Mac-native.zip
+          if-no-files-found: error
