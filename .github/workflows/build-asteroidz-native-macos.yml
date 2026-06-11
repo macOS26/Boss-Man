@@ -12,11 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: macOS26/AsteroidZ
+          repository: SuperBox64/AsteroidZ-x
           path: AsteroidZ
       - uses: actions/checkout@v4
         with:
-          repository: macOS26/superbox64-spritekit
+          repository: SuperBox64/superbox64-spritekit
           ref: embedded
           path: superbox64-spritekit
 
