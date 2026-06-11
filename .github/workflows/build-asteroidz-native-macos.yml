@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: SuperBox64/AsteroidZ-x
+          repository: SuperBox64/Asteroid-Z
           path: AsteroidZ
       - uses: actions/checkout@v4
         with:
