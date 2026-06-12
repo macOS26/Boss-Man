@@ -331,40 +331,75 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
 
     // MARK: - 3D rendering helpers (shared by DoomScene and VoxelScene)
 
+    // Checker parity flips only where wx or wy crosses an integer, and both are
+    // linear in screen x, so each row walks those few crossings instead of every
+    // pixel (the per-pixel scan dominated the frame on the interpreted cart).
     func castFloor() {
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
         let W = size.width, rowH: CGFloat = 1.0
+        let dW = Double(W)
         let pathA = CGMutablePath(), pathB = CGMutablePath(), pathFar = CGMutablePath()
         var yu = radarH
         while yu < viewMidY - 0.5 {
             let distFromHorizon = Double(viewMidY - yu)
             let d = Double(viewH) * Double(eyeHeight) / distFromHorizon
             if d > 13 {
-                pathFar.addRect(CGRect(x: 0, y: yu, width: W, height: rowH))
-                yu += rowH
-                continue
+                let rows = ((viewMidY - 0.5 - yu) / rowH).rounded(.up)
+                pathFar.addRect(CGRect(x: 0, y: yu, width: W, height: rows * rowH))
+                break
             }
             let fx0 = camX + d * rdx0, fy0 = camY + d * rdy0
-            let stepX = d * (rdx1 - rdx0) / Double(W), stepY = d * (rdy1 - rdy0) / Double(W)
+            let stepX = d * (rdx1 - rdx0) / dW, stepY = d * (rdy1 - rdy0) / dW
+            var nextX = 1e30, nextY = 1e30
+            var periodX = 0.0, periodY = 0.0
+            if stepX > 0 {
+                periodX = 1 / stepX
+                nextX = (fx0.rounded(.down) + 1 - fx0) / stepX
+            } else if stepX < 0 {
+                periodX = -1 / stepX
+                nextX = (fx0.rounded(.down) - fx0) / stepX
+            }
+            if stepY > 0 {
+                periodY = 1 / stepY
+                nextY = (fy0.rounded(.down) + 1 - fy0) / stepY
+            } else if stepY < 0 {
+                periodY = -1 / stepY
+                nextY = (fy0.rounded(.down) - fy0) / stepY
+            }
+            var curParity = (Int(fx0.rounded(.down)) + Int(fy0.rounded(.down))) & 1
+            var runParity = curParity
             var runStart: CGFloat = 0
-            var runParity = (Int(fx0.rounded(.down)) + Int(fy0.rounded(.down))) & 1
-            var x: CGFloat = 1
-            while x <= W {
-                var parity = -1
-                if x < W {
-                    let wx = fx0 + stepX * Double(x), wy = fy0 + stepY * Double(x)
-                    parity = (Int(wx.rounded(.down)) + Int(wy.rounded(.down))) & 1
+            while true {
+                let t: Double
+                let rising: Bool
+                if nextX <= nextY {
+                    t = nextX
+                    if t >= dW { break }
+                    rising = stepX > 0
+                    nextX += periodX
+                } else {
+                    t = nextY
+                    if t >= dW { break }
+                    rising = stepY > 0
+                    nextY += periodY
                 }
-                if parity != runParity {
-                    let r = CGRect(x: runStart, y: yu, width: x - runStart, height: rowH)
-                    if runParity == 1 { pathA.addRect(r) } else { pathB.addRect(r) }
-                    runStart = x
-                    runParity = parity
+                curParity ^= 1
+                let b = CGFloat(min(rising ? t.rounded(.up) : t.rounded(.down) + 1, dW))
+                if curParity != runParity {
+                    if b > runStart {
+                        let r = CGRect(x: runStart, y: yu, width: b - runStart, height: rowH)
+                        if runParity == 1 { pathA.addRect(r) } else { pathB.addRect(r) }
+                        runStart = b
+                    }
+                    runParity = curParity
                 }
-                x += 1
+            }
+            if W > runStart {
+                let r = CGRect(x: runStart, y: yu, width: W - runStart, height: rowH)
+                if runParity == 1 { pathA.addRect(r) } else { pathB.addRect(r) }
             }
             yu += rowH
         }
@@ -373,47 +408,75 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         floorFar.path = pathFar
     }
 
+    // Same crossing-walk as castFloor: a light panel toggles only where wx or wy
+    // crosses a quarter-tile boundary, so each row visits those events, not pixels.
     func castCeiling() {
         let dirX = cos(angle), dirY = sin(angle)
         let planeX = -dirY * planeScale, planeY = dirX * planeScale
         let rdx0 = dirX - planeX, rdy0 = dirY - planeY
         let rdx1 = dirX + planeX, rdy1 = dirY + planeY
         let W = size.width, rowH: CGFloat = 1.0
+        let dW = Double(W)
         let ceilH = 1.0 - Double(eyeHeight)
         let ceilPath = CGMutablePath()
-        var ys = viewMidY + rowH
+        var firstRow = (Double(viewH) * ceilH / 13 / Double(rowH)).rounded(.up)
+        if firstRow < 1 { firstRow = 1 }
+        var ys = viewMidY + CGFloat(firstRow) * rowH
         while ys < size.height {
             let dfc = Double(ys - viewMidY)
             let dc = Double(viewH) * ceilH / dfc
-            if dc > 13 {
-                ys += rowH
-                continue
-            }
             let cx0 = camX + dc * rdx0, cy0 = camY + dc * rdy0
-            let cStepX = dc * (rdx1 - rdx0) / Double(W)
-            let cStepY = dc * (rdy1 - rdy0) / Double(W)
-            var cRunStart: CGFloat = 0
-            var cRunLit: Bool = {
-                let fx = cx0 - cx0.rounded(.down)
-                let fy = cy0 - cy0.rounded(.down)
-                return fx > 0.25 && fx < 0.75 && fy > 0.25 && fy < 0.75
-            }()
-            var cx: CGFloat = 1
-            while cx <= W {
-                var lit = false
-                if cx < W {
-                    let wx = cx0 + cStepX * Double(cx), wy = cy0 + cStepY * Double(cx)
-                    let fx = wx - wx.rounded(.down), fy = wy - wy.rounded(.down)
-                    lit = fx > 0.25 && fx < 0.75 && fy > 0.25 && fy < 0.75
-                }
-                if lit != cRunLit {
-                    if cRunLit { ceilPath.addRect(CGRect(x: cRunStart, y: ys, width: cx - cRunStart, height: rowH)) }
-                    cRunStart = cx
-                    cRunLit = lit
-                }
-                cx += 1
+            let cStepX = dc * (rdx1 - rdx0) / dW
+            let cStepY = dc * (rdy1 - rdy0) / dW
+            let fx = cx0 - cx0.rounded(.down)
+            let fy = cy0 - cy0.rounded(.down)
+            var xin = fx > 0.25 && fx < 0.75
+            var yin = fy > 0.25 && fy < 0.75
+            var nextX = 1e30, nextY = 1e30
+            var periodX = 0.0, periodY = 0.0
+            if cStepX > 0 {
+                periodX = 0.5 / cStepX
+                nextX = (((cx0 - 0.25) / 0.5).rounded(.down) * 0.5 + 0.75 - cx0) / cStepX
+            } else if cStepX < 0 {
+                periodX = -0.5 / cStepX
+                nextX = ((((cx0 - 0.25) / 0.5).rounded(.up) - 1) * 0.5 + 0.25 - cx0) / cStepX
             }
-            if cRunLit { ceilPath.addRect(CGRect(x: cRunStart, y: ys, width: W - cRunStart, height: rowH)) }
+            if cStepY > 0 {
+                periodY = 0.5 / cStepY
+                nextY = (((cy0 - 0.25) / 0.5).rounded(.down) * 0.5 + 0.75 - cy0) / cStepY
+            } else if cStepY < 0 {
+                periodY = -0.5 / cStepY
+                nextY = ((((cy0 - 0.25) / 0.5).rounded(.up) - 1) * 0.5 + 0.25 - cy0) / cStepY
+            }
+            var runLit = xin && yin
+            var runStart: CGFloat = 0
+            while true {
+                let t: Double
+                let rising: Bool
+                if nextX <= nextY {
+                    t = nextX
+                    if t >= dW { break }
+                    rising = cStepX > 0
+                    nextX += periodX
+                    xin.toggle()
+                } else {
+                    t = nextY
+                    if t >= dW { break }
+                    rising = cStepY > 0
+                    nextY += periodY
+                    yin.toggle()
+                }
+                let lit = xin && yin
+                let b = CGFloat(min(rising ? t.rounded(.up) : t.rounded(.down) + 1, dW))
+                if lit != runLit {
+                    if b > runStart {
+                        if runLit { ceilPath.addRect(CGRect(x: runStart, y: ys, width: b - runStart, height: rowH)) }
+                        runStart = b
+                    }
+                    runLit = lit
+                }
+            }
+            if runLit, W > runStart { ceilPath.addRect(CGRect(x: runStart, y: ys, width: W - runStart, height: rowH)) }
             ys += rowH
         }
         ceilStrip.path = ceilPath
