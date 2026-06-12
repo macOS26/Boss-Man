@@ -152,18 +152,24 @@ final class DoomScene: Scene3D {
                 let relX = Double(tnode.position.x) / 32.0 - camX, relY = Double(rowsCount) - Double(tnode.position.y) / 32.0 - camY
                 let tX = invDet * (dirY * relX - dirX * relY)
                 let tY = invDet * (-planeY * relX + planeX * relY)
-                guard tY > 0.15, tY <= 18 else { m.isHidden = true; continue }
-                let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
-                guard screenX > -60, screenX < size.width + 60 else { m.isHidden = true; continue }
-                let v = getVisItem()
-                v.node = m
-                v.nativeH = travelerNativeH
-                v.worldH = 0.42
-                v.maxH = .greatestFiniteMagnitude
-                v.name = nil
-                v.bottom = -travelerNativeH / 2
-                v.tX = tX
-                v.tY = tY
+                if tY > 0.15, tY <= 18 {
+                    let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
+                    if screenX > -60, screenX < size.width + 60 {
+                        let v = getVisItem()
+                        v.node = m
+                        v.nativeH = travelerNativeH
+                        v.worldH = 0.42
+                        v.maxH = .greatestFiniteMagnitude
+                        v.name = nil
+                        v.bottom = -travelerNativeH / 2
+                        v.tX = tX
+                        v.tY = tY
+                    } else {
+                        m.isHidden = true
+                    }
+                } else {
+                    m.isHidden = true
+                }
             }
         } else {
             travelerMirror?.isHidden = true
