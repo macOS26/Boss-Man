@@ -54,11 +54,6 @@ final class DoomScene: Scene3D {
     override func projectSprites(dirX: Double, dirY: Double, planeX: Double, planeY: Double) {
         resetVisPool()
         let invDet = 1.0 / (planeX * dirY - dirX * planeY)
-        var billboardCount = 0, bossCount = 0, shotCount = 0, travelerCount = 0
-        for b in billboards where b.alive { billboardCount += 1 }
-        for _ in bossController.entities { bossCount += 1 }
-        for s in shots where s.alive { shotCount += 1 }
-        if let _ = travelerSpawner?.activeTraveler { travelerCount = 1 }
 
         for b in billboards where b.alive {
             let relX = b.x - camX, relY = b.y - camY
@@ -157,10 +152,9 @@ final class DoomScene: Scene3D {
                 let relX = Double(tnode.position.x) / 32.0 - camX, relY = Double(rowsCount) - Double(tnode.position.y) / 32.0 - camY
                 let tX = invDet * (dirY * relX - dirX * relY)
                 let tY = invDet * (-planeY * relX + planeX * relY)
-                guard tY > 0.15 else { m.isHidden = true; }
-                guard tY <= 18 else { m.isHidden = true; }
+                guard tY > 0.15, tY <= 18 else { m.isHidden = true; continue }
                 let screenX = (size.width / 2) * CGFloat(1 + tX / tY)
-                guard screenX > -60, screenX < size.width + 60 else { m.isHidden = true; }
+                guard screenX > -60, screenX < size.width + 60 else { m.isHidden = true; continue }
                 let v = getVisItem()
                 v.node = m
                 v.nativeH = travelerNativeH
@@ -183,7 +177,7 @@ final class DoomScene: Scene3D {
             let v = visPool[idx]
             let targetH = min(viewH / CGFloat(v.tY) * v.worldH, v.maxH)
             var s = targetH / v.nativeH
-            if let name = v.name, let boss = v.node as? PixelPerson, bossController.isImmobilized(boss: boss) {
+            if v.name != nil, let boss = v.node as? PixelPerson, bossController.isImmobilized(boss: boss) {
                 s *= 1 + 0.18 * abs(sin(throbClock * .pi * 3))
             }
             v.node.isHidden = false
