@@ -7,26 +7,6 @@ final class VoxelScene: Scene3D {
     override var wallHeightScale: CGFloat { 0.5 }
     override var pelletWorldH: CGFloat { 0.15 }
 
-    private func isMachineEmoji(_ ch: UInt8) -> Bool {
-        ch == Strings.Tile.printerChar || ch == Strings.Tile.faxChar ||
-        ch == Strings.Tile.coverSheetChar || ch == Strings.Tile.bookBinderChar
-    }
-
-    override func hidePickupInWorld(col: Int, row: Int) {
-        let key = mapKey(col, row)
-        guard row >= 0, row < rowsCount, col >= 0, col < map[row].count else { return }
-        let ch = map[row][col]
-        if isMachineEmoji(ch) {
-            for i in billboards.indices where billboards[i].alive && Int(billboards[i].x) == col && Int(billboards[i].y) == row {
-                billboards[i].alive = false
-                billboards[i].node.run(.fadeOut(withDuration: 0.3))
-            }
-            mapPickups[key]?.run(.fadeOut(withDuration: 0.3))
-        } else {
-            super.hidePickupInWorld(col: col, row: row)
-        }
-    }
-
     override func buildSky() {
         super.buildSky()
         let tree = SKNode()

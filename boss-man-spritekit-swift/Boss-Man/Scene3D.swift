@@ -1323,9 +1323,10 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         }
         for i in billboards.indices where billboards[i].alive && billboards[i].worldH < 0.5 {
             if abs(billboards[i].x - px) < 0.5 && abs(billboards[i].y - py) < 0.5 {
+                let bc = Int(billboards[i].x), br = Int(billboards[i].y)
+                if SpriteFactory.machineEmoji(for: map[br][bc]) != nil { continue }
                 billboards[i].alive = false
                 billboards[i].node.removeFromParent()
-                let bc = Int(billboards[i].x), br = Int(billboards[i].y)
                 let mk = mapKey(bc, br)
                 if mapDotKeys.remove(mk) != nil {
                     rebuildDotShape(dotSz: mapCell * 0.2)
