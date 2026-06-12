@@ -805,6 +805,9 @@ final class IsoScene: Scene3D, WorkerControllerDelegate {
             isoDotCollected.insert(key)
             isoDotsLeft -= 1
             rebuildDotRow(r)
+            if mapDotKeys.remove(key) != nil {
+                rebuildDotShape(dotSz: mapCell * 0.2)
+            }
             mapPickups[key]?.isHidden = true
             sound.playDotBlip()
             state.collectedDots += 1
