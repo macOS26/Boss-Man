@@ -118,6 +118,35 @@ enum SpriteFactory {
     static func cubicleColor(index: Int) -> SKColor {
         cubicleColors[index % cubicleColors.count]
     }
+
+    // Ordered (Bayer) dither thresholds, bit-reversed for an even spread. A
+    // vertical gradient of flat per-row bands quantizes hard at 8 bits over a
+    // narrow value range; nudging each row's rounding by its threshold turns the
+    // visible steps into a 1px dither the eye reads as smooth. Baked into the
+    // colour before the 8-bit pack, so it works on every backend (Metal/SDL/web).
+    private static let ditherThresholds: [CGFloat] =
+        [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15].map { $0 / 16.0 }
+    static func ditherThreshold(_ row: Int) -> CGFloat {
+        ditherThresholds[((row % 16) + 16) % 16]
+    }
+    private static func ditherQuant(_ v: CGFloat, _ threshold: CGFloat) -> CGFloat {
+        let s = min(max(v, 0), 1) * 255
+        return min(255, floor(s + threshold)) / 255
+    }
+    // base * factor, dithered for the given output row (opaque).
+    static func ditheredShade(of base: SKColor, factor: CGFloat, row: Int) -> SKColor {
+        let t = ditherThreshold(row)
+        return SKColor(red:   ditherQuant(base.redComponent * factor, t),
+                       green: ditherQuant(base.greenComponent * factor, t),
+                       blue:  ditherQuant(base.blueComponent * factor, t),
+                       alpha: 1)
+    }
+    // Fixed colour with a dithered alpha ramp for the given output row.
+    static func ditheredAlpha(of base: SKColor, alpha: CGFloat, row: Int) -> SKColor {
+        let t = ditherThreshold(row)
+        return SKColor(red: base.redComponent, green: base.greenComponent,
+                       blue: base.blueComponent, alpha: ditherQuant(alpha, t))
+    }
     static let wallTrimColor   = SKColor.systemGray
     static let mazeBackground  = SKColor(calibratedRed: 0.06, green: 0.06, blue: 0.07, alpha: 1)
     static let floorTileA      = SKColor(calibratedRed: 0.11, green: 0.12, blue: 0.13, alpha: 1)

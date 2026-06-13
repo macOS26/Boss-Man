@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, GKGameCenterController
         skView.ignoresSiblingOrder = true
         skView.preferredFramesPerSecond = 60
         skView.shouldCullNonVisibleNodes = true
-        skView.showsFPS = false
+        skView.showsFPS = true
         skView.showsNodeCount = false
         skView.showsPhysics = false
         skView.allowsTransparency = true

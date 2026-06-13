@@ -276,7 +276,7 @@ class Scene3D: SKScene, BossControllerDelegate, Bonus3DScene, SKTouchResponder, 
         for i in 0..<n {
             let t = CGFloat(i) / CGFloat(max(1, n - 1))
             let factor = 0.18 + (0.05 - 0.18) * t
-            let col = cube.blended(withFraction: 1 - factor, of: .black) ?? cube
+            let col = SpriteFactory.ditheredShade(of: cube, factor: factor, row: skyBottomI + i)
             let band = SKShapeNode(rect: CGRect(x: 0, y: CGFloat(skyBottomI + i), width: size.width, height: 1))
             band.fillColor = col
             band.strokeColor = .clear

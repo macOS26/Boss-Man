@@ -13,11 +13,12 @@ final class VoxelScene: Scene3D {
         let glowH: CGFloat = 60
         let glowBottom = viewMidY
         let n = max(1, Int(glowH))
+        let glowColor = SKColor(red: 1.0, green: 0.82, blue: 0.35, alpha: 1)
         for i in 0..<n {
             let t = 1.0 - CGFloat(i) / CGFloat(max(1, n - 1))
             let alpha = t * t * 0.55
             let band = SKShapeNode(rect: CGRect(x: 0, y: glowBottom + CGFloat(i), width: size.width, height: 1))
-            band.fillColor = SKColor(red: 1.0, green: 0.82, blue: 0.35, alpha: alpha)
+            band.fillColor = SpriteFactory.ditheredAlpha(of: glowColor, alpha: alpha, row: Int(glowBottom) + i)
             band.strokeColor = .clear
             tree.addChild(band)
         }
